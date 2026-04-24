@@ -17,3 +17,13 @@ npm-debug.log
 Thumbs.db
 .vscode/
 .idea/
+
+# Chaves SSH / credenciais que nunca devem ir para o repo
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+cliente
+cliente.pub
+*.pem
+*.key

@@ -67,6 +67,23 @@ app.patch('/api/auth/me', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.post('/api/auth/change-password', requireAuth, (req, res) => {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Preenche a password atual e a nova.' });
+  }
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'A nova password tem de ter pelo menos 8 caracteres.' });
+  }
+  const user = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(req.user.id);
+  if (!user || !bcrypt.compareSync(currentPassword, user.password_hash)) {
+    return res.status(401).json({ error: 'Password atual incorreta.' });
+  }
+  const newHash = bcrypt.hashSync(newPassword, 10);
+  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, req.user.id);
+  res.json({ ok: true });
+});
+
 /* ================================================================
    STATS
    ================================================================ */

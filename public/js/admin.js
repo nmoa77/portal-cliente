@@ -56,6 +56,7 @@ function renderShell() {
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',badge: s.pendingCancels },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      badge: s.openTickets },
     { id: 'notifications', icon: 'bell', label: 'Notificações' },
+    { id: 'profile',   icon: 'user',    label: 'Perfil' },
   ];
   const nav = document.getElementById('nav');
   nav.innerHTML = `
@@ -97,6 +98,7 @@ async function go(view) {
     else if (view === 'cancels')  await viewCancels(main);
     else if (view === 'support')  await viewSupport(main);
     else if (view === 'notifications') await viewNotifications(main);
+    else if (view === 'profile')  await viewProfile(main);
   } catch (e) {
     console.error(e);
     main.innerHTML = `<div class="empty">Erro: ${escapeHtml(e.message)}</div>`;
@@ -1255,9 +1257,88 @@ async function viewNotifications(main) {
 }
 
 /* =========================================================================
+   PERFIL (admin)
+   ========================================================================= */
+async function viewProfile(main) {
+  const me = state.me;
+  main.innerHTML = `
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">A tua conta</div>
+        <h1>Perfil</h1>
+        <p class="lede">Os teus dados e preferências da DUIT.</p>
+      </div>
+    </div>
+    <div class="grid g-2-1">
+      <div class="card">
+        <h3 style="margin-bottom:14px;">Dados pessoais</h3>
+        <form id="profileForm">
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>Nome</label><input id="pf-name" value="${escapeHtml(me.name || '')}"></div>
+            <div class="field"><label>Empresa</label><input id="pf-company" value="${escapeHtml(me.company || 'DUIT')}"></div>
+          </div>
+          <div class="field"><label>Email</label><input type="email" value="${escapeHtml(me.email)}" disabled></div>
+          <div class="field"><label>Telefone</label><input id="pf-phone" value="${escapeHtml(me.phone || '')}"></div>
+          <div class="field"><label>URL da foto</label><input id="pf-avatar" value="${escapeHtml(me.avatar_url || '')}" placeholder="https://..."></div>
+          <div class="modal-actions"><button class="btn btn-yellow" type="submit">Guardar alterações</button></div>
+        </form>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:14px;">Mudar password</h3>
+        <form id="passwordForm">
+          <div class="field"><label>Password atual</label><input type="password" id="pw-current" required></div>
+          <div class="field"><label>Nova password</label><input type="password" id="pw-new" required minlength="8" placeholder="Mínimo 8 caracteres"></div>
+          <div class="field"><label>Confirmar nova password</label><input type="password" id="pw-confirm" required minlength="8"></div>
+          <div class="modal-actions"><button class="btn btn-yellow" type="submit">Atualizar password</button></div>
+        </form>
+        <hr style="border:none; border-top:1px solid var(--line); margin:18px 0;">
+        <h4 style="margin-bottom:8px;">Preferências</h4>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:10px;">Tema claro ou escuro. Fica guardado neste navegador.</p>
+        <button class="btn btn-ghost btn-block" onclick="toggleTheme()">${svg('sparkle')} Alternar tema</button>
+      </div>
+    </div>
+  `;
+}
+
+/* =========================================================================
    FORMS (global handlers)
    ========================================================================= */
 document.addEventListener('submit', async (e) => {
+  if (e.target.id === 'profileForm') {
+    e.preventDefault();
+    const body = {
+      name: document.getElementById('pf-name').value,
+      company: document.getElementById('pf-company').value,
+      phone: document.getElementById('pf-phone').value,
+      avatar_url: document.getElementById('pf-avatar').value,
+    };
+    try {
+      await api('/api/auth/me', { method: 'PATCH', body });
+      state.me = { ...state.me, ...body };
+      renderShell();
+      toast('Perfil guardado.', 'check');
+    } catch (err) { toast(err.message, 'cancel'); }
+    return;
+  }
+
+  if (e.target.id === 'passwordForm') {
+    e.preventDefault();
+    const current = document.getElementById('pw-current').value;
+    const next = document.getElementById('pw-new').value;
+    const confirm = document.getElementById('pw-confirm').value;
+    if (next !== confirm) { toast('A confirmação não coincide.', 'cancel'); return; }
+    if (next.length < 8)  { toast('A nova password precisa de 8+ caracteres.', 'cancel'); return; }
+    try {
+      await api('/api/auth/change-password', {
+        method: 'POST',
+        body: { currentPassword: current, newPassword: next }
+      });
+      e.target.reset();
+      toast('Password atualizada.', 'check');
+    } catch (err) { toast(err.message, 'cancel'); }
+    return;
+  }
+
   if (e.target.id === 'clientForm') {
     e.preventDefault();
     const id = document.getElementById('cl-id').value;

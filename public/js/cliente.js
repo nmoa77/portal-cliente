@@ -770,8 +770,16 @@ async function viewProfile(main) {
         </form>
       </div>
       <div class="card">
-        <h3 style="margin-bottom:14px;">Preferências</h3>
-        <p style="color:var(--muted); font-size:13px; margin-bottom:14px;">Tema claro ou escuro. Fica guardado neste navegador.</p>
+        <h3 style="margin-bottom:14px;">Mudar password</h3>
+        <form id="passwordForm">
+          <div class="field"><label>Password atual</label><input type="password" id="pw-current" required></div>
+          <div class="field"><label>Nova password</label><input type="password" id="pw-new" required minlength="8" placeholder="Mínimo 8 caracteres"></div>
+          <div class="field"><label>Confirmar nova password</label><input type="password" id="pw-confirm" required minlength="8"></div>
+          <div class="modal-actions"><button class="btn btn-yellow" type="submit">Atualizar password</button></div>
+        </form>
+        <hr style="border:none; border-top:1px solid var(--line); margin:18px 0;">
+        <h4 style="margin-bottom:8px;">Preferências</h4>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:10px;">Tema claro ou escuro. Fica guardado neste navegador.</p>
         <button class="btn btn-ghost btn-block" onclick="toggleTheme()">${svg('sparkle')} Alternar tema</button>
         <hr style="border:none; border-top:1px solid var(--line); margin:18px 0;">
         <h4 style="margin-bottom:8px;">A tua equipa DUIT</h4>
@@ -851,6 +859,23 @@ document.addEventListener('submit', async (e) => {
       state.me = { ...state.me, ...body };
       renderShell();
       toast('Perfil guardado.', 'check');
+    } catch (err) { toast(err.message, 'cancel'); }
+  }
+
+  if (e.target.id === 'passwordForm') {
+    e.preventDefault();
+    const current = document.getElementById('pw-current').value;
+    const next = document.getElementById('pw-new').value;
+    const confirm = document.getElementById('pw-confirm').value;
+    if (next !== confirm) { toast('A confirmação não coincide.', 'cancel'); return; }
+    if (next.length < 8)  { toast('A nova password precisa de 8+ caracteres.', 'cancel'); return; }
+    try {
+      await api('/api/auth/change-password', {
+        method: 'POST',
+        body: { currentPassword: current, newPassword: next }
+      });
+      e.target.reset();
+      toast('Password atualizada.', 'check');
     } catch (err) { toast(err.message, 'cancel'); }
   }
 });
