@@ -1,0 +1,19 @@
+node_modules/
+npm-debug.log
+*.log
+
+# Ambientes
+.env
+.env.*
+!.env.example
+
+# SQLite
+*.db
+*.db-wal
+*.db-shm
+
+# OS / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

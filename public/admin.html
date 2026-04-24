@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="pt" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DUIT — Painel Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<section class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot">
+      <div class="who-wrap">
+        <div class="avatar" id="side-avatar">—</div>
+        <div style="flex:1; min-width:0">
+          <div class="who-name" id="side-name">—</div>
+          <div class="who-role" id="side-role">DUIT · Admin</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm theme-toggle" onclick="toggleTheme()">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+          Tema
+        </button>
+        <button class="btn btn-sm" onclick="logout()">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Sair
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main" id="main"></main>
+</section>
+
+<!-- ========================= MODAIS ========================= -->
+<div class="overlay" id="modal-client">
+  <div class="modal">
+    <h3 id="modal-client-title">Novo cliente</h3>
+    <p class="lede" id="modal-client-lede">Ao criar, é enviado um email de boas-vindas com as credenciais.</p>
+    <form id="clientForm">
+      <input type="hidden" id="cl-id">
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Nome</label><input id="cl-name" required placeholder="Maria Santos"></div>
+        <div class="field"><label>Empresa</label><input id="cl-company" placeholder="Floricultura Bela"></div>
+      </div>
+      <div class="field"><label>Email</label><input id="cl-email" type="email" required placeholder="maria@exemplo.pt"></div>
+      <div class="field"><label id="cl-password-label">Password temporária</label><input id="cl-password" placeholder="ex: bem-vindo123"></div>
+      <div class="field"><label>Telefone</label><input id="cl-phone" placeholder="+351 ..."></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-client">Cancelar</button>
+        <button type="submit" class="btn btn-yellow" id="cl-submit">Criar &amp; enviar email</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="modal-gen-posts">
+  <div class="modal">
+    <h3>Gerar posts do mês</h3>
+    <p class="lede" id="mgp-lede">Cria posts em branco (rascunho) distribuídos pelas semanas do mês. Depois preenches o conteúdo manualmente.</p>
+    <form id="genPostsForm">
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Rede</label>
+          <select id="mgp-net">
+            <option value="instagram">Instagram</option>
+            <option value="facebook">Facebook</option>
+            <option value="linkedin">LinkedIn</option>
+          </select>
+        </div>
+        <div class="field"><label>Posts por semana</label>
+          <select id="mgp-ppw">
+            <option value="1">1</option><option value="2">2</option>
+            <option value="3" selected>3</option><option value="4">4</option>
+            <option value="5">5</option><option value="6">6</option>
+            <option value="7">7</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Dias da semana (opcional — se nenhum for escolhido, distribuição aleatória)</label>
+        <div class="weekdays">
+          <label class="wd-chip"><input type="checkbox" value="1"> Seg</label>
+          <label class="wd-chip"><input type="checkbox" value="2"> Ter</label>
+          <label class="wd-chip"><input type="checkbox" value="3"> Qua</label>
+          <label class="wd-chip"><input type="checkbox" value="4"> Qui</label>
+          <label class="wd-chip"><input type="checkbox" value="5"> Sex</label>
+          <label class="wd-chip"><input type="checkbox" value="6"> Sáb</label>
+          <label class="wd-chip"><input type="checkbox" value="7"> Dom</label>
+        </div>
+      </div>
+      <label style="display:flex; gap:8px; align-items:center; text-transform:none; letter-spacing:0; font-size:13px; color:var(--ink)">
+        <input type="checkbox" id="mgp-skip" checked style="width:auto; margin:0"> Saltar dias que já têm posts
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-gen-posts">Cancelar</button>
+        <button type="submit" class="btn btn-yellow">Gerar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="modal-sub">
+  <div class="modal">
+    <h3 id="modal-sub-title">Nova subscrição</h3>
+    <form id="subForm">
+      <input type="hidden" id="s-id">
+      <div class="field"><label>Cliente</label><select id="s-user" required></select></div>
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Tipo</label>
+          <select id="s-type" required>
+            <option value="hosting">Alojamento</option>
+            <option value="domain">Domínio</option>
+            <option value="social">Redes sociais</option>
+          </select>
+        </div>
+        <div class="field"><label>Período</label>
+          <select id="s-period"><option>mês</option><option>ano</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Nome</label><input id="s-name" required placeholder="Ex: Alojamento Pro / exemplo.pt"></div>
+      <div class="field"><label>Detalhe</label><input id="s-detail" placeholder="Ex: 20GB SSD · Backups"></div>
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Preço (€)</label><input id="s-price" type="number" step="0.01" value="0"></div>
+        <div class="field"><label>Renovação</label><input id="s-renewal" type="date"></div>
+      </div>
+      <div class="field" id="s-status-wrap" style="display:none">
+        <label>Estado</label>
+        <select id="s-status">
+          <option value="active">Ativa</option>
+          <option value="pending">Pendente</option>
+          <option value="paused">Em pausa</option>
+          <option value="cancelled">Cancelada</option>
+          <option value="expired">Expirada</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-sub">Cancelar</button>
+        <button type="submit" class="btn btn-yellow" id="s-submit">Criar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="modal-project">
+  <div class="modal">
+    <h3 id="pr-modal-title">Alterar projeto</h3>
+    <p class="lede">Quando mudas a fase, o cliente recebe email automático.</p>
+    <form id="projectForm">
+      <input type="hidden" id="pr-id">
+      <div class="field" id="pr-client-wrap"><label>Cliente</label><select id="pr-user"></select></div>
+      <div class="field"><label>Nome do projeto</label><input id="pr-name" placeholder="Ex: Rebranding"></div>
+      <div class="field"><label>Descrição</label><textarea id="pr-desc" rows="2" placeholder="Breve descrição do projeto..."></textarea></div>
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Estado</label>
+          <select id="pr-stage">
+            <option value="new">Novo</option>
+            <option value="analysis">Em análise</option>
+            <option value="production">Em produção</option>
+            <option value="final_review">Revisão final</option>
+            <option value="done">Concluído</option>
+            <option value="cancelled">Cancelado</option>
+          </select>
+        </div>
+        <div class="field"><label>Entrega</label><input id="pr-deadline" type="date"></div>
+      </div>
+      <div class="field" id="pr-msg-wrap"><label>Mensagem para o cliente (opcional)</label><textarea id="pr-msg" rows="3" placeholder="Ex: Olá Ana, partilhei a versão 2..."></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-project">Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="pr-submit">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="modal-post">
+  <div class="modal">
+    <h3 id="modal-post-title">Novo post</h3>
+    <p class="lede" id="modal-post-lede">Agenda uma publicação. O cliente vai receber para aprovar.</p>
+    <form id="postForm">
+      <input type="hidden" id="mp-id">
+      <div class="field"><label>Cliente</label><select id="mp-user"></select></div>
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Rede</label>
+          <select id="mp-net">
+            <option value="instagram">Instagram</option>
+            <option value="facebook">Facebook</option>
+            <option value="linkedin">LinkedIn</option>
+          </select>
+        </div>
+        <div class="field"><label>Data</label><input id="mp-date" type="date"></div>
+      </div>
+      <div class="field"><label>Legenda</label><textarea id="mp-text" rows="3" placeholder="Texto do post..."></textarea></div>
+      <div class="field" id="mp-suggestion-wrap" style="display:none">
+        <label>Sugestão do cliente</label>
+        <textarea id="mp-suggestion-view" rows="2" disabled style="background:var(--warn-bg, #fff8dc); border-color:var(--warn, #ffd60a);"></textarea>
+      </div>
+      <div class="field"><label>Estado</label>
+        <select id="mp-status">
+          <option value="draft">Rascunho</option>
+          <option value="scheduled" selected>Agendado</option>
+          <option value="published">Publicado</option>
+          <option value="cancelled">Cancelado</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-danger" id="mp-delete-btn" style="display:none">Apagar post</button>
+        <div class="spacer"></div>
+        <button type="button" class="btn btn-ghost" data-close="modal-post">Cancelar</button>
+        <button type="submit" class="btn btn-yellow">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="modal-clear-client">
+  <div class="modal">
+    <h3>Apagar posts deste cliente?</h3>
+    <p class="lede">Isto vai apagar os posts agendados de <b id="mcc-client">—</b> para o mês selecionado. Esta ação não pode ser revertida.</p>
+    <form id="clearForm">
+      <div class="field"><label>Manter</label>
+        <select id="mcc-keep">
+          <option value="all">Apagar tudo</option>
+          <option value="published">Manter os já publicados</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-clear-client">Cancelar</button>
+        <button type="submit" class="btn btn-danger">Apagar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="modal-plan">
+  <div class="modal">
+    <h3 id="modal-plan-title">Novo plano</h3>
+    <form id="planForm">
+      <input type="hidden" id="pl-id">
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Categoria</label>
+          <select id="pl-cat">
+            <option value="social">Redes sociais</option>
+            <option value="hosting">Alojamento</option>
+            <option value="domain">Domínio</option>
+          </select>
+        </div>
+        <div class="field"><label>Período</label><select id="pl-period"><option>mês</option><option>ano</option></select></div>
+      </div>
+      <div class="field"><label>Nome</label><input id="pl-name" required placeholder="Social Pro"></div>
+      <div class="field"><label>Descrição curta</label><input id="pl-desc" placeholder="Para quem..."></div>
+      <div class="field"><label>Preço (€)</label><input id="pl-price" type="number" step="0.01" value="0"></div>
+      <div class="field"><label>Funcionalidades (uma por linha)</label><textarea id="pl-feats" rows="4" placeholder="1 rede social&#10;8 posts/mês&#10;Relatório mensal"></textarea></div>
+      <label style="display:flex; gap:8px; align-items:center; text-transform:none; letter-spacing:0; font-size:13px; color:var(--ink)">
+        <input type="checkbox" id="pl-featured" style="width:auto; margin:0"> Destacar como popular
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-plan">Cancelar</button>
+        <button type="submit" class="btn btn-yellow" id="pl-submit">Criar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="modal-quote">
+  <div class="modal wide">
+    <h3 id="modal-quote-title">Novo orçamento</h3>
+    <form id="quoteForm">
+      <input type="hidden" id="q-id">
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Nº</label><input id="q-number" required placeholder="2026-042"></div>
+        <div class="field"><label>Válido até</label><input id="q-valid" type="date"></div>
+      </div>
+      <div class="field"><label>Cliente</label><select id="q-user" required></select></div>
+      <div class="field"><label>Título</label><input id="q-title" required placeholder="Ex: Rebranding"></div>
+      <div class="field" id="q-status-wrap" style="display:none">
+        <label>Estado</label>
+        <select id="q-status">
+          <option value="draft">Rascunho</option>
+          <option value="sent">Enviado</option>
+          <option value="accepted">Aceite</option>
+          <option value="rejected">Rejeitado</option>
+        </select>
+      </div>
+      <label>Linhas do orçamento</label>
+      <div id="q-items"></div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addQuoteItem()" style="margin-top:6px">+ Nova linha</button>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-quote">Cancelar</button>
+        <button type="submit" class="btn btn-yellow" id="q-submit">Criar &amp; enviar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="modal-invoice">
+  <div class="modal">
+    <h3>Nova fatura</h3>
+    <form id="invoiceForm">
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Nº</label><input id="i-number" required placeholder="2026/043"></div>
+        <div class="field"><label>Estado</label>
+          <select id="i-status"><option value="pending">Pendente</option><option value="paid">Pago</option><option value="overdue">Em atraso</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Cliente</label><select id="i-user" required></select></div>
+      <div class="field"><label>Descrição</label><input id="i-desc" required></div>
+      <div class="field"><label>Valor (€)</label><input id="i-amount" type="number" step="0.01" required></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-invoice">Cancelar</button>
+        <button type="submit" class="btn btn-yellow">Criar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script src="/js/common.js"></script>
+<script src="/js/admin.js"></script>
+</body>
+</html>

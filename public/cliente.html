@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="pt" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DUIT — Área do cliente</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<section class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="sidebar-foot">
+      <div class="who-wrap">
+        <div class="avatar" id="side-avatar">—</div>
+        <div style="flex:1; min-width:0">
+          <div class="who-name" id="side-name">—</div>
+          <div class="who-role" id="side-role">Cliente</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-sm theme-toggle" onclick="toggleTheme()">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+          Tema
+        </button>
+        <button class="btn btn-sm" onclick="logout()">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Sair
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main" id="main"></main>
+</section>
+
+<!-- ========================= MODAIS ========================= -->
+<div class="overlay" id="modal-cancel">
+  <div class="modal">
+    <h3>Pedir cancelamento</h3>
+    <p class="lede">O teu pedido será analisado pela equipa em 48h. Enquanto decorre a análise, a subscrição continua ativa.</p>
+    <form id="cancelForm">
+      <input type="hidden" id="c-sub-id">
+      <div class="field"><label>Qual é a razão?</label>
+        <select id="c-reason">
+          <option>Já não preciso do serviço</option>
+          <option>Vou mudar de fornecedor</option>
+          <option>Reestruturação do negócio</option>
+          <option>Pausa temporária</option>
+          <option>Outra razão</option>
+        </select>
+      </div>
+      <div class="field"><label>Comentário (opcional)</label><textarea id="c-comment" rows="3" placeholder="Queres acrescentar algo?"></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-cancel">Voltar</button>
+        <button type="submit" class="btn btn-primary">Enviar pedido</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="modal-mockup">
+  <div class="modal wide">
+    <h3 id="mk-title">Mockup</h3>
+    <p class="lede" id="mk-meta">—</p>
+    <div id="mk-thumb" style="aspect-ratio:16/10; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:16px"></div>
+    <div class="field"><label>Comentário (opcional)</label><textarea id="mk-note" rows="2" placeholder="Ex: Gosto da cor, mas..."></textarea></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" data-close="modal-mockup">Fechar</button>
+      <div class="spacer"></div>
+      <button type="button" class="btn btn-ghost" id="mk-reject">Pedir alterações</button>
+      <button type="button" class="btn btn-yellow" id="mk-approve">✓ Aprovar</button>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="modal-ticket">
+  <div class="modal">
+    <h3>Abrir novo pedido</h3>
+    <p class="lede">A equipa DUIT responde em até 24h úteis.</p>
+    <form id="ticketForm">
+      <div class="field"><label>Assunto</label><input id="t-subject" required placeholder="Ex: Renovação do domínio"></div>
+      <div class="field"><label>Prioridade</label>
+        <select id="t-priority">
+          <option value="low">Baixa</option>
+          <option value="normal" selected>Normal</option>
+          <option value="high">Alta</option>
+        </select>
+      </div>
+      <div class="field"><label>Mensagem</label><textarea id="t-body" rows="4" required placeholder="Descreve o que precisas..."></textarea></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-ticket">Cancelar</button>
+        <button type="submit" class="btn btn-yellow">Enviar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="overlay" id="modal-post">
+  <div class="modal">
+    <h3 id="modal-post-title">Post agendado</h3>
+    <p class="lede" id="modal-post-lede">—</p>
+    <form id="postSuggestForm">
+      <input type="hidden" id="mp-id">
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Rede</label><input id="mp-net-view" disabled></div>
+        <div class="field"><label>Data</label><input id="mp-date-view" disabled></div>
+      </div>
+      <div class="field"><label>Legenda</label><textarea id="mp-text-view" rows="3" disabled></textarea></div>
+      <div class="field"><label>Estado</label><input id="mp-status-view" disabled></div>
+      <div class="field"><label>A tua sugestão de alteração (opcional)</label>
+        <textarea id="mp-suggestion" rows="3" placeholder="Ex: podem mudar a palavra 'promoção' para 'novidade'?"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-post">Fechar</button>
+        <button type="submit" class="btn btn-yellow">Enviar sugestão</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script src="/js/common.js"></script>
+<script src="/js/cliente.js"></script>
+</body>
+</html>

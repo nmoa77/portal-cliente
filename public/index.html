@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DUIT — Entrar no portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<section class="login">
+  <aside class="login-hero">
+    <div class="top">
+      <div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>
+    </div>
+    <div class="copy">
+      <span class="tag" style="display:inline-block; margin-bottom:24px; color:var(--yellow); border-color:#4a4200">Portal do cliente · 2026</span>
+      <h1>Design<br>com método.<sup>★</sup></h1>
+      <p class="lede">Identidade, websites, social e alojamento — geridos num só portal. Tu foca-te no negócio, a gente trata do resto.</p>
+      <div class="tags">
+        <span class="tag">Branding</span>
+        <span class="tag">Web</span>
+        <span class="tag">Social</span>
+        <span class="tag">Alojamento</span>
+      </div>
+    </div>
+    <div class="foot">
+      <span>© 2026 DUIT · Lisboa</span>
+      <span>v2.0</span>
+    </div>
+  </aside>
+
+  <div class="login-form-wrap">
+    <form class="login-form" id="loginForm">
+      <h2>Entrar</h2>
+      <p class="sub">Bem-vindo de volta.</p>
+
+      <div class="login-err" id="err"></div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" required autocomplete="username" placeholder="nome@empresa.pt">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+      </div>
+
+      <button class="btn btn-yellow btn-block" type="submit">
+        Entrar
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+
+      <div class="login-help">
+        <strong>Demo:</strong>
+        admin@duit.pt / admin123 &nbsp;·&nbsp; ana@exemplo.pt / cliente123
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+  const form = document.getElementById('loginForm');
+  const errBox = document.getElementById('err');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errBox.classList.remove('show');
+    errBox.textContent = '';
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errBox.textContent = data.error || 'Erro no login';
+        errBox.classList.add('show');
+        return;
+      }
+      window.location.href = data.role === 'admin' ? '/admin.html' : '/cliente.html';
+    } catch (err) {
+      errBox.textContent = 'Erro de ligação. Verifica o servidor.';
+      errBox.classList.add('show');
+    }
+  });
+
+  // Quick-fill on double-click of demo hint
+  document.querySelector('.login-help').addEventListener('click', () => {
+    document.getElementById('email').value = 'ana@exemplo.pt';
+    document.getElementById('password').value = 'cliente123';
+  });
+</script>
+</body>
+</html>
