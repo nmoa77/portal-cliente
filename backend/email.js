@@ -3,7 +3,8 @@
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'DUIT <no-reply@duit.pt>';
-const PORTAL_URL = process.env.PORTAL_URL || 'https://cliente.duit.pt';
+const PORTAL_URL = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
+const LOGO_URL = `${PORTAL_URL}/logo-email.png`;
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => (
@@ -11,7 +12,7 @@ function escapeHtml(s) {
   ));
 }
 
-/* ---------- Layout partilhado (tabelas, tudo inline — para clientes de email) ---------- */
+/* ---------- Layout partilhado (tabelas + inline CSS, para clientes de email) ---------- */
 function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl }) {
   const paraRows = paragraphs.map(p =>
     `<tr><td style="padding:0 0 16px 0; color:#2a2a2a; font-size:15px; line-height:1.65;">${p}</td></tr>`
@@ -19,7 +20,7 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
 
   const cta = (ctaLabel && ctaUrl) ? `
     <tr><td style="padding:12px 0 4px 0;">
-      <a href="${ctaUrl}" style="display:inline-block; background:#ffd60a; color:#0a0a0a; font-weight:700; text-decoration:none; padding:14px 26px; border-radius:10px; font-size:15px; letter-spacing:-0.01em; border:1px solid #0a0a0a;">${escapeHtml(ctaLabel)}</a>
+      <a href="${ctaUrl}" style="display:inline-block; background:#ffd60a; color:#0a0a0a; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px; font-size:15px; letter-spacing:-0.01em; border:1px solid #0a0a0a;">${escapeHtml(ctaLabel)}</a>
     </td></tr>` : '';
 
   const greetRow = greeting ? `
@@ -42,10 +43,10 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(10,10,10,0.06);">
 
         <!-- Header preto com logo -->
-        <tr><td style="background:#0a0a0a; padding:28px 40px;">
-          <div style="font-family:'Clash Display',-apple-system,BlinkMacSystemFont,sans-serif; font-weight:700; font-size:30px; color:#ffffff; letter-spacing:-0.03em; line-height:1;">
-            DUIT<span style="color:#ffd60a;">.</span>
-          </div>
+        <tr><td style="background:#0a0a0a; padding:24px 40px;" align="left">
+          <a href="${PORTAL_URL}" style="text-decoration:none; display:inline-block;">
+            <img src="${LOGO_URL}" alt="DUIT" width="120" height="40" style="display:block; width:120px; height:auto; max-width:120px; border:0; outline:none;">
+          </a>
         </td></tr>
 
         <!-- Barra amarela -->
@@ -76,10 +77,10 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
 
       </table>
 
-      <!-- Rodapé fora do cartão -->
+      <!-- Aviso fora do cartão -->
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; margin-top:16px;">
         <tr><td align="center" style="font-size:11px; color:#a39e96;">
-          Recebeste este email porque tens conta no portal DUIT.
+          Este email foi enviado a partir do portal DUIT.
         </td></tr>
       </table>
 
@@ -131,67 +132,70 @@ function deliver(db, { to, subject, body, html, user_id = null, kind = 'generic'
   sendViaResend({ to, subject, text: body || '', html: html || '' });
 }
 
-/* ---------- Templates ---------- */
+/* ---------- Templates (tratamento formal — você) ---------- */
 const T = {
   welcome: (name, email, password) => {
-    const first = (name || '').split(' ')[0] || 'olá';
-    const subject = `Bem-vindo à DUIT, ${first} 👋`;
+    const first = (name || '').split(' ')[0] || '';
+    const subject = `Bem-vindo à DUIT — a sua conta foi criada`;
     const body =
-`Olá ${name},
+`Caro(a) ${name},
 
-A tua conta no portal DUIT está pronta.
+A sua conta no portal DUIT encontra-se pronta.
 
+Credenciais de acesso:
 → Email: ${email}
-→ Password: ${password}
+→ Palavra-passe: ${password}
 
-Entra em ${PORTAL_URL} e muda a password no primeiro acesso (Perfil).
-Qualquer dúvida é só responder a este email.
+Por favor, aceda ao portal em ${PORTAL_URL} e altere a palavra-passe no primeiro acesso, através da secção Perfil.
 
-— Equipa DUIT`;
+Para qualquer esclarecimento adicional, agradecemos que responda diretamente a este email.
+
+Com os melhores cumprimentos,
+Equipa DUIT`;
     const html = layout({
       eyebrow: 'Conta criada',
-      title: `Bem-vindo à DUIT, ${first}.`,
-      greeting: `Olá ${name},`,
+      title: `Bem-vindo à DUIT${first ? ', ' + first : ''}.`,
+      greeting: `Caro(a) ${name},`,
       paragraphs: [
-        'A tua conta no portal está pronta. A partir de agora acompanhas num só sítio as tuas <strong>subscrições</strong>, <strong>projetos</strong>, <strong>calendário editorial</strong>, <strong>orçamentos</strong> e <strong>pedidos de suporte</strong>.',
+        'A sua conta no portal encontra-se pronta. A partir deste momento poderá acompanhar num só local as suas <strong>subscrições</strong>, <strong>projetos</strong>, <strong>calendário editorial</strong>, <strong>orçamentos</strong> e <strong>pedidos de suporte</strong>.',
         `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 8px 0; background:#fafaf8; border:1px solid #ece9e2; border-radius:10px;">
           <tr><td style="padding:14px 18px; font-size:14px; color:#0a0a0a;">
             <div style="color:#8b8680; font-size:11px; text-transform:uppercase; letter-spacing:0.12em; margin-bottom:6px;">Credenciais de acesso</div>
-            <div style="line-height:1.8;">
-              <strong style="display:inline-block; width:90px;">Email</strong> ${escapeHtml(email)}<br>
-              <strong style="display:inline-block; width:90px;">Password</strong> <code style="background:#ffd60a; padding:2px 8px; border-radius:4px; font-family:'SF Mono',Monaco,Consolas,monospace; font-size:13px; color:#0a0a0a;">${escapeHtml(password)}</code>
+            <div style="line-height:1.9;">
+              <strong style="display:inline-block; width:110px;">Email</strong> ${escapeHtml(email)}<br>
+              <strong style="display:inline-block; width:110px;">Palavra-passe</strong> <code style="background:#ffd60a; padding:2px 8px; border-radius:4px; font-family:'SF Mono',Monaco,Consolas,monospace; font-size:13px; color:#0a0a0a;">${escapeHtml(password)}</code>
             </div>
           </td></tr>
         </table>`,
-        'Muda a password no primeiro acesso, em <em>Perfil</em>. Qualquer coisa, responde a este email.',
+        'Aconselhamos a alterar a palavra-passe no primeiro acesso, na secção <em>Perfil</em>. Para qualquer esclarecimento adicional, agradecemos que responda diretamente a este email.',
       ],
-      ctaLabel: 'Entrar no portal →',
+      ctaLabel: 'Aceder ao portal →',
       ctaUrl: PORTAL_URL,
     });
     return { subject, body, html };
   },
 
   projectStatus: (name, project, stage, msg) => {
-    const first = (name || '').split(' ')[0] || 'olá';
     const subject = `Projeto "${project}" — agora em ${stage}`;
     const body =
-`Olá ${first},
+`Caro(a) ${name},
 
-O teu projeto "${project}" mudou de fase: está agora em ${stage}.
+Informamos que o seu projeto "${project}" mudou de fase: encontra-se agora em ${stage}.
 ${msg ? '\n' + msg + '\n' : ''}
-Vê os detalhes em ${PORTAL_URL}
+Poderá consultar o andamento completo em ${PORTAL_URL}
 
-— Equipa DUIT`;
+Com os melhores cumprimentos,
+Equipa DUIT`;
     const html = layout({
       eyebrow: 'Atualização de projeto',
       title: `"${project}" — ${stage}`,
-      greeting: `Olá ${first},`,
+      greeting: `Caro(a) ${name},`,
       paragraphs: [
-        `O teu projeto <strong>${escapeHtml(project)}</strong> mudou de fase: está agora em <strong style="color:#0a0a0a; background:#ffd60a; padding:2px 8px; border-radius:4px;">${escapeHtml(stage)}</strong>.`,
+        `Informamos que o seu projeto <strong>${escapeHtml(project)}</strong> mudou de fase. Encontra-se agora em <strong style="color:#0a0a0a; background:#ffd60a; padding:2px 8px; border-radius:4px;">${escapeHtml(stage)}</strong>.`,
         ...(msg ? [`<em style="color:#4a4a4a;">${escapeHtml(msg)}</em>`] : []),
-        'Podes ver o andamento completo, mockups e ficheiros no portal.',
+        'Poderá consultar o andamento completo, mockups e ficheiros no portal.',
       ],
-      ctaLabel: 'Ver projeto →',
+      ctaLabel: 'Consultar projeto →',
       ctaUrl: PORTAL_URL,
     });
     return { subject, body, html };
@@ -200,96 +204,112 @@ Vê os detalhes em ${PORTAL_URL}
   cancelRequest: (client, service) => {
     const subject = `Pedido de cancelamento recebido — ${service}`;
     const body =
-`O teu pedido de cancelamento de "${service}" foi recebido e será analisado em 48h úteis.
-Até lá, a subscrição mantém-se ativa.
+`Confirmamos a receção do seu pedido de cancelamento referente a "${service}".
 
-Consulta o estado em ${PORTAL_URL}
+O pedido será analisado e receberá resposta no prazo de 48 horas úteis.
+Durante este período, a subscrição mantém-se ativa e todos os serviços funcionam normalmente.
 
-— Equipa DUIT`;
+Poderá consultar o estado do pedido em ${PORTAL_URL}
+
+Com os melhores cumprimentos,
+Equipa DUIT`;
     const html = layout({
       eyebrow: 'Pedido recebido',
       title: 'Pedido de cancelamento recebido',
       paragraphs: [
-        `Recebemos o teu pedido de cancelamento de <strong>${escapeHtml(service)}</strong>. Vamos analisar e dar-te uma resposta em <strong>48h úteis</strong>.`,
-        'Enquanto decidimos, a subscrição mantém-se ativa — continua a ter tudo a funcionar normalmente.',
+        `Confirmamos a receção do seu pedido de cancelamento referente a <strong>${escapeHtml(service)}</strong>. O pedido será analisado e receberá resposta no prazo de <strong>48 horas úteis</strong>.`,
+        'Durante este período, a subscrição mantém-se ativa e todos os serviços funcionam normalmente.',
       ],
-      ctaLabel: 'Ver estado no portal →',
+      ctaLabel: 'Consultar estado →',
       ctaUrl: PORTAL_URL,
     });
     return { subject, body, html };
   },
 
   cancelDecision: (name, service, approved) => {
-    const first = (name || '').split(' ')[0] || 'olá';
     const subject = approved
       ? `Cancelamento aprovado — ${service}`
-      : `Cancelamento recusado — ${service}`;
+      : `Cancelamento não aprovado — ${service}`;
     const body = approved
-      ? `Olá ${first},\n\nO teu pedido de cancelamento de "${service}" foi aprovado.\nObrigado por teres estado connosco.\n\n— Equipa DUIT`
-      : `Olá ${first},\n\nNão conseguimos aprovar o cancelamento de "${service}" neste momento. Entraremos em contacto com alternativas.\n\n— Equipa DUIT`;
+      ? `Caro(a) ${name},
+
+Informamos que o seu pedido de cancelamento referente a "${service}" foi aprovado. A subscrição deixará de ser renovada.
+
+Agradecemos a confiança depositada na DUIT. Caso volte a necessitar dos nossos serviços, estaremos ao seu inteiro dispor.
+
+Com os melhores cumprimentos,
+Equipa DUIT`
+      : `Caro(a) ${name},
+
+De momento não foi possível aprovar o cancelamento referente a "${service}". Entraremos em contacto brevemente para apresentar alternativas que possam ir ao encontro das suas necessidades.
+
+Com os melhores cumprimentos,
+Equipa DUIT`;
     const html = layout({
       eyebrow: approved ? 'Cancelamento aprovado' : 'Cancelamento não aprovado',
       title: approved
         ? `"${service}" foi cancelado`
         : `"${service}" — não foi possível cancelar`,
-      greeting: `Olá ${first},`,
+      greeting: `Caro(a) ${name},`,
       paragraphs: approved
         ? [
-            `O teu pedido de cancelamento de <strong>${escapeHtml(service)}</strong> foi aprovado. A subscrição deixa de renovar.`,
-            'Obrigado por teres estado connosco. Se precisares de algo no futuro, a porta fica aberta.',
+            `Informamos que o seu pedido de cancelamento referente a <strong>${escapeHtml(service)}</strong> foi aprovado. A subscrição deixará de ser renovada.`,
+            'Agradecemos a confiança depositada na DUIT. Caso volte a necessitar dos nossos serviços, estaremos ao seu inteiro dispor.',
           ]
         : [
-            `Neste momento não conseguimos aprovar o cancelamento de <strong>${escapeHtml(service)}</strong>. Entraremos em contacto brevemente para ver alternativas que funcionem para ti.`,
+            `De momento não foi possível aprovar o cancelamento referente a <strong>${escapeHtml(service)}</strong>. Entraremos em contacto brevemente para apresentar alternativas que possam ir ao encontro das suas necessidades.`,
           ],
-      ctaLabel: 'Entrar no portal →',
+      ctaLabel: 'Aceder ao portal →',
       ctaUrl: PORTAL_URL,
     });
     return { subject, body, html };
   },
 
   mockupReady: (name, title) => {
-    const first = (name || '').split(' ')[0] || 'olá';
-    const subject = `Novo mockup à espera da tua aprovação — ${title}`;
+    const subject = `Novo mockup para aprovação — ${title}`;
     const body =
-`Olá ${first},
+`Caro(a) ${name},
 
-Temos uma nova versão de "${title}" pronta para aprovação.
-Entra em ${PORTAL_URL} e dá-nos o teu feedback.
+Informamos que se encontra disponível uma nova versão de "${title}" para a sua aprovação.
 
-— Equipa DUIT`;
+Convidamo-lo(a) a aceder ao portal em ${PORTAL_URL} para visualizar a proposta e partilhar o seu feedback, ou aprovar a versão apresentada.
+
+Com os melhores cumprimentos,
+Equipa DUIT`;
     const html = layout({
       eyebrow: 'A aguardar aprovação',
       title: `Novo mockup: ${title}`,
-      greeting: `Olá ${first},`,
+      greeting: `Caro(a) ${name},`,
       paragraphs: [
-        `Temos uma nova versão de <strong>${escapeHtml(title)}</strong> pronta para a tua aprovação.`,
-        'Entra no portal para veres o preview e deixares feedback — ou aprovar de vez.',
+        `Informamos que se encontra disponível uma nova versão de <strong>${escapeHtml(title)}</strong> para a sua aprovação.`,
+        'Convidamo-lo(a) a aceder ao portal para visualizar a proposta e partilhar o seu feedback, ou aprovar a versão apresentada.',
       ],
-      ctaLabel: 'Ver mockup →',
+      ctaLabel: 'Visualizar mockup →',
       ctaUrl: PORTAL_URL,
     });
     return { subject, body, html };
   },
 
   postsCleared: (name, month) => {
-    const first = (name || '').split(' ')[0] || 'olá';
-    const subject = `Calendário de ${month} atualizado`;
+    const subject = `Calendário editorial de ${month} — atualização`;
     const body =
-`Olá ${first},
+`Caro(a) ${name},
 
-O calendário editorial para ${month} foi redefinido.
-Em breve receberás os novos posts para aprovação em ${PORTAL_URL}
+Informamos que o calendário editorial referente a ${month} foi redefinido. Encontramo-nos a preparar uma nova proposta alinhada com a conversa mais recente.
 
-— Equipa DUIT`;
+Assim que estiver pronta, receberá notificação para aprovação no portal.
+
+Com os melhores cumprimentos,
+Equipa DUIT`;
     const html = layout({
       eyebrow: 'Calendário editorial',
       title: `${month} — calendário redefinido`,
-      greeting: `Olá ${first},`,
+      greeting: `Caro(a) ${name},`,
       paragraphs: [
-        `O calendário editorial para <strong>${escapeHtml(month)}</strong> foi redefinido. Estamos a preparar uma nova proposta de posts alinhada com o que conversámos.`,
-        'Assim que estiver pronta, vais receber notificação para aprovares no portal.',
+        `Informamos que o calendário editorial referente a <strong>${escapeHtml(month)}</strong> foi redefinido. Encontramo-nos a preparar uma nova proposta alinhada com a conversa mais recente.`,
+        'Assim que estiver pronta, receberá notificação para aprovação no portal.',
       ],
-      ctaLabel: 'Ver calendário →',
+      ctaLabel: 'Consultar calendário →',
       ctaUrl: PORTAL_URL,
     });
     return { subject, body, html };
