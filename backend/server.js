@@ -146,7 +146,7 @@ app.post('/api/clients', requireAdmin, (req, res) => {
     `INSERT INTO users (name, email, password_hash, role, company, phone) VALUES (?, ?, ?, 'client', ?, ?)`
   ).run(name, email, hash, company || '', phone || '');
   const msg = T.welcome(name, email, password);
-  deliver(db, { to: email, subject: msg.subject, body: msg.body, user_id: info.lastInsertRowid, kind: 'welcome' });
+  deliver(db, { to: email, subject: msg.subject, body: msg.body, html: msg.html, user_id: info.lastInsertRowid, kind: 'welcome' });
   res.status(201).json({ id: info.lastInsertRowid });
 });
 
@@ -324,7 +324,7 @@ app.patch('/api/projects/:id', requireAdmin, (req, res) => {
   // Só notifica o cliente se a fase mudou
   if (stage && stage !== proj.stage) {
     const tpl = T.projectStatus(proj.client_name, name || proj.name, stageLabels[stage] || stage, message);
-    deliver(db, { to: proj.client_email, subject: tpl.subject, body: tpl.body, user_id: proj.user_id, kind: 'project_status' });
+    deliver(db, { to: proj.client_email, subject: tpl.subject, body: tpl.body, html: tpl.html, user_id: proj.user_id, kind: 'project_status' });
   }
   res.json({ ok: true });
 });
@@ -362,7 +362,7 @@ app.post('/api/mockups', requireAdmin, (req, res) => {
   const proj = db.prepare(`SELECT p.*, u.name client_name, u.email client_email FROM projects p JOIN users u ON u.id=p.user_id WHERE p.id=?`).get(project_id);
   if (proj) {
     const tpl = T.mockupReady(proj.client_name, title);
-    deliver(db, { to: proj.client_email, subject: tpl.subject, body: tpl.body, user_id: proj.user_id, kind: 'mockup_ready' });
+    deliver(db, { to: proj.client_email, subject: tpl.subject, body: tpl.body, html: tpl.html, user_id: proj.user_id, kind: 'mockup_ready' });
   }
   res.status(201).json({ id: info.lastInsertRowid });
 });
@@ -449,7 +449,7 @@ app.post('/api/cancellations', requireAuth, (req, res) => {
     `INSERT INTO cancellation_requests (subscription_id, user_id, reason, comment) VALUES (?, ?, ?, ?)`
   ).run(subscription_id, sub.user_id, reason || '', comment || '');
   const tpl = T.cancelRequest('', sub.name);
-  deliver(db, { to: req.user.email, subject: tpl.subject, body: tpl.body, user_id: sub.user_id, kind: 'cancel_request' });
+  deliver(db, { to: req.user.email, subject: tpl.subject, body: tpl.body, html: tpl.html, user_id: sub.user_id, kind: 'cancel_request' });
   res.status(201).json({ id: info.lastInsertRowid });
 });
 
@@ -469,7 +469,7 @@ app.patch('/api/cancellations/:id', requireAdmin, (req, res) => {
     db.prepare(`UPDATE subscriptions SET status='cancelled' WHERE id=?`).run(cr.subscription_id);
   }
   const tpl = T.cancelDecision(cr.client_name, cr.service_name, status === 'approved');
-  deliver(db, { to: cr.client_email, subject: tpl.subject, body: tpl.body, user_id: cr.user_id, kind: 'cancel_decision' });
+  deliver(db, { to: cr.client_email, subject: tpl.subject, body: tpl.body, html: tpl.html, user_id: cr.user_id, kind: 'cancel_decision' });
   res.json({ ok: true });
 });
 
@@ -688,7 +688,7 @@ app.post('/api/social-posts/bulk-delete', requireAdmin, (req, res) => {
   const user = db.prepare(`SELECT * FROM users WHERE id=?`).get(user_id);
   if (user) {
     const tpl = T.postsCleared(user.name, month);
-    deliver(db, { to: user.email, subject: tpl.subject, body: tpl.body, user_id, kind: 'posts_cleared' });
+    deliver(db, { to: user.email, subject: tpl.subject, body: tpl.body, html: tpl.html, user_id, kind: 'posts_cleared' });
   }
   res.json({ ok: true, deleted: info.changes });
 });

@@ -44,10 +44,7 @@ function renderShell() {
     { id: 'home',      icon: 'home',    label: 'Início' },
     { id: 'subs',      icon: 'box',     label: 'Subscrições', badge: s.activeSubs },
     { id: 'projects',  icon: 'folder',  label: 'Projetos',    badge: s.openProjects },
-    { id: 'mockups',   icon: 'sparkle', label: 'Aprovações',  badge: s.pendingMockups },
-    { id: 'files',     icon: 'file',    label: 'Ficheiros' },
     { id: 'calendar',  icon: 'cal',     label: 'Calendário',  badge: s.awaitingPosts },
-    { id: 'analytics', icon: 'chart',   label: 'Analítica' },
     { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',  badge: s.pendingQuotes },
     { id: 'support',   icon: 'chat',    label: 'Suporte' },
     { id: 'profile',   icon: 'user',    label: 'Perfil' },
@@ -83,14 +80,13 @@ async function go(view) {
     if (view === 'home')       await viewHome(main);
     else if (view === 'subs')      await viewSubs(main);
     else if (view === 'projects')  await viewProjects(main);
-    else if (view === 'mockups')   await viewMockups(main);
-    else if (view === 'files')     await viewFiles(main);
     else if (view === 'calendar')  await viewCalendar(main);
-    else if (view === 'analytics') await viewAnalytics(main);
     else if (view === 'quotes')    await viewQuotes(main);
-    else if (view === 'invoices')  await viewInvoices(main);
     else if (view === 'support')   await viewSupport(main);
     else if (view === 'profile')   await viewProfile(main);
+    // views ainda implementadas mas sem entrada no menu:
+    else if (view === 'mockups')   await viewMockups(main);
+    else if (view === 'invoices')  await viewInvoices(main);
   } catch (e) {
     console.error(e);
     main.innerHTML = `<div class="empty">Erro: ${escapeHtml(e.message)}</div>`;
@@ -133,7 +129,7 @@ async function viewHome(main) {
       </div>
     </div>
 
-    <div class="grid g-4">
+    <div class="grid g-3">
       <div class="card stat y">
         <div class="eyebrow">Subscrições ativas</div>
         <div class="value">${s.activeSubs || 0}</div>
@@ -143,11 +139,6 @@ async function viewHome(main) {
         <div class="eyebrow">Projetos em curso</div>
         <div class="value">${s.openProjects || 0}</div>
         <div class="delta">DUIT a trabalhar</div>
-      </div>
-      <div class="card stat">
-        <div class="eyebrow">A aprovar</div>
-        <div class="value">${s.pendingMockups || 0}</div>
-        <div class="delta">mockups pendentes</div>
       </div>
       <div class="card stat">
         <div class="eyebrow">Orçamentos</div>
