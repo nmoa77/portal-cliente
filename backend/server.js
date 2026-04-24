@@ -848,6 +848,46 @@ app.patch('/api/tickets/:id', requireAdmin, (req, res) => {
 });
 
 /* ================================================================
+   ZONA DE PERIGO — limpar BD
+   ================================================================ */
+app.post('/api/admin/wipe-db', requireAdmin, (req, res) => {
+  const { confirm } = req.body || {};
+  if (confirm !== 'APAGAR TUDO') {
+    return res.status(400).json({
+      error: 'Escreve exatamente "APAGAR TUDO" para confirmar.'
+    });
+  }
+
+  const meId = req.user.id;
+
+  // apaga tudo menos o admin atual; ordem conta para FKs mas usamos transação + FKs off
+  const wipe = db.transaction(() => {
+    db.pragma('foreign_keys = OFF');
+    const tables = [
+      'messages', 'tickets', 'notifications', 'social_posts', 'notes',
+      'quote_items', 'quotes', 'invoices', 'cancellation_requests',
+      'files', 'mockups', 'projects', 'subscriptions', 'plans',
+    ];
+    for (const t of tables) db.exec(`DELETE FROM "${t}"`);
+    db.prepare(`DELETE FROM users WHERE id != ?`).run(meId);
+
+    // reset AUTOINCREMENT (se sqlite_sequence existir)
+    try { db.exec(`DELETE FROM sqlite_sequence`); } catch (e) {}
+
+    db.pragma('foreign_keys = ON');
+  });
+
+  try {
+    wipe();
+    console.log(`[wipe-db] BD esvaziada pelo admin id=${meId} (${req.user.email})`);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[wipe-db] erro:', e);
+    res.status(500).json({ error: 'Não consegui limpar a BD: ' + e.message });
+  }
+});
+
+/* ================================================================
    Fallback
    ================================================================ */
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));

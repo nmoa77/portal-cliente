@@ -1297,7 +1297,42 @@ async function viewProfile(main) {
         <button class="btn btn-ghost btn-block" onclick="toggleTheme()">${svg('sparkle')} Alternar tema</button>
       </div>
     </div>
+
+    <div class="card" style="margin-top:24px; border:1px solid #e06060; background:rgba(224,96,96,0.04);">
+      <h3 style="margin-bottom:6px; color:#c03030;">${svg('cancel')} Zona de perigo</h3>
+      <p style="color:var(--muted); font-size:13px; margin-bottom:14px;">
+        Apaga <strong>todos</strong> os clientes, subscrições, planos, projetos, mockups, ficheiros,
+        calendário, orçamentos, faturas, tickets, notas e notificações. Só a tua conta de admin
+        continua activa. Útil para arrancar com dados reais depois da demo. <strong>Não tem volta.</strong>
+      </p>
+      <button class="btn btn-ghost" onclick="openWipeDb()" style="color:#c03030; border-color:#e06060;">
+        Apagar todos os dados
+      </button>
+    </div>
   `;
+}
+
+/* Modal/confirmação de wipe */
+function openWipeDb() {
+  const phrase = prompt(
+    'Vais apagar TODOS os dados da base de dados (clientes, projetos, faturas, calendário, etc.).\n\n' +
+    'A tua conta de admin mantém-se. Esta ação não tem volta.\n\n' +
+    'Para confirmar, escreve exactamente: APAGAR TUDO'
+  );
+  if (phrase === null) return; // cancelou
+  if (phrase !== 'APAGAR TUDO') {
+    toast('Confirmação não bate certo. Nada foi apagado.', 'cancel');
+    return;
+  }
+  api('/api/admin/wipe-db', { method: 'POST', body: { confirm: 'APAGAR TUDO' } })
+    .then(async () => {
+      toast('Base de dados limpa.', 'check');
+      // refresca state e manda para home
+      await refreshStats();
+      await refreshClients();
+      go('home');
+    })
+    .catch(err => toast(err.message, 'cancel'));
 }
 
 /* =========================================================================
