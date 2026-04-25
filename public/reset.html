@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DUIT — Definir nova palavra-passe</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<section class="login">
+  <aside class="login-hero">
+    <div class="top">
+      <div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>
+    </div>
+    <div class="copy">
+      <span class="tag" style="display:inline-block; margin-bottom:24px; color:var(--yellow); border-color:#4a4200">Recuperação de acesso</span>
+      <h1>Defina<br>uma nova<br>palavra-passe.<sup>★</sup></h1>
+      <p class="lede">Por motivos de segurança, escolha uma palavra-passe com pelo menos 8 caracteres. Depois de confirmar, será redirecionado para o login.</p>
+    </div>
+    <div class="foot">
+      <span>© 2026 DUIT · Lisboa</span>
+      <span>v2.0</span>
+    </div>
+  </aside>
+
+  <div class="login-form-wrap">
+    <form class="login-form" id="resetForm">
+      <h2>Nova palavra-passe</h2>
+      <p class="sub" id="resetSub">A definir uma nova palavra-passe para a sua conta.</p>
+
+      <div class="login-err" id="err"></div>
+      <div class="login-ok"  id="ok" style="display:none; padding:12px 14px; border-radius:10px; background:#e8f5e8; border:1px solid #9bce9b; color:#2a5e2a; font-size:13px; margin-bottom:14px;"></div>
+
+      <div class="field">
+        <label for="password">Nova palavra-passe</label>
+        <input type="password" id="password" required minlength="8" autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+      </div>
+      <div class="field">
+        <label for="confirm">Confirmar palavra-passe</label>
+        <input type="password" id="confirm" required minlength="8" autocomplete="new-password" placeholder="Repita a palavra-passe">
+      </div>
+
+      <button class="btn btn-yellow btn-block" type="submit" id="submitBtn">
+        Guardar nova palavra-passe
+      </button>
+
+      <div style="text-align:center; margin-top:18px;">
+        <a href="/" style="color:var(--muted); font-size:13px; text-decoration:none; border-bottom:1px solid var(--line);">← Voltar ao login</a>
+      </div>
+    </form>
+  </div>
+</section>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token') || '';
+  const form = document.getElementById('resetForm');
+  const errBox = document.getElementById('err');
+  const okBox = document.getElementById('ok');
+  const submitBtn = document.getElementById('submitBtn');
+
+  if (!token) {
+    errBox.textContent = 'Ligação inválida. Solicite uma nova recuperação a partir do login.';
+    errBox.classList.add('show');
+    form.querySelectorAll('input, button[type=submit]').forEach(el => el.disabled = true);
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errBox.classList.remove('show');
+    errBox.textContent = '';
+    okBox.style.display = 'none';
+
+    const password = document.getElementById('password').value;
+    const confirm  = document.getElementById('confirm').value;
+
+    if (password.length < 8) {
+      errBox.textContent = 'A palavra-passe tem de ter pelo menos 8 caracteres.';
+      errBox.classList.add('show');
+      return;
+    }
+    if (password !== confirm) {
+      errBox.textContent = 'A confirmação não coincide.';
+      errBox.classList.add('show');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        errBox.textContent = data.error || 'Não foi possível redefinir a palavra-passe.';
+        errBox.classList.add('show');
+        return;
+      }
+      okBox.textContent = 'Palavra-passe atualizada com sucesso. A redirecionar para o login…';
+      okBox.style.display = 'block';
+      submitBtn.disabled = true;
+      setTimeout(() => { window.location.href = '/'; }, 2000);
+    } catch (err) {
+      errBox.textContent = 'Erro de ligação. Verifique o servidor.';
+      errBox.classList.add('show');
+    }
+  });
+</script>
+</body>
+</html>

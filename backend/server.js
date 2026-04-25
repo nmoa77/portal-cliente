@@ -1,4 +1,5 @@
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
@@ -68,6 +69,67 @@ app.patch('/api/auth/me', requireAuth, (req, res) => {
        notifications_enabled = COALESCE(?, notifications_enabled)
      WHERE id = ?`
   ).run(name ?? null, company ?? null, phone ?? null, avatar_url ?? null, notifVal, req.user.id);
+  res.json({ ok: true });
+});
+
+// Pedido de recuperação — envia email com link válido durante 1 hora.
+// Devolve sempre 200 para não revelar quais emails existem na BD.
+app.post('/api/auth/forgot-password', (req, res) => {
+  const { email } = req.body || {};
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Indique o seu email.' });
+  }
+  const user = db.prepare('SELECT id, name, email FROM users WHERE email = ?').get(email.trim());
+  if (user) {
+    try {
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const expires = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1h
+      db.prepare(
+        `INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES (?, ?, ?)`
+      ).run(user.id, tokenHash, expires);
+
+      const portalUrl = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
+      const resetUrl = `${portalUrl}/reset.html?token=${token}`;
+      const tpl = T.passwordReset(user.name, resetUrl);
+      // force: true porque é um email crítico de segurança — ignora preferência de notificações
+      deliver(db, {
+        to: user.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+        user_id: user.id, kind: 'password_reset', force: true,
+      });
+    } catch (e) {
+      console.warn('[auth] forgot-password falhou:', e.message);
+    }
+  }
+  res.json({ ok: true });
+});
+
+// Aplica a nova palavra-passe a partir de um token válido.
+app.post('/api/auth/reset-password', (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password) {
+    return res.status(400).json({ error: 'Token e nova palavra-passe são obrigatórios.' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'A nova palavra-passe tem de ter pelo menos 8 caracteres.' });
+  }
+  const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+  const row = db.prepare(
+    `SELECT id, user_id, expires_at, used_at FROM password_resets WHERE token_hash = ?`
+  ).get(tokenHash);
+
+  if (!row)                                  return res.status(400).json({ error: 'Ligação inválida.' });
+  if (row.used_at)                           return res.status(400).json({ error: 'Esta ligação já foi utilizada.' });
+  if (new Date(row.expires_at) < new Date()) return res.status(400).json({ error: 'A ligação expirou. Solicite uma nova.' });
+
+  const newHash = bcrypt.hashSync(password, 10);
+  const tx = db.transaction(() => {
+    db.prepare(`UPDATE users SET password_hash = ? WHERE id = ?`).run(newHash, row.user_id);
+    db.prepare(`UPDATE password_resets SET used_at = datetime('now') WHERE id = ?`).run(row.id);
+    // Invalida quaisquer outros pedidos pendentes para o mesmo utilizador
+    db.prepare(`UPDATE password_resets SET used_at = datetime('now') WHERE user_id = ? AND used_at IS NULL`).run(row.user_id);
+  });
+  tx();
   res.json({ ok: true });
 });
 

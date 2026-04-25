@@ -20,7 +20,7 @@
     <div class="copy">
       <span class="tag" style="display:inline-block; margin-bottom:24px; color:var(--yellow); border-color:#4a4200">Portal do cliente · 2026</span>
       <h1>Design<br>com método.<sup>★</sup></h1>
-      <p class="lede">Identidade, websites, social e alojamento — geridos num só portal. Tu foca-te no negócio, a gente trata do resto.</p>
+      <p class="lede">Identidade, websites, social e alojamento — geridos num só portal. O cliente foca-se no negócio, a DUIT trata do resto.</p>
       <div class="tags">
         <span class="tag">Branding</span>
         <span class="tag">Web</span>
@@ -46,7 +46,7 @@
         <input type="email" id="email" required autocomplete="username" placeholder="nome@empresa.pt">
       </div>
       <div class="field">
-        <label for="password">Password</label>
+        <label for="password">Palavra-passe</label>
         <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
       </div>
 
@@ -55,15 +55,58 @@
         <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </button>
 
-  
+      <div style="text-align:center; margin-top:18px;">
+        <a href="#" id="forgotLink" style="color:var(--muted); font-size:13px; text-decoration:none; border-bottom:1px solid var(--line);">Esqueci-me da palavra-passe</a>
+      </div>
+    </form>
+
+    <form class="login-form" id="forgotForm" style="display:none;">
+      <h2>Recuperar acesso</h2>
+      <p class="sub">Indique o email associado à sua conta. Enviaremos uma ligação para definir uma nova palavra-passe.</p>
+
+      <div class="login-err" id="forgotErr"></div>
+      <div class="login-ok"  id="forgotOk" style="display:none; padding:12px 14px; border-radius:10px; background:#fff8d6; border:1px solid #ecd96a; color:#5a4a00; font-size:13px; margin-bottom:14px;"></div>
+
+      <div class="field">
+        <label for="forgotEmail">Email</label>
+        <input type="email" id="forgotEmail" required autocomplete="email" placeholder="nome@empresa.pt">
+      </div>
+
+      <button class="btn btn-yellow btn-block" type="submit">
+        Enviar ligação de recuperação
+      </button>
+
+      <div style="text-align:center; margin-top:18px;">
+        <a href="#" id="backToLogin" style="color:var(--muted); font-size:13px; text-decoration:none; border-bottom:1px solid var(--line);">← Voltar ao login</a>
+      </div>
     </form>
   </div>
 </section>
 
 <script>
-  const form = document.getElementById('loginForm');
-  const errBox = document.getElementById('err');
-  form.addEventListener('submit', async (e) => {
+  const loginForm  = document.getElementById('loginForm');
+  const forgotForm = document.getElementById('forgotForm');
+  const errBox     = document.getElementById('err');
+  const forgotErr  = document.getElementById('forgotErr');
+  const forgotOk   = document.getElementById('forgotOk');
+
+  document.getElementById('forgotLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    loginForm.style.display = 'none';
+    forgotForm.style.display = 'block';
+    document.getElementById('forgotEmail').value = document.getElementById('email').value || '';
+    setTimeout(() => document.getElementById('forgotEmail').focus(), 50);
+  });
+
+  document.getElementById('backToLogin').addEventListener('click', (e) => {
+    e.preventDefault();
+    forgotForm.style.display = 'none';
+    loginForm.style.display = 'block';
+    forgotErr.classList.remove('show'); forgotErr.textContent = '';
+    forgotOk.style.display = 'none';
+  });
+
+  loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     errBox.classList.remove('show');
     errBox.textContent = '';
@@ -83,15 +126,35 @@
       }
       window.location.href = data.role === 'admin' ? '/admin.html' : '/cliente.html';
     } catch (err) {
-      errBox.textContent = 'Erro de ligação. Verifica o servidor.';
+      errBox.textContent = 'Erro de ligação. Verifique o servidor.';
       errBox.classList.add('show');
     }
   });
 
-  // Quick-fill on double-click of demo hint
-  document.querySelector('.login-help').addEventListener('click', () => {
-    document.getElementById('email').value = 'ana@exemplo.pt';
-    document.getElementById('password').value = 'cliente123';
+  forgotForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    forgotErr.classList.remove('show'); forgotErr.textContent = '';
+    forgotOk.style.display = 'none';
+    const email = document.getElementById('forgotEmail').value.trim();
+    try {
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        forgotErr.textContent = data.error || 'Não foi possível processar o pedido.';
+        forgotErr.classList.add('show');
+        return;
+      }
+      forgotOk.textContent = 'Se o email estiver registado no portal, receberá em instantes uma mensagem com a ligação para redefinir a palavra-passe. Verifique também a pasta de spam.';
+      forgotOk.style.display = 'block';
+      forgotForm.querySelector('button[type="submit"]').disabled = true;
+    } catch (err) {
+      forgotErr.textContent = 'Erro de ligação. Verifique o servidor.';
+      forgotErr.classList.add('show');
+    }
   });
 </script>
 </body>

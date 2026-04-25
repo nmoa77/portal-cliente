@@ -304,6 +304,37 @@ Equipa DUIT`;
     return { subject, body, html };
   },
 
+  passwordReset: (name, resetUrl) => {
+    const subject = `Recuperação da palavra-passe — Portal DUIT`;
+    const body =
+`Caro(a) ${name},
+
+Recebemos um pedido de recuperação da palavra-passe associada à sua conta no portal DUIT.
+
+Para definir uma nova palavra-passe, aceda à seguinte ligação:
+${resetUrl}
+
+A ligação é válida durante 1 hora e só pode ser utilizada uma vez.
+
+Caso não tenha sido o(a) próprio(a) a solicitar esta alteração, ignore este email — a palavra-passe atual mantém-se inalterada.
+
+Com os melhores cumprimentos,
+Equipa DUIT`;
+    const html = layout({
+      eyebrow: 'Recuperação de acesso',
+      title: 'Definir nova palavra-passe',
+      greeting: `Caro(a) ${name},`,
+      paragraphs: [
+        'Recebemos um pedido de recuperação da palavra-passe associada à sua conta no portal DUIT.',
+        'A ligação abaixo é válida durante <strong>1 hora</strong> e só pode ser utilizada uma vez.',
+        'Caso não tenha sido o(a) próprio(a) a solicitar esta alteração, agradecemos que ignore este email — a palavra-passe atual mantém-se inalterada.',
+      ],
+      ctaLabel: 'Definir nova palavra-passe →',
+      ctaUrl: resetUrl,
+    });
+    return { subject, body, html };
+  },
+
   postsCleared: (name, month) => {
     const subject = `Calendário editorial de ${month} — atualização`;
     const body =
