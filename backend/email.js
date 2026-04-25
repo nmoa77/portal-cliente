@@ -189,6 +189,44 @@ Equipa DUIT`;
     return { subject, body, html };
   },
 
+  projectCreated: (name, project, stage, deadline, description) => {
+    const subject = `Novo projeto criado — "${project}"`;
+    const body =
+`Caro(a) ${name},
+
+Foi criado um novo projeto no seu portal DUIT: "${project}".
+
+Fase inicial: ${stage}${deadline ? `
+Entrega prevista: ${deadline}` : ''}${description ? `
+
+Descrição:
+${description}` : ''}
+
+Poderá acompanhar o estado do projeto, consultar ficheiros e mockups, e enviar notas em ${PORTAL_URL}
+
+Com os melhores cumprimentos,
+Equipa DUIT`;
+    const html = layout({
+      eyebrow: 'Novo projeto',
+      title: `"${project}" — projeto criado`,
+      greeting: `Caro(a) ${name},`,
+      paragraphs: [
+        `Informamos que foi criado um novo projeto no seu portal DUIT: <strong>${escapeHtml(project)}</strong>.`,
+        `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 4px 0;">
+          <tr><td style="padding:4px 14px 4px 0; color:#8b8680; font-size:13px; vertical-align:top;">Fase inicial</td>
+              <td style="padding:4px 0; font-size:14px; color:#0a0a0a;"><strong>${escapeHtml(stage)}</strong></td></tr>
+          ${deadline ? `<tr><td style="padding:4px 14px 4px 0; color:#8b8680; font-size:13px; vertical-align:top;">Entrega</td>
+              <td style="padding:4px 0; font-size:14px; color:#0a0a0a;">${escapeHtml(deadline)}</td></tr>` : ''}
+        </table>`,
+        ...(description ? [`<div style="background:#fafaf8; border-left:3px solid #ffd60a; padding:14px 18px; border-radius:6px; color:#2a2a2a; font-style:italic; line-height:1.6;">${escapeHtml(description)}</div>`] : []),
+        'No portal poderá acompanhar o estado do projeto, consultar ficheiros e mockups, e enviar notas para a equipa.',
+      ],
+      ctaLabel: 'Abrir projeto →',
+      ctaUrl: PORTAL_URL,
+    });
+    return { subject, body, html };
+  },
+
   projectStatus: (name, project, stage, msg) => {
     const subject = `Projeto "${project}" — agora em ${stage}`;
     const body =

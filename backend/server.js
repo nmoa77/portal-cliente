@@ -365,9 +365,31 @@ app.get('/api/projects', requireAuth, (req, res) => {
 app.post('/api/projects', requireAdmin, (req, res) => {
   const { user_id, name, description, stage, deadline } = req.body || {};
   if (!user_id || !name) return res.status(400).json({ error: 'Cliente e nome obrigatórios' });
+  const finalStage = stage || 'new';
   const info = db.prepare(
     `INSERT INTO projects (user_id, name, description, stage, deadline) VALUES (?, ?, ?, ?, ?)`
-  ).run(user_id, name, description || '', stage || 'new', deadline || null);
+  ).run(user_id, name, description || '', finalStage, deadline || null);
+
+  // Notifica o cliente da criação do novo projeto (respeita opt-out)
+  try {
+    const client = db.prepare(`SELECT name, email FROM users WHERE id=?`).get(user_id);
+    if (client && client.email) {
+      const fmtDeadline = (deadline && /^\d{4}-\d{2}-\d{2}/.test(deadline))
+        ? `${deadline.slice(8,10)}/${deadline.slice(5,7)}/${deadline.slice(0,4)}`
+        : (deadline || null);
+      const tpl = T.projectCreated(
+        client.name, name,
+        stageLabels[finalStage] || finalStage,
+        fmtDeadline,
+        description || null
+      );
+      deliver(db, {
+        to: client.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+        user_id, kind: 'project_created',
+      });
+    }
+  } catch (e) { console.warn('projectCreated notify:', e.message); }
+
   res.status(201).json({ id: info.lastInsertRowid });
 });
 
