@@ -400,6 +400,93 @@ app.delete('/api/projects/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// Detalhe de um projeto (cliente vê apenas o seu)
+app.get('/api/projects/:id', requireAuth, (req, res) => {
+  const proj = db.prepare(
+    `SELECT p.*, u.name client_name, u.email client_email, u.company client_company
+       FROM projects p JOIN users u ON u.id=p.user_id WHERE p.id=?`
+  ).get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Projeto não encontrado' });
+  if (req.user.role !== 'admin' && proj.user_id !== req.user.id) {
+    return res.status(403).json({ error: 'Sem permissão' });
+  }
+  // Anexa ficheiros e mockups associados (read-only)
+  const files = db.prepare(
+    `SELECT id, name, kind, size_kb, uploaded_by, created_at
+       FROM files WHERE project_id=? ORDER BY created_at DESC`
+  ).all(req.params.id);
+  const mockups = db.prepare(
+    `SELECT id, title, version, status, thumb_style, note, created_at
+       FROM mockups WHERE project_id=? ORDER BY created_at DESC`
+  ).all(req.params.id);
+  // Para o cliente expomos o e-mail/empresa só se for admin
+  if (req.user.role !== 'admin') {
+    delete proj.client_email;
+  }
+  res.json({ ...proj, files, mockups });
+});
+
+// Listar notas/mensagens de um projeto
+app.get('/api/projects/:id/messages', requireAuth, (req, res) => {
+  const proj = db.prepare('SELECT user_id FROM projects WHERE id=?').get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Projeto não encontrado' });
+  if (req.user.role !== 'admin' && proj.user_id !== req.user.id) {
+    return res.status(403).json({ error: 'Sem permissão' });
+  }
+  const rows = db.prepare(
+    `SELECT pm.*, u.name author_name, u.role author_role
+       FROM project_messages pm JOIN users u ON u.id=pm.author_id
+      WHERE pm.project_id=? ORDER BY pm.created_at ASC`
+  ).all(req.params.id);
+  res.json(rows);
+});
+
+// Enviar nota num projeto (cliente ou admin)
+app.post('/api/projects/:id/messages', requireAuth, (req, res) => {
+  const { body } = req.body || {};
+  if (!body || !body.trim()) return res.status(400).json({ error: 'Mensagem obrigatória' });
+
+  const proj = db.prepare(
+    `SELECT p.*, u.name client_name, u.email client_email
+       FROM projects p JOIN users u ON u.id=p.user_id WHERE p.id=?`
+  ).get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Projeto não encontrado' });
+  if (req.user.role !== 'admin' && proj.user_id !== req.user.id) {
+    return res.status(403).json({ error: 'Sem permissão' });
+  }
+
+  db.prepare(
+    `INSERT INTO project_messages (project_id, author_id, body) VALUES (?, ?, ?)`
+  ).run(req.params.id, req.user.id, body.trim());
+  db.prepare(`UPDATE projects SET updated_at=datetime('now') WHERE id=?`).run(req.params.id);
+
+  // Notifica a outra parte
+  try {
+    if (req.user.role === 'admin') {
+      // admin escreveu → notifica cliente
+      const tpl = T.projectMessage(proj.client_name, proj.name, 'DUIT', body.trim());
+      deliver(db, {
+        to: proj.client_email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+        user_id: proj.user_id, kind: 'project_message',
+      });
+    } else {
+      // cliente escreveu → notifica todos os admins
+      const admins = db.prepare(`SELECT id, name, email FROM users WHERE role='admin'`).all();
+      const author = db.prepare(`SELECT name, company FROM users WHERE id=?`).get(req.user.id);
+      const authorLabel = author?.company ? `${author.name} · ${author.company}` : (author?.name || 'Cliente');
+      for (const a of admins) {
+        const tpl = T.projectMessage(a.name, proj.name, authorLabel, body.trim());
+        deliver(db, {
+          to: a.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+          user_id: a.id, kind: 'project_message', force: true,
+        });
+      }
+    }
+  } catch (e) { console.warn('projectMessage notify:', e.message); }
+
+  res.status(201).json({ ok: true });
+});
+
 /* ================================================================
    MOCKUPS (aprovações)
    ================================================================ */

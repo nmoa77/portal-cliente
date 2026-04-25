@@ -152,7 +152,7 @@
 <div class="overlay" id="modal-project">
   <div class="modal">
     <h3 id="pr-modal-title">Alterar projeto</h3>
-    <p class="lede">Quando mudas a fase, o cliente recebe email automático.</p>
+    <p class="lede">Quando a fase é alterada, o cliente recebe email automático.</p>
     <form id="projectForm">
       <input type="hidden" id="pr-id">
       <div class="field" id="pr-client-wrap"><label>Cliente</label><select id="pr-user"></select></div>
@@ -171,12 +171,24 @@
         </div>
         <div class="field"><label>Entrega</label><input id="pr-deadline" type="date"></div>
       </div>
-      <div class="field" id="pr-msg-wrap"><label>Mensagem para o cliente (opcional)</label><textarea id="pr-msg" rows="3" placeholder="Ex: Olá Ana, partilhei a versão 2..."></textarea></div>
+      <div class="field" id="pr-msg-wrap"><label>Mensagem para o cliente (opcional)</label><textarea id="pr-msg" rows="3" placeholder="Ex: Cara Ana, foi partilhada a versão 2..."></textarea></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-close="modal-project">Cancelar</button>
         <button type="submit" class="btn btn-primary" id="pr-submit">Guardar</button>
       </div>
     </form>
+
+    <div id="pr-thread-wrap" style="display:none; margin-top:22px; padding-top:18px; border-top:1px solid var(--line);">
+      <h4 style="margin:0 0 6px 0;">Notas do projeto</h4>
+      <p class="lede" style="margin-bottom:12px;">Conversa com o cliente sobre este projeto. As notas que enviar daqui serão também enviadas ao cliente por email.</p>
+      <div id="pr-thread" style="display:flex; flex-direction:column; gap:10px; max-height:260px; overflow-y:auto; margin-bottom:14px;"></div>
+      <form id="projectAdminMsgForm">
+        <div class="field"><label>Nova nota para o cliente</label><textarea id="pr-msg-body" rows="3" placeholder="Escreva a sua nota..."></textarea></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn btn-primary">Enviar nota</button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 

@@ -593,6 +593,8 @@ function openNewProject() {
   document.getElementById('pr-stage').value = 'new';
   document.getElementById('pr-msg').value = '';
   document.getElementById('pr-client-wrap').style.display = '';
+  const tw = document.getElementById('pr-thread-wrap');
+  if (tw) tw.style.display = 'none';
   openModal('modal-project');
 }
 
@@ -612,7 +614,31 @@ function openProjectEdit(id) {
   document.getElementById('pr-stage').value = p.stage || 'new';
   document.getElementById('pr-msg').value = '';
   document.getElementById('pr-client-wrap').style.display = '';
+  const tw = document.getElementById('pr-thread-wrap');
+  if (tw) tw.style.display = '';
+  loadProjectThread(id);
   openModal('modal-project');
+}
+
+async function loadProjectThread(id) {
+  const box = document.getElementById('pr-thread');
+  if (!box) return;
+  box.innerHTML = `<div class="empty" style="padding:14px 0;">A carregar notas…</div>`;
+  try {
+    const msgs = await api(`/api/projects/${id}/messages`);
+    if (!msgs.length) {
+      box.innerHTML = `<div class="empty" style="padding:14px 0;">Ainda não existem notas neste projeto.</div>`;
+      return;
+    }
+    box.innerHTML = msgs.map(m => `
+      <div class="bubble ${m.author_role === 'admin' ? 'mine' : ''}">
+        <div class="author">${escapeHtml(m.author_name)}${m.author_role === 'admin' ? ' · DUIT' : ' · Cliente'} · ${fmtDateTime(m.created_at)}</div>
+        <div>${escapeHtml(m.body).replace(/\n/g,'<br>')}</div>
+      </div>`).join('');
+    box.scrollTop = box.scrollHeight;
+  } catch (err) {
+    box.innerHTML = `<div class="empty" style="padding:14px 0;">Não foi possível carregar as notas.</div>`;
+  }
 }
 
 async function deleteProject(id) {
@@ -1452,6 +1478,20 @@ document.addEventListener('submit', async (e) => {
       closeModal('modal-project'); e.target.reset();
       document.getElementById('pr-user').disabled = false;
       go('projects');
+    } catch (err) { toast(err.message, 'cancel'); }
+  }
+
+  if (e.target.id === 'projectAdminMsgForm') {
+    e.preventDefault();
+    const id = document.getElementById('pr-id').value;
+    const body = document.getElementById('pr-msg-body').value.trim();
+    if (!id) { toast('Guarde primeiro o projeto.', 'cancel'); return; }
+    if (!body) { toast('Escreva uma nota antes de enviar.', 'cancel'); return; }
+    try {
+      await api(`/api/projects/${id}/messages`, { method: 'POST', body: { body } });
+      document.getElementById('pr-msg-body').value = '';
+      toast('Nota enviada ao cliente.', 'check');
+      await loadProjectThread(id);
     } catch (err) { toast(err.message, 'cancel'); }
   }
 

@@ -335,6 +335,39 @@ Equipa DUIT`;
     return { subject, body, html };
   },
 
+  projectMessage: (recipientName, project, authorLabel, body) => {
+    const isAdminAuthor = authorLabel === 'DUIT';
+    const subject = isAdminAuthor
+      ? `Nova nota da DUIT — projeto "${project}"`
+      : `Nova nota do cliente — projeto "${project}"`;
+    const txt =
+`Caro(a) ${recipientName},
+
+${isAdminAuthor ? 'A equipa DUIT' : `O cliente (${authorLabel})`} deixou uma nova nota no projeto "${project}":
+
+"${body}"
+
+Poderá consultar e responder no portal: ${PORTAL_URL}
+
+Com os melhores cumprimentos,
+Equipa DUIT`;
+    const html = layout({
+      eyebrow: 'Nota de projeto',
+      title: `Nova nota — ${project}`,
+      greeting: `Caro(a) ${recipientName},`,
+      paragraphs: [
+        isAdminAuthor
+          ? `A equipa <strong>DUIT</strong> deixou uma nova nota no projeto <strong>${escapeHtml(project)}</strong>:`
+          : `O cliente <strong>${escapeHtml(authorLabel)}</strong> deixou uma nova nota no projeto <strong>${escapeHtml(project)}</strong>:`,
+        `<div style="background:#fafaf8; border-left:3px solid #ffd60a; padding:14px 18px; border-radius:6px; color:#2a2a2a; font-style:italic; line-height:1.6;">${escapeHtml(body)}</div>`,
+        'Poderá consultar e responder no portal.',
+      ],
+      ctaLabel: 'Abrir projeto →',
+      ctaUrl: PORTAL_URL,
+    });
+    return { subject, body: txt, html };
+  },
+
   postsCleared: (name, month) => {
     const subject = `Calendário editorial de ${month} — atualização`;
     const body =

@@ -11,6 +11,7 @@ const state = {
   currentTicket: null,
   currentQuote: null,
   currentMockupId: null,
+  currentProjectId: null,
 };
 
 /* ---- Boot ---- */
@@ -202,7 +203,7 @@ function projectRow(p) {
     `<span class="${i === idx ? 'cur' : ''}">${stageLabel(k)}</span>`
   ).join('');
   return `
-    <div class="project-row">
+    <div class="project-row" onclick="openProject(${p.id})" style="cursor:pointer;">
       <div style="min-width:220px; max-width:280px;">
         <div class="project-title">${escapeHtml(p.name)}</div>
         <div class="project-meta">${p.deadline ? 'Entrega ' + fmtDate(p.deadline) : 'Sem data definida'}</div>
@@ -280,11 +281,135 @@ async function viewProjects(main) {
       <div>
         <div class="eyebrow">DUIT a trabalhar consigo</div>
         <h1>Projetos</h1>
-        <p class="lede">Acompanha o estado de cada projeto em tempo real. A cada mudança de fase, recebes um email.</p>
+        <p class="lede">Clique num projeto para consultar os detalhes e enviar uma nota. A cada mudança de fase, receberá um email.</p>
       </div>
     </div>
     <div class="card table-card">
       ${rows.length === 0 ? `<div class="empty">Sem projetos.</div>` : rows.map(projectRow).join('')}
+    </div>
+  `;
+}
+
+async function openProject(id) {
+  state.currentProjectId = id;
+  const main = document.getElementById('main');
+  main.innerHTML = `<div class="card"><div class="empty">A carregar projeto…</div></div>`;
+  let p, msgs;
+  try {
+    [p, msgs] = await Promise.all([
+      api(`/api/projects/${id}`),
+      api(`/api/projects/${id}/messages`),
+    ]);
+  } catch (err) {
+    main.innerHTML = `<div class="card"><div class="empty">Não foi possível carregar o projeto.</div></div>`;
+    return;
+  }
+
+  const order = ['new','analysis','production','final_review','done','cancelled'];
+  const idx = order.indexOf(p.stage);
+  const stages = order.map((k, i) => {
+    const cls = i < idx ? 'done' : (i === idx ? 'current' : '');
+    return `<div class="stage ${cls}"></div>`;
+  }).join('');
+  const labels = order.map((k, i) =>
+    `<span class="${i === idx ? 'cur' : ''}">${stageLabel(k)}</span>`
+  ).join('');
+
+  const filesHtml = (p.files && p.files.length)
+    ? p.files.map(f => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line-2);">
+          <div style="display:flex; align-items:center; gap:10px;">
+            ${fileKindIcon(f.kind)}
+            <div>
+              <div style="font-weight:500; font-size:14px;">${escapeHtml(f.name)}</div>
+              <div style="font-size:12px; color:var(--muted);">${escapeHtml(f.uploaded_by || '')} · ${fmtDate(f.created_at)}${f.size_kb ? ' · ' + Math.round(f.size_kb) + ' KB' : ''}</div>
+            </div>
+          </div>
+        </div>`).join('')
+    : `<div class="empty" style="padding:20px 0;">Sem ficheiros associados.</div>`;
+
+  const mockupsHtml = (p.mockups && p.mockups.length)
+    ? p.mockups.map(m => `
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line-2);">
+          <div>
+            <div style="font-weight:500; font-size:14px;">${escapeHtml(m.title)}</div>
+            <div style="font-size:12px; color:var(--muted);">v${m.version} · ${fmtDate(m.created_at)}</div>
+          </div>
+          ${statusPill(m.status)}
+        </div>`).join('')
+    : `<div class="empty" style="padding:20px 0;">Sem mockups associados.</div>`;
+
+  const threadHtml = msgs.length === 0
+    ? `<div class="empty" style="padding:20px 0;">Ainda não existem notas neste projeto. Envie a primeira em baixo.</div>`
+    : msgs.map(m => `
+        <div class="bubble ${m.author_id === state.me.id ? 'mine' : ''}">
+          <div class="author">${escapeHtml(m.author_name)}${m.author_role === 'admin' ? ' · DUIT' : ''} · ${fmtDateTime(m.created_at)}</div>
+          <div>${escapeHtml(m.body).replace(/\n/g, '<br>')}</div>
+        </div>`).join('');
+
+  const canSend = p.stage !== 'cancelled';
+
+  main.innerHTML = `
+    <div class="page-head">
+      <div>
+        <button class="btn btn-ghost btn-sm" onclick="go('projects')">← Voltar aos projetos</button>
+        <h1 style="margin-top:8px;">${escapeHtml(p.name)}</h1>
+        <p class="lede">${p.deadline ? 'Entrega prevista: ' + fmtDate(p.deadline, true) : 'Sem data de entrega definida'} · Atualizado a ${fmtDate(p.updated_at)}</p>
+      </div>
+      ${statusPillForStage(p.stage)}
+    </div>
+
+    <div class="card" style="margin-bottom:18px;">
+      <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+        <span class="eyebrow" style="margin:0;">Fase atual</span>
+        <strong style="font-size:14px;">${stageLabel(p.stage)}</strong>
+      </div>
+      <div style="margin-top:6px;">
+        <div class="project-stages">${stages}</div>
+        <div class="stage-labels">${labels}</div>
+      </div>
+      ${p.description ? `
+        <hr style="border:none; border-top:1px solid var(--line); margin:18px 0;">
+        <div class="eyebrow" style="margin-bottom:6px;">Descrição</div>
+        <div style="font-size:14px; line-height:1.6; color:var(--text);">${escapeHtml(p.description).replace(/\n/g,'<br>')}</div>
+      ` : ''}
+      <div style="margin-top:14px; padding:10px 14px; border:1px dashed var(--line); border-radius:10px; color:var(--muted); font-size:13px;">
+        Esta vista é apenas de consulta. Para sugerir alterações, utilize o campo de notas mais abaixo — a equipa DUIT irá responder por aqui e por email.
+      </div>
+    </div>
+
+    <div class="grid g-2" style="gap:16px; margin-bottom:18px;">
+      <div class="card">
+        <h3 style="margin-bottom:10px;">Ficheiros</h3>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:8px;">Documentos partilhados pela DUIT e pelo cliente.</p>
+        <div>${filesHtml}</div>
+      </div>
+      <div class="card">
+        <h3 style="margin-bottom:10px;">Mockups</h3>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:8px;">Propostas visuais associadas a este projeto.</p>
+        <div>${mockupsHtml}</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-bottom:6px;">Notas do projeto</h3>
+      <p style="color:var(--muted); font-size:13px; margin-bottom:14px;">Conversa entre o cliente e a equipa DUIT sobre este projeto. Cada nova nota é também enviada por email.</p>
+      <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:18px;">
+        ${threadHtml}
+      </div>
+      ${canSend ? `
+        <form id="projectMsgForm">
+          <div class="field">
+            <label>Enviar nova nota</label>
+            <textarea id="pmsg-body" rows="3" required placeholder="Descreva a sua dúvida, sugestão ou comentário…"></textarea>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-yellow" type="submit">Enviar nota ${svg('arrow')}</button>
+          </div>
+        </form>
+      ` : `
+        <div class="empty">O projeto encontra-se cancelado. Não é possível adicionar novas notas.</div>
+      `}
     </div>
   `;
 }
@@ -828,6 +953,17 @@ document.addEventListener('submit', async (e) => {
     try {
       await api(`/api/tickets/${state.currentTicket.id}/messages`, { method: 'POST', body: { body } });
       await openTicket(state.currentTicket.id);
+    } catch (err) { toast(err.message, 'cancel'); }
+  }
+
+  if (e.target.id === 'projectMsgForm') {
+    e.preventDefault();
+    const body = document.getElementById('pmsg-body').value.trim();
+    if (!body) { toast('Escreva uma nota antes de enviar.', 'cancel'); return; }
+    try {
+      await api(`/api/projects/${state.currentProjectId}/messages`, { method: 'POST', body: { body } });
+      toast('Nota enviada à equipa DUIT.', 'check');
+      await openProject(state.currentProjectId);
     } catch (err) { toast(err.message, 'cancel'); }
   }
 
