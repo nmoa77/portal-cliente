@@ -20,7 +20,7 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
 
   const cta = (ctaLabel && ctaUrl) ? `
     <tr><td style="padding:12px 0 4px 0;">
-      <a href="${ctaUrl}" style="display:inline-block; background:#ffd60a; color:#0a0a0a; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px; font-size:15px; letter-spacing:-0.01em; border:1px solid #0a0a0a;">${escapeHtml(ctaLabel)}</a>
+      <a href="${ctaUrl}" style="display:inline-block; background:#ffd60a; color:#0a0a0a; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px; font-size:15px; letter-spacing:-0.01em;">${escapeHtml(ctaLabel)}</a>
     </td></tr>` : '';
 
   const greetRow = greeting ? `
@@ -42,10 +42,10 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
     <tr><td align="center">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px; background:#ffffff; border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(10,10,10,0.06);">
 
-        <!-- Header preto com logo -->
-        <tr><td style="background:#0a0a0a; padding:24px 40px;" align="left">
-          <a href="${PORTAL_URL}" style="text-decoration:none; display:inline-block;">
-            <img src="${LOGO_URL}" alt="DUIT" width="120" height="40" style="display:block; width:120px; height:auto; max-width:120px; border:0; outline:none;">
+        <!-- Header preto com logo (HTML/CSS para funcionar em qualquer cliente de email) -->
+        <tr><td style="background:#0a0a0a; padding:28px 40px;" align="left">
+          <a href="${PORTAL_URL}" style="text-decoration:none; display:inline-block; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;">
+            <span style="font-size:30px; font-weight:900; letter-spacing:-0.04em; color:#ffffff; line-height:1;">DUIT</span><span style="display:inline-block; width:12px; height:12px; background:#ffd60a; margin-left:4px; vertical-align:baseline;">&nbsp;</span>
           </a>
         </td></tr>
 
@@ -70,7 +70,7 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
               <strong style="color:#0a0a0a; font-weight:600;">DUIT</strong> — Design com método<br>
               <a href="${PORTAL_URL}" style="color:#8b8680; text-decoration:none;">${escapeHtml(PORTAL_URL.replace(/^https?:\/\//, ''))}</a>
               &middot;
-              <a href="mailto:ola@duit.pt" style="color:#8b8680; text-decoration:none;">ola@duit.pt</a>
+              <a href="mailto:info@duit.pt" style="color:#8b8680; text-decoration:none;">info@duit.pt</a>
             </td></tr>
           </table>
         </td></tr>
@@ -115,19 +115,33 @@ function sendViaResend({ to, subject, text, html }) {
   }
 }
 
-function deliver(db, { to, subject, body, html, user_id = null, kind = 'generic' }) {
+function deliver(db, { to, subject, body, html, user_id = null, kind = 'generic', force = false }) {
   const line = `[EMAIL → ${to}] ${subject}`;
   console.log('\n' + '━'.repeat(Math.min(line.length, 80)));
   console.log(line);
   if (body) console.log(body.split('\n').map(l => '  ' + l).join('\n'));
   console.log('━'.repeat(Math.min(line.length, 80)) + '\n');
 
+  // Respeita a preferência de notificações do destinatário (exceto emails críticos: force=true)
+  let suppressed = false;
+  if (!force && user_id) {
+    try {
+      const u = db.prepare(`SELECT notifications_enabled FROM users WHERE id=?`).get(user_id);
+      if (u && u.notifications_enabled === 0) suppressed = true;
+    } catch (e) { /* coluna pode não existir antes da migração */ }
+  }
+
   try {
     db.prepare(
       `INSERT INTO notifications (user_id, kind, to_email, subject, body)
        VALUES (?, ?, ?, ?, ?)`
-    ).run(user_id, kind, to, subject, body || '');
+    ).run(user_id, kind, to, (suppressed ? '[SUPRIMIDO] ' : '') + subject, body || '');
   } catch (e) { /* tabela pode não existir na 1ª boot */ }
+
+  if (suppressed) {
+    console.log(`[email] suprimido (utilizador desativou notificações): ${to}`);
+    return;
+  }
 
   sendViaResend({ to, subject, text: body || '', html: html || '' });
 }

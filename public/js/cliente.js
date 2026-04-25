@@ -769,12 +769,19 @@ async function viewProfile(main) {
           <div class="modal-actions"><button class="btn btn-yellow" type="submit">Atualizar password</button></div>
         </form>
         <hr style="border:none; border-top:1px solid var(--line); margin:18px 0;">
-        <h4 style="margin-bottom:8px;">Preferências</h4>
+        <h4 style="margin-bottom:8px;">Notificações por email</h4>
+        <p style="color:var(--muted); font-size:13px; margin-bottom:10px;">Receber emails de atualizações de projetos, mockups e cancelamentos.</p>
+        <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 12px; border:1px solid var(--line); border-radius:10px;">
+          <input type="checkbox" id="pf-notifs" ${me.notifications_enabled !== 0 ? 'checked' : ''} style="width:18px; height:18px; accent-color:#ffd60a; cursor:pointer;">
+          <span style="font-size:14px;">Quero receber notificações por email</span>
+        </label>
+        <hr style="border:none; border-top:1px solid var(--line); margin:18px 0;">
+        <h4 style="margin-bottom:8px;">Aspeto</h4>
         <p style="color:var(--muted); font-size:13px; margin-bottom:10px;">Tema claro ou escuro. Fica guardado neste navegador.</p>
         <button class="btn btn-ghost btn-block" onclick="toggleTheme()">${svg('sparkle')} Alternar tema</button>
         <hr style="border:none; border-top:1px solid var(--line); margin:18px 0;">
-        <h4 style="margin-bottom:8px;">A tua equipa DUIT</h4>
-        <p style="color:var(--muted); font-size:13px;">Gestor principal: Nuno Alho · +351 910 000 000 · ola@duit.pt</p>
+        <h4 style="margin-bottom:8px;">A sua equipa DUIT</h4>
+        <p style="color:var(--muted); font-size:13px;">Gestor principal: Nuno Alho · +351 918 390 570 · info@duit.pt</p>
       </div>
     </div>
   `;
@@ -839,11 +846,13 @@ document.addEventListener('submit', async (e) => {
 
   if (e.target.id === 'profileForm') {
     e.preventDefault();
+    const notifEl = document.getElementById('pf-notifs');
     const body = {
       name: document.getElementById('pf-name').value,
       company: document.getElementById('pf-company').value,
       phone: document.getElementById('pf-phone').value,
       avatar_url: document.getElementById('pf-avatar').value,
+      notifications_enabled: notifEl ? (notifEl.checked ? 1 : 0) : undefined,
     };
     try {
       await api('/api/auth/me', { method: 'PATCH', body });

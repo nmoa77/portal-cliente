@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS users (
   company TEXT,
   phone TEXT,
   avatar_url TEXT,
+  notifications_enabled INTEGER NOT NULL DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -206,6 +207,15 @@ try {
   }
 } catch (e) { console.warn('Migration social_posts.client_suggestion:', e.message); }
 
+// Migration: coluna notifications_enabled em users
+try {
+  const cols = db.prepare(`PRAGMA table_info(users)`).all();
+  if (!cols.find(c => c.name === 'notifications_enabled')) {
+    db.exec(`ALTER TABLE users ADD COLUMN notifications_enabled INTEGER NOT NULL DEFAULT 1`);
+    console.log('✓ Migration: users.notifications_enabled adicionada.');
+  }
+} catch (e) { console.warn('Migration users.notifications_enabled:', e.message); }
+
 // Migration: simplificar status dos posts (tirar awaiting_approval / approved, meter cancelled)
 try {
   const sp = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='social_posts'`).get();
@@ -291,7 +301,7 @@ function seed() {
      VALUES (?, ?, ?, ?, ?, ?)`
   );
 
-  const nuno = insertUser.run('Nuno Alho', 'admin@duit.pt', adminHash, 'admin', 'DUIT', '+351 910 000 000').lastInsertRowid;
+  const nuno = insertUser.run('Nuno Alho', 'admin@duit.pt', adminHash, 'admin', 'DUIT', '+351 918 390 570').lastInsertRowid;
   const ana = insertUser.run('Ana Ribeiro', 'ana@exemplo.pt', clientHash, 'client', 'Padaria do Bairro', '+351 912 345 678').lastInsertRowid;
   const joao = insertUser.run('João Silva', 'joao@exemplo.pt', clientHash, 'client', 'Silva Advogados', '+351 913 111 222').lastInsertRowid;
   const rita = insertUser.run('Rita Costa', 'rita@exemplo.pt', clientHash, 'client', 'Café Tertúlia', '+351 914 222 333').lastInsertRowid;

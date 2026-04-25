@@ -49,21 +49,25 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
   const user = db.prepare(
-    'SELECT id, name, email, role, company, phone, avatar_url FROM users WHERE id = ?'
+    'SELECT id, name, email, role, company, phone, avatar_url, notifications_enabled FROM users WHERE id = ?'
   ).get(req.user.id);
   res.json(user);
 });
 
 app.patch('/api/auth/me', requireAuth, (req, res) => {
-  const { name, company, phone, avatar_url } = req.body || {};
+  const { name, company, phone, avatar_url, notifications_enabled } = req.body || {};
+  let notifVal = null;
+  if (typeof notifications_enabled === 'boolean') notifVal = notifications_enabled ? 1 : 0;
+  else if (notifications_enabled === 0 || notifications_enabled === 1) notifVal = notifications_enabled;
   db.prepare(
     `UPDATE users SET
        name = COALESCE(?, name),
        company = COALESCE(?, company),
        phone = COALESCE(?, phone),
-       avatar_url = COALESCE(?, avatar_url)
+       avatar_url = COALESCE(?, avatar_url),
+       notifications_enabled = COALESCE(?, notifications_enabled)
      WHERE id = ?`
-  ).run(name ?? null, company ?? null, phone ?? null, avatar_url ?? null, req.user.id);
+  ).run(name ?? null, company ?? null, phone ?? null, avatar_url ?? null, notifVal, req.user.id);
   res.json({ ok: true });
 });
 
