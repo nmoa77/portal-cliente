@@ -158,7 +158,7 @@ async function viewHome(main) {
       </div>
     </div>
 
-    <div class="section-head"><h2>A precisar da tua atenção</h2></div>
+    <div class="section-head"><h2>A precisar de atenção</h2></div>
     <div class="grid g-3">
       <div class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
@@ -303,7 +303,7 @@ function openEditClient(id) {
   const c = (state.clients || []).find(x => x.id === id);
   if (!c) { toast('Cliente não encontrado.', 'cancel'); return; }
   document.getElementById('modal-client-title').textContent = 'Editar cliente';
-  document.getElementById('modal-client-lede').textContent = `Atualizar dados de ${c.name}. Deixa a password em branco para manter a atual.`;
+  document.getElementById('modal-client-lede').textContent = `Atualizar dados de ${c.name}. Deixe a password em branco para manter a atual.`;
   document.getElementById('cl-id').value = c.id;
   document.getElementById('cl-name').value = c.name || '';
   document.getElementById('cl-company').value = c.company || '';
@@ -314,7 +314,7 @@ function openEditClient(id) {
   const pwLabel = document.getElementById('cl-password-label');
   if (pwLabel) pwLabel.textContent = 'Nova password (opcional)';
   pw.removeAttribute('required');
-  pw.placeholder = 'Deixa em branco para manter';
+  pw.placeholder = 'Deixe em branco para manter';
   document.getElementById('cl-submit').textContent = 'Guardar alterações';
   openModal('modal-client');
 }
@@ -364,7 +364,7 @@ async function viewSubs(main) {
       <div>
         <div class="eyebrow">Gestão</div>
         <h1>Subscrições</h1>
-        <p class="lede">Todas as subscrições ativas, pausadas e canceladas. A partir daqui podes renovar, pausar ou cancelar.</p>
+        <p class="lede">Todas as subscrições ativas, pausadas e canceladas. A partir daqui pode renovar, pausar ou cancelar.</p>
       </div>
       <div class="page-head-actions">
         <button class="btn btn-yellow" onclick="openNewSub()">${svg('plus')} Nova subscrição</button>
@@ -459,7 +459,7 @@ async function viewPlans(main) {
       <div>
         <div class="eyebrow">Templates de oferta</div>
         <h1>Planos</h1>
-        <p class="lede">Os planos-base que a DUIT oferece. Quando criares uma subscrição, podes puxar destes templates.</p>
+        <p class="lede">Os planos-base que a DUIT oferece. Ao criar uma subscrição, pode puxar destes templates.</p>
       </div>
       <div class="page-head-actions">
         <button class="btn btn-yellow" onclick="openNewPlan()">${svg('plus')} Novo plano</button>
@@ -926,7 +926,7 @@ function openClearClient() {
 }
 
 function openGenPosts() {
-  if (state.calClientFilter === 'all') { toast('Escolhe um cliente primeiro.', 'cancel'); return; }
+  if (state.calClientFilter === 'all') { toast('Escolha um cliente primeiro.', 'cancel'); return; }
   const client = state.clients.find(c => c.id == state.calClientFilter);
   if (!client) return;
   const mo = activeCalMonth();
@@ -1204,7 +1204,7 @@ async function openTicket(id) {
       </div>
       ${t.status !== 'closed' ? `
         <form id="msgForm" style="margin-top:20px;">
-          <div class="field"><label>Responder</label><textarea id="msg-body" rows="3" required placeholder="Escreve a resposta..."></textarea></div>
+          <div class="field"><label>Responder</label><textarea id="msg-body" rows="3" required placeholder="Escreva a resposta..."></textarea></div>
           <div class="modal-actions"><button class="btn btn-yellow" type="submit">Enviar ${svg('arrow')}</button></div>
         </form>
       ` : ''}
@@ -1264,9 +1264,9 @@ async function viewProfile(main) {
   main.innerHTML = `
     <div class="page-head">
       <div>
-        <div class="eyebrow">A tua conta</div>
+        <div class="eyebrow">A sua conta</div>
         <h1>Perfil</h1>
-        <p class="lede">Os teus dados e preferências da DUIT.</p>
+        <p class="lede">Os seus dados e preferências da DUIT.</p>
       </div>
     </div>
     <div class="grid g-2-1">
@@ -1302,7 +1302,7 @@ async function viewProfile(main) {
       <h3 style="margin-bottom:6px; color:#c03030;">${svg('cancel')} Zona de perigo</h3>
       <p style="color:var(--muted); font-size:13px; margin-bottom:14px;">
         Apaga <strong>todos</strong> os clientes, subscrições, planos, projetos, mockups, ficheiros,
-        calendário, orçamentos, faturas, tickets, notas e notificações. Só a tua conta de admin
+        calendário, orçamentos, faturas, tickets, notas e notificações. Só a sua conta de admin
         continua activa. Útil para arrancar com dados reais depois da demo. <strong>Não tem volta.</strong>
       </p>
       <button class="btn btn-ghost" onclick="openWipeDb()" style="color:#c03030; border-color:#e06060;">
@@ -1315,9 +1315,9 @@ async function viewProfile(main) {
 /* Modal/confirmação de wipe */
 function openWipeDb() {
   const phrase = prompt(
-    'Vais apagar TODOS os dados da base de dados (clientes, projetos, faturas, calendário, etc.).\n\n' +
-    'A tua conta de admin mantém-se. Esta ação não tem volta.\n\n' +
-    'Para confirmar, escreve exactamente: APAGAR TUDO'
+    'Vão ser apagados TODOS os dados da base de dados (clientes, projetos, faturas, calendário, etc.).\n\n' +
+    'A sua conta de admin mantém-se. Esta ação não tem volta.\n\n' +
+    'Para confirmar, escreva exactamente: APAGAR TUDO'
   );
   if (phrase === null) return; // cancelou
   if (phrase !== 'APAGAR TUDO') {
@@ -1491,7 +1491,7 @@ document.addEventListener('submit', async (e) => {
 
   if (e.target.id === 'genPostsForm') {
     e.preventDefault();
-    if (state.calClientFilter === 'all') { toast('Escolhe um cliente primeiro.', 'cancel'); return; }
+    if (state.calClientFilter === 'all') { toast('Escolha um cliente primeiro.', 'cancel'); return; }
     const weekdays = Array.from(document.querySelectorAll('#modal-gen-posts .wd-chip input:checked'))
       .map(i => Number(i.value));
     const body = {
