@@ -121,7 +121,7 @@ async function viewHome(main) {
       <div>
         <div class="eyebrow">Olá</div>
         <h1>${greet}, ${escapeHtml(firstName)}.</h1>
-        <p class="lede">Tudo o que a DUIT está a tratar por ti, num só sítio.</p>
+        <p class="lede">Tudo o que a DUIT está a tratar, num só sítio.</p>
       </div>
       <div class="page-head-actions">
         <button class="btn btn-ghost" onclick="go('support')">${svg('chat')} Abrir pedido</button>
@@ -219,7 +219,7 @@ function projectRow(p) {
 function statusPillForStage(stage) {
   if (stage === 'done') return `<span class="pill ok">${svg('check')} Concluído</span>`;
   if (stage === 'cancelled') return `<span class="pill muted">Cancelado</span>`;
-  if (stage === 'final_review') return `<span class="pill warn">A tua ação</span>`;
+  if (stage === 'final_review') return `<span class="pill warn">A sua ação</span>`;
   return `<span class="pill y-soft">Em curso</span>`;
 }
 
@@ -231,9 +231,9 @@ async function viewSubs(main) {
   main.innerHTML = `
     <div class="page-head">
       <div>
-        <div class="eyebrow">As tuas subscrições</div>
+        <div class="eyebrow">As suas subscrições</div>
         <h1>Subscrições</h1>
-        <p class="lede">Aqui vês tudo o que tens ativo com a DUIT. Podes pedir cancelamento a qualquer momento — analisamos em 48h.</p>
+        <p class="lede">Aqui pode consultar tudo o que tem ativo com a DUIT. Pode pedir cancelamento a qualquer momento — analisamos em 48h.</p>
       </div>
     </div>
     <div class="card table-card">
@@ -278,7 +278,7 @@ async function viewProjects(main) {
   main.innerHTML = `
     <div class="page-head">
       <div>
-        <div class="eyebrow">DUIT a trabalhar para ti</div>
+        <div class="eyebrow">DUIT a trabalhar consigo</div>
         <h1>Projetos</h1>
         <p class="lede">Acompanha o estado de cada projeto em tempo real. A cada mudança de fase, recebes um email.</p>
       </div>
@@ -299,7 +299,7 @@ async function viewMockups(main) {
       <div>
         <div class="eyebrow">Aprovações</div>
         <h1>Mockups</h1>
-        <p class="lede">Carrega num mockup para o ver, pedir alterações ou aprovar.</p>
+        <p class="lede">Clique num mockup para o consultar, pedir alterações ou aprovar.</p>
       </div>
     </div>
     <div class="mockup-grid">
@@ -347,7 +347,7 @@ async function viewFiles(main) {
       <div>
         <div class="eyebrow">Partilhados com a DUIT</div>
         <h1>Ficheiros</h1>
-        <p class="lede">Descarrega o que recebeste e envia o que precisarmos.</p>
+        <p class="lede">Descarregue o que recebeu e envie o que for necessário.</p>
       </div>
       <div class="page-head-actions">
         <button class="btn btn-yellow" onclick="uploadFile()">${svg('plus')} Enviar ficheiro</button>
@@ -432,7 +432,7 @@ async function viewCalendar(main) {
       <div>
         <div class="eyebrow">Redes sociais</div>
         <h1>Calendário de publicações</h1>
-        <p class="lede">Vê o que está agendado e aprova as publicações que precisam da tua validação.</p>
+        <p class="lede">Consulte o que está agendado e aprove as publicações que precisam da sua validação.</p>
       </div>
       <div class="page-head-actions">
         <button class="btn btn-ghost btn-sm" onclick="shiftMonth(-1)">←</button>
@@ -482,8 +482,8 @@ async function openPostView(id) {
     document.getElementById('mp-suggestion').value = '';
     const lede = document.getElementById('modal-post-lede');
     if (lede) lede.textContent = p.client_suggestion
-      ? `Já enviaste uma sugestão anterior: "${p.client_suggestion}". Podes enviar outra se quiseres.`
-      : 'Vê o detalhe do post. Se quiseres sugerir uma alteração à equipa, escreve em baixo.';
+      ? `Já enviou uma sugestão anterior: "${p.client_suggestion}". Pode enviar outra se assim o entender.`
+      : 'Consulte o detalhe do post. Se desejar sugerir uma alteração à equipa, escreva em baixo.';
     openModal('modal-post');
   } catch (err) { toast(err.message, 'cancel'); }
 }
@@ -647,21 +647,23 @@ async function viewSupport(main) {
   const tickets = await api('/api/tickets');
   const faqs = [
     { q: 'Quando são publicados os posts nas redes sociais?',
-      a: 'Seguimos o calendário acordado contigo. Cada post é publicado na hora definida; os que exigem aprovação só vão para o ar depois de tu carregares em "Aprovar".' },
-    { q: 'Como peço alterações a um mockup?',
-      a: 'Em "Aprovações", abre o mockup e clica em "Pedir alterações". Podes adicionar um comentário — a equipa recebe logo uma notificação.' },
+      a: 'Seguimos o calendário acordado consigo. Em "Calendário" pode ver o que está agendado e abrir um post para enviar uma sugestão à equipa.' },
+    { q: 'Como acompanho o estado de um projeto?',
+      a: 'Em "Projetos" encontra a lista dos seus projetos e a respetiva fase (análise, produção, revisão final, etc.). Sempre que mudamos a fase, recebe uma notificação por email — desde que tenha as notificações ativas no Perfil.' },
+    { q: 'Como aceito ou rejeito um orçamento?',
+      a: 'Em "Orçamentos" clique no orçamento para ver o detalhe e os itens incluídos. No fundo encontra os botões para aceitar ou rejeitar. Se precisar de uma alteração, abra um pedido de suporte antes de decidir.' },
     { q: 'Consigo cancelar uma subscrição a meio do mês?',
-      a: 'Sim. Em "Subscrições" clica em "Cancelar". A equipa analisa em 48h. A subscrição continua ativa até ao fim do ciclo que já pagaste.' },
-    { q: 'Onde encontro as minhas faturas?',
-      a: 'Em "Faturas". Podes descarregar cada fatura em PDF. Se precisares do recibo com o teu NIF, abre um pedido de suporte.' },
+      a: 'Sim. Em "Subscrições" clique em "Cancelar". A equipa analisa em 48h. A subscrição continua ativa até ao fim do ciclo já pago.' },
+    { q: 'Como altero a palavra-passe ou desativo as notificações?',
+      a: 'Tudo no Perfil. Pode atualizar dados pessoais, mudar a palavra-passe e ativar/desativar emails de notificação. As alterações são imediatas.' },
   ];
 
   main.innerHTML = `
     <div class="page-head">
       <div>
-        <div class="eyebrow">Precisas de ajuda?</div>
+        <div class="eyebrow">Precisa de ajuda?</div>
         <h1>Suporte</h1>
-        <p class="lede">Tens uma dúvida rápida? Olha a base de conhecimento. Algo mais específico? Abre um pedido.</p>
+        <p class="lede">Tem uma dúvida rápida? Consulte a base de conhecimento. Algo mais específico? Abra um pedido.</p>
       </div>
       <div class="page-head-actions">
         <button class="btn btn-yellow" onclick="openModal('modal-ticket')">${svg('plus')} Novo pedido</button>
@@ -680,7 +682,7 @@ async function viewSupport(main) {
       </div>
 
       <div class="card">
-        <h3 style="margin-bottom:10px;">Os teus pedidos</h3>
+        <h3 style="margin-bottom:10px;">Os seus pedidos</h3>
         ${tickets.length === 0 ? `<div class="empty">Nenhum pedido aberto.</div>` : tickets.map(t => `
           <div class="project-row" onclick="openTicket(${t.id})" style="cursor:pointer;">
             <div style="flex:1;">
@@ -725,7 +727,7 @@ async function openTicket(id) {
       </div>
       ${t.status !== 'closed' ? `
         <form id="msgForm" style="margin-top:20px;">
-          <div class="field"><label>Nova mensagem</label><textarea id="msg-body" rows="3" required placeholder="Escreve aqui..."></textarea></div>
+          <div class="field"><label>Nova mensagem</label><textarea id="msg-body" rows="3" required placeholder="Escreva aqui..."></textarea></div>
           <div class="modal-actions"><button class="btn btn-yellow" type="submit">Enviar ${svg('arrow')}</button></div>
         </form>
       ` : ''}
@@ -741,9 +743,9 @@ async function viewProfile(main) {
   main.innerHTML = `
     <div class="page-head">
       <div>
-        <div class="eyebrow">A tua conta</div>
+        <div class="eyebrow">A sua conta</div>
         <h1>Perfil</h1>
-        <p class="lede">Dados que a DUIT usa para te contactar e faturar.</p>
+        <p class="lede">Dados que a DUIT utiliza para o(a) contactar e faturar.</p>
       </div>
     </div>
     <div class="grid g-2-1">
@@ -834,7 +836,7 @@ document.addEventListener('submit', async (e) => {
     const id = document.getElementById('mp-id').value;
     const suggestion = document.getElementById('mp-suggestion').value.trim();
     if (!suggestion) {
-      toast('Escreve a tua sugestão antes de enviar.', 'cancel');
+      toast('Escreva a sua sugestão antes de enviar.', 'cancel');
       return;
     }
     try {
