@@ -154,16 +154,20 @@ app.post('/api/auth/change-password', requireAuth, (req, res) => {
    STATS
    ================================================================ */
 app.get('/api/stats', requireAdmin, (req, res) => {
+  // Totais (úteis para a home / cards principais)
   const clients = db.prepare(`SELECT COUNT(*) c FROM users WHERE role='client'`).get().c;
   const activeSubs = db.prepare(`SELECT COUNT(*) c FROM subscriptions WHERE status='active'`).get().c;
   const openTickets = db.prepare(`SELECT COUNT(*) c FROM tickets WHERE status!='closed'`).get().c;
   const openProjects = db.prepare(`SELECT COUNT(*) c FROM projects WHERE stage NOT IN ('done','cancelled')`).get().c;
-  const pendingCancels = db.prepare(`SELECT COUNT(*) c FROM cancellation_requests WHERE status='pending'`).get().c;
-  const pendingQuotes = db.prepare(`SELECT COUNT(*) c FROM quotes WHERE status IN ('sent','revised')`).get().c;
   const draftPosts = db.prepare(`SELECT COUNT(*) c FROM social_posts WHERE status='draft'`).get().c;
   const monthlyRevenue = db.prepare(
     `SELECT COALESCE(SUM(price),0) r FROM subscriptions WHERE status='active' AND period='mês'`
   ).get().r;
+
+  // Alertas (apenas itens novos/não lidos — desaparecem quando o admin os trata)
+  const pendingCancels = db.prepare(`SELECT COUNT(*) c FROM cancellation_requests WHERE status='pending'`).get().c;
+  const pendingQuotes = db.prepare(`SELECT COUNT(*) c FROM quotes WHERE status IN ('sent','revised')`).get().c;
+  const pendingSubs = db.prepare(`SELECT COUNT(*) c FROM subscriptions WHERE status='pending'`).get().c;
   // Notas de cliente em projetos ainda não vistas pelo admin
   const unreadClientNotes = db.prepare(
     `SELECT COUNT(*) c
@@ -175,11 +179,30 @@ app.get('/api/stats', requireAdmin, (req, res) => {
   const unseenQuoteResponses = db.prepare(
     `SELECT COUNT(*) c FROM quotes WHERE responded_at IS NOT NULL AND seen_by_admin_at IS NULL`
   ).get().c;
-  // Mantém awaitingPosts como alias para compatibilidade, aponta para rascunhos
+  // Tickets abertos cuja última mensagem é do cliente (admin precisa responder)
+  const unreadAdminTickets = db.prepare(
+    `SELECT COUNT(*) c FROM tickets t
+      WHERE t.status != 'closed' AND EXISTS (
+        SELECT 1 FROM messages m
+          JOIN users u ON u.id = m.user_id
+         WHERE m.ticket_id = t.id
+           AND u.role = 'client'
+           AND m.created_at = (SELECT MAX(created_at) FROM messages WHERE ticket_id = t.id)
+      )`
+  ).get().c;
+  // Sugestões de cliente em posts ainda não tratadas
+  const pendingPostSuggestions = db.prepare(
+    `SELECT COUNT(*) c FROM social_posts WHERE client_suggestion IS NOT NULL AND TRIM(client_suggestion) != ''`
+  ).get().c;
+
   res.json({
-    clients, activeSubs, openTickets, openProjects, pendingCancels, pendingQuotes,
+    // totais
+    clients, activeSubs, openTickets, openProjects,
     awaitingPosts: draftPosts, draftPosts, monthlyRevenue,
+    // alertas
+    pendingCancels, pendingQuotes, pendingSubs,
     unreadClientNotes, unseenQuoteResponses,
+    unreadAdminTickets, pendingPostSuggestions,
   });
 });
 
@@ -232,9 +255,32 @@ app.get('/api/client-summary', requireAuth, (req, res) => {
   ).get(uid).r;
   const weekPosts = db.prepare(`SELECT COUNT(*) c FROM social_posts WHERE user_id=?`).get(uid).c;
   const draftPosts = db.prepare(`SELECT COUNT(*) c FROM social_posts WHERE user_id=? AND status='draft'`).get(uid).c;
+
+  /* Alertas (não-lidos) */
+  // Notas de admin em projetos do cliente, ainda não vistas
+  const unreadProjectNotes = db.prepare(
+    `SELECT COUNT(*) c FROM project_messages pm
+       JOIN projects p ON p.id = pm.project_id
+       JOIN users au ON au.id = pm.author_id
+      WHERE p.user_id = ? AND au.role='admin' AND pm.read_by_client_at IS NULL`
+  ).get(uid).c;
+  // Tickets em curso onde a última mensagem é de admin (cliente precisa de ler)
+  const unreadClientTickets = db.prepare(
+    `SELECT COUNT(*) c FROM tickets t
+      WHERE t.user_id = ? AND t.status != 'closed' AND EXISTS (
+        SELECT 1 FROM messages m
+          JOIN users u ON u.id = m.user_id
+         WHERE m.ticket_id = t.id
+           AND u.role = 'admin'
+           AND m.created_at = (SELECT MAX(created_at) FROM messages WHERE ticket_id = t.id)
+      )`
+  ).get(uid).c;
+
   res.json({
     activeSubs, openProjects, pendingMockups, pendingQuotes, revisedQuotes,
     monthTotal, weekPosts, awaitingPosts: draftPosts, draftPosts,
+    // alertas
+    unreadProjectNotes, unreadClientTickets,
   });
 });
 
@@ -527,6 +573,17 @@ app.get('/api/projects/:id/messages', requireAuth, (req, res) => {
             AND author_id IN (SELECT id FROM users WHERE role='client')`
       ).run(req.params.id);
     } catch (e) { console.warn('mark-read on view:', e.message); }
+  }
+  // Quando o cliente consulta a thread, marca como lidas as notas pendentes da DUIT
+  if (req.user.role === 'client') {
+    try {
+      db.prepare(
+        `UPDATE project_messages
+            SET read_by_client_at = datetime('now')
+          WHERE project_id = ? AND read_by_client_at IS NULL
+            AND author_id IN (SELECT id FROM users WHERE role='admin')`
+      ).run(req.params.id);
+    } catch (e) { console.warn('mark-read on view (client):', e.message); }
   }
   res.json(rows);
 });

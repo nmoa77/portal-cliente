@@ -45,18 +45,18 @@ function renderShell() {
   document.getElementById('side-role').textContent = 'DUIT · Admin';
 
   const s = state.stats || {};
-  const unreadNotes = s.unreadClientNotes || 0;
-  const unseenQuotes = s.unseenQuoteResponses || 0;
+  // Apenas alertas: contam-se itens novos / não lidos / por tratar.
+  // Quando o admin entra na vista correspondente, o servidor marca como visto e o badge desaparece.
   const items = [
     { id: 'home',      icon: 'home',    label: 'Visão geral' },
-    { id: 'clients',   icon: 'users',   label: 'Clientes',     badge: s.clients },
-    { id: 'subs',      icon: 'box',     label: 'Subscrições',  badge: s.activeSubs },
+    { id: 'clients',   icon: 'users',   label: 'Clientes' },
+    { id: 'subs',      icon: 'box',     label: 'Subscrições',  alert: s.pendingSubs,            alertTitle: `${s.pendingSubs || 0} subscrição(ões) por confirmar` },
     { id: 'plans',     icon: 'sparkle', label: 'Planos' },
-    { id: 'projects',  icon: 'folder',  label: 'Projetos',     badge: s.openProjects, alert: unreadNotes, alertTitle: `${unreadNotes} nota(s) novas de cliente` },
-    { id: 'calendar',  icon: 'cal',     label: 'Calendário',   badge: s.awaitingPosts },
-    { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   badge: s.pendingQuotes, alert: unseenQuotes, alertTitle: `${unseenQuotes} resposta(s) de cliente por ver` },
-    { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',badge: s.pendingCancels },
-    { id: 'support',   icon: 'chat',    label: 'Suporte',      badge: s.openTickets },
+    { id: 'projects',  icon: 'folder',  label: 'Projetos',     alert: s.unreadClientNotes,      alertTitle: `${s.unreadClientNotes || 0} nota(s) novas de cliente` },
+    { id: 'calendar',  icon: 'cal',     label: 'Calendário',   alert: s.pendingPostSuggestions, alertTitle: `${s.pendingPostSuggestions || 0} sugestão(ões) de cliente por tratar` },
+    { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   alert: s.unseenQuoteResponses,   alertTitle: `${s.unseenQuoteResponses || 0} resposta(s) de cliente por ver` },
+    { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',alert: s.pendingCancels,         alertTitle: `${s.pendingCancels || 0} cancelamento(s) pendente(s)` },
+    { id: 'support',   icon: 'chat',    label: 'Suporte',      alert: s.unreadAdminTickets,     alertTitle: `${s.unreadAdminTickets || 0} ticket(s) com nova resposta de cliente` },
     { id: 'notifications', icon: 'bell', label: 'Notificações' },
     { id: 'profile',   icon: 'user',    label: 'Perfil' },
   ];
@@ -67,9 +67,7 @@ function renderShell() {
       <button class="nav-item" data-view="${it.id}" ${it.alert ? `title="${it.alertTitle || ''}"` : ''}>
         ${svg(it.icon)}
         <span>${it.label}</span>
-        ${it.alert
-          ? `<span class="badge-alert">${it.alert}</span>`
-          : (it.badge ? `<span class="badge-count">${it.badge}</span>` : '')}
+        ${it.alert ? `<span class="badge-alert">${it.alert}</span>` : ''}
       </button>
     `).join('')}
   `;

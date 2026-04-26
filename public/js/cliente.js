@@ -41,22 +41,24 @@ function renderShell() {
 
   const nav = document.getElementById('nav');
   const s = state.summary || {};
+  // Apenas alertas: contam-se itens novos / não lidos / por decidir.
+  // Quando o cliente entra na vista correspondente, o servidor marca como visto e o badge desaparece.
   const items = [
     { id: 'home',      icon: 'home',    label: 'Início' },
-    { id: 'subs',      icon: 'box',     label: 'Subscrições', badge: s.activeSubs },
-    { id: 'projects',  icon: 'folder',  label: 'Projetos',    badge: s.openProjects },
-    { id: 'calendar',  icon: 'cal',     label: 'Calendário',  badge: s.awaitingPosts },
-    { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',  badge: s.pendingQuotes },
-    { id: 'support',   icon: 'chat',    label: 'Suporte' },
+    { id: 'subs',      icon: 'box',     label: 'Subscrições' },
+    { id: 'projects',  icon: 'folder',  label: 'Projetos',    alert: s.unreadProjectNotes,   alertTitle: `${s.unreadProjectNotes || 0} nota(s) nova(s) da DUIT` },
+    { id: 'calendar',  icon: 'cal',     label: 'Calendário' },
+    { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',  alert: s.pendingQuotes,        alertTitle: `${s.pendingQuotes || 0} orçamento(s) por decidir` },
+    { id: 'support',   icon: 'chat',    label: 'Suporte',     alert: s.unreadClientTickets,  alertTitle: `${s.unreadClientTickets || 0} ticket(s) com nova resposta da DUIT` },
     { id: 'profile',   icon: 'user',    label: 'Perfil' },
   ];
   nav.innerHTML = `
     <div class="nav-section">Área do cliente</div>
     ${items.map(it => `
-      <button class="nav-item" data-view="${it.id}">
+      <button class="nav-item" data-view="${it.id}" ${it.alert ? `title="${it.alertTitle || ''}"` : ''}>
         ${svg(it.icon)}
         <span>${it.label}</span>
-        ${it.badge ? `<span class="badge-count">${it.badge}</span>` : ''}
+        ${it.alert ? `<span class="badge-alert">${it.alert}</span>` : ''}
       </button>
     `).join('')}
   `;

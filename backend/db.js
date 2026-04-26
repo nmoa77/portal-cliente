@@ -216,6 +216,7 @@ CREATE TABLE IF NOT EXISTS project_messages (
   author_id INTEGER NOT NULL,
   body TEXT NOT NULL,
   read_by_admin_at TEXT,
+  read_by_client_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
   FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
@@ -298,7 +299,7 @@ try {
   }
 } catch (e) { console.warn('Migration quotes status revised:', e.message); }
 
-// Migration: coluna read_by_admin_at em project_messages
+// Migration: colunas read_by_admin_at e read_by_client_at em project_messages
 try {
   const cols = db.prepare(`PRAGMA table_info(project_messages)`).all();
   if (cols.length) {
@@ -306,10 +307,15 @@ try {
       db.exec(`ALTER TABLE project_messages ADD COLUMN read_by_admin_at TEXT`);
       console.log('✓ Migration: project_messages.read_by_admin_at adicionada.');
     }
-    // Garante o índice em todas as instalações (idempotente)
+    if (!cols.find(c => c.name === 'read_by_client_at')) {
+      db.exec(`ALTER TABLE project_messages ADD COLUMN read_by_client_at TEXT`);
+      console.log('✓ Migration: project_messages.read_by_client_at adicionada.');
+    }
+    // Índices idempotentes
     db.exec(`CREATE INDEX IF NOT EXISTS idx_project_messages_unread ON project_messages(read_by_admin_at)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_project_messages_unread_client ON project_messages(read_by_client_at)`);
   }
-} catch (e) { console.warn('Migration project_messages.read_by_admin_at:', e.message); }
+} catch (e) { console.warn('Migration project_messages read columns:', e.message); }
 
 // Migration: simplificar status dos posts (tirar awaiting_approval / approved, meter cancelled)
 try {
