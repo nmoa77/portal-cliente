@@ -212,11 +212,13 @@ CREATE TABLE IF NOT EXISTS project_messages (
   project_id INTEGER NOT NULL,
   author_id INTEGER NOT NULL,
   body TEXT NOT NULL,
+  read_by_admin_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
   FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_project_messages_project ON project_messages(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_messages_unread ON project_messages(read_by_admin_at);
 `);
 
 /* ==============================================================
@@ -237,6 +239,16 @@ try {
     console.log('✓ Migration: users.notifications_enabled adicionada.');
   }
 } catch (e) { console.warn('Migration users.notifications_enabled:', e.message); }
+
+// Migration: coluna read_by_admin_at em project_messages
+try {
+  const cols = db.prepare(`PRAGMA table_info(project_messages)`).all();
+  if (cols.length && !cols.find(c => c.name === 'read_by_admin_at')) {
+    db.exec(`ALTER TABLE project_messages ADD COLUMN read_by_admin_at TEXT`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_project_messages_unread ON project_messages(read_by_admin_at)`);
+    console.log('✓ Migration: project_messages.read_by_admin_at adicionada.');
+  }
+} catch (e) { console.warn('Migration project_messages.read_by_admin_at:', e.message); }
 
 // Migration: simplificar status dos posts (tirar awaiting_approval / approved, meter cancelled)
 try {

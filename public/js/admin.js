@@ -45,12 +45,13 @@ function renderShell() {
   document.getElementById('side-role').textContent = 'DUIT · Admin';
 
   const s = state.stats || {};
+  const unread = s.unreadClientNotes || 0;
   const items = [
     { id: 'home',      icon: 'home',    label: 'Visão geral' },
     { id: 'clients',   icon: 'users',   label: 'Clientes',     badge: s.clients },
     { id: 'subs',      icon: 'box',     label: 'Subscrições',  badge: s.activeSubs },
     { id: 'plans',     icon: 'sparkle', label: 'Planos' },
-    { id: 'projects',  icon: 'folder',  label: 'Projetos',     badge: s.openProjects },
+    { id: 'projects',  icon: 'folder',  label: 'Projetos',     badge: s.openProjects, alert: unread },
     { id: 'calendar',  icon: 'cal',     label: 'Calendário',   badge: s.awaitingPosts },
     { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   badge: s.pendingQuotes },
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',badge: s.pendingCancels },
@@ -62,10 +63,12 @@ function renderShell() {
   nav.innerHTML = `
     <div class="nav-section">Painel DUIT</div>
     ${items.map(it => `
-      <button class="nav-item" data-view="${it.id}">
+      <button class="nav-item" data-view="${it.id}" ${it.alert ? `title="${it.alert} nota(s) novas de cliente"` : ''}>
         ${svg(it.icon)}
         <span>${it.label}</span>
-        ${it.badge ? `<span class="badge-count">${it.badge}</span>` : ''}
+        ${it.alert
+          ? `<span class="badge-alert">${it.alert}</span>`
+          : (it.badge ? `<span class="badge-count">${it.badge}</span>` : '')}
       </button>
     `).join('')}
   `;
@@ -111,16 +114,18 @@ async function go(view) {
    HOME — visão geral
    ========================================================================= */
 async function viewHome(main) {
-  const [cancels, tickets, mockups, posts] = await Promise.all([
+  const [cancels, tickets, mockups, posts, clientNotes] = await Promise.all([
     api('/api/cancellations'),
     api('/api/tickets'),
     api('/api/mockups'),
     api('/api/social-posts'),
+    api('/api/admin/recent-client-notes').catch(() => []),
   ]);
   const s = state.stats || {};
   const pendingCancels = cancels.filter(c => c.status === 'pending');
   const draftPosts = posts.filter(p => p.status === 'draft');
   const openTickets = tickets.filter(t => t.status !== 'closed').slice(0, 4);
+  const unreadNotes = clientNotes.filter(n => !n.read_by_admin_at);
 
   main.innerHTML = `
     <div class="page-head">

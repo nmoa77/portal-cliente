@@ -164,8 +164,47 @@ app.get('/api/stats', requireAdmin, (req, res) => {
   const monthlyRevenue = db.prepare(
     `SELECT COALESCE(SUM(price),0) r FROM subscriptions WHERE status='active' AND period='mês'`
   ).get().r;
+  // Notas de cliente em projetos ainda não vistas pelo admin
+  const unreadClientNotes = db.prepare(
+    `SELECT COUNT(*) c
+       FROM project_messages pm
+       JOIN users u ON u.id = pm.author_id
+      WHERE u.role = 'client' AND pm.read_by_admin_at IS NULL`
+  ).get().c;
   // Mantém awaitingPosts como alias para compatibilidade, aponta para rascunhos
-  res.json({ clients, activeSubs, openTickets, openProjects, pendingCancels, pendingQuotes, awaitingPosts: draftPosts, draftPosts, monthlyRevenue });
+  res.json({
+    clients, activeSubs, openTickets, openProjects, pendingCancels, pendingQuotes,
+    awaitingPosts: draftPosts, draftPosts, monthlyRevenue, unreadClientNotes,
+  });
+});
+
+// Lista das notas de cliente mais recentes (para a dashboard do admin)
+app.get('/api/admin/recent-client-notes', requireAdmin, (req, res) => {
+  const rows = db.prepare(
+    `SELECT pm.id, pm.project_id, pm.body, pm.created_at, pm.read_by_admin_at,
+            u.id author_id, u.name author_name, u.company author_company,
+            p.name project_name, p.user_id project_user_id
+       FROM project_messages pm
+       JOIN users u ON u.id = pm.author_id
+       JOIN projects p ON p.id = pm.project_id
+      WHERE u.role = 'client'
+      ORDER BY pm.read_by_admin_at IS NULL DESC, pm.created_at DESC
+      LIMIT 15`
+  ).all();
+  res.json(rows);
+});
+
+// Marcar manualmente todas as notas de cliente de um projeto como lidas
+app.post('/api/projects/:id/messages/mark-read', requireAdmin, (req, res) => {
+  const proj = db.prepare('SELECT id FROM projects WHERE id=?').get(req.params.id);
+  if (!proj) return res.status(404).json({ error: 'Projeto não encontrado' });
+  const info = db.prepare(
+    `UPDATE project_messages
+        SET read_by_admin_at = datetime('now')
+      WHERE project_id = ? AND read_by_admin_at IS NULL
+        AND author_id IN (SELECT id FROM users WHERE role='client')`
+  ).run(req.params.id);
+  res.json({ ok: true, marked: info.changes });
 });
 
 app.get('/api/client-summary', requireAuth, (req, res) => {
@@ -354,7 +393,12 @@ app.delete('/api/subscriptions/:id', requireAdmin, (req, res) => {
 app.get('/api/projects', requireAuth, (req, res) => {
   if (req.user.role === 'admin') {
     const rows = db.prepare(
-      `SELECT p.*, u.name client_name, u.company client_company
+      `SELECT p.*, u.name client_name, u.company client_company,
+              (SELECT COUNT(*) FROM project_messages pm
+                 JOIN users au ON au.id = pm.author_id
+                WHERE pm.project_id = p.id
+                  AND au.role = 'client'
+                  AND pm.read_by_admin_at IS NULL) AS unread_notes
          FROM projects p JOIN users u ON u.id=p.user_id ORDER BY p.updated_at DESC`
     ).all();
     return res.json(rows);
@@ -460,6 +504,17 @@ app.get('/api/projects/:id/messages', requireAuth, (req, res) => {
        FROM project_messages pm JOIN users u ON u.id=pm.author_id
       WHERE pm.project_id=? ORDER BY pm.created_at ASC`
   ).all(req.params.id);
+  // Quando o admin consulta a thread, marca como lidas as notas pendentes do cliente
+  if (req.user.role === 'admin') {
+    try {
+      db.prepare(
+        `UPDATE project_messages
+            SET read_by_admin_at = datetime('now')
+          WHERE project_id = ? AND read_by_admin_at IS NULL
+            AND author_id IN (SELECT id FROM users WHERE role='client')`
+      ).run(req.params.id);
+    } catch (e) { console.warn('mark-read on view:', e.message); }
+  }
   res.json(rows);
 });
 
