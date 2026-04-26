@@ -116,6 +116,7 @@ async function viewHome(main) {
     .sort((a,b) => new Date(a.renewal_date) - new Date(b.renewal_date))[0];
 
   const activeProj = projs.filter(p => p.stage !== 'done' && p.stage !== 'cancelled').slice(0, 3);
+  const revised = Array.isArray(s.revisedQuotes) ? s.revisedQuotes : [];
 
   main.innerHTML = `
     <div class="page-head">
@@ -129,6 +130,32 @@ async function viewHome(main) {
         <button class="btn btn-yellow" onclick="go('projects')">${svg('folder')} Os meus projetos</button>
       </div>
     </div>
+
+    ${revised.length ? `
+      <div class="card" style="margin-bottom:20px; border-left:4px solid #ffd60a; background:#fffbe6;">
+        <div style="display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:240px;">
+            <div class="eyebrow" style="margin-bottom:6px; color:#5a4a00;">${revised.length === 1 ? 'Orçamento revisto' : 'Orçamentos revistos'}</div>
+            <h3 style="margin:0 0 6px 0; font-family:'Clash Display'; font-size:20px;">
+              ${revised.length === 1
+                ? 'Tem um orçamento revisto à sua espera.'
+                : `Tem ${revised.length} orçamentos revistos à sua espera.`}
+            </h3>
+            <p style="margin:0; color:#5a4a00; font-size:14px; line-height:1.5;">
+              A equipa DUIT preparou uma nova versão com base no feedback partilhado. Por favor consulte e indique se aceita ou cancela.
+            </p>
+            <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;">
+              ${revised.slice(0, 3).map(q => `
+                <button class="btn btn-yellow btn-sm" onclick="openQuote(${q.id})" style="font-size:13px;">
+                  ${escapeHtml(q.title)} (Nº ${escapeHtml(q.number)}) →
+                </button>
+              `).join('')}
+              ${revised.length > 3 ? `<button class="btn btn-ghost btn-sm" onclick="go('quotes')">Ver todos os orçamentos</button>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    ` : ''}
 
     <div class="grid g-3">
       <div class="card stat y">
@@ -626,11 +653,11 @@ async function viewQuotes(main) {
     <div class="grid g-2">
       ${rows.length === 0 ? `<div class="empty" style="grid-column:1/-1">Sem orçamentos.</div>` :
         rows.map(q => `
-          <div class="card quote-card" onclick="openQuote(${q.id})" style="cursor:pointer;">
+          <div class="card quote-card" onclick="openQuote(${q.id})" style="cursor:pointer; ${q.status === 'revised' ? 'border-left:3px solid #ffd60a;' : ''}">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
               <div>
                 <div style="font-family:'Clash Display'; font-size:22px;">${escapeHtml(q.title)}</div>
-                <div style="font-size:12px; color:var(--muted);">Nº ${q.number} · ${fmtDate(q.sent_at)}</div>
+                <div style="font-size:12px; color:var(--muted);">Nº ${q.number} · ${fmtDate(q.sent_at)}${q.status === 'revised' ? ' · nova versão' : ''}</div>
               </div>
               ${statusPill(q.status)}
             </div>
@@ -693,10 +720,15 @@ async function openQuote(id) {
         </div>
       </div>
 
-      ${q.status === 'sent' ? `
+      ${(q.status === 'sent' || q.status === 'revised') ? `
+        ${q.status === 'revised' ? `
+          <div style="margin-top:18px; padding:12px 14px; border-radius:10px; background:#fffbe6; border:1px solid #ecd96a; color:#5a4a00; font-size:13px;">
+            Esta é uma <strong>versão revista</strong> do orçamento, preparada pela equipa DUIT. Por favor confirme se aceita ou cancela.
+          </div>
+        ` : ''}
         <div class="modal-actions" style="margin-top:20px;">
-          <button class="btn btn-ghost" onclick="openQuoteReject(${q.id})">Rejeitar</button>
-          <button class="btn btn-yellow" onclick="acceptQuote(${q.id})">${svg('check')} Aceitar orçamento</button>
+          <button class="btn btn-ghost" onclick="openQuoteReject(${q.id})">${q.status === 'revised' ? 'Cancelar' : 'Rejeitar'}</button>
+          <button class="btn btn-yellow" onclick="acceptQuote(${q.id})">${svg('check')} ${q.status === 'revised' ? 'Confirmar nova versão' : 'Aceitar orçamento'}</button>
         </div>
       ` : ''}
     </div>

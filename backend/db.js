@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS quotes (
   title TEXT NOT NULL,
   sent_at TEXT DEFAULT (datetime('now')),
   valid_until TEXT,
-  status TEXT NOT NULL DEFAULT 'sent' CHECK(status IN ('draft','sent','accepted','rejected')),
+  status TEXT NOT NULL DEFAULT 'sent' CHECK(status IN ('draft','sent','revised','accepted','rejected')),
   rejection_reason TEXT,
   responded_at TEXT,
   seen_by_admin_at TEXT,
@@ -261,6 +261,40 @@ try {
     }
   }
 } catch (e) { console.warn('Migration quotes extra columns:', e.message); }
+
+// Migration: alargar CHECK do status em quotes para incluir 'revised'
+try {
+  const qSql = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='quotes'`).get();
+  if (qSql && qSql.sql && !qSql.sql.includes("'revised'")) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      BEGIN;
+      CREATE TABLE quotes_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        number TEXT UNIQUE NOT NULL,
+        user_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        sent_at TEXT DEFAULT (datetime('now')),
+        valid_until TEXT,
+        status TEXT NOT NULL DEFAULT 'sent' CHECK(status IN ('draft','sent','revised','accepted','rejected')),
+        rejection_reason TEXT,
+        responded_at TEXT,
+        seen_by_admin_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      );
+      INSERT INTO quotes_new (id, number, user_id, title, sent_at, valid_until, status,
+                              rejection_reason, responded_at, seen_by_admin_at)
+        SELECT id, number, user_id, title, sent_at, valid_until, status,
+               rejection_reason, responded_at, seen_by_admin_at
+          FROM quotes;
+      DROP TABLE quotes;
+      ALTER TABLE quotes_new RENAME TO quotes;
+      COMMIT;
+    `);
+    db.pragma('foreign_keys = ON');
+    console.log('✓ Migration: quotes.status alargado para incluir revised.');
+  }
+} catch (e) { console.warn('Migration quotes status revised:', e.message); }
 
 // Migration: coluna read_by_admin_at em project_messages
 try {

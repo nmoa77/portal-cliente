@@ -159,7 +159,7 @@ app.get('/api/stats', requireAdmin, (req, res) => {
   const openTickets = db.prepare(`SELECT COUNT(*) c FROM tickets WHERE status!='closed'`).get().c;
   const openProjects = db.prepare(`SELECT COUNT(*) c FROM projects WHERE stage NOT IN ('done','cancelled')`).get().c;
   const pendingCancels = db.prepare(`SELECT COUNT(*) c FROM cancellation_requests WHERE status='pending'`).get().c;
-  const pendingQuotes = db.prepare(`SELECT COUNT(*) c FROM quotes WHERE status='sent'`).get().c;
+  const pendingQuotes = db.prepare(`SELECT COUNT(*) c FROM quotes WHERE status IN ('sent','revised')`).get().c;
   const draftPosts = db.prepare(`SELECT COUNT(*) c FROM social_posts WHERE status='draft'`).get().c;
   const monthlyRevenue = db.prepare(
     `SELECT COALESCE(SUM(price),0) r FROM subscriptions WHERE status='active' AND period='mês'`
@@ -221,13 +221,21 @@ app.get('/api/client-summary', requireAuth, (req, res) => {
     `SELECT COUNT(*) c FROM mockups m JOIN projects p ON p.id=m.project_id
      WHERE p.user_id=? AND m.status='pending'`
   ).get(uid).c;
-  const pendingQuotes = db.prepare(`SELECT COUNT(*) c FROM quotes WHERE user_id=? AND status='sent'`).get(uid).c;
+  const pendingQuotes = db.prepare(
+    `SELECT COUNT(*) c FROM quotes WHERE user_id=? AND status IN ('sent','revised')`
+  ).get(uid).c;
+  const revisedQuotes = db.prepare(
+    `SELECT id, number, title, sent_at FROM quotes WHERE user_id=? AND status='revised' ORDER BY sent_at DESC`
+  ).all(uid);
   const monthTotal = db.prepare(
     `SELECT COALESCE(SUM(price),0) r FROM subscriptions WHERE user_id=? AND status='active' AND period='mês'`
   ).get(uid).r;
   const weekPosts = db.prepare(`SELECT COUNT(*) c FROM social_posts WHERE user_id=?`).get(uid).c;
   const draftPosts = db.prepare(`SELECT COUNT(*) c FROM social_posts WHERE user_id=? AND status='draft'`).get(uid).c;
-  res.json({ activeSubs, openProjects, pendingMockups, pendingQuotes, monthTotal, weekPosts, awaitingPosts: draftPosts, draftPosts });
+  res.json({
+    activeSubs, openProjects, pendingMockups, pendingQuotes, revisedQuotes,
+    monthTotal, weekPosts, awaitingPosts: draftPosts, draftPosts,
+  });
 });
 
 /* ================================================================
@@ -829,25 +837,59 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
   }
 
   // Admin — pode alterar tudo
-  if (status && !['accepted','rejected','draft','sent'].includes(status)) {
+  if (status && !['accepted','rejected','draft','sent','revised'].includes(status)) {
     return res.status(400).json({ error: 'Estado inválido' });
   }
   if (number && number !== q.number) {
     const dup = db.prepare(`SELECT id FROM quotes WHERE number=? AND id<>?`).get(number, req.params.id);
     if (dup) return res.status(409).json({ error: 'Já existe outro orçamento com este número' });
   }
-  db.prepare(
-    `UPDATE quotes SET
-       status=COALESCE(?, status),
-       number=COALESCE(?, number),
-       title=COALESCE(?, title),
-       valid_until=COALESCE(?, valid_until),
-       user_id=COALESCE(?, user_id)
-     WHERE id=?`
-  ).run(
-    status ?? null, number ?? null, title ?? null,
-    valid_until ?? null, user_id ?? null, req.params.id
-  );
+
+  /* Lógica automática de revisão:
+     - Se o orçamento já estava num estado vivo (sent/accepted/rejected/revised)
+       e o admin guardou alterações (sem escolher draft/accepted/rejected manualmente)
+     - Promover a 'revised', limpar resposta anterior, atualizar sent_at, notificar cliente.
+  */
+  const wasLive = ['sent','accepted','rejected','revised'].includes(q.status);
+  const adminChoseTerminal = ['draft','accepted','rejected'].includes(status);
+  const triggerRevision = wasLive && !adminChoseTerminal;
+
+  let finalStatus = status ?? q.status;
+  if (triggerRevision) finalStatus = 'revised';
+
+  // Atualiza orçamento. Se houver revisão, refresca sent_at e limpa estado da resposta anterior.
+  if (triggerRevision) {
+    db.prepare(
+      `UPDATE quotes SET
+         status=?,
+         number=COALESCE(?, number),
+         title=COALESCE(?, title),
+         valid_until=COALESCE(?, valid_until),
+         user_id=COALESCE(?, user_id),
+         rejection_reason=NULL,
+         responded_at=NULL,
+         seen_by_admin_at=NULL,
+         sent_at=datetime('now')
+       WHERE id=?`
+    ).run(
+      finalStatus, number ?? null, title ?? null,
+      valid_until ?? null, user_id ?? null, req.params.id
+    );
+  } else {
+    db.prepare(
+      `UPDATE quotes SET
+         status=COALESCE(?, status),
+         number=COALESCE(?, number),
+         title=COALESCE(?, title),
+         valid_until=COALESCE(?, valid_until),
+         user_id=COALESCE(?, user_id)
+       WHERE id=?`
+    ).run(
+      status ?? null, number ?? null, title ?? null,
+      valid_until ?? null, user_id ?? null, req.params.id
+    );
+  }
+
   if (Array.isArray(items)) {
     db.prepare(`DELETE FROM quote_items WHERE quote_id=?`).run(req.params.id);
     const insertItem = db.prepare(
@@ -855,7 +897,31 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
     );
     items.forEach(it => insertItem.run(req.params.id, it.label, it.detail || '', Number(it.amount) || 0));
   }
-  res.json({ ok: true });
+
+  // Notifica cliente quando o orçamento foi revisto
+  if (triggerRevision) {
+    try {
+      const subtotal = db.prepare(
+        `SELECT COALESCE(SUM(amount),0) s FROM quote_items WHERE quote_id=?`
+      ).get(req.params.id).s;
+      const iva = +(subtotal * IVA_RATE).toFixed(2);
+      const total = +(subtotal + iva).toFixed(2);
+      const fresh = db.prepare(
+        `SELECT q.title, q.number, q.valid_until, u.name client_name, u.email client_email
+           FROM quotes q JOIN users u ON u.id=q.user_id WHERE q.id=?`
+      ).get(req.params.id);
+      if (fresh && fresh.client_email) {
+        const tpl = T.quoteResent(fresh.client_name, fresh.title, fresh.number,
+                                  subtotal, iva, total, fmtIsoDate(fresh.valid_until));
+        deliver(db, {
+          to: fresh.client_email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+          user_id: q.user_id, kind: 'quote_revised',
+        });
+      }
+    } catch (e) { console.warn('quoteRevised notify:', e.message); }
+  }
+
+  res.json({ ok: true, revised: !!triggerRevision });
 });
 
 // Reenviar orçamento (transforma um rejected/accepted/draft em 'sent' de novo,

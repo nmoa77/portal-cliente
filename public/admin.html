@@ -303,9 +303,13 @@
         <select id="q-status">
           <option value="draft">Rascunho</option>
           <option value="sent">Enviado</option>
+          <option value="revised">Revisto</option>
           <option value="accepted">Aceite</option>
           <option value="rejected">Rejeitado</option>
         </select>
+        <small style="display:block; color:var(--muted); margin-top:6px; font-size:12px;">
+          Ao guardar alterações num orçamento já enviado, o estado passa automaticamente para <strong>Revisto</strong> e o cliente é notificado por email.
+        </small>
       </div>
       <label>Linhas do orçamento (valores sem IVA)</label>
       <div id="q-items"></div>

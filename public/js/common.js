@@ -118,6 +118,7 @@ function statusPill(status) {
     sent:        ['accent','Enviado'],
     accepted:    ['ok',    'Aceite'],
     rejected:    ['err',   'Rejeitado'],
+    revised:     ['warn',  'Revisto'],
     draft:       ['muted', 'Rascunho'],
     scheduled:   ['accent','Agendado'],
     published:   ['ok',    'Publicado'],
