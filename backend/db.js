@@ -221,7 +221,9 @@ CREATE TABLE IF NOT EXISTS project_messages (
   FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_project_messages_project ON project_messages(project_id);
-CREATE INDEX IF NOT EXISTS idx_project_messages_unread ON project_messages(read_by_admin_at);
+-- Nota: o índice em read_by_admin_at é criado depois das migrations correrem
+-- (caso contrário, em BDs antigas ainda sem essa coluna, o CREATE INDEX falha
+-- e bloqueia o arranque do servidor).
 `);
 
 /* ==============================================================
@@ -299,10 +301,13 @@ try {
 // Migration: coluna read_by_admin_at em project_messages
 try {
   const cols = db.prepare(`PRAGMA table_info(project_messages)`).all();
-  if (cols.length && !cols.find(c => c.name === 'read_by_admin_at')) {
-    db.exec(`ALTER TABLE project_messages ADD COLUMN read_by_admin_at TEXT`);
+  if (cols.length) {
+    if (!cols.find(c => c.name === 'read_by_admin_at')) {
+      db.exec(`ALTER TABLE project_messages ADD COLUMN read_by_admin_at TEXT`);
+      console.log('✓ Migration: project_messages.read_by_admin_at adicionada.');
+    }
+    // Garante o índice em todas as instalações (idempotente)
     db.exec(`CREATE INDEX IF NOT EXISTS idx_project_messages_unread ON project_messages(read_by_admin_at)`);
-    console.log('✓ Migration: project_messages.read_by_admin_at adicionada.');
   }
 } catch (e) { console.warn('Migration project_messages.read_by_admin_at:', e.message); }
 
