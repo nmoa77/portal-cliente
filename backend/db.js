@@ -120,6 +120,9 @@ CREATE TABLE IF NOT EXISTS quotes (
   sent_at TEXT DEFAULT (datetime('now')),
   valid_until TEXT,
   status TEXT NOT NULL DEFAULT 'sent' CHECK(status IN ('draft','sent','accepted','rejected')),
+  rejection_reason TEXT,
+  responded_at TEXT,
+  seen_by_admin_at TEXT,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -239,6 +242,25 @@ try {
     console.log('✓ Migration: users.notifications_enabled adicionada.');
   }
 } catch (e) { console.warn('Migration users.notifications_enabled:', e.message); }
+
+// Migration: colunas extra em quotes (resposta do cliente, IVA, etc.)
+try {
+  const cols = db.prepare(`PRAGMA table_info(quotes)`).all();
+  if (cols.length) {
+    if (!cols.find(c => c.name === 'rejection_reason')) {
+      db.exec(`ALTER TABLE quotes ADD COLUMN rejection_reason TEXT`);
+      console.log('✓ Migration: quotes.rejection_reason adicionada.');
+    }
+    if (!cols.find(c => c.name === 'responded_at')) {
+      db.exec(`ALTER TABLE quotes ADD COLUMN responded_at TEXT`);
+      console.log('✓ Migration: quotes.responded_at adicionada.');
+    }
+    if (!cols.find(c => c.name === 'seen_by_admin_at')) {
+      db.exec(`ALTER TABLE quotes ADD COLUMN seen_by_admin_at TEXT`);
+      console.log('✓ Migration: quotes.seen_by_admin_at adicionada.');
+    }
+  }
+} catch (e) { console.warn('Migration quotes extra columns:', e.message); }
 
 // Migration: coluna read_by_admin_at em project_messages
 try {

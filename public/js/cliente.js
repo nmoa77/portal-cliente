@@ -315,30 +315,6 @@ async function openProject(id) {
     `<span class="${i === idx ? 'cur' : ''}">${stageLabel(k)}</span>`
   ).join('');
 
-  const filesHtml = (p.files && p.files.length)
-    ? p.files.map(f => `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line-2);">
-          <div style="display:flex; align-items:center; gap:10px;">
-            ${fileKindIcon(f.kind)}
-            <div>
-              <div style="font-weight:500; font-size:14px;">${escapeHtml(f.name)}</div>
-              <div style="font-size:12px; color:var(--muted);">${escapeHtml(f.uploaded_by || '')} · ${fmtDate(f.created_at)}${f.size_kb ? ' · ' + Math.round(f.size_kb) + ' KB' : ''}</div>
-            </div>
-          </div>
-        </div>`).join('')
-    : `<div class="empty" style="padding:20px 0;">Sem ficheiros associados.</div>`;
-
-  const mockupsHtml = (p.mockups && p.mockups.length)
-    ? p.mockups.map(m => `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--line-2);">
-          <div>
-            <div style="font-weight:500; font-size:14px;">${escapeHtml(m.title)}</div>
-            <div style="font-size:12px; color:var(--muted);">v${m.version} · ${fmtDate(m.created_at)}</div>
-          </div>
-          ${statusPill(m.status)}
-        </div>`).join('')
-    : `<div class="empty" style="padding:20px 0;">Sem mockups associados.</div>`;
-
   const threadHtml = msgs.length === 0
     ? `<div class="empty" style="padding:20px 0;">Ainda não existem notas neste projeto. Envie a primeira em baixo.</div>`
     : msgs.map(m => `
@@ -375,19 +351,6 @@ async function openProject(id) {
       ` : ''}
       <div style="margin-top:14px; padding:10px 14px; border:1px dashed var(--line); border-radius:10px; color:var(--muted); font-size:13px;">
         Esta vista é apenas de consulta. Para sugerir alterações, utilize o campo de notas mais abaixo — a equipa DUIT irá responder por aqui e por email.
-      </div>
-    </div>
-
-    <div class="grid g-2" style="gap:16px; margin-bottom:18px;">
-      <div class="card">
-        <h3 style="margin-bottom:10px;">Ficheiros</h3>
-        <p style="color:var(--muted); font-size:13px; margin-bottom:8px;">Documentos partilhados pela DUIT e pelo cliente.</p>
-        <div>${filesHtml}</div>
-      </div>
-      <div class="card">
-        <h3 style="margin-bottom:10px;">Mockups</h3>
-        <p style="color:var(--muted); font-size:13px; margin-bottom:8px;">Propostas visuais associadas a este projeto.</p>
-        <div>${mockupsHtml}</div>
       </div>
     </div>
 
@@ -657,7 +620,7 @@ async function viewQuotes(main) {
       <div>
         <div class="eyebrow">Propostas da DUIT</div>
         <h1>Orçamentos</h1>
-        <p class="lede">Toca num orçamento para ver o detalhe e aceitar ou rejeitar.</p>
+        <p class="lede">Clique num orçamento para consultar o detalhe e aceitar ou rejeitar. Os valores apresentados já incluem IVA à taxa de 23%.</p>
       </div>
     </div>
     <div class="grid g-2">
@@ -672,7 +635,7 @@ async function viewQuotes(main) {
               ${statusPill(q.status)}
             </div>
             <div class="quote-total" style="margin-top:14px;">
-              <span style="color:var(--muted); font-size:12px;">Total</span>
+              <span style="color:var(--muted); font-size:12px;">Total c/ IVA</span>
               <strong style="font-family:'Clash Display'; font-size:22px;">${fmtMoney(q.total)}</strong>
             </div>
           </div>
@@ -690,10 +653,18 @@ async function openQuote(id) {
       <div>
         <button class="btn btn-ghost btn-sm" onclick="go('quotes')">← Voltar</button>
         <h1 style="margin-top:8px;">${escapeHtml(q.title)}</h1>
-        <p class="lede">Nº ${q.number} · Enviado ${fmtDate(q.sent_at)} · Válido até ${fmtDate(q.valid_until)}</p>
+        <p class="lede">Nº ${q.number} · Enviado ${fmtDate(q.sent_at)}${q.valid_until ? ' · Válido até ' + fmtDate(q.valid_until) : ''}</p>
       </div>
       ${statusPill(q.status)}
     </div>
+
+    ${q.status === 'rejected' && q.rejection_reason ? `
+      <div class="card" style="margin-bottom:14px; border-left:3px solid #ff3b30;">
+        <div class="eyebrow" style="margin-bottom:6px;">Motivo da rejeição</div>
+        <div style="font-size:14px; color:var(--text); white-space:pre-wrap;">${escapeHtml(q.rejection_reason)}</div>
+      </div>
+    ` : ''}
+
     <div class="card quote-card">
       <div class="quote-items">
         ${q.items.map(it => `
@@ -706,26 +677,45 @@ async function openQuote(id) {
           </div>
         `).join('')}
       </div>
-      <div class="quote-total">
-        <span>Total</span>
-        <strong style="font-family:'Clash Display'; font-size:28px;">${fmtMoney(q.total)}</strong>
+
+      <div style="margin-top:18px; padding-top:14px; border-top:1px solid var(--line);">
+        <div style="display:flex; justify-content:space-between; padding:6px 0; color:var(--muted); font-size:13px;">
+          <span>Subtotal</span>
+          <span>${fmtMoney(q.subtotal)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:6px 0; color:var(--muted); font-size:13px; border-bottom:1px solid var(--line-2);">
+          <span>IVA (23%)</span>
+          <span>${fmtMoney(q.iva)}</span>
+        </div>
+        <div class="quote-total" style="padding:14px 0 0 0;">
+          <span style="font-weight:600;">Total c/ IVA</span>
+          <strong style="font-family:'Clash Display'; font-size:28px;">${fmtMoney(q.total)}</strong>
+        </div>
       </div>
+
       ${q.status === 'sent' ? `
         <div class="modal-actions" style="margin-top:20px;">
-          <button class="btn btn-ghost" onclick="decideQuote(${q.id},'rejected')">Rejeitar</button>
-          <button class="btn btn-yellow" onclick="decideQuote(${q.id},'accepted')">${svg('check')} Aceitar orçamento</button>
+          <button class="btn btn-ghost" onclick="openQuoteReject(${q.id})">Rejeitar</button>
+          <button class="btn btn-yellow" onclick="acceptQuote(${q.id})">${svg('check')} Aceitar orçamento</button>
         </div>
       ` : ''}
     </div>
   `;
 }
 
-async function decideQuote(id, status) {
+async function acceptQuote(id) {
+  if (!confirm('Confirma a aceitação deste orçamento?')) return;
   try {
-    await api(`/api/quotes/${id}`, { method: 'PATCH', body: { status } });
-    toast(status === 'accepted' ? 'Orçamento aceite. A equipa vai avançar.' : 'Orçamento rejeitado.');
+    await api(`/api/quotes/${id}`, { method: 'PATCH', body: { status: 'accepted' } });
+    toast('Orçamento aceite. A equipa DUIT vai avançar.', 'check');
     go('quotes');
   } catch (err) { toast(err.message, 'cancel'); }
+}
+
+function openQuoteReject(id) {
+  document.getElementById('qr-id').value = id;
+  document.getElementById('qr-reason').value = '';
+  openModal('modal-quote-reject');
 }
 
 /* =========================================================================
@@ -953,6 +943,20 @@ document.addEventListener('submit', async (e) => {
     try {
       await api(`/api/tickets/${state.currentTicket.id}/messages`, { method: 'POST', body: { body } });
       await openTicket(state.currentTicket.id);
+    } catch (err) { toast(err.message, 'cancel'); }
+  }
+
+  if (e.target.id === 'quoteRejectForm') {
+    e.preventDefault();
+    const id = document.getElementById('qr-id').value;
+    const rejection_reason = document.getElementById('qr-reason').value.trim();
+    if (!rejection_reason) { toast('Indique o motivo da rejeição.', 'cancel'); return; }
+    try {
+      await api(`/api/quotes/${id}`, { method: 'PATCH', body: { status: 'rejected', rejection_reason } });
+      closeModal('modal-quote-reject');
+      e.target.reset();
+      toast('Orçamento rejeitado. A equipa DUIT foi notificada.', 'check');
+      go('quotes');
     } catch (err) { toast(err.message, 'cancel'); }
   }
 

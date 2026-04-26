@@ -171,10 +171,15 @@ app.get('/api/stats', requireAdmin, (req, res) => {
        JOIN users u ON u.id = pm.author_id
       WHERE u.role = 'client' AND pm.read_by_admin_at IS NULL`
   ).get().c;
+  // Orçamentos respondidos pelo cliente que ainda não foram vistos pelo admin
+  const unseenQuoteResponses = db.prepare(
+    `SELECT COUNT(*) c FROM quotes WHERE responded_at IS NOT NULL AND seen_by_admin_at IS NULL`
+  ).get().c;
   // Mantém awaitingPosts como alias para compatibilidade, aponta para rascunhos
   res.json({
     clients, activeSubs, openTickets, openProjects, pendingCancels, pendingQuotes,
-    awaitingPosts: draftPosts, draftPosts, monthlyRevenue, unreadClientNotes,
+    awaitingPosts: draftPosts, draftPosts, monthlyRevenue,
+    unreadClientNotes, unseenQuoteResponses,
   });
 });
 
@@ -705,29 +710,56 @@ app.patch('/api/cancellations/:id', requireAdmin, (req, res) => {
 
 /* ================================================================
    ORÇAMENTOS
+   Notas:
+   - Os valores guardados em quote_items são SEM IVA (subtotal).
+   - O total mostrado e enviado por email inclui IVA de 23%.
    ================================================================ */
+const IVA_RATE = 0.23;
+
+function fmtIsoDate(d) {
+  if (!d || !/^\d{4}-\d{2}-\d{2}/.test(d)) return d || null;
+  return `${d.slice(8,10)}/${d.slice(5,7)}/${d.slice(0,4)}`;
+}
+
 app.get('/api/quotes', requireAuth, (req, res) => {
   const where = req.user.role === 'admin' ? '' : 'WHERE q.user_id=?';
   const params = req.user.role === 'admin' ? [] : [req.user.id];
   const quotes = db.prepare(
     `SELECT q.*, u.name client_name, u.company client_company,
-            (SELECT COALESCE(SUM(amount),0) FROM quote_items WHERE quote_id=q.id) total
+            (SELECT COALESCE(SUM(amount),0) FROM quote_items WHERE quote_id=q.id) subtotal
        FROM quotes q JOIN users u ON u.id=q.user_id ${where}
       ORDER BY q.sent_at DESC`
   ).all(...params);
-  res.json(quotes);
+  // Acrescenta IVA e total
+  const enriched = quotes.map(q => {
+    const iva = +(q.subtotal * IVA_RATE).toFixed(2);
+    const total = +(q.subtotal + iva).toFixed(2);
+    return { ...q, iva, total, unseen_response: !!(q.responded_at && !q.seen_by_admin_at) };
+  });
+  res.json(enriched);
 });
 
 app.get('/api/quotes/:id', requireAuth, (req, res) => {
   const q = db.prepare(
     `SELECT q.*, u.name client_name, u.email client_email, u.company client_company,
-            (SELECT COALESCE(SUM(amount),0) FROM quote_items WHERE quote_id=q.id) total
+            (SELECT COALESCE(SUM(amount),0) FROM quote_items WHERE quote_id=q.id) subtotal
        FROM quotes q JOIN users u ON u.id=q.user_id WHERE q.id=?`
   ).get(req.params.id);
   if (!q) return res.status(404).json({ error: 'Orçamento não encontrado' });
   if (req.user.role !== 'admin' && q.user_id !== req.user.id) return res.status(403).json({ error: 'Sem permissão' });
+
+  // Quando o admin abre um orçamento já respondido, marca como visto
+  if (req.user.role === 'admin' && q.responded_at && !q.seen_by_admin_at) {
+    try {
+      db.prepare(`UPDATE quotes SET seen_by_admin_at=datetime('now') WHERE id=?`).run(q.id);
+      q.seen_by_admin_at = new Date().toISOString();
+    } catch (e) { /* ignore */ }
+  }
+
   const items = db.prepare(`SELECT * FROM quote_items WHERE quote_id=? ORDER BY id`).all(req.params.id);
-  res.json({ ...q, items });
+  const iva = +(q.subtotal * IVA_RATE).toFixed(2);
+  const total = +(q.subtotal + iva).toFixed(2);
+  res.json({ ...q, items, iva, total });
 });
 
 app.post('/api/quotes', requireAdmin, (req, res) => {
@@ -739,24 +771,66 @@ app.post('/api/quotes', requireAdmin, (req, res) => {
   const insertItem = db.prepare(
     `INSERT INTO quote_items (quote_id, label, detail, amount) VALUES (?, ?, ?, ?)`
   );
-  (items || []).forEach(it => insertItem.run(info.lastInsertRowid, it.label, it.detail || '', it.amount || 0));
+  (items || []).forEach(it => insertItem.run(info.lastInsertRowid, it.label, it.detail || '', Number(it.amount) || 0));
+
+  // Notifica cliente
+  try {
+    const subtotal = (items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
+    const iva = +(subtotal * IVA_RATE).toFixed(2);
+    const total = +(subtotal + iva).toFixed(2);
+    const client = db.prepare(`SELECT name, email FROM users WHERE id=?`).get(user_id);
+    if (client && client.email) {
+      const tpl = T.quoteSent(client.name, title, number, subtotal, iva, total, fmtIsoDate(valid_until));
+      deliver(db, {
+        to: client.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+        user_id, kind: 'quote_sent',
+      });
+    }
+  } catch (e) { console.warn('quoteSent notify:', e.message); }
+
   res.status(201).json({ id: info.lastInsertRowid });
 });
 
 app.patch('/api/quotes/:id', requireAuth, (req, res) => {
-  const q = db.prepare(`SELECT * FROM quotes WHERE id=?`).get(req.params.id);
+  const q = db.prepare(
+    `SELECT q.*, u.name client_name, u.email client_email, u.company client_company
+       FROM quotes q JOIN users u ON u.id=q.user_id WHERE q.id=?`
+  ).get(req.params.id);
   if (!q) return res.status(404).json({ error: 'Orçamento não encontrado' });
   if (req.user.role !== 'admin' && q.user_id !== req.user.id) return res.status(403).json({ error: 'Sem permissão' });
-  const { status, number, title, valid_until, user_id, items } = req.body || {};
-  // Cliente só pode alterar status (aceitar/rejeitar)
+  const { status, number, title, valid_until, user_id, items, rejection_reason } = req.body || {};
+
+  // Cliente só pode aceitar ou rejeitar
   if (req.user.role !== 'admin') {
-    if (!['accepted','rejected'].includes(status)) return res.status(400).json({ error: 'Status inválido' });
-    db.prepare(`UPDATE quotes SET status=? WHERE id=?`).run(status, req.params.id);
+    if (!['accepted','rejected'].includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+    if (status === 'rejected' && (!rejection_reason || !rejection_reason.trim())) {
+      return res.status(400).json({ error: 'Indique o motivo da rejeição.' });
+    }
+    db.prepare(
+      `UPDATE quotes
+          SET status=?, rejection_reason=?, responded_at=datetime('now'), seen_by_admin_at=NULL
+        WHERE id=?`
+    ).run(status, status === 'rejected' ? rejection_reason.trim() : null, req.params.id);
+
+    // Notifica todos os admins
+    try {
+      const admins = db.prepare(`SELECT id, name, email FROM users WHERE role='admin'`).all();
+      const clientLabel = q.client_company ? `${q.client_name} · ${q.client_company}` : q.client_name;
+      for (const a of admins) {
+        const tpl = T.quoteResponded(a.name, clientLabel, q.title, q.number, status, status === 'rejected' ? rejection_reason.trim() : null);
+        deliver(db, {
+          to: a.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+          user_id: a.id, kind: 'quote_response', force: true,
+        });
+      }
+    } catch (e) { console.warn('quoteResponded notify:', e.message); }
+
     return res.json({ ok: true });
   }
+
   // Admin — pode alterar tudo
   if (status && !['accepted','rejected','draft','sent'].includes(status)) {
-    return res.status(400).json({ error: 'Status inválido' });
+    return res.status(400).json({ error: 'Estado inválido' });
   }
   if (number && number !== q.number) {
     const dup = db.prepare(`SELECT id FROM quotes WHERE number=? AND id<>?`).get(number, req.params.id);
@@ -774,14 +848,49 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
     status ?? null, number ?? null, title ?? null,
     valid_until ?? null, user_id ?? null, req.params.id
   );
-  // Se recebeu items, substitui tudo
   if (Array.isArray(items)) {
     db.prepare(`DELETE FROM quote_items WHERE quote_id=?`).run(req.params.id);
     const insertItem = db.prepare(
       `INSERT INTO quote_items (quote_id, label, detail, amount) VALUES (?, ?, ?, ?)`
     );
-    items.forEach(it => insertItem.run(req.params.id, it.label, it.detail || '', it.amount || 0));
+    items.forEach(it => insertItem.run(req.params.id, it.label, it.detail || '', Number(it.amount) || 0));
   }
+  res.json({ ok: true });
+});
+
+// Reenviar orçamento (transforma um rejected/accepted/draft em 'sent' de novo,
+// limpa motivo de rejeição e notifica o cliente).
+app.post('/api/quotes/:id/resend', requireAdmin, (req, res) => {
+  const q = db.prepare(
+    `SELECT q.*, u.name client_name, u.email client_email
+       FROM quotes q JOIN users u ON u.id=q.user_id WHERE q.id=?`
+  ).get(req.params.id);
+  if (!q) return res.status(404).json({ error: 'Orçamento não encontrado' });
+
+  db.prepare(
+    `UPDATE quotes
+        SET status='sent',
+            rejection_reason=NULL,
+            responded_at=NULL,
+            seen_by_admin_at=NULL,
+            sent_at=datetime('now')
+      WHERE id=?`
+  ).run(q.id);
+
+  // Notifica cliente
+  try {
+    const subtotal = db.prepare(`SELECT COALESCE(SUM(amount),0) s FROM quote_items WHERE quote_id=?`).get(q.id).s;
+    const iva = +(subtotal * IVA_RATE).toFixed(2);
+    const total = +(subtotal + iva).toFixed(2);
+    if (q.client_email) {
+      const tpl = T.quoteResent(q.client_name, q.title, q.number, subtotal, iva, total, fmtIsoDate(q.valid_until));
+      deliver(db, {
+        to: q.client_email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+        user_id: q.user_id, kind: 'quote_resent',
+      });
+    }
+  } catch (e) { console.warn('quoteResent notify:', e.message); }
+
   res.json({ ok: true });
 });
 

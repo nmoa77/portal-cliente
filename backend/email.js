@@ -23,6 +23,16 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
       <a href="${ctaUrl}" style="display:inline-block; background:#ffd60a; color:#0a0a0a; font-weight:700; text-decoration:none; padding:14px 28px; border-radius:10px; font-size:15px; letter-spacing:-0.01em;">${escapeHtml(ctaLabel)}</a>
     </td></tr>` : '';
 
+  const signature = `
+    <tr><td style="padding:32px 0 0 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr><td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; color:#0a0a0a;">
+          <span style="color:#8b8680; font-style:italic;">Want it done?</span>
+          <span style="font-weight:900; letter-spacing:-0.04em; color:#0a0a0a; margin-left:6px;">DUIT</span><span style="display:inline-block; width:8px; height:8px; background:#ffd60a; margin-left:3px; vertical-align:baseline;">&nbsp;</span>
+        </td></tr>
+      </table>
+    </td></tr>`;
+
   const greetRow = greeting ? `
     <tr><td style="padding:0 0 14px 0; color:#0a0a0a; font-size:15px;">${escapeHtml(greeting)}</td></tr>` : '';
 
@@ -60,6 +70,7 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
             ${greetRow}
             ${paraRows}
             ${cta}
+            ${signature}
           </table>
         </td></tr>
 
@@ -164,8 +175,7 @@ Por favor, aceda ao portal em ${PORTAL_URL} e altere a palavra-passe no primeiro
 
 Para qualquer esclarecimento adicional, agradecemos que responda diretamente a este email.
 
-Com os melhores cumprimentos,
-Equipa DUIT`;
+Want it done? DUIT.`;
     const html = layout({
       eyebrow: 'Conta criada',
       title: `Bem-vindo à DUIT${first ? ', ' + first : ''}.`,
@@ -189,6 +199,128 @@ Equipa DUIT`;
     return { subject, body, html };
   },
 
+  quoteSent: (name, title, number, subtotal, iva, total, validUntil) => {
+    const fmt = (n) => Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const subject = `Novo orçamento — ${title} (Nº ${number})`;
+    const body =
+`Caro(a) ${name},
+
+Encontra-se disponível para consulta um novo orçamento no seu portal DUIT.
+
+Referência: ${number}
+Título: ${title}
+Subtotal: ${fmt(subtotal)} €
+IVA (23%): ${fmt(iva)} €
+Total: ${fmt(total)} €${validUntil ? `
+Válido até: ${validUntil}` : ''}
+
+Para consultar o detalhe, aceitar ou rejeitar a proposta, aceda a ${PORTAL_URL}
+
+Want it done? DUIT.`;
+    const html = layout({
+      eyebrow: 'Novo orçamento',
+      title: `${title}`,
+      greeting: `Caro(a) ${name},`,
+      paragraphs: [
+        `Encontra-se disponível para consulta um novo orçamento no seu portal DUIT (referência <strong>${escapeHtml(number)}</strong>).`,
+        `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0; width:100%; border-collapse:collapse;">
+          <tr><td style="padding:8px 0; color:#8b8680; font-size:13px;">Subtotal</td>
+              <td style="padding:8px 0; text-align:right; font-size:14px; color:#2a2a2a;">${fmt(subtotal)} €</td></tr>
+          <tr><td style="padding:8px 0; border-top:1px solid #ece9e2; color:#8b8680; font-size:13px;">IVA (23%)</td>
+              <td style="padding:8px 0; border-top:1px solid #ece9e2; text-align:right; font-size:14px; color:#2a2a2a;">${fmt(iva)} €</td></tr>
+          <tr><td style="padding:10px 0 0 0; border-top:2px solid #0a0a0a; color:#0a0a0a; font-size:15px; font-weight:700;">Total</td>
+              <td style="padding:10px 0 0 0; border-top:2px solid #0a0a0a; text-align:right; font-size:18px; font-weight:700; color:#0a0a0a;">${fmt(total)} €</td></tr>
+        </table>`,
+        ...(validUntil ? [`Proposta válida até <strong>${escapeHtml(validUntil)}</strong>.`] : []),
+        'No portal poderá consultar todas as linhas do orçamento e responder com aceitação ou rejeição. Caso opte por rejeitar, agradecemos que indique brevemente o motivo, para que possamos preparar uma alternativa adequada.',
+      ],
+      ctaLabel: 'Consultar orçamento →',
+      ctaUrl: PORTAL_URL,
+    });
+    return { subject, body, html };
+  },
+
+  quoteResponded: (adminName, client, title, number, status, reason) => {
+    const accepted = status === 'accepted';
+    const subject = accepted
+      ? `Orçamento aceite — ${title} (${number})`
+      : `Orçamento rejeitado — ${title} (${number})`;
+    const body =
+`Caro(a) ${adminName},
+
+${accepted
+  ? `O cliente ${client} aceitou o orçamento "${title}" (referência ${number}).`
+  : `O cliente ${client} rejeitou o orçamento "${title}" (referência ${number}).${reason ? `
+
+Motivo indicado pelo cliente:
+"${reason}"` : ''}`}
+
+${accepted
+  ? 'Pode avançar com a execução. O orçamento está marcado como aceite no portal.'
+  : 'Poderá rever a proposta e reenviar uma nova versão a partir do portal.'}
+
+Want it done? DUIT.`;
+    const html = layout({
+      eyebrow: accepted ? 'Orçamento aceite' : 'Orçamento rejeitado',
+      title: accepted
+        ? `${client} aceitou "${title}"`
+        : `${client} rejeitou "${title}"`,
+      greeting: `Caro(a) ${adminName},`,
+      paragraphs: accepted
+        ? [
+            `O cliente <strong>${escapeHtml(client)}</strong> aceitou o orçamento <strong>${escapeHtml(title)}</strong> (referência ${escapeHtml(number)}).`,
+            'Pode avançar com a execução. O orçamento está marcado como aceite no portal.',
+          ]
+        : [
+            `O cliente <strong>${escapeHtml(client)}</strong> rejeitou o orçamento <strong>${escapeHtml(title)}</strong> (referência ${escapeHtml(number)}).`,
+            ...(reason ? [`<div style="background:#fafaf8; border-left:3px solid #ff3b30; padding:14px 18px; border-radius:6px; color:#2a2a2a; font-style:italic; line-height:1.6;"><strong style="font-style:normal; color:#0a0a0a;">Motivo do cliente:</strong><br>${escapeHtml(reason)}</div>`] : []),
+            'Poderá rever a proposta e reenviar uma nova versão a partir do portal.',
+          ],
+      ctaLabel: 'Abrir orçamento →',
+      ctaUrl: PORTAL_URL,
+    });
+    return { subject, body, html };
+  },
+
+  quoteResent: (name, title, number, subtotal, iva, total, validUntil) => {
+    const fmt = (n) => Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const subject = `Orçamento revisto — ${title} (${number})`;
+    const body =
+`Caro(a) ${name},
+
+Foi preparada uma nova versão do orçamento "${title}" (referência ${number}) com base no seu feedback.
+
+Subtotal: ${fmt(subtotal)} €
+IVA (23%): ${fmt(iva)} €
+Total: ${fmt(total)} €${validUntil ? `
+Válido até: ${validUntil}` : ''}
+
+Convidamo-lo(a) a consultar a nova proposta em ${PORTAL_URL}
+
+Want it done? DUIT.`;
+    const html = layout({
+      eyebrow: 'Orçamento revisto',
+      title: `${title} — nova versão`,
+      greeting: `Caro(a) ${name},`,
+      paragraphs: [
+        `Foi preparada uma nova versão do orçamento <strong>${escapeHtml(title)}</strong> (referência ${escapeHtml(number)}) com base no feedback partilhado.`,
+        `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0; width:100%; border-collapse:collapse;">
+          <tr><td style="padding:8px 0; color:#8b8680; font-size:13px;">Subtotal</td>
+              <td style="padding:8px 0; text-align:right; font-size:14px; color:#2a2a2a;">${fmt(subtotal)} €</td></tr>
+          <tr><td style="padding:8px 0; border-top:1px solid #ece9e2; color:#8b8680; font-size:13px;">IVA (23%)</td>
+              <td style="padding:8px 0; border-top:1px solid #ece9e2; text-align:right; font-size:14px; color:#2a2a2a;">${fmt(iva)} €</td></tr>
+          <tr><td style="padding:10px 0 0 0; border-top:2px solid #0a0a0a; color:#0a0a0a; font-size:15px; font-weight:700;">Total</td>
+              <td style="padding:10px 0 0 0; border-top:2px solid #0a0a0a; text-align:right; font-size:18px; font-weight:700; color:#0a0a0a;">${fmt(total)} €</td></tr>
+        </table>`,
+        ...(validUntil ? [`Nova validade: <strong>${escapeHtml(validUntil)}</strong>.`] : []),
+        'No portal poderá consultar a nova versão e responder com aceitação ou rejeição.',
+      ],
+      ctaLabel: 'Consultar nova versão →',
+      ctaUrl: PORTAL_URL,
+    });
+    return { subject, body, html };
+  },
+
   projectCreated: (name, project, stage, deadline, description) => {
     const subject = `Novo projeto criado — "${project}"`;
     const body =
@@ -204,8 +336,7 @@ ${description}` : ''}
 
 Poderá acompanhar o estado do projeto, consultar ficheiros e mockups, e enviar notas em ${PORTAL_URL}
 
-Com os melhores cumprimentos,
-Equipa DUIT`;
+Want it done? DUIT.`;
     const html = layout({
       eyebrow: 'Novo projeto',
       title: `"${project}" — projeto criado`,
@@ -236,8 +367,7 @@ Informamos que o seu projeto "${project}" mudou de fase: encontra-se agora em ${
 ${msg ? '\n' + msg + '\n' : ''}
 Poderá consultar o andamento completo em ${PORTAL_URL}
 
-Com os melhores cumprimentos,
-Equipa DUIT`;
+Want it done? DUIT.`;
     const html = layout({
       eyebrow: 'Atualização de projeto',
       title: `"${project}" — ${stage}`,
@@ -263,8 +393,7 @@ Durante este período, a subscrição mantém-se ativa e todos os serviços func
 
 Poderá consultar o estado do pedido em ${PORTAL_URL}
 
-Com os melhores cumprimentos,
-Equipa DUIT`;
+Want it done? DUIT.`;
     const html = layout({
       eyebrow: 'Pedido recebido',
       title: 'Pedido de cancelamento recebido',
@@ -289,14 +418,12 @@ Informamos que o seu pedido de cancelamento referente a "${service}" foi aprovad
 
 Agradecemos a confiança depositada na DUIT. Caso volte a necessitar dos nossos serviços, estaremos ao seu inteiro dispor.
 
-Com os melhores cumprimentos,
-Equipa DUIT`
+Want it done? DUIT.`
       : `Caro(a) ${name},
 
 De momento não foi possível aprovar o cancelamento referente a "${service}". Entraremos em contacto brevemente para apresentar alternativas que possam ir ao encontro das suas necessidades.
 
-Com os melhores cumprimentos,
-Equipa DUIT`;
+Want it done? DUIT.`;
     const html = layout({
       eyebrow: approved ? 'Cancelamento aprovado' : 'Cancelamento não aprovado',
       title: approved
@@ -326,8 +453,7 @@ Informamos que se encontra disponível uma nova versão de "${title}" para a sua
 
 Convidamo-lo(a) a aceder ao portal em ${PORTAL_URL} para visualizar a proposta e partilhar o seu feedback, ou aprovar a versão apresentada.
 
-Com os melhores cumprimentos,
-Equipa DUIT`;
+Want it done? DUIT.`;
     const html = layout({
       eyebrow: 'A aguardar aprovação',
       title: `Novo mockup: ${title}`,
@@ -356,8 +482,7 @@ A ligação é válida durante 1 hora e só pode ser utilizada uma vez.
 
 Caso não tenha sido o(a) próprio(a) a solicitar esta alteração, ignore este email — a palavra-passe atual mantém-se inalterada.
 
-Com os melhores cumprimentos,
-Equipa DUIT`;
+Want it done? DUIT.`;
     const html = layout({
       eyebrow: 'Recuperação de acesso',
       title: 'Definir nova palavra-passe',
@@ -387,8 +512,7 @@ ${isAdminAuthor ? 'A equipa DUIT' : `O cliente (${authorLabel})`} deixou uma nov
 
 Poderá consultar e responder no portal: ${PORTAL_URL}
 
-Com os melhores cumprimentos,
-Equipa DUIT`;
+Want it done? DUIT.`;
     const html = layout({
       eyebrow: 'Nota de projeto',
       title: `Nova nota — ${project}`,
@@ -415,8 +539,7 @@ Informamos que o calendário editorial referente a ${month} foi redefinido. Enco
 
 Assim que estiver pronta, receberá notificação para aprovação no portal.
 
-Com os melhores cumprimentos,
-Equipa DUIT`;
+Want it done? DUIT.`;
     const html = layout({
       eyebrow: 'Calendário editorial',
       title: `${month} — calendário redefinido`,

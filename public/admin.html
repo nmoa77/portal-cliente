@@ -284,6 +284,12 @@
 <div class="overlay" id="modal-quote">
   <div class="modal wide">
     <h3 id="modal-quote-title">Novo orçamento</h3>
+
+    <div id="q-rejection-wrap" style="display:none; padding:12px 14px; border-radius:10px; background:#fff5f4; border-left:3px solid #ff3b30; margin-bottom:14px;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#8b8680; margin-bottom:4px;">Motivo da rejeição do cliente</div>
+      <div id="q-rejection-text" style="font-size:14px; color:#0a0a0a; white-space:pre-wrap;"></div>
+    </div>
+
     <form id="quoteForm">
       <input type="hidden" id="q-id">
       <div class="grid g-2" style="gap:12px">
@@ -301,11 +307,25 @@
           <option value="rejected">Rejeitado</option>
         </select>
       </div>
-      <label>Linhas do orçamento</label>
+      <label>Linhas do orçamento (valores sem IVA)</label>
       <div id="q-items"></div>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="addQuoteItem()" style="margin-top:6px">+ Nova linha</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addQuoteItem(); recomputeQuoteTotals()" style="margin-top:6px">+ Nova linha</button>
+
+      <div id="q-totals" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
+        <div style="display:flex; justify-content:space-between; padding:4px 0; color:var(--muted); font-size:13px;">
+          <span>Subtotal</span><span id="q-subtotal">0,00 €</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:4px 0; color:var(--muted); font-size:13px;">
+          <span>IVA (23%)</span><span id="q-iva">0,00 €</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:6px 0 0 0; border-top:1px solid var(--line-2); font-weight:700;">
+          <span>Total c/ IVA</span><span id="q-total" style="font-family:'Clash Display'; font-size:18px;">0,00 €</span>
+        </div>
+      </div>
+
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-close="modal-quote">Cancelar</button>
+        <button type="button" class="btn btn-ghost" id="q-resend-btn" style="display:none;" onclick="resendQuoteFromModal()">Reenviar ao cliente</button>
         <button type="submit" class="btn btn-yellow" id="q-submit">Criar &amp; enviar</button>
       </div>
     </form>

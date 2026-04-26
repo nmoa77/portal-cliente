@@ -45,15 +45,16 @@ function renderShell() {
   document.getElementById('side-role').textContent = 'DUIT · Admin';
 
   const s = state.stats || {};
-  const unread = s.unreadClientNotes || 0;
+  const unreadNotes = s.unreadClientNotes || 0;
+  const unseenQuotes = s.unseenQuoteResponses || 0;
   const items = [
     { id: 'home',      icon: 'home',    label: 'Visão geral' },
     { id: 'clients',   icon: 'users',   label: 'Clientes',     badge: s.clients },
     { id: 'subs',      icon: 'box',     label: 'Subscrições',  badge: s.activeSubs },
     { id: 'plans',     icon: 'sparkle', label: 'Planos' },
-    { id: 'projects',  icon: 'folder',  label: 'Projetos',     badge: s.openProjects, alert: unread },
+    { id: 'projects',  icon: 'folder',  label: 'Projetos',     badge: s.openProjects, alert: unreadNotes, alertTitle: `${unreadNotes} nota(s) novas de cliente` },
     { id: 'calendar',  icon: 'cal',     label: 'Calendário',   badge: s.awaitingPosts },
-    { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   badge: s.pendingQuotes },
+    { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   badge: s.pendingQuotes, alert: unseenQuotes, alertTitle: `${unseenQuotes} resposta(s) de cliente por ver` },
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',badge: s.pendingCancels },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      badge: s.openTickets },
     { id: 'notifications', icon: 'bell', label: 'Notificações' },
@@ -63,7 +64,7 @@ function renderShell() {
   nav.innerHTML = `
     <div class="nav-section">Painel DUIT</div>
     ${items.map(it => `
-      <button class="nav-item" data-view="${it.id}" ${it.alert ? `title="${it.alert} nota(s) novas de cliente"` : ''}>
+      <button class="nav-item" data-view="${it.id}" ${it.alert ? `title="${it.alertTitle || ''}"` : ''}>
         ${svg(it.icon)}
         <span>${it.label}</span>
         ${it.alert
@@ -977,32 +978,48 @@ function openGenPosts() {
 async function viewQuotes(main) {
   const rows = await api('/api/quotes');
   state.quotes = rows;
+  const responded = rows.filter(q => q.responded_at);
+  const unseen = rows.filter(q => q.unseen_response);
   main.innerHTML = `
     <div class="page-head">
       <div>
         <div class="eyebrow">Propostas</div>
         <h1>Orçamentos</h1>
-        <p class="lede">Acompanha cada proposta até ao sim (ou ao não).</p>
+        <p class="lede">Acompanhe cada proposta até à decisão do cliente. Os totais incluem IVA à taxa de 23%.</p>
       </div>
       <div class="page-head-actions">
         <button class="btn btn-yellow" onclick="openNewQuote()">${svg('plus')} Novo orçamento</button>
       </div>
     </div>
+
+    ${unseen.length ? `
+      <div class="card" style="margin-bottom:14px; border-left:3px solid #ff3b30;">
+        <div class="eyebrow" style="margin-bottom:6px;">Respostas por consultar</div>
+        <p style="margin:0; color:var(--text); font-size:14px;">
+          ${unseen.length} orçamento(s) com resposta do cliente ainda por consultar. Clique em editar para ver o detalhe.
+        </p>
+      </div>
+    ` : ''}
+
     <div class="card table-card">
       ${rows.length === 0 ? `<div class="empty">Sem orçamentos.</div>` : `
         <table class="table">
-          <thead><tr><th>Nº</th><th>Cliente</th><th>Título</th><th>Enviado</th><th>Válido até</th><th>Total</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr><th>Nº</th><th>Cliente</th><th>Título</th><th>Enviado</th><th>Válido até</th><th>Total c/ IVA</th><th>Estado</th><th></th></tr></thead>
           <tbody>
             ${rows.map(q => `
-              <tr>
-                <td><strong>${q.number}</strong></td>
+              <tr ${q.unseen_response ? 'style="background:rgba(255,59,48,0.06);"' : ''}>
+                <td>
+                  <strong>${q.number}</strong>
+                  ${q.unseen_response ? '<span class="badge-alert" style="margin-left:6px;">novo</span>' : ''}
+                </td>
                 <td>${escapeHtml(q.client_name)}</td>
                 <td>${escapeHtml(q.title)}</td>
                 <td>${fmtDate(q.sent_at)}</td>
                 <td>${fmtDate(q.valid_until)}</td>
-                <td><strong>${fmtMoney(q.total)}</strong></td>
-                <td>${statusPill(q.status)}</td>
+                <td><strong>${fmtMoney(q.total)}</strong>${q.iva ? `<div style="font-size:11px; color:var(--muted);">subtotal ${fmtMoney(q.subtotal)} + IVA ${fmtMoney(q.iva)}</div>` : ''}</td>
+                <td>${statusPill(q.status)}${q.responded_at ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;">resposta ${fmtDate(q.responded_at)}</div>` : ''}</td>
                 <td style="text-align:right; white-space:nowrap;">
+                  ${q.status === 'rejected' ? `<button class="btn btn-icon" title="Reenviar" onclick="resendQuote(${q.id})">${svg('arrow')}</button>` : ''}
                   <button class="btn btn-icon" title="Editar" onclick="openEditQuote(${q.id})">${svg('edit')}</button>
                 </td>
               </tr>
@@ -1012,6 +1029,15 @@ async function viewQuotes(main) {
       `}
     </div>
   `;
+}
+
+async function resendQuote(id) {
+  if (!confirm('Reenviar este orçamento ao cliente? O motivo de rejeição anterior será limpo e o estado volta a "enviado".')) return;
+  try {
+    await api(`/api/quotes/${id}/resend`, { method: 'POST' });
+    toast('Orçamento reenviado ao cliente.', 'check');
+    go('quotes');
+  } catch (err) { toast(err.message, 'cancel'); }
 }
 
 function openNewQuote() {
@@ -1028,7 +1054,12 @@ function openNewQuote() {
   document.getElementById('q-items').innerHTML = '';
   const statusWrap = document.getElementById('q-status-wrap');
   if (statusWrap) statusWrap.style.display = 'none';
+  const rejWrap = document.getElementById('q-rejection-wrap');
+  if (rejWrap) rejWrap.style.display = 'none';
+  const resendBtn = document.getElementById('q-resend-btn');
+  if (resendBtn) resendBtn.style.display = 'none';
   addQuoteItem();
+  recomputeQuoteTotals();
   openModal('modal-quote');
 }
 
@@ -1051,6 +1082,23 @@ async function openEditQuote(id) {
     statusWrap.style.display = '';
     document.getElementById('q-status').value = full.status || 'draft';
   }
+
+  // Mostrar motivo de rejeição se existir
+  const rejWrap = document.getElementById('q-rejection-wrap');
+  const rejText = document.getElementById('q-rejection-text');
+  if (rejWrap && rejText) {
+    if (full.status === 'rejected' && full.rejection_reason) {
+      rejText.textContent = full.rejection_reason;
+      rejWrap.style.display = '';
+    } else {
+      rejWrap.style.display = 'none';
+    }
+  }
+
+  // Botão de reenvio só aparece para orçamentos rejeitados
+  const resendBtn = document.getElementById('q-resend-btn');
+  if (resendBtn) resendBtn.style.display = full.status === 'rejected' ? '' : 'none';
+
   document.getElementById('q-items').innerHTML = '';
   const items = Array.isArray(full.items) ? full.items : [];
   if (items.length === 0) addQuoteItem();
@@ -1062,6 +1110,7 @@ async function openEditQuote(id) {
     row.querySelector('.q-detail').value = it.detail || '';
     row.querySelector('.q-amount').value = it.amount ?? 0;
   });
+  recomputeQuoteTotals();
   openModal('modal-quote');
 }
 
@@ -1073,10 +1122,39 @@ function addQuoteItem() {
   row.innerHTML = `
     <input placeholder="Linha" class="q-label" style="flex:2; min-width:160px;">
     <input placeholder="Detalhe" class="q-detail" style="flex:3; min-width:160px;">
-    <input type="number" step="0.01" placeholder="€" class="q-amount" style="flex:1; min-width:100px;">
-    <button type="button" class="btn btn-icon" onclick="this.parentElement.remove()" title="Remover">${svg('trash')}</button>
+    <input type="number" step="0.01" placeholder="€ s/ IVA" class="q-amount" style="flex:1; min-width:100px;" oninput="recomputeQuoteTotals()">
+    <button type="button" class="btn btn-icon" onclick="this.parentElement.remove(); recomputeQuoteTotals()" title="Remover">${svg('trash')}</button>
   `;
   wrap.appendChild(row);
+}
+
+function recomputeQuoteTotals() {
+  const rows = document.querySelectorAll('#q-items .quote-item .q-amount');
+  let subtotal = 0;
+  rows.forEach(input => {
+    const v = parseFloat(input.value);
+    if (!isNaN(v)) subtotal += v;
+  });
+  const iva = +(subtotal * 0.23).toFixed(2);
+  const total = +(subtotal + iva).toFixed(2);
+  const elSub = document.getElementById('q-subtotal');
+  const elIva = document.getElementById('q-iva');
+  const elTotal = document.getElementById('q-total');
+  if (elSub) elSub.textContent = fmtMoney(subtotal);
+  if (elIva) elIva.textContent = fmtMoney(iva);
+  if (elTotal) elTotal.textContent = fmtMoney(total);
+}
+
+async function resendQuoteFromModal() {
+  const id = document.getElementById('q-id').value;
+  if (!id) return;
+  if (!confirm('Reenviar este orçamento ao cliente? O motivo de rejeição será limpo e o estado volta a "enviado".')) return;
+  try {
+    await api(`/api/quotes/${id}/resend`, { method: 'POST' });
+    toast('Orçamento reenviado ao cliente.', 'check');
+    closeModal('modal-quote');
+    go('quotes');
+  } catch (err) { toast(err.message, 'cancel'); }
 }
 
 /* =========================================================================
