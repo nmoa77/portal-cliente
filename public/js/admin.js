@@ -893,13 +893,15 @@ async function viewCalendar(main) {
           <div class="date">${d}</div>
           ${dayPosts.map(p => {
             const label = p.client_company || p.client_name || '';
+            const netShort = (p.network || '').slice(0,2).toUpperCase();
             return `
-            <div class="cal-post ${netCls(p.network)} ${p.status}"
-                 title="${escapeHtml(label + ' · ' + netLabel(p.network) + ' · ' + p.text)}"
+            <div class="cal-post ${p.status}"
+                 title="${escapeHtml(label + ' · ' + netLabel(p.network) + ' · ' + p.text + ' · ' + p.status)}"
                  onclick="event.stopPropagation(); openEditPost(${p.id})">
+              <span class="net">${netShort}</span>
               <span style="font-weight:600">${escapeHtml(label)}</span>
               <span style="opacity:.75">·</span>
-              ${escapeHtml(p.text.slice(0, 20))}${p.text.length > 20 ? '…' : ''}
+              ${escapeHtml(p.text.slice(0, 18))}${p.text.length > 18 ? '…' : ''}
             </div>
           `;}).join('')}
         </div>
@@ -930,41 +932,64 @@ async function viewCalendar(main) {
     all.push(...rows);
   }
   state.calPostsCache = all;
-  const todayPosts    = all.filter(p => p.date === today).sort(sortByStatusThenNet);
-  const tomorrowPosts = all.filter(p => p.date === tomorrow).sort(sortByStatusThenNet);
+  // Vista diária funciona como to-do: só mostra os rascunhos pendentes.
+  // Quando o admin avança o estado (Agendar / Publicado / Cancelar), o post sai daqui.
+  const todayPosts    = all.filter(p => p.date === today    && p.status === 'draft').sort(sortByStatusThenNet);
+  const tomorrowPosts = all.filter(p => p.date === tomorrow && p.status === 'draft').sort(sortByStatusThenNet);
+  // Total real de posts agendados para cada dia (todos os estados) — usado para
+  // distinguir "dia sem trabalho marcado" de "tudo feito".
+  const todayTotal    = all.filter(p => p.date === today).length;
+  const tomorrowTotal = all.filter(p => p.date === tomorrow).length;
 
   main.innerHTML = `
     ${pageHead}
     <div class="grid" style="gap:18px">
-      ${dayBlock('Hoje', today, todayPosts)}
-      ${dayBlock('Amanhã', tomorrow, tomorrowPosts)}
+      ${dayBlock('Hoje', today, todayPosts, todayTotal)}
+      ${dayBlock('Amanhã', tomorrow, tomorrowPosts, tomorrowTotal)}
     </div>
   `;
 }
 
-function dayBlock(title, dateStr, posts) {
-  const counts = posts.reduce((acc, p) => { acc[p.status] = (acc[p.status]||0)+1; return acc; }, {});
-  const summary = [
-    counts.scheduled && `${counts.scheduled} agendados`,
-    counts.published && `${counts.published} publicados`,
-    counts.draft && `${counts.draft} rascunhos`,
-    counts.cancelled && `${counts.cancelled} cancelados`,
-  ].filter(Boolean).join(' · ');
+function dayBlock(title, dateStr, drafts, totalForDay) {
+  // O contentor mostra apenas rascunhos. O resumo conta o que está por fazer
+  // versus o que já foi tratado (scheduled/published/cancelled = "fora da lista").
+  const allDoneButHadWork = drafts.length === 0 && totalForDay > 0;
+  const noWorkAtAll       = drafts.length === 0 && totalForDay === 0;
+  const summary = drafts.length > 0
+    ? `${drafts.length} ${drafts.length === 1 ? 'rascunho por tratar' : 'rascunhos por tratar'}`
+    : (allDoneButHadWork
+        ? `${totalForDay} post${totalForDay === 1 ? '' : 's'} já tratado${totalForDay === 1 ? '' : 's'}`
+        : 'Sem posts agendados.');
+
+  let bodyHtml;
+  if (drafts.length > 0) {
+    bodyHtml = `<div class="day-list">${drafts.map(p => dayPostRow(p)).join('')}</div>`;
+  } else if (allDoneButHadWork) {
+    bodyHtml = `
+      <div style="text-align:center; padding:36px 16px; color:var(--text);">
+        <div style="font-size:42px; margin-bottom:6px; line-height:1;">🎉</div>
+        <div style="font-family:'Clash Display'; font-size:20px; margin-bottom:4px;">
+          Parabéns — já fizeste tudo ${title === 'Hoje' ? 'por hoje' : 'para amanhã'}!
+        </div>
+        <div style="color:var(--muted); font-size:13px;">
+          ${totalForDay} post${totalForDay === 1 ? '' : 's'} ${title === 'Hoje' ? 'tratados' : 'já preparados'}.
+        </div>
+      </div>
+    `;
+  } else {
+    bodyHtml = `<div class="empty" style="padding:30px 0;">Sem posts agendados para este dia.</div>`;
+  }
 
   return `
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:10px; flex-wrap:wrap;">
         <div>
           <h3 style="margin:0;">${title} <span style="color:var(--muted); font-weight:400; font-size:14px;">· ${fmtDate(dateStr, true)}</span></h3>
-          <div style="font-size:12px; color:var(--muted); margin-top:4px;">${summary || 'Sem posts agendados.'}</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">${summary}</div>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="openNewPostForDate('${dateStr}')">${svg('plus')} Adicionar</button>
       </div>
-      ${posts.length === 0 ? `<div class="empty">Sem posts.</div>` : `
-        <div class="day-list">
-          ${posts.map(p => dayPostRow(p)).join('')}
-        </div>
-      `}
+      ${bodyHtml}
     </div>
   `;
 }

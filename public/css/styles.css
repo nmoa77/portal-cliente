@@ -427,18 +427,44 @@ label {
   font-size: 11px; font-weight: 500;
   display: flex; align-items: center; gap: 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  border-left: 3px solid transparent; cursor: pointer;
+  cursor: pointer;
+  background: var(--bg-2, #fafaf8);
+  color: var(--text, #0a0a0a);
+  border: 1px solid var(--line-2, #ece9e2);
 }
 .cal-post:hover { filter: brightness(.95); }
-.cal-post.ig { background: #ebe5ff; color: var(--violet); border-left-color: var(--violet); }
-.cal-post.fb { background: #dff3e4; color: var(--ok);    border-left-color: var(--ok); }
-.cal-post.li { background: #daf1f1; color: var(--teal);  border-left-color: var(--teal); }
-.cal-post.draft { opacity: .55; box-shadow: inset 0 0 0 1px var(--warn, #ffd60a); }
-.cal-post.cancelled { text-decoration: line-through; opacity: .5; }
-.cal-post.published::before { content: "✓ "; font-weight: 700; color: var(--ok); }
-[data-theme="dark"] .cal-post.ig { background: #2a1f4a; }
-[data-theme="dark"] .cal-post.fb { background: #1b3321; }
-[data-theme="dark"] .cal-post.li { background: #14332f; }
+
+/* Indicador de rede (texto curto à esquerda) — usa cor neutra,
+   é o estado do post que define a cor do cartão. */
+.cal-post .net {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(10,10,10,0.08);
+  color: var(--muted, #6b6862);
+  padding: 1px 4px; border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* Cores do post pelo ESTADO (sobrepõem o estado base) */
+.cal-post.scheduled { background: #ffd60a; color: #0a0a0a; border-color: #e0bb00; }
+.cal-post.scheduled .net { background: rgba(0,0,0,0.12); color: rgba(0,0,0,0.65); }
+.cal-post.published { background: #2a8a2a; color: #ffffff; border-color: #1f6b1f; }
+.cal-post.published .net { background: rgba(255,255,255,0.18); color: rgba(255,255,255,0.9); }
+.cal-post.cancelled { background: #d33; color: #ffffff; border-color: #a82424; text-decoration: line-through; }
+.cal-post.cancelled .net { background: rgba(255,255,255,0.18); color: rgba(255,255,255,0.9); }
+/* Rascunho continua sem cor — apenas a base neutra */
+.cal-post.draft {
+  background: var(--bg-2, #fafaf8);
+  color: var(--muted, #6b6862);
+  border-style: dashed;
+}
+
+[data-theme="dark"] .cal-post {
+  background: rgba(255,255,255,0.04);
+  color: var(--text, #e8e5dd);
+  border-color: rgba(255,255,255,0.08);
+}
+[data-theme="dark"] .cal-post.draft { background: rgba(255,255,255,0.03); }
 
 /* ===== Segment toggle (Mês / Dia) ===== */
 .seg {
