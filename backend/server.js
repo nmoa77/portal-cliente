@@ -393,50 +393,152 @@ app.delete('/api/plans/:id', requireAdmin, (req, res) => {
 
 /* ================================================================
    SUBSCRIÇÕES
+   - Cada subscrição tem 1 ou mais linhas (subscription_items), em que cada
+     linha pode estar associada a um serviço (plans).
+   - O preço final de cada linha é calculado a partir do preço por defeito
+     do serviço menos um desconto opcional (€). Se desconto = 0, o preço
+     final é o preço por defeito.
+   - O preço total da subscrição é a soma dos preços finais das linhas.
    ================================================================ */
+
+function loadSubItems(subId) {
+  return db.prepare(
+    `SELECT si.id, si.plan_id, si.label, si.detail, si.default_price, si.discount, si.price,
+            p.category AS plan_category, p.name AS plan_name
+       FROM subscription_items si
+       LEFT JOIN plans p ON p.id = si.plan_id
+      WHERE si.subscription_id = ?
+      ORDER BY si.id`
+  ).all(subId);
+}
+
+function attachItemsAndTotal(sub) {
+  const items = loadSubItems(sub.id);
+  const total = +items.reduce((s, it) => s + (Number(it.price) || 0), 0).toFixed(2);
+  return { ...sub, items, total };
+}
+
+function replaceSubItems(subId, items) {
+  if (!Array.isArray(items)) return;
+  db.prepare(`DELETE FROM subscription_items WHERE subscription_id=?`).run(subId);
+  const insert = db.prepare(
+    `INSERT INTO subscription_items
+       (subscription_id, plan_id, label, detail, default_price, discount, price)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  );
+  for (const it of items) {
+    let plan = null;
+    if (it.plan_id) {
+      plan = db.prepare(`SELECT id, name, description, price FROM plans WHERE id=?`).get(it.plan_id);
+    }
+    const label = (it.label || (plan && plan.name) || '').trim();
+    if (!label) continue;
+    const detail = (it.detail ?? (plan && plan.description) ?? '').trim();
+    const defaultPrice = plan ? Number(plan.price || 0) : Number(it.default_price || 0);
+    const discount = Math.max(0, Number(it.discount) || 0);
+    const finalPrice = Math.max(0, +(defaultPrice - discount).toFixed(2));
+    insert.run(subId, plan ? plan.id : (it.plan_id || null), label, detail, defaultPrice, discount, finalPrice);
+  }
+}
+
+function recomputeSubHeader(subId) {
+  // Atualiza o preço-resumo, o nome principal e o tipo a partir das linhas.
+  const items = loadSubItems(subId);
+  const total = items.reduce((s, it) => s + (Number(it.price) || 0), 0);
+  const summary = items.length === 0
+    ? ''
+    : (items.length === 1 ? items[0].label : `${items[0].label} + ${items.length - 1}`);
+  // Tipo deduzido: se todos os planos forem da mesma categoria, usar essa; senão manter o existente
+  let type = null;
+  const cats = [...new Set(items.map(i => i.plan_category).filter(Boolean))];
+  if (cats.length === 1) type = cats[0];
+  const detailParts = items.length > 1
+    ? items.map(it => it.label).join(' · ')
+    : (items[0]?.detail || '');
+  if (type) {
+    db.prepare(
+      `UPDATE subscriptions SET price=?, name=COALESCE(NULLIF(?, ''), name), detail=?, type=? WHERE id=?`
+    ).run(+total.toFixed(2), summary, detailParts, type, subId);
+  } else {
+    db.prepare(
+      `UPDATE subscriptions SET price=?, name=COALESCE(NULLIF(?, ''), name), detail=? WHERE id=?`
+    ).run(+total.toFixed(2), summary, detailParts, subId);
+  }
+}
+
 app.get('/api/subscriptions', requireAuth, (req, res) => {
   if (req.user.role === 'admin') {
     const rows = db.prepare(
       `SELECT s.*, u.name client_name, u.email client_email, u.company client_company
          FROM subscriptions s JOIN users u ON u.id=s.user_id ORDER BY s.renewal_date`
     ).all();
-    return res.json(rows);
+    return res.json(rows.map(attachItemsAndTotal));
   }
-  res.json(db.prepare(
+  const rows = db.prepare(
     `SELECT * FROM subscriptions WHERE user_id=? ORDER BY type`
-  ).all(req.user.id));
+  ).all(req.user.id);
+  res.json(rows.map(attachItemsAndTotal));
+});
+
+app.get('/api/subscriptions/:id', requireAuth, (req, res) => {
+  const s = db.prepare(
+    `SELECT s.*, u.name client_name, u.email client_email, u.company client_company
+       FROM subscriptions s JOIN users u ON u.id=s.user_id WHERE s.id=?`
+  ).get(req.params.id);
+  if (!s) return res.status(404).json({ error: 'Subscrição não encontrada' });
+  if (req.user.role !== 'admin' && s.user_id !== req.user.id) {
+    return res.status(403).json({ error: 'Sem permissão' });
+  }
+  res.json(attachItemsAndTotal(s));
 });
 
 app.post('/api/subscriptions', requireAdmin, (req, res) => {
-  const { user_id, type, name, detail, status, price, period, renewal_date, plan_id } = req.body || {};
-  if (!user_id || !type || !name) return res.status(400).json({ error: 'Cliente, tipo e nome obrigatórios' });
+  const { user_id, type, status, period, renewal_date, items } = req.body || {};
+  if (!user_id) return res.status(400).json({ error: 'Cliente obrigatório' });
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Adicione pelo menos um serviço.' });
+  }
+
+  // Inserir cabeçalho. Nome/preço/detalhe são recalculados a partir das linhas.
   const info = db.prepare(
     `INSERT INTO subscriptions (user_id, plan_id, type, name, detail, status, price, period, renewal_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(user_id, plan_id || null, type, name, detail || '', status || 'active',
-        price || 0, period || 'mês', renewal_date || null);
-  res.status(201).json({ id: info.lastInsertRowid });
+     VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    user_id,
+    type || 'hosting',          // valor temporário, recomputado abaixo
+    '—', '',                    // recomputados
+    status || 'active', 0,
+    period || 'mês', renewal_date || null
+  );
+  const subId = info.lastInsertRowid;
+
+  replaceSubItems(subId, items);
+  recomputeSubHeader(subId);
+
+  res.status(201).json({ id: subId });
 });
 
 app.patch('/api/subscriptions/:id', requireAdmin, (req, res) => {
-  const { type, name, detail, status, price, period, renewal_date, plan_id } = req.body || {};
-  const info = db.prepare(
+  const sub = db.prepare(`SELECT * FROM subscriptions WHERE id=?`).get(req.params.id);
+  if (!sub) return res.status(404).json({ error: 'Subscrição não encontrada' });
+
+  const { status, period, renewal_date, items } = req.body || {};
+  db.prepare(
     `UPDATE subscriptions SET
-       type=COALESCE(?, type),
-       name=COALESCE(?, name),
-       detail=COALESCE(?, detail),
        status=COALESCE(?, status),
-       price=COALESCE(?, price),
        period=COALESCE(?, period),
-       renewal_date=COALESCE(?, renewal_date),
-       plan_id=COALESCE(?, plan_id)
+       renewal_date=COALESCE(?, renewal_date)
      WHERE id=?`
-  ).run(
-    type ?? null, name ?? null, detail ?? null, status ?? null,
-    price ?? null, period ?? null, renewal_date ?? null, plan_id ?? null,
-    req.params.id
-  );
-  if (!info.changes) return res.status(404).json({ error: 'Subscrição não encontrada' });
+  ).run(status ?? null, period ?? null, renewal_date ?? null, req.params.id);
+
+  if (Array.isArray(items)) {
+    if (items.length === 0) {
+      return res.status(400).json({ error: 'A subscrição tem de ter pelo menos um serviço.' });
+    }
+    replaceSubItems(req.params.id, items);
+    recomputeSubHeader(req.params.id);
+  }
+
   res.json({ ok: true });
 });
 

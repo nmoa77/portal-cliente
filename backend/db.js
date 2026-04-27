@@ -62,6 +62,21 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS subscription_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  subscription_id INTEGER NOT NULL,
+  plan_id INTEGER,
+  label TEXT NOT NULL,
+  detail TEXT,
+  default_price REAL NOT NULL DEFAULT 0,
+  discount REAL NOT NULL DEFAULT 0,
+  price REAL NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE,
+  FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_subscription_items_sub ON subscription_items(subscription_id);
+
 CREATE TABLE IF NOT EXISTS projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,
@@ -580,5 +595,35 @@ function datetime(n, unit = 'days') {
 }
 
 seed();
+
+/* ==============================================================
+   Pós-seed: garantir que subscription_items reflete subscriptions.
+   Corre tanto em BDs antigas (vindas de releases sem items) como em
+   instalações novas (após seed que insere directamente em subscriptions).
+   ============================================================== */
+try {
+  const hasTable = db.prepare(
+    `SELECT COUNT(*) c FROM sqlite_master WHERE type='table' AND name='subscription_items'`
+  ).get().c > 0;
+  if (hasTable) {
+    const items = db.prepare(`SELECT COUNT(*) c FROM subscription_items`).get().c;
+    if (items === 0) {
+      const subs = db.prepare(`SELECT id, plan_id, name, detail, price FROM subscriptions`).all();
+      if (subs.length) {
+        const insertItem = db.prepare(
+          `INSERT INTO subscription_items (subscription_id, plan_id, label, detail, default_price, discount, price)
+           VALUES (?, ?, ?, ?, ?, 0, ?)`
+        );
+        const tx = db.transaction(() => {
+          for (const s of subs) {
+            insertItem.run(s.id, s.plan_id || null, s.name, s.detail || '', s.price || 0, s.price || 0);
+          }
+        });
+        tx();
+        console.log(`✓ subscription_items populada com ${subs.length} linhas (cópia 1:1 de subscriptions).`);
+      }
+    }
+  }
+} catch (e) { console.warn('Sync subscription_items:', e.message); }
 
 module.exports = db;

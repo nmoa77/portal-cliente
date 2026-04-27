@@ -51,7 +51,7 @@ function renderShell() {
     { id: 'home',      icon: 'home',    label: 'Visão geral' },
     { id: 'clients',   icon: 'users',   label: 'Clientes' },
     { id: 'subs',      icon: 'box',     label: 'Subscrições',  alert: s.pendingSubs,            alertTitle: `${s.pendingSubs || 0} subscrição(ões) por confirmar` },
-    { id: 'plans',     icon: 'sparkle', label: 'Planos' },
+    { id: 'plans',     icon: 'sparkle', label: 'Serviços' },
     { id: 'projects',  icon: 'folder',  label: 'Projetos',     alert: s.unreadClientNotes,      alertTitle: `${s.unreadClientNotes || 0} nota(s) novas de cliente` },
     { id: 'calendar',  icon: 'cal',     label: 'Calendário',   alert: s.pendingPostSuggestions, alertTitle: `${s.pendingPostSuggestions || 0} sugestão(ões) de cliente por tratar` },
     { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   alert: s.unseenQuoteResponses,   alertTitle: `${s.unseenQuoteResponses || 0} resposta(s) de cliente por ver` },
@@ -406,26 +406,36 @@ async function viewSubs(main) {
   `;
 }
 
-function openNewSub() {
+async function ensurePlansLoaded() {
+  if (!Array.isArray(state.plans) || state.plans.length === 0) {
+    try { state.plans = await api('/api/plans'); }
+    catch (e) { state.plans = []; }
+  }
+  return state.plans || [];
+}
+
+async function openNewSub() {
+  const plans = await ensurePlansLoaded();
   document.getElementById('modal-sub-title').textContent = 'Nova subscrição';
   document.getElementById('s-submit').textContent = 'Criar';
   document.getElementById('s-id').value = '';
   const sel = document.getElementById('s-user');
   sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)} · ${escapeHtml(c.company || '')}</option>`).join('');
   sel.disabled = false;
-  document.getElementById('s-type').value = 'hosting';
   document.getElementById('s-period').value = 'mês';
-  document.getElementById('s-name').value = '';
-  document.getElementById('s-detail').value = '';
-  document.getElementById('s-price').value = 0;
   document.getElementById('s-renewal').value = '';
   document.getElementById('s-status-wrap').style.display = 'none';
+  document.getElementById('s-items').innerHTML = '';
+  addSubItem();
+  recomputeSubTotals();
   openModal('modal-sub');
 }
 
-function openSubEdit(id) {
-  const s = (state.subs || []).find(x => x.id === id);
-  if (!s) { toast('Subscrição não encontrada.', 'cancel'); return; }
+async function openSubEdit(id) {
+  const plans = await ensurePlansLoaded();
+  let s;
+  try { s = await api(`/api/subscriptions/${id}`); }
+  catch (err) { toast(err.message, 'cancel'); return; }
   document.getElementById('modal-sub-title').textContent = 'Editar subscrição';
   document.getElementById('s-submit').textContent = 'Guardar';
   document.getElementById('s-id').value = s.id;
@@ -433,15 +443,98 @@ function openSubEdit(id) {
   sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)} · ${escapeHtml(c.company || '')}</option>`).join('');
   sel.value = s.user_id;
   sel.disabled = true;
-  document.getElementById('s-type').value = s.type || 'hosting';
   document.getElementById('s-period').value = s.period || 'mês';
-  document.getElementById('s-name').value = s.name || '';
-  document.getElementById('s-detail').value = s.detail || '';
-  document.getElementById('s-price').value = s.price || 0;
   document.getElementById('s-renewal').value = s.renewal_date ? String(s.renewal_date).slice(0,10) : '';
   document.getElementById('s-status-wrap').style.display = '';
   document.getElementById('s-status').value = s.status || 'active';
+
+  document.getElementById('s-items').innerHTML = '';
+  const items = Array.isArray(s.items) && s.items.length ? s.items : [{}];
+  items.forEach(it => addSubItem(it));
+  recomputeSubTotals();
+
   openModal('modal-sub');
+}
+
+function planOptionsHtml(selectedId) {
+  const plans = state.plans || [];
+  const catLabel = { social: 'Redes sociais', hosting: 'Alojamento', domain: 'Domínio' };
+  const grouped = plans.reduce((acc, p) => {
+    (acc[p.category] = acc[p.category] || []).push(p);
+    return acc;
+  }, {});
+  let html = `<option value="">— escolher serviço —</option>`;
+  for (const [cat, list] of Object.entries(grouped)) {
+    html += `<optgroup label="${escapeHtml(catLabel[cat] || cat)}">`;
+    for (const p of list) {
+      const sel = String(selectedId || '') === String(p.id) ? 'selected' : '';
+      html += `<option value="${p.id}" data-price="${p.price}" data-desc="${escapeHtml(p.description || '')}" data-period="${escapeHtml(p.period || 'mês')}" ${sel}>
+                 ${escapeHtml(p.name)} — ${fmtMoney(p.price)}/${escapeHtml(p.period || 'mês')}
+               </option>`;
+    }
+    html += `</optgroup>`;
+  }
+  return html;
+}
+
+function addSubItem(it = {}) {
+  const wrap = document.getElementById('s-items');
+  const row = document.createElement('div');
+  row.className = 'sub-item';
+  row.style = 'padding:10px 0; border-bottom:1px solid var(--line-2); display:grid; grid-template-columns:2fr 2fr 0.9fr 0.9fr 36px; gap:8px; align-items:end;';
+  row.innerHTML = `
+    <div class="field" style="margin:0;">
+      <label style="font-size:11px;">Serviço</label>
+      <select class="si-plan" onchange="onSubItemPlanChange(this)">${planOptionsHtml(it.plan_id)}</select>
+    </div>
+    <div class="field" style="margin:0;">
+      <label style="font-size:11px;">Detalhe</label>
+      <input class="si-detail" type="text" placeholder="(opcional)" value="${escapeHtml(it.detail || '')}">
+    </div>
+    <div class="field" style="margin:0;">
+      <label style="font-size:11px;">Preço base (€)</label>
+      <input class="si-default" type="number" step="0.01" readonly value="${Number(it.default_price || 0).toFixed(2)}" style="background:var(--bg-2); color:var(--muted);">
+    </div>
+    <div class="field" style="margin:0;">
+      <label style="font-size:11px;">Desconto (€)</label>
+      <input class="si-discount" type="number" step="0.01" min="0" placeholder="0,00" value="${it.discount ? Number(it.discount).toFixed(2) : ''}" oninput="recomputeSubTotals()">
+    </div>
+    <button type="button" class="btn btn-icon" title="Remover" onclick="this.parentElement.remove(); recomputeSubTotals()">${svg('trash')}</button>
+    <div style="grid-column:1 / -1; display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:-2px;">
+      <span style="color:var(--muted); font-size:12px;">Preço final desta linha:</span>
+      <strong class="si-final" style="font-family:'Clash Display'; font-size:15px;">${fmtMoney(it.price ?? it.default_price ?? 0)}</strong>
+    </div>
+  `;
+  wrap.appendChild(row);
+}
+
+function onSubItemPlanChange(selectEl) {
+  const opt = selectEl.options[selectEl.selectedIndex];
+  const row = selectEl.closest('.sub-item');
+  const price = Number(opt?.dataset?.price || 0);
+  const desc = opt?.dataset?.desc || '';
+  row.querySelector('.si-default').value = price.toFixed(2);
+  const detailEl = row.querySelector('.si-detail');
+  if (!detailEl.value.trim()) detailEl.value = desc;
+  recomputeSubTotals();
+}
+
+function recomputeSubTotals() {
+  const rows = document.querySelectorAll('#s-items .sub-item');
+  let total = 0;
+  rows.forEach(row => {
+    const def = parseFloat(row.querySelector('.si-default').value) || 0;
+    const discRaw = row.querySelector('.si-discount').value;
+    const disc = discRaw === '' ? 0 : Math.max(0, parseFloat(discRaw) || 0);
+    const final = Math.max(0, +(def - disc).toFixed(2));
+    row.querySelector('.si-final').textContent = fmtMoney(final);
+    total += final;
+  });
+  const totalEl = document.getElementById('s-total');
+  if (totalEl) totalEl.textContent = fmtMoney(total);
+  const periodEl = document.getElementById('s-total-period');
+  const period = document.getElementById('s-period');
+  if (periodEl && period) periodEl.textContent = '/ ' + period.value;
 }
 
 async function deleteSub(id) {
@@ -462,17 +555,17 @@ async function viewPlans(main) {
     <div class="page-head">
       <div>
         <div class="eyebrow">Templates de oferta</div>
-        <h1>Planos</h1>
-        <p class="lede">Os planos-base que a DUIT oferece. Ao criar uma subscrição, pode puxar destes templates.</p>
+        <h1>Serviços</h1>
+        <p class="lede">Os serviços-base que a DUIT oferece. Ao criar uma subscrição, pode puxar destes templates e aplicar desconto se necessário.</p>
       </div>
       <div class="page-head-actions">
-        <button class="btn btn-yellow" onclick="openNewPlan()">${svg('plus')} Novo plano</button>
+        <button class="btn btn-yellow" onclick="openNewPlan()">${svg('plus')} Novo serviço</button>
       </div>
     </div>
     <div class="card table-card">
-      ${plans.length === 0 ? `<div class="empty">Sem planos.</div>` : `
+      ${plans.length === 0 ? `<div class="empty">Sem serviços.</div>` : `
         <table class="table">
-          <thead><tr><th>Plano</th><th>Categoria</th><th>Preço</th><th>Funcionalidades</th><th>Destaque</th><th></th></tr></thead>
+          <thead><tr><th>Serviço</th><th>Categoria</th><th>Preço</th><th>Funcionalidades</th><th>Destaque</th><th></th></tr></thead>
           <tbody>
             ${plans.map(p => `
               <tr>
@@ -1512,14 +1605,24 @@ document.addEventListener('submit', async (e) => {
   if (e.target.id === 'subForm') {
     e.preventDefault();
     const id = document.getElementById('s-id').value;
+    const items = Array.from(document.querySelectorAll('#s-items .sub-item')).map(row => {
+      const planId = row.querySelector('.si-plan').value;
+      const discRaw = row.querySelector('.si-discount').value;
+      return {
+        plan_id: planId ? Number(planId) : null,
+        detail: row.querySelector('.si-detail').value,
+        discount: discRaw === '' ? 0 : Math.max(0, parseFloat(discRaw) || 0),
+      };
+    }).filter(it => it.plan_id);
+    if (items.length === 0) {
+      toast('Adicione pelo menos um serviço.', 'cancel');
+      return;
+    }
     const body = {
       user_id: Number(document.getElementById('s-user').value),
-      type: document.getElementById('s-type').value,
-      name: document.getElementById('s-name').value,
-      detail: document.getElementById('s-detail').value,
       period: document.getElementById('s-period').value,
-      price: Number(document.getElementById('s-price').value),
       renewal_date: document.getElementById('s-renewal').value || null,
+      items,
     };
     if (id) body.status = document.getElementById('s-status').value;
     try {

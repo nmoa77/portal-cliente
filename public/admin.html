@@ -108,27 +108,15 @@
 </div>
 
 <div class="overlay" id="modal-sub">
-  <div class="modal">
+  <div class="modal wide">
     <h3 id="modal-sub-title">Nova subscrição</h3>
     <form id="subForm">
       <input type="hidden" id="s-id">
       <div class="field"><label>Cliente</label><select id="s-user" required></select></div>
       <div class="grid g-2" style="gap:12px">
-        <div class="field"><label>Tipo</label>
-          <select id="s-type" required>
-            <option value="hosting">Alojamento</option>
-            <option value="domain">Domínio</option>
-            <option value="social">Redes sociais</option>
-          </select>
-        </div>
         <div class="field"><label>Período</label>
           <select id="s-period"><option>mês</option><option>ano</option></select>
         </div>
-      </div>
-      <div class="field"><label>Nome</label><input id="s-name" required placeholder="Ex: Alojamento Pro / exemplo.pt"></div>
-      <div class="field"><label>Detalhe</label><input id="s-detail" placeholder="Ex: 20GB SSD · Backups"></div>
-      <div class="grid g-2" style="gap:12px">
-        <div class="field"><label>Preço (€)</label><input id="s-price" type="number" step="0.01" value="0"></div>
         <div class="field"><label>Renovação</label><input id="s-renewal" type="date"></div>
       </div>
       <div class="field" id="s-status-wrap" style="display:none">
@@ -141,6 +129,22 @@
           <option value="expired">Expirada</option>
         </select>
       </div>
+
+      <label>Serviços incluídos</label>
+      <p style="margin:0 0 8px 0; font-size:12px; color:var(--muted);">
+        Escolha um serviço da lista; o preço por defeito é preenchido automaticamente.
+        O desconto é opcional — se ficar em branco, mantém-se o preço normal do serviço.
+      </p>
+      <div id="s-items"></div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="addSubItem(); recomputeSubTotals()" style="margin-top:6px">+ Novo serviço</button>
+
+      <div id="s-totals" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
+        <div style="display:flex; justify-content:space-between; padding:6px 0 0 0; font-weight:700;">
+          <span>Total <span id="s-total-period" style="font-weight:400; color:var(--muted); font-size:13px;">/ mês</span></span>
+          <span id="s-total" style="font-family:'Clash Display'; font-size:18px;">0,00 €</span>
+        </div>
+      </div>
+
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" data-close="modal-sub">Cancelar</button>
         <button type="submit" class="btn btn-yellow" id="s-submit">Criar</button>
