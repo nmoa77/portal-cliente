@@ -45,15 +45,20 @@ function renderShell() {
   document.getElementById('side-role').textContent = 'DUIT · Admin';
 
   const s = state.stats || {};
-  // Apenas alertas: contam-se itens novos / não lidos / por tratar.
-  // Quando o admin entra na vista correspondente, o servidor marca como visto e o badge desaparece.
+  /* Cada item da sidebar pode ter:
+     - count: contador informativo (badge amarelo). Persiste enquanto houver trabalho em curso.
+     - alert: contador de alerta (badge vermelho pulsante). Desaparece quando "lido" pelo admin.
+     Quando ambos existem, mostram-se lado a lado: alert primeiro (mais à direita) por ser
+     mais urgente, count à sua esquerda como "estado de fundo". */
   const items = [
     { id: 'home',      icon: 'home',    label: 'Visão geral' },
     { id: 'clients',   icon: 'users',   label: 'Clientes' },
     { id: 'subs',      icon: 'box',     label: 'Subscrições',  alert: s.pendingSubs,            alertTitle: `${s.pendingSubs || 0} subscrição(ões) por confirmar` },
     { id: 'plans',     icon: 'sparkle', label: 'Serviços' },
-    { id: 'projects',  icon: 'folder',  label: 'Projetos',     alert: s.unreadClientNotes,      alertTitle: `${s.unreadClientNotes || 0} nota(s) novas de cliente` },
-    { id: 'calendar',  icon: 'cal',     label: 'Calendário',   alert: s.todayDrafts, alertTitle: `${s.todayDrafts || 0} post(s) por tratar hoje` },
+    { id: 'projects',  icon: 'folder',  label: 'Projetos',
+        count: s.openProjects,         countTitle: `${s.openProjects || 0} projeto(s) por concluir`,
+        alert: s.unreadClientNotes,    alertTitle: `${s.unreadClientNotes || 0} nota(s) novas de cliente` },
+    { id: 'calendar',  icon: 'cal',     label: 'Calendário',   alert: s.todayDrafts,            alertTitle: `${s.todayDrafts || 0} post(s) por tratar hoje` },
     { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   alert: s.unseenQuoteResponses,   alertTitle: `${s.unseenQuoteResponses || 0} resposta(s) de cliente por ver` },
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',alert: s.pendingCancels,         alertTitle: `${s.pendingCancels || 0} cancelamento(s) pendente(s)` },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      alert: s.unreadAdminTickets,     alertTitle: `${s.unreadAdminTickets || 0} ticket(s) com nova resposta de cliente` },
@@ -63,13 +68,23 @@ function renderShell() {
   const nav = document.getElementById('nav');
   nav.innerHTML = `
     <div class="nav-section">Painel DUIT</div>
-    ${items.map(it => `
-      <button class="nav-item" data-view="${it.id}" ${it.alert ? `title="${it.alertTitle || ''}"` : ''}>
-        ${svg(it.icon)}
-        <span>${it.label}</span>
-        ${it.alert ? `<span class="badge-alert">${it.alert}</span>` : ''}
-      </button>
-    `).join('')}
+    ${items.map(it => {
+      const titles = [
+        it.alert ? it.alertTitle : null,
+        it.count ? it.countTitle : null,
+      ].filter(Boolean).join(' · ');
+      const countBadge = it.count > 0
+        ? `<span class="badge-count" title="${escapeHtml(it.countTitle || '')}">${it.count}</span>` : '';
+      const alertBadge = it.alert > 0
+        ? `<span class="badge-alert" title="${escapeHtml(it.alertTitle || '')}">${it.alert}</span>` : '';
+      return `
+        <button class="nav-item" data-view="${it.id}" ${titles ? `title="${escapeHtml(titles)}"` : ''}>
+          ${svg(it.icon)}
+          <span>${it.label}</span>
+          ${countBadge}${alertBadge}
+        </button>
+      `;
+    }).join('')}
   `;
   nav.querySelectorAll('.nav-item').forEach(b => {
     b.addEventListener('click', () => go(b.dataset.view));
