@@ -129,6 +129,20 @@ CREATE TABLE IF NOT EXISTS cancellation_requests (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS cancellation_request_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cancellation_request_id INTEGER NOT NULL,
+  subscription_item_id INTEGER,
+  -- Snapshot dos campos do item, para o histórico ficar correto mesmo
+  -- se o item entretanto for apagado/alterado.
+  label TEXT,
+  price REAL,
+  period TEXT,
+  FOREIGN KEY (cancellation_request_id) REFERENCES cancellation_requests(id) ON DELETE CASCADE,
+  FOREIGN KEY (subscription_item_id) REFERENCES subscription_items(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cancellation_request_items_req ON cancellation_request_items(cancellation_request_id);
+
 CREATE TABLE IF NOT EXISTS quotes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   number TEXT UNIQUE NOT NULL,

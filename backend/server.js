@@ -840,6 +840,15 @@ app.delete('/api/files/:id', requireAuth, (req, res) => {
 /* ================================================================
    CANCELAMENTOS
    ================================================================ */
+function loadCancellationItems(crId) {
+  return db.prepare(
+    `SELECT cri.id, cri.subscription_item_id, cri.label, cri.price, cri.period
+       FROM cancellation_request_items cri
+      WHERE cri.cancellation_request_id = ?
+      ORDER BY cri.id`
+  ).all(crId);
+}
+
 app.get('/api/cancellations', requireAuth, (req, res) => {
   if (req.user.role === 'admin') {
     const rows = db.prepare(
@@ -850,27 +859,68 @@ app.get('/api/cancellations', requireAuth, (req, res) => {
          JOIN users u ON u.id=c.user_id
         ORDER BY c.status='pending' DESC, c.created_at DESC`
     ).all();
-    return res.json(rows);
+    return res.json(rows.map(r => ({ ...r, items: loadCancellationItems(r.id) })));
   }
-  res.json(db.prepare(
+  const rows = db.prepare(
     `SELECT c.*, s.name service_name FROM cancellation_requests c
        JOIN subscriptions s ON s.id=c.subscription_id
       WHERE c.user_id=? ORDER BY c.created_at DESC`
-  ).all(req.user.id));
+  ).all(req.user.id);
+  res.json(rows.map(r => ({ ...r, items: loadCancellationItems(r.id) })));
 });
 
 app.post('/api/cancellations', requireAuth, (req, res) => {
-  const { subscription_id, reason, comment } = req.body || {};
+  const { subscription_id, reason, comment, item_ids } = req.body || {};
   if (!subscription_id) return res.status(400).json({ error: 'subscription_id obrigatório' });
   const sub = db.prepare(`SELECT * FROM subscriptions WHERE id=?`).get(subscription_id);
   if (!sub) return res.status(404).json({ error: 'Subscrição não encontrada' });
   if (req.user.role !== 'admin' && sub.user_id !== req.user.id) return res.status(403).json({ error: 'Sem permissão' });
+
+  const allItems = db.prepare(
+    `SELECT id, label, price, period FROM subscription_items WHERE subscription_id = ? ORDER BY id`
+  ).all(subscription_id);
+  if (allItems.length === 0) {
+    return res.status(400).json({ error: 'Esta subscrição não tem serviços para cancelar.' });
+  }
+
+  // Decide quais items vão ser cancelados.
+  // - Se item_ids vier vazio/ausente → cancelamento total (todos os items)
+  // - Se item_ids vier preenchido → cancela apenas os indicados
+  let chosen = [];
+  if (Array.isArray(item_ids) && item_ids.length > 0) {
+    const requested = new Set(item_ids.map(Number));
+    chosen = allItems.filter(it => requested.has(it.id));
+    if (chosen.length === 0) {
+      return res.status(400).json({ error: 'Nenhum dos serviços indicados pertence a esta subscrição.' });
+    }
+  } else {
+    chosen = allItems.slice();
+  }
+
   const info = db.prepare(
     `INSERT INTO cancellation_requests (subscription_id, user_id, reason, comment) VALUES (?, ?, ?, ?)`
   ).run(subscription_id, sub.user_id, reason || '', comment || '');
-  const tpl = T.cancelRequest('', sub.name);
-  deliver(db, { to: req.user.email, subject: tpl.subject, body: tpl.body, html: tpl.html, user_id: sub.user_id, kind: 'cancel_request' });
-  res.status(201).json({ id: info.lastInsertRowid });
+  const crId = info.lastInsertRowid;
+
+  const insertItem = db.prepare(
+    `INSERT INTO cancellation_request_items (cancellation_request_id, subscription_item_id, label, price, period)
+     VALUES (?, ?, ?, ?, ?)`
+  );
+  for (const it of chosen) {
+    insertItem.run(crId, it.id, it.label, it.price, it.period);
+  }
+
+  // Email — usa o nome resumido se for cancelamento total, senão lista os serviços escolhidos
+  const partial = chosen.length < allItems.length;
+  const serviceLabel = partial
+    ? chosen.map(it => it.label).join(' · ')
+    : sub.name;
+  const tpl = T.cancelRequest('', serviceLabel);
+  deliver(db, {
+    to: req.user.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+    user_id: sub.user_id, kind: 'cancel_request',
+  });
+  res.status(201).json({ id: crId, partial });
 });
 
 app.patch('/api/cancellations/:id', requireAdmin, (req, res) => {
@@ -883,12 +933,43 @@ app.patch('/api/cancellations/:id', requireAdmin, (req, res) => {
        JOIN users u ON u.id=c.user_id WHERE c.id=?`
   ).get(req.params.id);
   if (!cr) return res.status(404).json({ error: 'Pedido não encontrado' });
+
   db.prepare(`UPDATE cancellation_requests SET status=?, decided_at=datetime('now') WHERE id=?`)
     .run(status, req.params.id);
+
   if (status === 'approved') {
-    db.prepare(`UPDATE subscriptions SET status='cancelled' WHERE id=?`).run(cr.subscription_id);
+    const reqItems = loadCancellationItems(cr.id);
+    const currentItems = db.prepare(
+      `SELECT id FROM subscription_items WHERE subscription_id = ?`
+    ).all(cr.subscription_id);
+    const targetIds = reqItems
+      .map(ri => ri.subscription_item_id)
+      .filter(Boolean);
+
+    if (targetIds.length === 0 || targetIds.length >= currentItems.length) {
+      // Cancelamento total
+      db.prepare(`UPDATE subscriptions SET status='cancelled' WHERE id=?`).run(cr.subscription_id);
+    } else {
+      // Cancelamento parcial — remove apenas os serviços indicados e recalcula
+      const placeholders = targetIds.map(() => '?').join(',');
+      db.prepare(`DELETE FROM subscription_items WHERE id IN (${placeholders})`).run(...targetIds);
+      const remaining = db.prepare(
+        `SELECT COUNT(*) c FROM subscription_items WHERE subscription_id=?`
+      ).get(cr.subscription_id).c;
+      if (remaining === 0) {
+        db.prepare(`UPDATE subscriptions SET status='cancelled' WHERE id=?`).run(cr.subscription_id);
+      } else {
+        recomputeSubHeader(cr.subscription_id);
+      }
+    }
   }
-  const tpl = T.cancelDecision(cr.client_name, cr.service_name, status === 'approved');
+
+  // Email — se o pedido tem items registados, listamos os nomes dos serviços
+  // afetados; caso contrário (pedidos legados sem items) usamos o nome da subscrição.
+  const reqItemsForEmail = loadCancellationItems(cr.id);
+  const labels = reqItemsForEmail.map(ri => ri.label).filter(Boolean);
+  const serviceLabel = labels.length > 0 ? labels.join(' · ') : cr.service_name;
+  const tpl = T.cancelDecision(cr.client_name, serviceLabel, status === 'approved');
   deliver(db, { to: cr.client_email, subject: tpl.subject, body: tpl.body, html: tpl.html, user_id: cr.user_id, kind: 'cancel_decision' });
   res.json({ ok: true });
 });

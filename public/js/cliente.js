@@ -320,9 +320,72 @@ async function viewSubs(main) {
   `;
 }
 
-function openCancel(subId) {
+async function openCancel(subId) {
   document.getElementById('c-sub-id').value = subId;
+  document.getElementById('c-reason').selectedIndex = 0;
+  document.getElementById('c-comment').value = '';
+
+  const wrap = document.getElementById('c-items-wrap');
+  const itemsBox = document.getElementById('c-items');
+  const allCheck = document.getElementById('c-all');
+  itemsBox.innerHTML = '<div class="empty" style="padding:10px 0; font-size:13px;">A carregar serviços…</div>';
+  wrap.style.display = '';
+
+  try {
+    const sub = await api(`/api/subscriptions/${subId}`);
+    const items = Array.isArray(sub.items) ? sub.items : [];
+    if (items.length === 0) {
+      itemsBox.innerHTML = '<div class="empty" style="padding:10px 0; font-size:13px;">Sem serviços disponíveis para cancelar.</div>';
+      wrap.style.display = 'none';
+    } else if (items.length === 1) {
+      // Apenas um serviço — mostra-o como "todos" implícitos
+      itemsBox.innerHTML = `
+        <div style="padding:10px 12px; border:1px solid var(--line); border-radius:10px; font-size:13px;">
+          <strong>${escapeHtml(items[0].label)}</strong>
+          <div style="color:var(--muted); font-size:12px; margin-top:2px;">
+            ${fmtMoney(items[0].price)}/${items[0].period}${items[0].renewal_date ? ' · renova ' + fmtDate(items[0].renewal_date) : ''}
+          </div>
+        </div>`;
+      // Esconde o "Selecionar todos" quando só há um — fica implícito
+      allCheck.checked = true;
+      allCheck.parentElement.style.display = 'none';
+    } else {
+      allCheck.parentElement.style.display = '';
+      allCheck.checked = true;
+      itemsBox.innerHTML = items.map(it => `
+        <label style="display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; margin-bottom:8px; cursor:pointer;">
+          <input type="checkbox" class="c-item" data-id="${it.id}" checked
+                 style="width:18px; height:18px; accent-color:#ffd60a;"
+                 onchange="updateCancelMaster()">
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:500; font-size:14px;">${escapeHtml(it.label)}</div>
+            <div style="font-size:12px; color:var(--muted); margin-top:2px;">
+              ${fmtMoney(it.price)}/${it.period}${it.renewal_date ? ' · renova ' + fmtDate(it.renewal_date) : ''}
+            </div>
+          </div>
+        </label>
+      `).join('');
+      // Master toggle: marca/desmarca todos
+      allCheck.onchange = (e) => {
+        document.querySelectorAll('#c-items .c-item').forEach(cb => { cb.checked = e.target.checked; });
+      };
+    }
+  } catch (err) {
+    itemsBox.innerHTML = `<div class="empty" style="padding:10px 0; font-size:13px;">Erro ao carregar serviços: ${escapeHtml(err.message)}</div>`;
+  }
+
   openModal('modal-cancel');
+}
+
+// Sincroniza o master "Selecionar todos" com base nos checkboxes individuais
+function updateCancelMaster() {
+  const all = document.getElementById('c-all');
+  const checks = Array.from(document.querySelectorAll('#c-items .c-item'));
+  if (!all || checks.length === 0) return;
+  const total = checks.length;
+  const checked = checks.filter(c => c.checked).length;
+  all.checked = (checked === total);
+  all.indeterminate = (checked > 0 && checked < total);
 }
 
 /* =========================================================================
@@ -990,12 +1053,19 @@ document.addEventListener('submit', async (e) => {
     const id = document.getElementById('c-sub-id').value;
     const reason = document.getElementById('c-reason').value;
     const comment = document.getElementById('c-comment').value;
+    const itemChecks = Array.from(document.querySelectorAll('#c-items .c-item'));
+    const item_ids = itemChecks.filter(c => c.checked).map(c => Number(c.dataset.id));
+    if (itemChecks.length > 0 && item_ids.length === 0) {
+      toast('Selecione pelo menos um serviço para cancelar.', 'cancel');
+      return;
+    }
     try {
       await api('/api/cancellations', { method: 'POST',
-        body: { subscription_id: Number(id), reason, comment } });
+        body: { subscription_id: Number(id), reason, comment, item_ids } });
       closeModal('modal-cancel');
-      e.target.reset();
-      toast('Pedido enviado. A equipa vai analisar.', 'check');
+      toast(item_ids.length === itemChecks.length || itemChecks.length === 0
+        ? 'Pedido enviado. A equipa vai analisar.'
+        : `Pedido enviado para ${item_ids.length} serviço(s). A equipa vai analisar.`, 'check');
       go('subs');
     } catch (err) { toast(err.message, 'cancel'); }
   }

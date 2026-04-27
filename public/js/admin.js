@@ -1342,20 +1342,42 @@ async function viewCancels(main) {
       <div>
         <div class="eyebrow">Queue</div>
         <h1>Pedidos de cancelamento</h1>
-        <p class="lede">Decide se aprovas, pausas ou recusas. O cliente recebe email em qualquer caso.</p>
+        <p class="lede">Decida se aprova, pausa ou recusa. O cliente é notificado por email em qualquer caso.</p>
       </div>
     </div>
     <div class="grid" style="gap:14px;">
-      ${rows.length === 0 ? `<div class="empty">Sem pedidos.</div>` : rows.map(c => `
+      ${rows.length === 0 ? `<div class="empty">Sem pedidos.</div>` : rows.map(c => {
+        const items = Array.isArray(c.items) ? c.items : [];
+        const partial = items.length > 0;  // todos os pedidos novos têm items; só os legados não.
+        const itemsTotalCount = items.length;
+        return `
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
             <div style="flex:1; min-width:260px;">
               <div style="font-family:'Clash Display'; font-size:22px;">${escapeHtml(c.client_name)}</div>
               <div style="color:var(--muted); font-size:13px; margin-bottom:10px;">${escapeHtml(c.client_company || '')} · ${escapeHtml(c.client_email)}</div>
+
               <div style="padding:10px 14px; background:var(--bg-2); border-radius:10px; margin-bottom:10px;">
-                <div style="font-weight:500; font-size:14px;">${escapeHtml(c.service_name)}</div>
-                <div style="font-size:12px; color:var(--muted);">${fmtMoney(c.service_price || 0)}/${c.service_period || 'mês'} · pedido em ${fmtDate(c.created_at)}</div>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+                  <div style="font-weight:500; font-size:14px;">${escapeHtml(c.service_name)}</div>
+                  ${partial ? `<span class="pill warn" style="font-size:11px;">cancelar ${itemsTotalCount} de ${escapeHtml(c.service_name)}</span>` : ''}
+                </div>
+                ${partial ? `
+                  <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">Serviços a cancelar:</div>
+                  <ul style="margin:0; padding-left:18px; font-size:13px; line-height:1.55;">
+                    ${items.map(it => `
+                      <li>
+                        <strong>${escapeHtml(it.label || '—')}</strong>
+                        <span style="color:var(--muted);"> · ${fmtMoney(it.price || 0)}/${it.period || 'mês'}</span>
+                      </li>
+                    `).join('')}
+                  </ul>
+                ` : `
+                  <div style="font-size:12px; color:var(--muted);">${fmtMoney(c.service_price || 0)}/${c.service_period || 'mês'}</div>
+                `}
+                <div style="font-size:11px; color:var(--muted); margin-top:8px;">pedido em ${fmtDateTime(c.created_at)}</div>
               </div>
+
               <div style="font-size:13px; margin-bottom:4px;"><strong>Razão:</strong> ${escapeHtml(c.reason || '—')}</div>
               ${c.comment ? `<div style="font-size:13px; color:var(--muted);">"${escapeHtml(c.comment)}"</div>` : ''}
             </div>
@@ -1369,7 +1391,7 @@ async function viewCancels(main) {
             </div>
           </div>
         </div>
-      `).join('')}
+      `;}).join('')}
     </div>
   `;
 }
