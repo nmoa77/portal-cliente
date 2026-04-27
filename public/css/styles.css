@@ -541,57 +541,71 @@ label {
 
 /* ===== Thread (conversation, estilo WhatsApp) ===== */
 .thread {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch;
+  gap: 3px !important;
   padding: 10px 0;
 }
+.thread .bubble,
 .bubble {
-  align-self: flex-start;
-  width: fit-content;
-  max-width: min(420px, 58%);
-  min-width: 40px;
-  padding: 6px 10px 6px;
-  border-radius: 8px;
-  background: #f4f1ea;
-  color: var(--ink, #0a0a0a);
+  align-self: flex-start !important;
+  width: fit-content !important;
+  max-width: min(380px, 55%) !important;
+  min-width: 0 !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  background: #f4f1ea !important;
+  color: #0a0a0a;
   border: 1px solid var(--line-2, #ece9e2);
-  font-size: 13.5px;
-  line-height: 1.4;
-  white-space: pre-wrap;
+  font-size: 13.5px !important;
+  line-height: 1.4 !important;
+  /* IMPORTANTE: o white-space NÃO pode ser pre-wrap aqui — caso contrário
+     a indentação do template literal do JS é renderizada como espaço extra. */
+  white-space: normal;
   word-wrap: break-word;
   overflow-wrap: anywhere;
   box-shadow: 0 1px 1px rgba(10,10,10,0.04);
+  margin: 0;
 }
+/* Apenas o corpo da mensagem preserva as quebras de linha que o utilizador escreveu */
+.bubble > div:not(.author) {
+  white-space: pre-wrap;
+  margin: 0;
+}
+.thread .bubble .author,
 .bubble .author {
   display: block;
-  font-size: 10.5px;
+  font-size: 10.5px !important;
   color: var(--muted);
-  margin-bottom: 2px;
+  margin: 0 0 2px 0 !important;
   font-weight: 500;
   opacity: 0.85;
+  line-height: 1.2;
 }
+.thread .bubble.mine,
 .bubble.mine {
-  align-self: flex-end;
-  background: var(--yellow);
-  color: var(--black);
-  border-color: var(--yellow);
+  align-self: flex-end !important;
+  background: var(--yellow) !important;
+  color: #0a0a0a !important;
+  border-color: var(--yellow) !important;
 }
-.bubble.mine .author { color: rgba(0,0,0,.55); }
+.bubble.mine .author { color: rgba(0,0,0,.55) !important; }
 
-/* Bolhas consecutivas do mesmo lado encostam-se com pouco espaço */
-.bubble + .bubble { margin-top: 0; }
+/* Bolhas consecutivas do mesmo lado encostam-se sem gap */
+.bubble + .bubble { margin-top: 0 !important; }
 
 /* Dark mode */
+[data-theme="dark"] .thread .bubble,
 [data-theme="dark"] .bubble {
-  background: rgba(255,255,255,0.04);
+  background: rgba(255,255,255,0.04) !important;
   border-color: rgba(255,255,255,0.08);
   color: var(--text, #e8e5dd);
 }
 [data-theme="dark"] .bubble.mine {
-  background: var(--yellow);
-  color: var(--black);
-  border-color: var(--yellow);
+  background: var(--yellow) !important;
+  color: #0a0a0a !important;
+  border-color: var(--yellow) !important;
 }
 
 .reply-box { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; }
