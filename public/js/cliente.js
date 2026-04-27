@@ -438,11 +438,18 @@ async function openProject(id) {
 
   const threadHtml = msgs.length === 0
     ? `<div class="empty" style="padding:20px 0;">Ainda não existem notas neste projeto. Envie a primeira em baixo.</div>`
-    : msgs.map(m => `
-        <div class="bubble ${m.author_id === state.me.id ? 'mine' : ''}">
-          <div class="author">${escapeHtml(m.author_name)}${m.author_role === 'admin' ? ' · DUIT' : ''} · ${fmtDateTime(m.created_at)}</div>
-          <div>${escapeHtml(m.body).replace(/\n/g, '<br>')}</div>
-        </div>`).join('');
+    : msgs.map((m, i) => {
+        const prev = msgs[i - 1];
+        const sameSender = prev && prev.author_id === m.author_id
+          && (new Date(m.created_at) - new Date(prev.created_at)) < 5 * 60 * 1000;
+        const mine = m.author_id === state.me.id;
+        const authorLabel = `${escapeHtml(m.author_name)}${m.author_role === 'admin' ? ' · DUIT' : ''} · ${fmtDateTime(m.created_at)}`;
+        return `
+          <div class="bubble ${mine ? 'mine' : ''}">
+            ${sameSender ? '' : `<div class="author">${authorLabel}</div>`}
+            <div>${escapeHtml(m.body).replace(/\n/g, '<br>')}</div>
+          </div>`;
+      }).join('');
 
   const canSend = p.stage !== 'cancelled';
 
@@ -478,7 +485,7 @@ async function openProject(id) {
     <div class="card">
       <h3 style="margin-bottom:6px;">Notas do projeto</h3>
       <p style="color:var(--muted); font-size:13px; margin-bottom:14px;">Conversa entre o cliente e a equipa DUIT sobre este projeto. Cada nova nota é também enviada por email.</p>
-      <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:18px;">
+      <div class="thread" style="margin-bottom:6px;">
         ${threadHtml}
       </div>
       ${canSend ? `
@@ -976,13 +983,19 @@ async function openTicket(id) {
       ${statusPill(t.status)}
     </div>
     <div class="card">
-      <div style="display:flex; flex-direction:column; gap:12px;">
-        ${t.messages.map(m => `
-          <div class="bubble ${m.user_id === state.me.id ? 'mine' : ''}">
-            <div class="author">${escapeHtml(m.author_name)} · ${fmtDateTime(m.created_at)}</div>
-            <div>${escapeHtml(m.body)}</div>
-          </div>
-        `).join('')}
+      <div class="thread">
+        ${t.messages.map((m, i) => {
+          const prev = t.messages[i - 1];
+          const sameSender = prev && prev.user_id === m.user_id
+            && (new Date(m.created_at) - new Date(prev.created_at)) < 5 * 60 * 1000;
+          const mine = m.user_id === state.me.id;
+          return `
+            <div class="bubble ${mine ? 'mine' : ''}">
+              ${sameSender ? '' : `<div class="author">${escapeHtml(m.author_name)} · ${fmtDateTime(m.created_at)}</div>`}
+              <div>${escapeHtml(m.body).replace(/\n/g,'<br>')}</div>
+            </div>
+          `;
+        }).join('')}
       </div>
       ${t.status !== 'closed' ? `
         <form id="msgForm" style="margin-top:20px;">

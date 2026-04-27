@@ -539,16 +539,60 @@ label {
   font-family: 'Clash Display'; font-size: 28px; margin-top: 14px;
 }
 
-/* ===== Thread ===== */
-.thread { display: flex; flex-direction: column; gap: 12px; padding: 20px 0; }
+/* ===== Thread (conversation) ===== */
+.thread { display: flex; flex-direction: column; gap: 4px; padding: 16px 0; }
 .bubble {
-  padding: 12px 16px; border-radius: 14px; max-width: 70%;
-  border: 1px solid var(--line); background: var(--surface);
-  font-size: 14px; white-space: pre-wrap;
+  align-self: flex-start;
+  width: fit-content;
+  max-width: min(560px, 72%);
+  min-width: 60px;
+  padding: 10px 14px;
+  border-radius: 16px 16px 16px 4px;
+  background: #f4f1ea;
+  color: var(--ink, #0a0a0a);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  box-shadow: 0 1px 1px rgba(10,10,10,0.03);
 }
-.bubble .author { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-.bubble.mine { align-self: flex-end; background: var(--yellow); color: var(--black); border-color: var(--yellow); }
-.bubble.mine .author { color: rgba(0,0,0,.5); }
+.bubble .author {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  letter-spacing: 0.01em;
+  font-weight: 500;
+}
+.bubble.mine {
+  align-self: flex-end;
+  background: var(--yellow);
+  color: var(--black);
+  border-color: var(--yellow);
+  border-radius: 16px 16px 4px 16px;
+}
+.bubble.mine .author { color: rgba(0,0,0,.55); }
+
+/* Quando duas bubbles consecutivas são do mesmo lado, encostam-se */
+.bubble + .bubble { margin-top: 2px; }
+.bubble.mine + .bubble.mine { border-top-right-radius: 8px; }
+.bubble.mine + .bubble.mine + .bubble.mine { border-top-right-radius: 8px; }
+.bubble:not(.mine) + .bubble:not(.mine) { border-top-left-radius: 8px; }
+
+/* Dark mode adjustments */
+[data-theme="dark"] .bubble {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.08);
+  color: var(--text, #e8e5dd);
+}
+[data-theme="dark"] .bubble.mine {
+  background: var(--yellow);
+  color: var(--black);
+  border-color: var(--yellow);
+}
+
 .reply-box { display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; }
 .reply-box textarea { flex: 1; min-height: 70px; }
 
