@@ -293,7 +293,10 @@ async function viewSubs(main) {
             : (r.items || []).map(it => `
               <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dashed var(--line-2); gap:10px; flex-wrap:wrap;">
                 <div style="min-width:200px;">
-                  <div style="font-weight:500;">${escapeHtml(it.label)}</div>
+                  <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <div style="font-weight:500;">${escapeHtml(it.label)}</div>
+                    ${it.plan_category ? typePill(it.plan_category) : ''}
+                  </div>
                   <div style="font-size:12px; color:var(--muted); margin-top:2px;">
                     ${it.detail ? escapeHtml(it.detail) + ' · ' : ''}${it.period === 'ano' ? 'anual' : 'mensal'}${it.renewal_date ? ' · renova ' + fmtDate(it.renewal_date) : ''}
                   </div>
