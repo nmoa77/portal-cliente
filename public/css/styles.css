@@ -522,6 +522,15 @@ label {
 }
 .project-row:hover { background: var(--bg-2); }
 .project-row:last-child { border-bottom: none; }
+
+/* Linha com notas não-lidas — borda esquerda vermelha + fundo subtil */
+.project-row.has-unread {
+  position: relative;
+  background: rgba(255,59,48,0.04);
+  box-shadow: inset 3px 0 0 0 #ff3b30;
+}
+.project-row.has-unread:hover { background: rgba(255,59,48,0.08); }
+[data-theme="dark"] .project-row.has-unread { background: rgba(255,59,48,0.08); }
 .project-title { font-weight: 500; font-size: 15px; }
 .project-meta  { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .project-stages { display: flex; gap: 4px; align-items: center; }

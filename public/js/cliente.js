@@ -231,10 +231,14 @@ function projectRow(p) {
   const labels = order.map((k, i) =>
     `<span class="${i === idx ? 'cur' : ''}">${stageLabel(k)}</span>`
   ).join('');
+  const unread = Number(p.unread_notes) || 0;
   return `
-    <div class="project-row" onclick="openProject(${p.id})" style="cursor:pointer;">
+    <div class="project-row ${unread > 0 ? 'has-unread' : ''}" onclick="openProject(${p.id})" style="cursor:pointer;">
       <div style="min-width:220px; max-width:280px;">
-        <div class="project-title">${escapeHtml(p.name)}</div>
+        <div class="project-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span>${escapeHtml(p.name)}</span>
+          ${unread > 0 ? `<span class="badge-alert" title="${unread} nota(s) novas da DUIT">${unread}</span>` : ''}
+        </div>
         <div class="project-meta">${p.deadline ? 'Entrega ' + fmtDate(p.deadline) : 'Sem data definida'}</div>
       </div>
       <div style="flex:1; min-width:220px;">

@@ -626,7 +626,15 @@ app.get('/api/projects', requireAuth, (req, res) => {
     ).all();
     return res.json(rows);
   }
-  res.json(db.prepare(`SELECT * FROM projects WHERE user_id=? ORDER BY updated_at DESC`).all(req.user.id));
+  res.json(db.prepare(
+    `SELECT p.*,
+            (SELECT COUNT(*) FROM project_messages pm
+               JOIN users au ON au.id = pm.author_id
+              WHERE pm.project_id = p.id
+                AND au.role = 'admin'
+                AND pm.read_by_client_at IS NULL) AS unread_notes
+       FROM projects p WHERE user_id=? ORDER BY updated_at DESC`
+  ).all(req.user.id));
 });
 
 app.post('/api/projects', requireAdmin, (req, res) => {

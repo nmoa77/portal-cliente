@@ -738,10 +738,14 @@ function adminProjectRow(p) {
   const labels = order.map((k, i) =>
     `<span class="${i === idx ? 'cur' : ''}">${stageLabel(k)}</span>`
   ).join('');
+  const unread = Number(p.unread_notes) || 0;
   return `
-    <div class="project-row">
+    <div class="project-row ${unread > 0 ? 'has-unread' : ''}">
       <div style="min-width:220px; max-width:280px;">
-        <div class="project-title">${escapeHtml(p.name)}</div>
+        <div class="project-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span>${escapeHtml(p.name)}</span>
+          ${unread > 0 ? `<span class="badge-alert" title="${unread} nota(s) novas de cliente por ler">${unread}</span>` : ''}
+        </div>
         <div class="project-meta">${escapeHtml(p.client_name)} · ${p.deadline ? 'Entrega ' + fmtDate(p.deadline) : 'sem data'}</div>
       </div>
       <div style="flex:1; min-width:220px;">
