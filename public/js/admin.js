@@ -53,7 +53,7 @@ function renderShell() {
     { id: 'subs',      icon: 'box',     label: 'Subscrições',  alert: s.pendingSubs,            alertTitle: `${s.pendingSubs || 0} subscrição(ões) por confirmar` },
     { id: 'plans',     icon: 'sparkle', label: 'Serviços' },
     { id: 'projects',  icon: 'folder',  label: 'Projetos',     alert: s.unreadClientNotes,      alertTitle: `${s.unreadClientNotes || 0} nota(s) novas de cliente` },
-    { id: 'calendar',  icon: 'cal',     label: 'Calendário',   alert: s.pendingPostSuggestions, alertTitle: `${s.pendingPostSuggestions || 0} sugestão(ões) de cliente por tratar` },
+    { id: 'calendar',  icon: 'cal',     label: 'Calendário',   alert: s.todayDrafts, alertTitle: `${s.todayDrafts || 0} post(s) por tratar hoje` },
     { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   alert: s.unseenQuoteResponses,   alertTitle: `${s.unseenQuoteResponses || 0} resposta(s) de cliente por ver` },
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',alert: s.pendingCancels,         alertTitle: `${s.pendingCancels || 0} cancelamento(s) pendente(s)` },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      alert: s.unreadAdminTickets,     alertTitle: `${s.unreadAdminTickets || 0} ticket(s) com nova resposta de cliente` },

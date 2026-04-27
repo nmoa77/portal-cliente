@@ -192,6 +192,12 @@ app.get('/api/stats', requireAdmin, (req, res) => {
   const pendingPostSuggestions = db.prepare(
     `SELECT COUNT(*) c FROM social_posts WHERE client_suggestion IS NOT NULL AND TRIM(client_suggestion) != ''`
   ).get().c;
+  // Rascunhos de posts para hoje (data igual a hoje no fuso do servidor) que ainda
+  // estão por tratar — mesmo conceito da vista diária do calendário.
+  const todayDrafts = db.prepare(
+    `SELECT COUNT(*) c FROM social_posts
+      WHERE status='draft' AND date = date('now','localtime')`
+  ).get().c;
 
   res.json({
     // totais
@@ -200,7 +206,7 @@ app.get('/api/stats', requireAdmin, (req, res) => {
     // alertas
     pendingCancels, pendingQuotes, pendingSubs,
     unreadClientNotes, unseenQuoteResponses,
-    unreadAdminTickets, pendingPostSuggestions,
+    unreadAdminTickets, pendingPostSuggestions, todayDrafts,
   });
 });
 
