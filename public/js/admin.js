@@ -390,8 +390,18 @@ async function viewSubs(main) {
                   <div style="font-size:12px; color:var(--muted);">${escapeHtml(r.detail || '')}</div>
                 </td>
                 <td>${typePill(r.type)}</td>
-                <td>${fmtDate(r.renewal_date)}</td>
-                <td><strong>${fmtMoney(r.price)}</strong><span style="color:var(--muted); font-size:12px;">/${r.period}</span></td>
+                <td>
+                  ${r.renewal_date ? fmtDate(r.renewal_date) : '—'}
+                  ${(r.items && r.items.length > 1) ? `<div style="font-size:11px; color:var(--muted);">${r.items.length} serviços</div>` : ''}
+                </td>
+                <td>
+                  ${r.period === 'misto'
+                    ? `<div style="font-size:13px; line-height:1.4;">
+                         ${r.monthlyTotal > 0 ? `<div><strong>${fmtMoney(r.monthlyTotal)}</strong>/mês</div>` : ''}
+                         ${r.yearlyTotal > 0 ? `<div><strong>${fmtMoney(r.yearlyTotal)}</strong>/ano</div>` : ''}
+                       </div>`
+                    : `<strong>${fmtMoney(r.price)}</strong><span style="color:var(--muted); font-size:12px;">/${r.period}</span>`}
+                </td>
                 <td>${statusPill(r.status)}</td>
                 <td style="text-align:right; white-space:nowrap;">
                   <button class="btn btn-icon" title="Editar" onclick="openSubEdit(${r.id})">${svg('edit')}</button>
@@ -415,15 +425,13 @@ async function ensurePlansLoaded() {
 }
 
 async function openNewSub() {
-  const plans = await ensurePlansLoaded();
+  await ensurePlansLoaded();
   document.getElementById('modal-sub-title').textContent = 'Nova subscrição';
   document.getElementById('s-submit').textContent = 'Criar';
   document.getElementById('s-id').value = '';
   const sel = document.getElementById('s-user');
   sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)} · ${escapeHtml(c.company || '')}</option>`).join('');
   sel.disabled = false;
-  document.getElementById('s-period').value = 'mês';
-  document.getElementById('s-renewal').value = '';
   document.getElementById('s-status-wrap').style.display = 'none';
   document.getElementById('s-items').innerHTML = '';
   addSubItem();
@@ -432,7 +440,7 @@ async function openNewSub() {
 }
 
 async function openSubEdit(id) {
-  const plans = await ensurePlansLoaded();
+  await ensurePlansLoaded();
   let s;
   try { s = await api(`/api/subscriptions/${id}`); }
   catch (err) { toast(err.message, 'cancel'); return; }
@@ -443,8 +451,6 @@ async function openSubEdit(id) {
   sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)} · ${escapeHtml(c.company || '')}</option>`).join('');
   sel.value = s.user_id;
   sel.disabled = true;
-  document.getElementById('s-period').value = s.period || 'mês';
-  document.getElementById('s-renewal').value = s.renewal_date ? String(s.renewal_date).slice(0,10) : '';
   document.getElementById('s-status-wrap').style.display = '';
   document.getElementById('s-status').value = s.status || 'active';
 
@@ -481,7 +487,9 @@ function addSubItem(it = {}) {
   const wrap = document.getElementById('s-items');
   const row = document.createElement('div');
   row.className = 'sub-item';
-  row.style = 'padding:10px 0; border-bottom:1px solid var(--line-2); display:grid; grid-template-columns:2fr 2fr 0.9fr 0.9fr 36px; gap:8px; align-items:end;';
+  row.style = 'padding:12px 0; border-bottom:1px solid var(--line-2); display:grid; grid-template-columns:2fr 2fr 36px; gap:8px; align-items:end;';
+  const period = it.period === 'ano' ? 'ano' : 'mês';
+  const renewal = it.renewal_date ? String(it.renewal_date).slice(0, 10) : '';
   row.innerHTML = `
     <div class="field" style="margin:0;">
       <label style="font-size:11px;">Serviço</label>
@@ -491,6 +499,21 @@ function addSubItem(it = {}) {
       <label style="font-size:11px;">Detalhe</label>
       <input class="si-detail" type="text" placeholder="(opcional)" value="${escapeHtml(it.detail || '')}">
     </div>
+    <button type="button" class="btn btn-icon" title="Remover" onclick="this.parentElement.remove(); recomputeSubTotals()">${svg('trash')}</button>
+
+    <div class="field" style="margin:0;">
+      <label style="font-size:11px;">Período</label>
+      <select class="si-period" onchange="recomputeSubTotals()">
+        <option value="mês" ${period === 'mês' ? 'selected' : ''}>mensal</option>
+        <option value="ano" ${period === 'ano' ? 'selected' : ''}>anual</option>
+      </select>
+    </div>
+    <div class="field" style="margin:0;">
+      <label style="font-size:11px;">Próxima renovação</label>
+      <input class="si-renewal" type="date" value="${renewal}">
+    </div>
+    <div></div>
+
     <div class="field" style="margin:0;">
       <label style="font-size:11px;">Preço base (€)</label>
       <input class="si-default" type="number" step="0.01" readonly value="${Number(it.default_price || 0).toFixed(2)}" style="background:var(--bg-2); color:var(--muted);">
@@ -499,10 +522,12 @@ function addSubItem(it = {}) {
       <label style="font-size:11px;">Desconto (€)</label>
       <input class="si-discount" type="number" step="0.01" min="0" placeholder="0,00" value="${it.discount ? Number(it.discount).toFixed(2) : ''}" oninput="recomputeSubTotals()">
     </div>
-    <button type="button" class="btn btn-icon" title="Remover" onclick="this.parentElement.remove(); recomputeSubTotals()">${svg('trash')}</button>
-    <div style="grid-column:1 / -1; display:flex; justify-content:flex-end; align-items:center; gap:8px; margin-top:-2px;">
+    <div></div>
+
+    <div style="grid-column:1 / -1; display:flex; justify-content:flex-end; align-items:center; gap:8px;">
       <span style="color:var(--muted); font-size:12px;">Preço final desta linha:</span>
       <strong class="si-final" style="font-family:'Clash Display'; font-size:15px;">${fmtMoney(it.price ?? it.default_price ?? 0)}</strong>
+      <span class="si-period-label" style="color:var(--muted); font-size:12px;">/ ${period}</span>
     </div>
   `;
   wrap.appendChild(row);
@@ -513,28 +538,41 @@ function onSubItemPlanChange(selectEl) {
   const row = selectEl.closest('.sub-item');
   const price = Number(opt?.dataset?.price || 0);
   const desc = opt?.dataset?.desc || '';
+  const planPeriod = opt?.dataset?.period || 'mês';
   row.querySelector('.si-default').value = price.toFixed(2);
   const detailEl = row.querySelector('.si-detail');
   if (!detailEl.value.trim()) detailEl.value = desc;
+  // Pré-seleciona o período do plano se o utilizador ainda não tiver mexido
+  const periodEl = row.querySelector('.si-period');
+  if (periodEl) periodEl.value = planPeriod === 'ano' ? 'ano' : 'mês';
   recomputeSubTotals();
 }
 
 function recomputeSubTotals() {
   const rows = document.querySelectorAll('#s-items .sub-item');
-  let total = 0;
+  let monthly = 0, yearly = 0, total = 0;
   rows.forEach(row => {
     const def = parseFloat(row.querySelector('.si-default').value) || 0;
     const discRaw = row.querySelector('.si-discount').value;
     const disc = discRaw === '' ? 0 : Math.max(0, parseFloat(discRaw) || 0);
     const final = Math.max(0, +(def - disc).toFixed(2));
+    const period = row.querySelector('.si-period').value === 'ano' ? 'ano' : 'mês';
     row.querySelector('.si-final').textContent = fmtMoney(final);
+    const periodLabel = row.querySelector('.si-period-label');
+    if (periodLabel) periodLabel.textContent = '/ ' + period;
     total += final;
+    if (period === 'ano') yearly += final; else monthly += final;
   });
-  const totalEl = document.getElementById('s-total');
-  if (totalEl) totalEl.textContent = fmtMoney(total);
-  const periodEl = document.getElementById('s-total-period');
-  const period = document.getElementById('s-period');
-  if (periodEl && period) periodEl.textContent = '/ ' + period.value;
+  const elTotal = document.getElementById('s-total');
+  const elM = document.getElementById('s-total-monthly');
+  const elY = document.getElementById('s-total-yearly');
+  const rowM = document.getElementById('s-total-monthly-row');
+  const rowY = document.getElementById('s-total-yearly-row');
+  if (elTotal) elTotal.textContent = fmtMoney(total);
+  if (elM) elM.textContent = fmtMoney(monthly);
+  if (elY) elY.textContent = fmtMoney(yearly);
+  if (rowM) rowM.style.display = monthly > 0 ? '' : 'none';
+  if (rowY) rowY.style.display = yearly > 0 ? '' : 'none';
 }
 
 async function deleteSub(id) {
@@ -1612,6 +1650,8 @@ document.addEventListener('submit', async (e) => {
         plan_id: planId ? Number(planId) : null,
         detail: row.querySelector('.si-detail').value,
         discount: discRaw === '' ? 0 : Math.max(0, parseFloat(discRaw) || 0),
+        period: row.querySelector('.si-period').value === 'ano' ? 'ano' : 'mês',
+        renewal_date: row.querySelector('.si-renewal').value || null,
       };
     }).filter(it => it.plan_id);
     if (items.length === 0) {
@@ -1620,8 +1660,6 @@ document.addEventListener('submit', async (e) => {
     }
     const body = {
       user_id: Number(document.getElementById('s-user').value),
-      period: document.getElementById('s-period').value,
-      renewal_date: document.getElementById('s-renewal').value || null,
       items,
     };
     if (id) body.status = document.getElementById('s-status').value;

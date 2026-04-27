@@ -263,35 +263,57 @@ async function viewSubs(main) {
       <div>
         <div class="eyebrow">As suas subscrições</div>
         <h1>Subscrições</h1>
-        <p class="lede">Aqui pode consultar tudo o que tem ativo com a DUIT. Pode pedir cancelamento a qualquer momento — analisamos em 48h.</p>
+        <p class="lede">Aqui pode consultar tudo o que tem ativo com a DUIT. Cada serviço pode ter o seu próprio período (mensal ou anual). Pode pedir cancelamento a qualquer momento — analisamos em 48h.</p>
       </div>
     </div>
-    <div class="card table-card">
-      ${rows.length === 0 ? `<div class="empty">Sem subscrições ativas.</div>` : `
-        <table class="table">
-          <thead><tr><th>Serviço</th><th>Tipo</th><th>Renovação</th><th>Preço</th><th>Estado</th><th></th></tr></thead>
-          <tbody>
-            ${rows.map(r => `
-              <tr>
-                <td>
-                  <div style="font-weight:500;">${escapeHtml(r.name)}</div>
-                  <div style="font-size:12px; color:var(--muted); margin-top:2px;">${escapeHtml(r.detail || '')}</div>
-                </td>
-                <td>${typePill(r.type)}</td>
-                <td>${fmtDate(r.renewal_date)}</td>
-                <td>${fmtMoney(r.price)}<span style="color:var(--muted); font-size:12px;">/${r.period}</span></td>
-                <td>${statusPill(r.status)}</td>
-                <td style="text-align:right;">
-                  ${r.status === 'active'
-                    ? `<button class="btn btn-ghost btn-sm" onclick="openCancel(${r.id})">Cancelar</button>`
-                    : '—'}
-                </td>
-              </tr>
+    ${rows.length === 0 ? `
+      <div class="card"><div class="empty">Sem subscrições ativas.</div></div>
+    ` : rows.map(r => `
+      <div class="card" style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; margin-bottom:14px;">
+          <div>
+            <div style="font-family:'Clash Display'; font-size:20px;">${escapeHtml(r.name)}</div>
+            <div style="font-size:12px; color:var(--muted); margin-top:2px;">
+              ${(r.items || []).length} ${((r.items || []).length === 1 ? 'serviço' : 'serviços')}${r.renewal_date ? ' · próxima renovação ' + fmtDate(r.renewal_date) : ''}
+            </div>
+          </div>
+          <div style="text-align:right;">
+            ${statusPill(r.status)}
+            <div style="margin-top:6px; font-family:'Clash Display'; font-size:18px;">
+              ${r.period === 'misto'
+                ? `${r.monthlyTotal > 0 ? fmtMoney(r.monthlyTotal) + '/mês' : ''}${r.monthlyTotal > 0 && r.yearlyTotal > 0 ? ' · ' : ''}${r.yearlyTotal > 0 ? fmtMoney(r.yearlyTotal) + '/ano' : ''}`
+                : `${fmtMoney(r.price)}<span style="color:var(--muted); font-size:13px;">/${r.period}</span>`}
+            </div>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid var(--line-2); padding-top:10px;">
+          ${(r.items || []).length === 0
+            ? `<div class="empty" style="padding:12px 0;">Sem serviços associados.</div>`
+            : (r.items || []).map(it => `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dashed var(--line-2); gap:10px; flex-wrap:wrap;">
+                <div style="min-width:200px;">
+                  <div style="font-weight:500;">${escapeHtml(it.label)}</div>
+                  <div style="font-size:12px; color:var(--muted); margin-top:2px;">
+                    ${it.detail ? escapeHtml(it.detail) + ' · ' : ''}${it.period === 'ano' ? 'anual' : 'mensal'}${it.renewal_date ? ' · renova ' + fmtDate(it.renewal_date) : ''}
+                  </div>
+                </div>
+                <div style="text-align:right;">
+                  ${it.discount > 0 ? `<div style="font-size:11px; color:var(--muted); text-decoration:line-through;">${fmtMoney(it.default_price)}</div>` : ''}
+                  <div><strong>${fmtMoney(it.price)}</strong><span style="color:var(--muted); font-size:12px;">/${it.period}</span></div>
+                  ${it.discount > 0 ? `<div style="font-size:11px; color:#2a8a2a;">desconto ${fmtMoney(it.discount)}</div>` : ''}
+                </div>
+              </div>
             `).join('')}
-          </tbody>
-        </table>
-      `}
-    </div>
+        </div>
+
+        ${r.status === 'active' ? `
+          <div style="text-align:right; margin-top:12px;">
+            <button class="btn btn-ghost btn-sm" onclick="openCancel(${r.id})">Pedir cancelamento</button>
+          </div>
+        ` : ''}
+      </div>
+    `).join('')}
   `;
 }
 

@@ -71,6 +71,8 @@ CREATE TABLE IF NOT EXISTS subscription_items (
   default_price REAL NOT NULL DEFAULT 0,
   discount REAL NOT NULL DEFAULT 0,
   price REAL NOT NULL DEFAULT 0,
+  period TEXT NOT NULL DEFAULT 'mês',
+  renewal_date TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE,
   FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE SET NULL
@@ -313,6 +315,38 @@ try {
     console.log('✓ Migration: quotes.status alargado para incluir revised.');
   }
 } catch (e) { console.warn('Migration quotes status revised:', e.message); }
+
+// Migration: colunas period e renewal_date em subscription_items
+try {
+  const cols = db.prepare(`PRAGMA table_info(subscription_items)`).all();
+  if (cols.length) {
+    if (!cols.find(c => c.name === 'period')) {
+      db.exec(`ALTER TABLE subscription_items ADD COLUMN period TEXT NOT NULL DEFAULT 'mês'`);
+      console.log('✓ Migration: subscription_items.period adicionada.');
+    }
+    if (!cols.find(c => c.name === 'renewal_date')) {
+      db.exec(`ALTER TABLE subscription_items ADD COLUMN renewal_date TEXT`);
+      console.log('✓ Migration: subscription_items.renewal_date adicionada.');
+      // Para items que vêm da migração inicial (cópia 1:1 das subscriptions),
+      // copia o período e data de renovação da subscrição-pai para o item.
+      try {
+        db.exec(`
+          UPDATE subscription_items
+             SET period = COALESCE(
+                   (SELECT s.period FROM subscriptions s WHERE s.id = subscription_items.subscription_id),
+                   period
+                 ),
+                 renewal_date = COALESCE(
+                   (SELECT s.renewal_date FROM subscriptions s WHERE s.id = subscription_items.subscription_id),
+                   renewal_date
+                 )
+           WHERE renewal_date IS NULL
+        `);
+        console.log('✓ Migration: period e renewal_date sincronizados nas linhas existentes.');
+      } catch (e) { console.warn('Sub-items sync period/renewal:', e.message); }
+    }
+  }
+} catch (e) { console.warn('Migration subscription_items period/renewal:', e.message); }
 
 // Migration: colunas read_by_admin_at e read_by_client_at em project_messages
 try {
@@ -608,15 +642,20 @@ try {
   if (hasTable) {
     const items = db.prepare(`SELECT COUNT(*) c FROM subscription_items`).get().c;
     if (items === 0) {
-      const subs = db.prepare(`SELECT id, plan_id, name, detail, price FROM subscriptions`).all();
+      const subs = db.prepare(`SELECT id, plan_id, name, detail, price, period, renewal_date FROM subscriptions`).all();
       if (subs.length) {
         const insertItem = db.prepare(
-          `INSERT INTO subscription_items (subscription_id, plan_id, label, detail, default_price, discount, price)
-           VALUES (?, ?, ?, ?, ?, 0, ?)`
+          `INSERT INTO subscription_items
+             (subscription_id, plan_id, label, detail, default_price, discount, price, period, renewal_date)
+           VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?)`
         );
         const tx = db.transaction(() => {
           for (const s of subs) {
-            insertItem.run(s.id, s.plan_id || null, s.name, s.detail || '', s.price || 0, s.price || 0);
+            insertItem.run(
+              s.id, s.plan_id || null, s.name, s.detail || '',
+              s.price || 0, s.price || 0,
+              s.period || 'mês', s.renewal_date || null
+            );
           }
         });
         tx();

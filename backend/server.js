@@ -404,6 +404,7 @@ app.delete('/api/plans/:id', requireAdmin, (req, res) => {
 function loadSubItems(subId) {
   return db.prepare(
     `SELECT si.id, si.plan_id, si.label, si.detail, si.default_price, si.discount, si.price,
+            si.period, si.renewal_date,
             p.category AS plan_category, p.name AS plan_name
        FROM subscription_items si
        LEFT JOIN plans p ON p.id = si.plan_id
@@ -415,7 +416,14 @@ function loadSubItems(subId) {
 function attachItemsAndTotal(sub) {
   const items = loadSubItems(sub.id);
   const total = +items.reduce((s, it) => s + (Number(it.price) || 0), 0).toFixed(2);
-  return { ...sub, items, total };
+  // Quebra de totais por período (útil no UI para mostrar "240€/mês + 15€/ano")
+  const monthly = +items
+    .filter(it => (it.period || 'mês') === 'mês')
+    .reduce((s, it) => s + (Number(it.price) || 0), 0).toFixed(2);
+  const yearly = +items
+    .filter(it => (it.period || 'mês') === 'ano')
+    .reduce((s, it) => s + (Number(it.price) || 0), 0).toFixed(2);
+  return { ...sub, items, total, monthlyTotal: monthly, yearlyTotal: yearly };
 }
 
 function replaceSubItems(subId, items) {
@@ -423,13 +431,13 @@ function replaceSubItems(subId, items) {
   db.prepare(`DELETE FROM subscription_items WHERE subscription_id=?`).run(subId);
   const insert = db.prepare(
     `INSERT INTO subscription_items
-       (subscription_id, plan_id, label, detail, default_price, discount, price)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+       (subscription_id, plan_id, label, detail, default_price, discount, price, period, renewal_date)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   for (const it of items) {
     let plan = null;
     if (it.plan_id) {
-      plan = db.prepare(`SELECT id, name, description, price FROM plans WHERE id=?`).get(it.plan_id);
+      plan = db.prepare(`SELECT id, name, description, price, period FROM plans WHERE id=?`).get(it.plan_id);
     }
     const label = (it.label || (plan && plan.name) || '').trim();
     if (!label) continue;
@@ -437,32 +445,54 @@ function replaceSubItems(subId, items) {
     const defaultPrice = plan ? Number(plan.price || 0) : Number(it.default_price || 0);
     const discount = Math.max(0, Number(it.discount) || 0);
     const finalPrice = Math.max(0, +(defaultPrice - discount).toFixed(2));
-    insert.run(subId, plan ? plan.id : (it.plan_id || null), label, detail, defaultPrice, discount, finalPrice);
+    // Período: se vier do form, usa-o; senão herda do plano; senão 'mês'.
+    const period = (it.period === 'ano' || it.period === 'mês')
+      ? it.period
+      : (plan && plan.period) || 'mês';
+    const renewalDate = it.renewal_date || null;
+    insert.run(
+      subId, plan ? plan.id : (it.plan_id || null),
+      label, detail, defaultPrice, discount, finalPrice,
+      period, renewalDate
+    );
   }
 }
 
 function recomputeSubHeader(subId) {
-  // Atualiza o preço-resumo, o nome principal e o tipo a partir das linhas.
+  // Atualiza preço total, nome resumido, detalhe, tipo e renovação a partir das linhas.
   const items = loadSubItems(subId);
   const total = items.reduce((s, it) => s + (Number(it.price) || 0), 0);
   const summary = items.length === 0
     ? ''
     : (items.length === 1 ? items[0].label : `${items[0].label} + ${items.length - 1}`);
-  // Tipo deduzido: se todos os planos forem da mesma categoria, usar essa; senão manter o existente
+
+  // Tipo deduzido: se todos os planos forem da mesma categoria, usar essa
   let type = null;
   const cats = [...new Set(items.map(i => i.plan_category).filter(Boolean))];
   if (cats.length === 1) type = cats[0];
+
   const detailParts = items.length > 1
     ? items.map(it => it.label).join(' · ')
     : (items[0]?.detail || '');
+
+  // Período resumo: se mistura de mês+ano → 'misto'; senão usa o comum
+  const periods = [...new Set(items.map(i => i.period || 'mês'))];
+  const periodSummary = periods.length === 1 ? periods[0] : 'misto';
+
+  // Renovação: data mais próxima entre os items
+  const dates = items.map(i => i.renewal_date).filter(Boolean).sort();
+  const earliestRenewal = dates[0] || null;
+
   if (type) {
     db.prepare(
-      `UPDATE subscriptions SET price=?, name=COALESCE(NULLIF(?, ''), name), detail=?, type=? WHERE id=?`
-    ).run(+total.toFixed(2), summary, detailParts, type, subId);
+      `UPDATE subscriptions SET price=?, name=COALESCE(NULLIF(?, ''), name),
+                                detail=?, type=?, period=?, renewal_date=? WHERE id=?`
+    ).run(+total.toFixed(2), summary, detailParts, type, periodSummary, earliestRenewal, subId);
   } else {
     db.prepare(
-      `UPDATE subscriptions SET price=?, name=COALESCE(NULLIF(?, ''), name), detail=? WHERE id=?`
-    ).run(+total.toFixed(2), summary, detailParts, subId);
+      `UPDATE subscriptions SET price=?, name=COALESCE(NULLIF(?, ''), name),
+                                detail=?, period=?, renewal_date=? WHERE id=?`
+    ).run(+total.toFixed(2), summary, detailParts, periodSummary, earliestRenewal, subId);
   }
 }
 
@@ -493,23 +523,17 @@ app.get('/api/subscriptions/:id', requireAuth, (req, res) => {
 });
 
 app.post('/api/subscriptions', requireAdmin, (req, res) => {
-  const { user_id, type, status, period, renewal_date, items } = req.body || {};
+  const { user_id, status, items } = req.body || {};
   if (!user_id) return res.status(400).json({ error: 'Cliente obrigatório' });
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Adicione pelo menos um serviço.' });
   }
 
-  // Inserir cabeçalho. Nome/preço/detalhe são recalculados a partir das linhas.
+  // Cabeçalho temporário — name/detail/type/period/renewal_date/price são recalculados.
   const info = db.prepare(
     `INSERT INTO subscriptions (user_id, plan_id, type, name, detail, status, price, period, renewal_date)
-     VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    user_id,
-    type || 'hosting',          // valor temporário, recomputado abaixo
-    '—', '',                    // recomputados
-    status || 'active', 0,
-    period || 'mês', renewal_date || null
-  );
+     VALUES (?, NULL, 'hosting', '—', '', ?, 0, 'mês', NULL)`
+  ).run(user_id, status || 'active');
   const subId = info.lastInsertRowid;
 
   replaceSubItems(subId, items);
@@ -522,22 +546,19 @@ app.patch('/api/subscriptions/:id', requireAdmin, (req, res) => {
   const sub = db.prepare(`SELECT * FROM subscriptions WHERE id=?`).get(req.params.id);
   if (!sub) return res.status(404).json({ error: 'Subscrição não encontrada' });
 
-  const { status, period, renewal_date, items } = req.body || {};
-  db.prepare(
-    `UPDATE subscriptions SET
-       status=COALESCE(?, status),
-       period=COALESCE(?, period),
-       renewal_date=COALESCE(?, renewal_date)
-     WHERE id=?`
-  ).run(status ?? null, period ?? null, renewal_date ?? null, req.params.id);
+  const { status, items } = req.body || {};
+  if (status !== undefined) {
+    db.prepare(`UPDATE subscriptions SET status=? WHERE id=?`).run(status, req.params.id);
+  }
 
   if (Array.isArray(items)) {
     if (items.length === 0) {
       return res.status(400).json({ error: 'A subscrição tem de ter pelo menos um serviço.' });
     }
     replaceSubItems(req.params.id, items);
-    recomputeSubHeader(req.params.id);
   }
+  // Recompute sempre, para refletir período/renovação derivados das linhas.
+  recomputeSubHeader(req.params.id);
 
   res.json({ ok: true });
 });

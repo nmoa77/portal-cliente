@@ -113,12 +113,6 @@
     <form id="subForm">
       <input type="hidden" id="s-id">
       <div class="field"><label>Cliente</label><select id="s-user" required></select></div>
-      <div class="grid g-2" style="gap:12px">
-        <div class="field"><label>Período</label>
-          <select id="s-period"><option>mês</option><option>ano</option></select>
-        </div>
-        <div class="field"><label>Renovação</label><input id="s-renewal" type="date"></div>
-      </div>
       <div class="field" id="s-status-wrap" style="display:none">
         <label>Estado</label>
         <select id="s-status">
@@ -132,15 +126,21 @@
 
       <label>Serviços incluídos</label>
       <p style="margin:0 0 8px 0; font-size:12px; color:var(--muted);">
-        Escolha um serviço da lista; o preço por defeito é preenchido automaticamente.
+        Cada serviço pode ter o seu próprio período (mês/ano) e data de renovação — tipicamente as redes sociais são mensais e os domínios/alojamento anuais.
         O desconto é opcional — se ficar em branco, mantém-se o preço normal do serviço.
       </p>
       <div id="s-items"></div>
       <button type="button" class="btn btn-ghost btn-sm" onclick="addSubItem(); recomputeSubTotals()" style="margin-top:6px">+ Novo serviço</button>
 
       <div id="s-totals" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
-        <div style="display:flex; justify-content:space-between; padding:6px 0 0 0; font-weight:700;">
-          <span>Total <span id="s-total-period" style="font-weight:400; color:var(--muted); font-size:13px;">/ mês</span></span>
+        <div id="s-total-monthly-row" style="display:flex; justify-content:space-between; padding:4px 0; color:var(--muted); font-size:13px;">
+          <span>Mensal</span><span id="s-total-monthly">0,00 €</span>
+        </div>
+        <div id="s-total-yearly-row" style="display:flex; justify-content:space-between; padding:4px 0; color:var(--muted); font-size:13px;">
+          <span>Anual</span><span id="s-total-yearly">0,00 €</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; padding:8px 0 0 0; border-top:1px solid var(--line-2); font-weight:700;">
+          <span>Total combinado</span>
           <span id="s-total" style="font-family:'Clash Display'; font-size:18px;">0,00 €</span>
         </div>
       </div>
