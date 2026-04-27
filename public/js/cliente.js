@@ -290,12 +290,15 @@ async function viewSubs(main) {
         <div style="border-top:1px solid var(--line-2); padding-top:10px;">
           ${(r.items || []).length === 0
             ? `<div class="empty" style="padding:12px 0;">Sem serviços associados.</div>`
-            : (r.items || []).map(it => `
-              <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dashed var(--line-2); gap:10px; flex-wrap:wrap;">
+            : (r.items || []).map(it => {
+              const inactive = it.status === 'cancelled' || it.status === 'expired' || it.status === 'paused';
+              return `
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px dashed var(--line-2); gap:10px; flex-wrap:wrap; ${inactive ? 'opacity:0.65;' : ''}">
                 <div style="min-width:200px;">
                   <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                    <div style="font-weight:500;">${escapeHtml(it.label)}</div>
+                    <div style="font-weight:500; ${it.status === 'cancelled' ? 'text-decoration:line-through;' : ''}">${escapeHtml(it.label)}</div>
                     ${it.plan_category ? typePill(it.plan_category) : ''}
+                    ${it.status && it.status !== 'active' ? statusPill(it.status) : ''}
                   </div>
                   <div style="font-size:12px; color:var(--muted); margin-top:2px;">
                     ${it.detail ? escapeHtml(it.detail) + ' · ' : ''}${it.period === 'ano' ? 'anual' : 'mensal'}${it.renewal_date ? ' · renova ' + fmtDate(it.renewal_date) : ''}
@@ -307,7 +310,7 @@ async function viewSubs(main) {
                   ${it.discount > 0 ? `<div style="font-size:11px; color:#2a8a2a;">desconto ${fmtMoney(it.discount)}</div>` : ''}
                 </div>
               </div>
-            `).join('')}
+            `;}).join('')}
         </div>
 
         ${r.status === 'active' ? `
@@ -333,7 +336,8 @@ async function openCancel(subId) {
 
   try {
     const sub = await api(`/api/subscriptions/${subId}`);
-    const items = Array.isArray(sub.items) ? sub.items : [];
+    // Apenas serviços ativos podem ser cancelados — pausados/cancelados/expirados ficam de fora.
+    const items = (Array.isArray(sub.items) ? sub.items : []).filter(it => it.status === 'active');
     if (items.length === 0) {
       itemsBox.innerHTML = '<div class="empty" style="padding:10px 0; font-size:13px;">Sem serviços disponíveis para cancelar.</div>';
       wrap.style.display = 'none';

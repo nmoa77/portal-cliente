@@ -114,14 +114,16 @@
       <input type="hidden" id="s-id">
       <div class="field"><label>Cliente</label><select id="s-user" required></select></div>
       <div class="field" id="s-status-wrap" style="display:none">
-        <label>Estado</label>
+        <label>Estado global (atalho)</label>
         <select id="s-status">
-          <option value="active">Ativa</option>
-          <option value="pending">Pendente</option>
-          <option value="paused">Em pausa</option>
-          <option value="cancelled">Cancelada</option>
-          <option value="expired">Expirada</option>
+          <option value="">— manter por linha —</option>
+          <option value="active">Ativar todos</option>
+          <option value="paused">Pausar todos</option>
+          <option value="cancelled">Cancelar todos</option>
         </select>
+        <small style="display:block; color:var(--muted); margin-top:6px; font-size:12px;">
+          Cada serviço tem o seu próprio estado (ver dropdown na linha). Use este atalho apenas se quiser forçar todos os serviços para o mesmo estado.
+        </small>
       </div>
 
       <label>Serviços incluídos</label>

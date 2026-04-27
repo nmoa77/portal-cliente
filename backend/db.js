@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   type TEXT NOT NULL CHECK(type IN ('hosting','domain','social')),
   name TEXT NOT NULL,
   detail TEXT,
-  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','pending','expired','cancelled')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','pending','paused','expired','cancelled')),
   price REAL DEFAULT 0,
   period TEXT DEFAULT 'mês',
   renewal_date TEXT,
@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS subscription_items (
   price REAL NOT NULL DEFAULT 0,
   period TEXT NOT NULL DEFAULT 'mês',
   renewal_date TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','pending','paused','cancelled','expired')),
   created_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (subscription_id) REFERENCES subscriptions(id) ON DELETE CASCADE,
   FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE SET NULL
@@ -331,6 +332,61 @@ try {
     console.log('✓ Migration: quotes.status alargado para incluir revised.');
   }
 } catch (e) { console.warn('Migration quotes status revised:', e.message); }
+
+// Migration: alargar CHECK do status em subscriptions para incluir 'paused'
+try {
+  const sSql = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='subscriptions'`).get();
+  if (sSql && sSql.sql && !sSql.sql.includes("'paused'")) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      BEGIN;
+      CREATE TABLE subscriptions_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        plan_id INTEGER,
+        type TEXT NOT NULL CHECK(type IN ('hosting','domain','social')),
+        name TEXT NOT NULL,
+        detail TEXT,
+        status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','pending','paused','expired','cancelled')),
+        price REAL DEFAULT 0,
+        period TEXT DEFAULT 'mês',
+        renewal_date TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE SET NULL
+      );
+      INSERT INTO subscriptions_new
+        SELECT id, user_id, plan_id, type, name, detail, status, price, period, renewal_date, created_at
+          FROM subscriptions;
+      DROP TABLE subscriptions;
+      ALTER TABLE subscriptions_new RENAME TO subscriptions;
+      COMMIT;
+    `);
+    db.pragma('foreign_keys = ON');
+    console.log('✓ Migration: subscriptions.status alargado para incluir paused.');
+  }
+} catch (e) { console.warn('Migration subscriptions paused:', e.message); }
+
+// Migration: coluna status em subscription_items
+try {
+  const cols = db.prepare(`PRAGMA table_info(subscription_items)`).all();
+  if (cols.length && !cols.find(c => c.name === 'status')) {
+    db.exec(`ALTER TABLE subscription_items ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`);
+    console.log('✓ Migration: subscription_items.status adicionada.');
+    // Para items que vêm de subscrições que já estavam canceladas/pausadas/etc.,
+    // copia o estado da subscrição-pai para cada item.
+    try {
+      db.exec(`
+        UPDATE subscription_items
+           SET status = COALESCE(
+                 (SELECT s.status FROM subscriptions s WHERE s.id = subscription_items.subscription_id),
+                 status
+               )
+      `);
+      console.log('✓ Migration: status do item copiado da subscrição-pai.');
+    } catch (e) { console.warn('Sub-items status sync:', e.message); }
+  }
+} catch (e) { console.warn('Migration subscription_items.status:', e.message); }
 
 // Migration: colunas period e renewal_date em subscription_items
 try {

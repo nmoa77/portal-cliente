@@ -401,7 +401,7 @@ app.delete('/api/plans/:id', requireAdmin, (req, res) => {
 function loadSubItems(subId) {
   return db.prepare(
     `SELECT si.id, si.plan_id, si.label, si.detail, si.default_price, si.discount, si.price,
-            si.period, si.renewal_date,
+            si.period, si.renewal_date, si.status,
             p.category AS plan_category, p.name AS plan_name
        FROM subscription_items si
        LEFT JOIN plans p ON p.id = si.plan_id
@@ -412,12 +412,13 @@ function loadSubItems(subId) {
 
 function attachItemsAndTotal(sub) {
   const items = loadSubItems(sub.id);
-  const total = +items.reduce((s, it) => s + (Number(it.price) || 0), 0).toFixed(2);
-  // Quebra de totais por período (útil no UI para mostrar "240€/mês + 15€/ano")
-  const monthly = +items
+  // Para totais, contam apenas serviços ativos (não-cancelados/expirados)
+  const active = items.filter(it => it.status === 'active' || it.status === 'pending');
+  const total = +active.reduce((s, it) => s + (Number(it.price) || 0), 0).toFixed(2);
+  const monthly = +active
     .filter(it => (it.period || 'mês') === 'mês')
     .reduce((s, it) => s + (Number(it.price) || 0), 0).toFixed(2);
-  const yearly = +items
+  const yearly = +active
     .filter(it => (it.period || 'mês') === 'ano')
     .reduce((s, it) => s + (Number(it.price) || 0), 0).toFixed(2);
   return { ...sub, items, total, monthlyTotal: monthly, yearlyTotal: yearly };
@@ -428,8 +429,8 @@ function replaceSubItems(subId, items) {
   db.prepare(`DELETE FROM subscription_items WHERE subscription_id=?`).run(subId);
   const insert = db.prepare(
     `INSERT INTO subscription_items
-       (subscription_id, plan_id, label, detail, default_price, discount, price, period, renewal_date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (subscription_id, plan_id, label, detail, default_price, discount, price, period, renewal_date, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
   for (const it of items) {
     let plan = null;
@@ -442,54 +443,72 @@ function replaceSubItems(subId, items) {
     const defaultPrice = plan ? Number(plan.price || 0) : Number(it.default_price || 0);
     const discount = Math.max(0, Number(it.discount) || 0);
     const finalPrice = Math.max(0, +(defaultPrice - discount).toFixed(2));
-    // Período: se vier do form, usa-o; senão herda do plano; senão 'mês'.
     const period = (it.period === 'ano' || it.period === 'mês')
       ? it.period
       : (plan && plan.period) || 'mês';
     const renewalDate = it.renewal_date || null;
+    const allowedStatuses = ['active','pending','paused','cancelled','expired'];
+    const status = allowedStatuses.includes(it.status) ? it.status : 'active';
     insert.run(
       subId, plan ? plan.id : (it.plan_id || null),
       label, detail, defaultPrice, discount, finalPrice,
-      period, renewalDate
+      period, renewalDate, status
     );
   }
 }
 
 function recomputeSubHeader(subId) {
-  // Atualiza preço total, nome resumido, detalhe, tipo e renovação a partir das linhas.
+  // Atualiza preço total, nome resumido, detalhe, tipo, renovação e ESTADO
+  // a partir das linhas (subscription_items).
   const items = loadSubItems(subId);
-  const total = items.reduce((s, it) => s + (Number(it.price) || 0), 0);
-  const summary = items.length === 0
-    ? ''
-    : (items.length === 1 ? items[0].label : `${items[0].label} + ${items.length - 1}`);
+  // Os totais e a data de renovação só consideram serviços ativos/pendentes
+  const live = items.filter(it => it.status === 'active' || it.status === 'pending');
+  const total = live.reduce((s, it) => s + (Number(it.price) || 0), 0);
 
-  // Tipo deduzido: se todos os planos forem da mesma categoria, usar essa
+  // Resumo / detalhe: usar os ativos quando existirem; senão, qualquer um.
+  const showItems = live.length > 0 ? live : items;
+  const summary = showItems.length === 0
+    ? ''
+    : (showItems.length === 1 ? showItems[0].label : `${showItems[0].label} + ${showItems.length - 1}`);
+
   let type = null;
-  const cats = [...new Set(items.map(i => i.plan_category).filter(Boolean))];
+  const cats = [...new Set(showItems.map(i => i.plan_category).filter(Boolean))];
   if (cats.length === 1) type = cats[0];
 
-  const detailParts = items.length > 1
-    ? items.map(it => it.label).join(' · ')
-    : (items[0]?.detail || '');
+  const detailParts = showItems.length > 1
+    ? showItems.map(it => it.label).join(' · ')
+    : (showItems[0]?.detail || '');
 
-  // Período resumo: se mistura de mês+ano → 'misto'; senão usa o comum
-  const periods = [...new Set(items.map(i => i.period || 'mês'))];
-  const periodSummary = periods.length === 1 ? periods[0] : 'misto';
+  const periods = [...new Set(live.map(i => i.period || 'mês'))];
+  const periodSummary = periods.length === 1 ? periods[0] : (periods.length > 1 ? 'misto' : 'mês');
 
-  // Renovação: data mais próxima entre os items
-  const dates = items.map(i => i.renewal_date).filter(Boolean).sort();
+  const dates = live.map(i => i.renewal_date).filter(Boolean).sort();
   const earliestRenewal = dates[0] || null;
+
+  // Estado derivado da subscrição a partir das linhas:
+  // - se houver ao menos 1 'active'                    → 'active'
+  // - se não houver ativas mas houver 'paused'         → 'paused'
+  // - se não houver ativas/paused mas houver 'pending' → 'pending'
+  // - se não houver linhas vivas e ao menos 1 'expired'→ 'expired'
+  // - caso contrário (todos cancelados ou sem linhas)  → 'cancelled'
+  let derivedStatus = 'cancelled';
+  const has = (st) => items.some(it => it.status === st);
+  if (items.length === 0) derivedStatus = 'cancelled';
+  else if (has('active'))  derivedStatus = 'active';
+  else if (has('paused'))  derivedStatus = 'paused';
+  else if (has('pending')) derivedStatus = 'pending';
+  else if (has('expired')) derivedStatus = 'expired';
 
   if (type) {
     db.prepare(
       `UPDATE subscriptions SET price=?, name=COALESCE(NULLIF(?, ''), name),
-                                detail=?, type=?, period=?, renewal_date=? WHERE id=?`
-    ).run(+total.toFixed(2), summary, detailParts, type, periodSummary, earliestRenewal, subId);
+                                detail=?, type=?, period=?, renewal_date=?, status=? WHERE id=?`
+    ).run(+total.toFixed(2), summary, detailParts, type, periodSummary, earliestRenewal, derivedStatus, subId);
   } else {
     db.prepare(
       `UPDATE subscriptions SET price=?, name=COALESCE(NULLIF(?, ''), name),
-                                detail=?, period=?, renewal_date=? WHERE id=?`
-    ).run(+total.toFixed(2), summary, detailParts, periodSummary, earliestRenewal, subId);
+                                detail=?, period=?, renewal_date=?, status=? WHERE id=?`
+    ).run(+total.toFixed(2), summary, detailParts, periodSummary, earliestRenewal, derivedStatus, subId);
   }
 }
 
@@ -544,9 +563,6 @@ app.patch('/api/subscriptions/:id', requireAdmin, (req, res) => {
   if (!sub) return res.status(404).json({ error: 'Subscrição não encontrada' });
 
   const { status, items } = req.body || {};
-  if (status !== undefined) {
-    db.prepare(`UPDATE subscriptions SET status=? WHERE id=?`).run(status, req.params.id);
-  }
 
   if (Array.isArray(items)) {
     if (items.length === 0) {
@@ -554,9 +570,31 @@ app.patch('/api/subscriptions/:id', requireAdmin, (req, res) => {
     }
     replaceSubItems(req.params.id, items);
   }
-  // Recompute sempre, para refletir período/renovação derivados das linhas.
-  recomputeSubHeader(req.params.id);
 
+  // Se admin escolher um estado para a subscrição, propaga a todos os items
+  // (assim o estado não é "desfeito" pela recomputação).
+  if (status !== undefined) {
+    const allowed = ['active','pending','paused','cancelled','expired'];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ error: 'Estado inválido' });
+    }
+    db.prepare(`UPDATE subscription_items SET status=? WHERE subscription_id=?`)
+      .run(status, req.params.id);
+  }
+
+  recomputeSubHeader(req.params.id);
+  res.json({ ok: true });
+});
+
+// Alterar o estado de um único serviço dentro de uma subscrição (reativar, pausar, etc.)
+app.patch('/api/subscription-items/:id/status', requireAdmin, (req, res) => {
+  const { status } = req.body || {};
+  const allowed = ['active','pending','paused','cancelled','expired'];
+  if (!allowed.includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+  const item = db.prepare(`SELECT subscription_id FROM subscription_items WHERE id=?`).get(req.params.id);
+  if (!item) return res.status(404).json({ error: 'Serviço não encontrado' });
+  db.prepare(`UPDATE subscription_items SET status=? WHERE id=?`).run(status, req.params.id);
+  recomputeSubHeader(item.subscription_id);
   res.json({ ok: true });
 });
 
@@ -937,31 +975,28 @@ app.patch('/api/cancellations/:id', requireAdmin, (req, res) => {
   db.prepare(`UPDATE cancellation_requests SET status=?, decided_at=datetime('now') WHERE id=?`)
     .run(status, req.params.id);
 
-  if (status === 'approved') {
+  // Estados a aplicar aos items consoante a decisão do admin:
+  //   'approved' → items ficam 'cancelled' (preservados para histórico/reativação)
+  //   'paused'   → items ficam 'paused'    (admin proporá pausa temporária)
+  //   'rejected' → items mantêm-se 'active' (cliente fica como estava)
+  if (status === 'approved' || status === 'paused') {
+    const targetItemStatus = status === 'approved' ? 'cancelled' : 'paused';
     const reqItems = loadCancellationItems(cr.id);
-    const currentItems = db.prepare(
-      `SELECT id FROM subscription_items WHERE subscription_id = ?`
-    ).all(cr.subscription_id);
-    const targetIds = reqItems
-      .map(ri => ri.subscription_item_id)
-      .filter(Boolean);
+    const targetIds = reqItems.map(ri => ri.subscription_item_id).filter(Boolean);
 
-    if (targetIds.length === 0 || targetIds.length >= currentItems.length) {
-      // Cancelamento total
-      db.prepare(`UPDATE subscriptions SET status='cancelled' WHERE id=?`).run(cr.subscription_id);
-    } else {
-      // Cancelamento parcial — remove apenas os serviços indicados e recalcula
+    if (targetIds.length > 0) {
+      // Pedido com items específicos (caso novo)
       const placeholders = targetIds.map(() => '?').join(',');
-      db.prepare(`DELETE FROM subscription_items WHERE id IN (${placeholders})`).run(...targetIds);
-      const remaining = db.prepare(
-        `SELECT COUNT(*) c FROM subscription_items WHERE subscription_id=?`
-      ).get(cr.subscription_id).c;
-      if (remaining === 0) {
-        db.prepare(`UPDATE subscriptions SET status='cancelled' WHERE id=?`).run(cr.subscription_id);
-      } else {
-        recomputeSubHeader(cr.subscription_id);
-      }
+      db.prepare(
+        `UPDATE subscription_items SET status=? WHERE id IN (${placeholders})`
+      ).run(targetItemStatus, ...targetIds);
+    } else {
+      // Pedido legado sem items registados → aplica a todos
+      db.prepare(
+        `UPDATE subscription_items SET status=? WHERE subscription_id=?`
+      ).run(targetItemStatus, cr.subscription_id);
     }
+    recomputeSubHeader(cr.subscription_id);
   }
 
   // Email — se o pedido tem items registados, listamos os nomes dos serviços

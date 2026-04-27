@@ -452,7 +452,7 @@ async function openSubEdit(id) {
   sel.value = s.user_id;
   sel.disabled = true;
   document.getElementById('s-status-wrap').style.display = '';
-  document.getElementById('s-status').value = s.status || 'active';
+  document.getElementById('s-status').value = '';  // por defeito não força nada
 
   document.getElementById('s-items').innerHTML = '';
   const items = Array.isArray(s.items) && s.items.length ? s.items : [{}];
@@ -490,6 +490,7 @@ function addSubItem(it = {}) {
   row.style = 'padding:12px 0; border-bottom:1px solid var(--line-2); display:grid; grid-template-columns:2fr 2fr 36px; gap:8px; align-items:end;';
   const period = it.period === 'ano' ? 'ano' : 'mês';
   const renewal = it.renewal_date ? String(it.renewal_date).slice(0, 10) : '';
+  const status = it.status || 'active';
   row.innerHTML = `
     <div class="field" style="margin:0;">
       <label style="font-size:11px;">Serviço</label>
@@ -521,6 +522,18 @@ function addSubItem(it = {}) {
     <div class="field" style="margin:0;">
       <label style="font-size:11px;">Desconto (€)</label>
       <input class="si-discount" type="number" step="0.01" min="0" placeholder="0,00" value="${it.discount ? Number(it.discount).toFixed(2) : ''}" oninput="recomputeSubTotals()">
+    </div>
+    <div></div>
+
+    <div class="field" style="margin:0; grid-column:1 / 3;">
+      <label style="font-size:11px;">Estado deste serviço</label>
+      <select class="si-status" onchange="recomputeSubTotals()">
+        <option value="active"    ${status === 'active' ? 'selected' : ''}>Ativo</option>
+        <option value="pending"   ${status === 'pending' ? 'selected' : ''}>Pendente</option>
+        <option value="paused"    ${status === 'paused' ? 'selected' : ''}>Em pausa</option>
+        <option value="cancelled" ${status === 'cancelled' ? 'selected' : ''}>Cancelado</option>
+        <option value="expired"   ${status === 'expired' ? 'selected' : ''}>Expirado</option>
+      </select>
     </div>
     <div></div>
 
@@ -557,11 +570,24 @@ function recomputeSubTotals() {
     const disc = discRaw === '' ? 0 : Math.max(0, parseFloat(discRaw) || 0);
     const final = Math.max(0, +(def - disc).toFixed(2));
     const period = row.querySelector('.si-period').value === 'ano' ? 'ano' : 'mês';
+    const statusEl = row.querySelector('.si-status');
+    const status = statusEl ? statusEl.value : 'active';
     row.querySelector('.si-final').textContent = fmtMoney(final);
     const periodLabel = row.querySelector('.si-period-label');
     if (periodLabel) periodLabel.textContent = '/ ' + period;
-    total += final;
-    if (period === 'ano') yearly += final; else monthly += final;
+    // Visualmente, atenuar serviços cancelados/expirados/pausados
+    if (status === 'cancelled' || status === 'expired') {
+      row.style.opacity = '0.55';
+    } else if (status === 'paused') {
+      row.style.opacity = '0.8';
+    } else {
+      row.style.opacity = '1';
+    }
+    // Totais só contam serviços ativos/pendentes
+    if (status === 'active' || status === 'pending') {
+      total += final;
+      if (period === 'ano') yearly += final; else monthly += final;
+    }
   });
   const elTotal = document.getElementById('s-total');
   const elM = document.getElementById('s-total-monthly');
@@ -1672,12 +1698,14 @@ document.addEventListener('submit', async (e) => {
     const items = Array.from(document.querySelectorAll('#s-items .sub-item')).map(row => {
       const planId = row.querySelector('.si-plan').value;
       const discRaw = row.querySelector('.si-discount').value;
+      const statusEl = row.querySelector('.si-status');
       return {
         plan_id: planId ? Number(planId) : null,
         detail: row.querySelector('.si-detail').value,
         discount: discRaw === '' ? 0 : Math.max(0, parseFloat(discRaw) || 0),
         period: row.querySelector('.si-period').value === 'ano' ? 'ano' : 'mês',
         renewal_date: row.querySelector('.si-renewal').value || null,
+        status: statusEl ? statusEl.value : 'active',
       };
     }).filter(it => it.plan_id);
     if (items.length === 0) {
@@ -1688,7 +1716,11 @@ document.addEventListener('submit', async (e) => {
       user_id: Number(document.getElementById('s-user').value),
       items,
     };
-    if (id) body.status = document.getElementById('s-status').value;
+    // Atalho opcional: se admin escolheu um estado no dropdown global, propaga a todos.
+    if (id) {
+      const force = document.getElementById('s-status').value;
+      if (force) body.status = force;
+    }
     try {
       if (id) {
         await api(`/api/subscriptions/${id}`, { method: 'PATCH', body });
