@@ -837,16 +837,47 @@ async function viewSupport(main) {
       <div>
         <div class="eyebrow">Precisa de ajuda?</div>
         <h1>Suporte</h1>
-        <p class="lede">Tem uma dúvida rápida? Consulte a base de conhecimento. Algo mais específico? Abra um pedido.</p>
+        <p class="lede">Abra um pedido para falar diretamente com a equipa DUIT. Em baixo encontra também respostas rápidas a perguntas frequentes.</p>
       </div>
       <div class="page-head-actions">
         <button class="btn btn-yellow" onclick="openModal('modal-ticket')">${svg('plus')} Novo pedido</button>
       </div>
     </div>
 
-    <div class="grid g-2-1" style="align-items:start;">
-      <div class="card">
-        <h3 style="margin-bottom:10px;">Perguntas frequentes</h3>
+    <div class="card" style="margin-bottom:18px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Os seus pedidos</h3>
+        <span style="font-size:12px; color:var(--muted);">${tickets.length} no total</span>
+      </div>
+      ${tickets.length === 0
+        ? `<div class="empty" style="padding:24px 0;">Ainda não tem pedidos abertos.<br><br>
+            <button class="btn btn-yellow" onclick="openModal('modal-ticket')">${svg('plus')} Abrir o primeiro pedido</button>
+          </div>`
+        : tickets.map(t => `
+          <div class="project-row" onclick="openTicket(${t.id})" style="cursor:pointer; ${t.unread_count > 0 ? 'background:rgba(255,214,10,0.06);' : ''}">
+            <div style="flex:1; min-width:0;">
+              <div class="project-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span>${escapeHtml(t.subject)}</span>
+                ${t.unread_count > 0 ? `<span class="badge-alert" title="${t.unread_count} mensagem(ns) por ler">${t.unread_count}</span>` : ''}
+              </div>
+              <div class="project-meta">
+                ${priorityPill(t.priority)} · ${fmtDateTime(t.updated_at)} · ${t.message_count} ${t.message_count === 1 ? 'mensagem' : 'mensagens'}
+              </div>
+            </div>
+            ${statusPill(t.status)}
+          </div>
+        `).join('')}
+    </div>
+
+    <details class="card" style="padding:0;">
+      <summary style="padding:18px 22px; cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div style="font-family:'Clash Display'; font-size:16px;">Perguntas frequentes</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:2px;">Respostas rápidas para dúvidas comuns.</div>
+        </div>
+        <span style="color:var(--muted); font-size:13px;">▾</span>
+      </summary>
+      <div style="padding:0 22px 18px;">
         ${faqs.map((f, i) => `
           <div class="faq-item ${state.faqOpen.has(i) ? 'open' : ''}" onclick="toggleFaq(${i})">
             <div class="faq-q"><span>${f.q}</span>${svg('plus')}</div>
@@ -854,20 +885,7 @@ async function viewSupport(main) {
           </div>
         `).join('')}
       </div>
-
-      <div class="card">
-        <h3 style="margin-bottom:10px;">Os seus pedidos</h3>
-        ${tickets.length === 0 ? `<div class="empty">Nenhum pedido aberto.</div>` : tickets.map(t => `
-          <div class="project-row" onclick="openTicket(${t.id})" style="cursor:pointer;">
-            <div style="flex:1;">
-              <div class="project-title">${escapeHtml(t.subject)}</div>
-              <div class="project-meta">${fmtDateTime(t.updated_at)} · ${t.message_count} mensagens</div>
-            </div>
-            ${statusPill(t.status)}
-          </div>
-        `).join('')}
-      </div>
-    </div>
+    </details>
   `;
 }
 

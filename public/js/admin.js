@@ -1389,20 +1389,24 @@ async function decideCancel(id, status) {
    ========================================================================= */
 async function viewSupport(main) {
   const tickets = await api('/api/tickets');
+  const unreadCount = tickets.filter(t => t.unread_count > 0).length;
   main.innerHTML = `
     <div class="page-head">
       <div>
         <div class="eyebrow">Atendimento</div>
         <h1>Suporte</h1>
-        <p class="lede">Todos os tickets abertos pelos clientes. Resolve o mais urgente primeiro.</p>
+        <p class="lede">Tickets dos clientes. ${unreadCount > 0 ? `Há ${unreadCount} ticket${unreadCount === 1 ? '' : 's'} com mensagens novas por ler.` : 'Tudo lido — bom trabalho.'}</p>
       </div>
     </div>
     <div class="card table-card">
       ${tickets.length === 0 ? `<div class="empty">Caixa limpa.</div>` : tickets.map(t => `
-        <div class="project-row" onclick="openTicket(${t.id})" style="cursor:pointer;">
+        <div class="project-row" onclick="openTicket(${t.id})" style="cursor:pointer; ${t.unread_count > 0 ? 'background:rgba(255,59,48,0.06);' : ''}">
           <div style="flex:1; min-width:240px;">
-            <div class="project-title">${escapeHtml(t.subject)}</div>
-            <div class="project-meta">${escapeHtml(t.client_name)} · ${fmtDateTime(t.updated_at)} · ${t.message_count} mensagens</div>
+            <div class="project-title" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <span>${escapeHtml(t.subject)}</span>
+              ${t.unread_count > 0 ? `<span class="badge-alert" title="${t.unread_count} mensagem(ns) por ler">${t.unread_count}</span>` : ''}
+            </div>
+            <div class="project-meta">${escapeHtml(t.client_name)} · ${fmtDateTime(t.updated_at)} · ${t.message_count} ${t.message_count === 1 ? 'mensagem' : 'mensagens'}</div>
           </div>
           ${priorityPill(t.priority)}
           ${statusPill(t.status)}

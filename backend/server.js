@@ -179,16 +179,14 @@ app.get('/api/stats', requireAdmin, (req, res) => {
   const unseenQuoteResponses = db.prepare(
     `SELECT COUNT(*) c FROM quotes WHERE responded_at IS NOT NULL AND seen_by_admin_at IS NULL`
   ).get().c;
-  // Tickets abertos cuja última mensagem é do cliente (admin precisa responder)
+  // Tickets abertos com mensagens de cliente ainda não lidas pelo admin
   const unreadAdminTickets = db.prepare(
-    `SELECT COUNT(*) c FROM tickets t
-      WHERE t.status != 'closed' AND EXISTS (
-        SELECT 1 FROM messages m
-          JOIN users u ON u.id = m.user_id
-         WHERE m.ticket_id = t.id
-           AND u.role = 'client'
-           AND m.created_at = (SELECT MAX(created_at) FROM messages WHERE ticket_id = t.id)
-      )`
+    `SELECT COUNT(DISTINCT t.id) c FROM tickets t
+       JOIN messages m ON m.ticket_id = t.id
+       JOIN users u ON u.id = m.user_id
+      WHERE t.status != 'closed'
+        AND u.role = 'client'
+        AND m.read_by_admin_at IS NULL`
   ).get().c;
   // Sugestões de cliente em posts ainda não tratadas
   const pendingPostSuggestions = db.prepare(
@@ -264,16 +262,15 @@ app.get('/api/client-summary', requireAuth, (req, res) => {
        JOIN users au ON au.id = pm.author_id
       WHERE p.user_id = ? AND au.role='admin' AND pm.read_by_client_at IS NULL`
   ).get(uid).c;
-  // Tickets em curso onde a última mensagem é de admin (cliente precisa de ler)
+  // Tickets em curso com mensagens de admin ainda não lidas pelo cliente
   const unreadClientTickets = db.prepare(
-    `SELECT COUNT(*) c FROM tickets t
-      WHERE t.user_id = ? AND t.status != 'closed' AND EXISTS (
-        SELECT 1 FROM messages m
-          JOIN users u ON u.id = m.user_id
-         WHERE m.ticket_id = t.id
-           AND u.role = 'admin'
-           AND m.created_at = (SELECT MAX(created_at) FROM messages WHERE ticket_id = t.id)
-      )`
+    `SELECT COUNT(DISTINCT t.id) c FROM tickets t
+       JOIN messages m ON m.ticket_id = t.id
+       JOIN users u ON u.id = m.user_id
+      WHERE t.user_id = ?
+        AND t.status != 'closed'
+        AND u.role = 'admin'
+        AND m.read_by_client_at IS NULL`
   ).get(uid).c;
 
   res.json({
@@ -1370,7 +1367,11 @@ app.get('/api/tickets', requireAuth, (req, res) => {
   if (req.user.role === 'admin') {
     return res.json(db.prepare(
       `SELECT t.*, u.name client_name,
-              (SELECT COUNT(*) FROM messages m WHERE m.ticket_id=t.id) message_count
+              (SELECT COUNT(*) FROM messages m WHERE m.ticket_id=t.id) message_count,
+              (SELECT COUNT(*) FROM messages m
+                 JOIN users u2 ON u2.id = m.user_id
+                WHERE m.ticket_id=t.id AND u2.role='client' AND m.read_by_admin_at IS NULL
+              ) unread_count
          FROM tickets t JOIN users u ON u.id=t.user_id
         ORDER BY CASE t.status WHEN 'open' THEN 0 WHEN 'in_progress' THEN 1 ELSE 2 END,
                  CASE t.priority WHEN 'high' THEN 0 WHEN 'normal' THEN 1 ELSE 2 END,
@@ -1378,7 +1379,12 @@ app.get('/api/tickets', requireAuth, (req, res) => {
     ).all());
   }
   res.json(db.prepare(
-    `SELECT t.*, (SELECT COUNT(*) FROM messages m WHERE m.ticket_id=t.id) message_count
+    `SELECT t.*,
+            (SELECT COUNT(*) FROM messages m WHERE m.ticket_id=t.id) message_count,
+            (SELECT COUNT(*) FROM messages m
+               JOIN users u2 ON u2.id = m.user_id
+              WHERE m.ticket_id=t.id AND u2.role='admin' AND m.read_by_client_at IS NULL
+            ) unread_count
        FROM tickets t WHERE t.user_id=? ORDER BY t.updated_at DESC`
   ).all(req.user.id));
 });
@@ -1402,6 +1408,26 @@ app.get('/api/tickets/:id', requireAuth, (req, res) => {
   ).get(req.params.id);
   if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
   if (req.user.role !== 'admin' && ticket.user_id !== req.user.id) return res.status(403).json({ error: 'Sem permissão' });
+
+  // Marca como lidas as mensagens do "outro lado"
+  try {
+    if (req.user.role === 'admin') {
+      db.prepare(
+        `UPDATE messages
+            SET read_by_admin_at = datetime('now')
+          WHERE ticket_id = ? AND read_by_admin_at IS NULL
+            AND user_id IN (SELECT id FROM users WHERE role='client')`
+      ).run(req.params.id);
+    } else {
+      db.prepare(
+        `UPDATE messages
+            SET read_by_client_at = datetime('now')
+          WHERE ticket_id = ? AND read_by_client_at IS NULL
+            AND user_id IN (SELECT id FROM users WHERE role='admin')`
+      ).run(req.params.id);
+    }
+  } catch (e) { console.warn('mark-read on ticket view:', e.message); }
+
   const messages = db.prepare(
     `SELECT m.*, u.name author_name, u.role author_role
        FROM messages m JOIN users u ON u.id=m.user_id

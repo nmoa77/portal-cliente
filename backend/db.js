@@ -211,6 +211,8 @@ CREATE TABLE IF NOT EXISTS messages (
   ticket_id INTEGER NOT NULL,
   user_id INTEGER NOT NULL,
   body TEXT NOT NULL,
+  read_by_admin_at TEXT,
+  read_by_client_at TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -347,6 +349,23 @@ try {
     }
   }
 } catch (e) { console.warn('Migration subscription_items period/renewal:', e.message); }
+
+// Migration: colunas read_by_admin_at e read_by_client_at em messages (tickets)
+try {
+  const cols = db.prepare(`PRAGMA table_info(messages)`).all();
+  if (cols.length) {
+    if (!cols.find(c => c.name === 'read_by_admin_at')) {
+      db.exec(`ALTER TABLE messages ADD COLUMN read_by_admin_at TEXT`);
+      console.log('✓ Migration: messages.read_by_admin_at adicionada.');
+    }
+    if (!cols.find(c => c.name === 'read_by_client_at')) {
+      db.exec(`ALTER TABLE messages ADD COLUMN read_by_client_at TEXT`);
+      console.log('✓ Migration: messages.read_by_client_at adicionada.');
+    }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread_admin ON messages(read_by_admin_at)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_messages_unread_client ON messages(read_by_client_at)`);
+  }
+} catch (e) { console.warn('Migration messages read columns:', e.message); }
 
 // Migration: colunas read_by_admin_at e read_by_client_at em project_messages
 try {
