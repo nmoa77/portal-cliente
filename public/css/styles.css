@@ -539,49 +539,50 @@ label {
   font-family: 'Clash Display'; font-size: 28px; margin-top: 14px;
 }
 
-/* ===== Thread (conversation) ===== */
-.thread { display: flex; flex-direction: column; gap: 4px; padding: 16px 0; }
+/* ===== Thread (conversation, estilo WhatsApp) ===== */
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 0;
+}
 .bubble {
   align-self: flex-start;
   width: fit-content;
-  max-width: min(560px, 72%);
-  min-width: 60px;
-  padding: 10px 14px;
-  border-radius: 16px 16px 16px 4px;
+  max-width: min(420px, 58%);
+  min-width: 40px;
+  padding: 6px 10px 6px;
+  border-radius: 8px;
   background: #f4f1ea;
   color: var(--ink, #0a0a0a);
-  border: 1px solid var(--line);
-  font-size: 14px;
-  line-height: 1.5;
+  border: 1px solid var(--line-2, #ece9e2);
+  font-size: 13.5px;
+  line-height: 1.4;
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: anywhere;
-  box-shadow: 0 1px 1px rgba(10,10,10,0.03);
+  box-shadow: 0 1px 1px rgba(10,10,10,0.04);
 }
 .bubble .author {
   display: block;
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--muted);
-  margin-bottom: 4px;
-  letter-spacing: 0.01em;
+  margin-bottom: 2px;
   font-weight: 500;
+  opacity: 0.85;
 }
 .bubble.mine {
   align-self: flex-end;
   background: var(--yellow);
   color: var(--black);
   border-color: var(--yellow);
-  border-radius: 16px 16px 4px 16px;
 }
 .bubble.mine .author { color: rgba(0,0,0,.55); }
 
-/* Quando duas bubbles consecutivas são do mesmo lado, encostam-se */
-.bubble + .bubble { margin-top: 2px; }
-.bubble.mine + .bubble.mine { border-top-right-radius: 8px; }
-.bubble.mine + .bubble.mine + .bubble.mine { border-top-right-radius: 8px; }
-.bubble:not(.mine) + .bubble:not(.mine) { border-top-left-radius: 8px; }
+/* Bolhas consecutivas do mesmo lado encostam-se com pouco espaço */
+.bubble + .bubble { margin-top: 0; }
 
-/* Dark mode adjustments */
+/* Dark mode */
 [data-theme="dark"] .bubble {
   background: rgba(255,255,255,0.04);
   border-color: rgba(255,255,255,0.08);
