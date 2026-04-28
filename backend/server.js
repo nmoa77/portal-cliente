@@ -1251,7 +1251,7 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
     items.forEach(it => insertItem.run(req.params.id, it.label, it.detail || '', Number(it.amount) || 0));
   }
 
-  // Notifica cliente quando o orçamento foi revisto
+  // Notifica destinatário quando o orçamento foi revisto — para prospects, usa o link público
   if (triggerRevision) {
     try {
       const subtotal = db.prepare(
@@ -1260,15 +1260,26 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
       const iva = +(subtotal * IVA_RATE).toFixed(2);
       const total = +(subtotal + iva).toFixed(2);
       const fresh = db.prepare(
-        `SELECT q.title, q.number, q.valid_until, u.name client_name, u.email client_email
+        `SELECT q.title, q.number, q.valid_until, q.public_token,
+                u.name client_name, u.email client_email, u.is_prospect
            FROM quotes q JOIN users u ON u.id=q.user_id WHERE q.id=?`
       ).get(req.params.id);
       if (fresh && fresh.client_email) {
-        const tpl = T.quoteResent(fresh.client_name, fresh.title, fresh.number,
-                                  subtotal, iva, total, fmtIsoDate(fresh.valid_until));
+        // Se for prospect e ainda não tiver token, gera-o agora.
+        let publicToken = fresh.public_token;
+        if (fresh.is_prospect === 1 && !publicToken) {
+          publicToken = crypto.randomBytes(24).toString('base64url');
+          db.prepare(`UPDATE quotes SET public_token=? WHERE id=?`).run(publicToken, req.params.id);
+        }
+        const tpl = (fresh.is_prospect === 1 && publicToken)
+          ? T.quoteSentProspect(fresh.client_name, fresh.title, fresh.number,
+                                subtotal, iva, total, fmtIsoDate(fresh.valid_until), publicToken)
+          : T.quoteResent(fresh.client_name, fresh.title, fresh.number,
+                          subtotal, iva, total, fmtIsoDate(fresh.valid_until));
         deliver(db, {
           to: fresh.client_email, subject: tpl.subject, body: tpl.body, html: tpl.html,
           user_id: q.user_id, kind: 'quote_revised',
+          force: fresh.is_prospect === 1,
         });
       }
     } catch (e) { console.warn('quoteRevised notify:', e.message); }
@@ -1281,10 +1292,17 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
 // limpa motivo de rejeição e notifica o cliente).
 app.post('/api/quotes/:id/resend', requireAdmin, (req, res) => {
   const q = db.prepare(
-    `SELECT q.*, u.name client_name, u.email client_email
+    `SELECT q.*, u.name client_name, u.email client_email, u.is_prospect
        FROM quotes q JOIN users u ON u.id=q.user_id WHERE q.id=?`
   ).get(req.params.id);
   if (!q) return res.status(404).json({ error: 'Orçamento não encontrado' });
+
+  // Para prospects, garantir que existe um public_token (se ainda não tiver, gerar agora).
+  let publicToken = q.public_token;
+  if (q.is_prospect === 1 && !publicToken) {
+    publicToken = crypto.randomBytes(24).toString('base64url');
+    db.prepare(`UPDATE quotes SET public_token=? WHERE id=?`).run(publicToken, q.id);
+  }
 
   db.prepare(
     `UPDATE quotes
@@ -1296,16 +1314,20 @@ app.post('/api/quotes/:id/resend', requireAdmin, (req, res) => {
       WHERE id=?`
   ).run(q.id);
 
-  // Notifica cliente
+  // Notifica destinatário — usa o template apropriado consoante seja prospect (link público)
+  // ou cliente normal (vai ao portal).
   try {
     const subtotal = db.prepare(`SELECT COALESCE(SUM(amount),0) s FROM quote_items WHERE quote_id=?`).get(q.id).s;
     const iva = +(subtotal * IVA_RATE).toFixed(2);
     const total = +(subtotal + iva).toFixed(2);
     if (q.client_email) {
-      const tpl = T.quoteResent(q.client_name, q.title, q.number, subtotal, iva, total, fmtIsoDate(q.valid_until));
+      const tpl = (q.is_prospect === 1 && publicToken)
+        ? T.quoteSentProspect(q.client_name, q.title, q.number, subtotal, iva, total, fmtIsoDate(q.valid_until), publicToken)
+        : T.quoteResent(q.client_name, q.title, q.number, subtotal, iva, total, fmtIsoDate(q.valid_until));
       deliver(db, {
         to: q.client_email, subject: tpl.subject, body: tpl.body, html: tpl.html,
         user_id: q.user_id, kind: 'quote_resent',
+        force: q.is_prospect === 1,
       });
     }
   } catch (e) { console.warn('quoteResent notify:', e.message); }

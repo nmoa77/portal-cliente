@@ -213,7 +213,7 @@
         alert(err.error || 'Não foi possível registar a sua resposta.');
         return;
       }
-      await loadQuote();
+      showThankYou('accepted');
     } catch (e) { alert('Erro de ligação. Tente novamente.'); }
   }
 
@@ -240,8 +240,35 @@
         return;
       }
       closeReject();
-      await loadQuote();
+      showThankYou('rejected');
     } catch (e) { alert('Erro de ligação. Tente novamente.'); }
+  }
+
+  function showThankYou(decision) {
+    const accepted = decision === 'accepted';
+    root.innerHTML = `
+      <div class="pq-card" style="text-align:center; padding:60px 28px;">
+        <div style="font-size:54px; line-height:1; margin-bottom:14px;">
+          ${accepted ? '✓' : '↩'}
+        </div>
+        <h1 class="pq-title" style="margin-bottom:10px;">
+          ${accepted ? 'Obrigado pela confiança!' : 'Resposta registada'}
+        </h1>
+        <p style="color:#6b6862; font-size:15px; line-height:1.6; max-width:480px; margin:0 auto 22px;">
+          ${accepted
+            ? 'A sua aceitação foi registada com sucesso. A equipa DUIT entrará em contacto consigo nas próximas 24 horas para ativar o seu acesso ao portal e iniciar o serviço.'
+            : 'O seu pedido de rejeição foi registado e a equipa DUIT já foi notificada. Iremos analisar o feedback partilhado e, se fizer sentido, voltaremos a contactar com uma proposta alternativa.'}
+        </p>
+        <p style="color:#8b8680; font-size:13px; margin:0;">
+          Já pode fechar esta página em segurança.
+        </p>
+        <hr style="border:none; border-top:1px solid #ece9e2; margin:28px auto; max-width:200px;">
+        <div style="font-family:'Clash Display',sans-serif; font-size:14px; color:#0a0a0a;">
+          <span style="color:#8b8680; font-style:italic;">Want it done?</span>
+          <span style="font-weight:900; letter-spacing:-0.04em; margin-left:6px;">DUIT</span><span style="display:inline-block; width:8px; height:8px; background:#ffd60a; margin-left:3px; vertical-align:baseline;"></span>
+        </div>
+      </div>
+    `;
   }
 </script>
 </body>
