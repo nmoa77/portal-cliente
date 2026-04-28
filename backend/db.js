@@ -159,7 +159,9 @@ CREATE TABLE IF NOT EXISTS quotes (
   public_token TEXT UNIQUE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_quotes_public_token ON quotes(public_token);
+-- Nota: o índice em public_token é criado depois da migration correr
+-- (caso contrário em BDs antigas com o volume persistente o CREATE INDEX
+-- falha porque a coluna ainda não existe).
 
 CREATE TABLE IF NOT EXISTS quote_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -301,9 +303,13 @@ try {
     }
     if (!cols.find(c => c.name === 'public_token')) {
       db.exec(`ALTER TABLE quotes ADD COLUMN public_token TEXT`);
-      db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_quotes_public_token ON quotes(public_token) WHERE public_token IS NOT NULL`);
       console.log('✓ Migration: quotes.public_token adicionada.');
     }
+    // Índice idempotente — corre sempre, mas só cria efectivamente se a coluna
+    // já existir (que existe sempre depois do bloco acima).
+    try {
+      db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_quotes_public_token ON quotes(public_token) WHERE public_token IS NOT NULL`);
+    } catch (e) { console.warn('Index public_token:', e.message); }
   }
 } catch (e) { console.warn('Migration quotes extra columns:', e.message); }
 
