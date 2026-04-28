@@ -203,6 +203,19 @@ app.get('/api/stats', requireAdmin, (req, res) => {
     `SELECT COUNT(*) c FROM social_posts
       WHERE status='draft' AND date = date('now','localtime')`
   ).get().c;
+  // Prospects (utilizadores criados via orçamento público, ainda sem conta ativa)
+  const totalProspects = db.prepare(
+    `SELECT COUNT(*) c FROM users WHERE role='client' AND is_prospect=1`
+  ).get().c;
+  // Prospects que já responderam ao orçamento (aceite ou rejeitado) e ainda
+  // estão por converter — alerta ativo
+  const pendingProspectActions = db.prepare(
+    `SELECT COUNT(DISTINCT u.id) c
+       FROM users u
+       JOIN quotes q ON q.user_id = u.id
+      WHERE u.role='client' AND u.is_prospect=1
+        AND q.status IN ('accepted','rejected')`
+  ).get().c;
 
   res.json({
     // totais
@@ -212,6 +225,7 @@ app.get('/api/stats', requireAdmin, (req, res) => {
     pendingCancels, pendingQuotes, pendingSubs,
     unreadClientNotes, unseenQuoteResponses,
     unreadAdminTickets, pendingPostSuggestions, todayDrafts,
+    totalProspects, pendingProspectActions,
   });
 });
 
@@ -290,6 +304,61 @@ app.get('/api/client-summary', requireAuth, (req, res) => {
     // alertas
     unreadProjectNotes, unreadClientTickets,
   });
+});
+
+/* ================================================================
+   PROSPECTS — utilizadores criados a partir de orçamentos públicos,
+   ainda sem acesso ativo ao portal. Convertem-se em clientes quando
+   admin promove (envia email com password inicial).
+   ================================================================ */
+app.get('/api/prospects', requireAdmin, (req, res) => {
+  const rows = db.prepare(
+    `SELECT u.id, u.name, u.email, u.company, u.phone, u.created_at,
+            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id) AS quote_count,
+            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status='accepted') AS accepted_count,
+            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status='rejected') AS rejected_count,
+            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status IN ('sent','revised')) AS pending_count,
+            (SELECT MAX(q.responded_at) FROM quotes q WHERE q.user_id=u.id) AS last_response
+       FROM users u
+      WHERE u.role='client' AND u.is_prospect=1
+      ORDER BY u.created_at DESC`
+  ).all();
+  // Para cada prospect, anexa as quotes (resumo)
+  const enriched = rows.map(p => {
+    const quotes = db.prepare(
+      `SELECT q.id, q.number, q.title, q.status, q.sent_at, q.responded_at,
+              q.public_token, q.rejection_reason,
+              (SELECT COALESCE(SUM(amount),0) FROM quote_items WHERE quote_id=q.id) AS subtotal
+         FROM quotes q WHERE q.user_id=? ORDER BY q.sent_at DESC`
+    ).all(p.id);
+    return { ...p, quotes };
+  });
+  res.json(enriched);
+});
+
+app.post('/api/prospects/:id/convert', requireAdmin, (req, res) => {
+  const u = db.prepare(`SELECT * FROM users WHERE id=? AND is_prospect=1`).get(req.params.id);
+  if (!u) return res.status(404).json({ error: 'Prospect não encontrado ou já convertido.' });
+  // Gera password temporária e envia email de boas-vindas (mesma flow de novo cliente).
+  const tempPassword = crypto.randomBytes(8).toString('base64url').slice(0, 12);
+  const hash = bcrypt.hashSync(tempPassword, 10);
+  db.prepare(
+    `UPDATE users SET password_hash=?, is_prospect=0 WHERE id=?`
+  ).run(hash, u.id);
+  try {
+    const tpl = T.welcome(u.name, u.email, tempPassword);
+    deliver(db, {
+      to: u.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+      user_id: u.id, kind: 'welcome_after_conversion', force: true,
+    });
+  } catch (e) { console.warn('welcome on convert:', e.message); }
+  res.json({ ok: true });
+});
+
+app.delete('/api/prospects/:id', requireAdmin, (req, res) => {
+  const info = db.prepare(`DELETE FROM users WHERE id=? AND is_prospect=1`).run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Prospect não encontrado.' });
+  res.json({ ok: true });
 });
 
 /* ================================================================

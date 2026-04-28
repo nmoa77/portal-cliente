@@ -53,6 +53,9 @@ function renderShell() {
   const items = [
     { id: 'home',      icon: 'home',    label: 'Visão geral' },
     { id: 'clients',   icon: 'users',   label: 'Clientes' },
+    { id: 'prospects', icon: 'sparkle', label: 'Prospects',
+        count: s.totalProspects,         countTitle: `${s.totalProspects || 0} prospect(s) por converter`,
+        alert: s.pendingProspectActions, alertTitle: `${s.pendingProspectActions || 0} prospect(s) já respondeu(eram) — pronto a converter` },
     { id: 'subs',      icon: 'box',     label: 'Subscrições',  alert: s.pendingSubs,            alertTitle: `${s.pendingSubs || 0} subscrição(ões) por confirmar` },
     { id: 'plans',     icon: 'sparkle', label: 'Serviços' },
     { id: 'projects',  icon: 'folder',  label: 'Projetos',
@@ -106,6 +109,7 @@ async function go(view) {
   try {
     if (view === 'home')          await viewHome(main);
     else if (view === 'clients')  await viewClients(main);
+    else if (view === 'prospects')await viewProspects(main);
     else if (view === 'subs')     await viewSubs(main);
     else if (view === 'plans')    await viewPlans(main);
     else if (view === 'projects') await viewProjects(main);
@@ -227,6 +231,132 @@ async function viewHome(main) {
 /* =========================================================================
    CLIENTES
    ========================================================================= */
+async function viewProspects(main) {
+  let prospects = [];
+  try { prospects = await api('/api/prospects'); }
+  catch (e) { main.innerHTML = `<div class="empty">Erro: ${escapeHtml(e.message)}</div>`; return; }
+
+  const statusInfo = (s) => {
+    if (s === 'accepted') return { cls: 'ok',    label: 'Aceite' };
+    if (s === 'rejected') return { cls: 'err',   label: 'Rejeitado' };
+    if (s === 'revised')  return { cls: 'warn',  label: 'Revisto' };
+    if (s === 'sent')     return { cls: 'accent',label: 'Enviado' };
+    if (s === 'draft')    return { cls: 'muted', label: 'Rascunho' };
+    return { cls: 'muted', label: s };
+  };
+
+  main.innerHTML = `
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Pipeline comercial</div>
+        <h1>Prospects</h1>
+        <p class="lede">Pessoas a quem foram enviados orçamentos mas que ainda não têm acesso ativo ao portal. Quando aceitam, pode convertê-los em clientes — recebem um email com password de acesso.</p>
+      </div>
+      <div class="page-head-actions">
+        <button class="btn btn-yellow" onclick="openNewQuote(); setTimeout(() => setQuoteRecipientMode('prospect'), 50)">${svg('plus')} Novo orçamento a prospect</button>
+      </div>
+    </div>
+
+    ${prospects.length === 0 ? `
+      <div class="card"><div class="empty" style="padding:40px 0;">
+        Sem prospects de momento. Use o botão acima para enviar um orçamento a um possível cliente.
+      </div></div>
+    ` : `
+      <div class="grid" style="gap:14px;">
+        ${prospects.map(p => {
+          const acceptedQuotes = (p.quotes || []).filter(q => q.status === 'accepted');
+          const canConvert = acceptedQuotes.length > 0;
+          return `
+          <div class="card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; margin-bottom:14px;">
+              <div style="flex:1; min-width:240px;">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <div style="font-family:'Clash Display'; font-size:22px;">${escapeHtml(p.name)}</div>
+                  ${canConvert ? `<span class="pill ok">${svg('check')} pronto a converter</span>` : `<span class="pill muted">prospect</span>`}
+                </div>
+                <div style="color:var(--muted); font-size:13px; margin-top:4px;">
+                  ${escapeHtml(p.company || '—')} · ${escapeHtml(p.email)}${p.phone ? ' · ' + escapeHtml(p.phone) : ''}
+                </div>
+                <div style="color:var(--muted); font-size:12px; margin-top:6px;">
+                  Adicionado em ${fmtDate(p.created_at, true)} · ${p.quote_count} orçamento(s) · ${p.accepted_count} aceite(s) · ${p.rejected_count} rejeitado(s) · ${p.pending_count} pendente(s)
+                </div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px; min-width:160px;">
+                ${canConvert ? `
+                  <button class="btn btn-yellow btn-sm" onclick="convertProspect(${p.id}, '${escapeHtml(p.name).replace(/'/g, "\\'")}')">${svg('check')} Converter em cliente</button>
+                ` : ''}
+                <button class="btn btn-ghost btn-sm" onclick="openNewQuote(); setTimeout(() => { setQuoteRecipientMode('prospect'); document.getElementById('q-prospect-name').value='${escapeHtml(p.name).replace(/'/g, "\\'")}'; document.getElementById('q-prospect-email').value='${escapeHtml(p.email).replace(/'/g, "\\'")}'; document.getElementById('q-prospect-company').value='${escapeHtml(p.company || '').replace(/'/g, "\\'")}'; document.getElementById('q-prospect-phone').value='${escapeHtml(p.phone || '').replace(/'/g, "\\'")}'; }, 50)">${svg('plus')} Novo orçamento</button>
+                <button class="btn btn-icon" title="Apagar prospect" onclick="deleteProspect(${p.id}, '${escapeHtml(p.name).replace(/'/g, "\\'")}')">${svg('trash')}</button>
+              </div>
+            </div>
+
+            ${p.quotes && p.quotes.length > 0 ? `
+              <div style="border-top:1px solid var(--line-2); padding-top:12px;">
+                <div class="eyebrow" style="margin-bottom:8px;">Orçamentos enviados</div>
+                ${p.quotes.map(q => {
+                  const si = statusInfo(q.status);
+                  const subtotal = Number(q.subtotal || 0);
+                  const iva = +(subtotal * 0.23).toFixed(2);
+                  const total = +(subtotal + iva).toFixed(2);
+                  const link = q.public_token ? `${window.location.origin}/quote.html?token=${encodeURIComponent(q.public_token)}` : null;
+                  return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px dashed var(--line-2); flex-wrap:wrap;">
+                      <div style="min-width:200px; flex:1;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                          <strong style="font-size:14px;">${escapeHtml(q.title)}</strong>
+                          <span class="pill ${si.cls}">${si.label}</span>
+                        </div>
+                        <div style="font-size:12px; color:var(--muted); margin-top:2px;">
+                          Nº ${escapeHtml(q.number)} · enviado ${fmtDate(q.sent_at)}${q.responded_at ? ' · resposta ' + fmtDate(q.responded_at) : ''}
+                          · total ${fmtMoney(total)} c/ IVA
+                        </div>
+                        ${q.rejection_reason ? `<div style="font-size:12px; color:#9a2828; margin-top:4px; font-style:italic;">"${escapeHtml(q.rejection_reason)}"</div>` : ''}
+                      </div>
+                      <div style="display:flex; gap:6px;">
+                        ${link ? `<button class="btn btn-icon" title="Copiar link público" onclick="copyToClipboard('${link}')">${svg('chat')}</button>` : ''}
+                        <button class="btn btn-icon" title="Editar orçamento" onclick="openEditQuote(${q.id})">${svg('edit')}</button>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;}).join('')}
+      </div>
+    `}
+  `;
+}
+
+async function convertProspect(id, name) {
+  if (!confirm(`Converter "${name}" em cliente final?\n\nSerá enviado um email com password inicial e o utilizador passa a ter acesso ao portal.`)) return;
+  try {
+    await api(`/api/prospects/${id}/convert`, { method: 'POST' });
+    toast('Prospect convertido em cliente. Email com credenciais enviado.', 'check');
+    go('clients');
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
+async function deleteProspect(id, name) {
+  if (!confirm(`Apagar o prospect "${name}"?\n\nIsto remove definitivamente o utilizador e todos os orçamentos associados. Esta ação não pode ser desfeita.`)) return;
+  try {
+    await api(`/api/prospects/${id}`, { method: 'DELETE' });
+    toast('Prospect apagado.');
+    go('prospects');
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(
+      () => toast('Link copiado para a área de transferência.', 'check'),
+      () => toast('Não foi possível copiar.', 'cancel')
+    );
+  } else {
+    toast(text, 'check');
+  }
+}
+
 async function viewClients(main) {
   await refreshClients();
   const list = state.clients;
