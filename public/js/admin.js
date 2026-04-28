@@ -375,8 +375,8 @@ async function viewClients(main) {
       </div>
     </div>
 
-    <div class="grid g-2-1" style="align-items:start;">
-      <div class="card table-card">
+    <div class="grid" style="grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr); gap:14px; align-items:start;">
+      <div class="card table-card" style="overflow-x:auto;">
         ${list.length === 0 ? `<div class="empty">Sem clientes.</div>` : `
           <table class="table">
             <thead><tr><th>Cliente</th><th>Contacto</th><th>Estado</th><th>Subs</th><th>Projetos</th><th>MRR</th><th></th></tr></thead>
@@ -408,7 +408,7 @@ async function viewClients(main) {
                   <td><strong>${fmtMoney(c.mrr)}</strong></td>
                   <td style="text-align:right; white-space:nowrap;">
                     ${inactive
-                      ? `<button class="btn btn-yellow btn-sm" title="Ativar conta e enviar credenciais" onclick="event.stopPropagation(); activateClient(${c.id}, '${escapeHtml(c.name).replace(/'/g,"\\'")}')">${svg('check')} Ativar</button>`
+                      ? `<button class="btn btn-icon" style="background:var(--yellow); color:var(--black);" title="Ativar conta e enviar credenciais" onclick="event.stopPropagation(); activateClient(${c.id}, '${escapeHtml(c.name).replace(/'/g,"\\'")}')">${svg('check')}</button>`
                       : `<button class="btn btn-icon" title="Desativar (suspender acesso)" onclick="event.stopPropagation(); deactivateClient(${c.id}, '${escapeHtml(c.name).replace(/'/g,"\\'")}')">⏸</button>`}
                     <button class="btn btn-icon" title="Editar" onclick="event.stopPropagation(); openEditClient(${c.id})">${svg('edit')}</button>
                     <button class="btn btn-icon" title="Apagar" onclick="event.stopPropagation(); deleteClient(${c.id}, '${escapeHtml(c.name).replace(/'/g,"\\'")}')">${svg('trash')}</button>
