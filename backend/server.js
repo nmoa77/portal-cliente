@@ -1131,6 +1131,7 @@ app.get('/api/quotes', requireAuth, (req, res) => {
 app.get('/api/quotes/:id', requireAuth, (req, res) => {
   const q = db.prepare(
     `SELECT q.*, u.name client_name, u.email client_email, u.company client_company,
+            u.phone client_phone, u.is_prospect client_is_prospect,
             (SELECT COALESCE(SUM(amount),0) FROM quote_items WHERE quote_id=q.id) subtotal
        FROM quotes q JOIN users u ON u.id=q.user_id WHERE q.id=?`
   ).get(req.params.id);

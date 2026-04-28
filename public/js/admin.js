@@ -1406,6 +1406,10 @@ function openNewQuote() {
   // Em edição não permitimos mudar o destinatário; em "novo" sim.
   const togWrap = document.getElementById('q-recipient-toggle-wrap');
   if (togWrap) togWrap.style.display = '';
+  // Esconde a info-box que possa ter ficado de uma edição anterior
+  const infoBox = document.getElementById('q-recipient-info');
+  if (infoBox) infoBox.style.display = 'none';
+  document.getElementById('q-user').disabled = false;
 
   addQuoteItem();
   recomputeQuoteTotals();
@@ -1432,14 +1436,45 @@ async function openEditQuote(id) {
   let full;
   try { full = await api(`/api/quotes/${id}`); }
   catch (err) { toast(err.message, 'cancel'); return; }
-  // Em edição, o destinatário não muda — escondemos o toggle prospect/cliente
-  setQuoteRecipientMode('client');
+
+  // Em edição o destinatário nunca muda — escondemos o toggle prospect/cliente.
   const togWrap = document.getElementById('q-recipient-toggle-wrap');
   if (togWrap) togWrap.style.display = 'none';
+
+  const isProspect = full.client_is_prospect === 1;
+  state._quoteMode = isProspect ? 'prospect' : 'client';
+
+  // Mostra a info do destinatário em read-only (numa caixa) em vez do dropdown
+  // — independentemente de ser cliente ou prospect, o destinatário não é editável aqui.
+  document.getElementById('q-user-wrap').style.display = 'none';
+  document.getElementById('q-prospect-wrap').style.display = 'none';
+  document.getElementById('q-user').required = false;
+  ['q-prospect-name','q-prospect-email'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.required = false;
+  });
+
+  // Injecta uma "card" informativa do destinatário no topo do form.
+  let infoBox = document.getElementById('q-recipient-info');
+  if (!infoBox) {
+    infoBox = document.createElement('div');
+    infoBox.id = 'q-recipient-info';
+    infoBox.style = 'padding:10px 14px; background:var(--bg-2); border-radius:10px; margin-bottom:12px; font-size:13px; line-height:1.5;';
+    const userWrap = document.getElementById('q-user-wrap');
+    userWrap.parentNode.insertBefore(infoBox, userWrap);
+  }
+  infoBox.innerHTML = `
+    <div class="eyebrow" style="margin-bottom:4px;">${isProspect ? 'Prospect (sem conta ativa)' : 'Cliente'}</div>
+    <div><strong>${escapeHtml(full.client_name || '—')}</strong>${full.client_company ? ' · ' + escapeHtml(full.client_company) : ''}</div>
+    <div style="color:var(--muted); font-size:12px;">${escapeHtml(full.client_email || '')}${full.client_phone ? ' · ' + escapeHtml(full.client_phone) : ''}</div>
+  `;
+  infoBox.style.display = '';
+
+  // Mantemos um valor "fantasma" no select para não falhar no submit (mesmo que ignorado).
   const sel = document.getElementById('q-user');
-  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  sel.innerHTML = `<option value="${full.user_id}">${escapeHtml(full.client_name || '')}</option>`;
   sel.value = full.user_id;
-  sel.disabled = false;
+  sel.disabled = true;
   document.getElementById('modal-quote-title').textContent = `Editar orçamento ${full.number || ''}`.trim();
   document.getElementById('q-submit').textContent = 'Guardar alterações';
   document.getElementById('q-id').value = full.id;
