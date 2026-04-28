@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
   phone TEXT,
   avatar_url TEXT,
   notifications_enabled INTEGER NOT NULL DEFAULT 1,
+  is_prospect INTEGER NOT NULL DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -155,8 +156,10 @@ CREATE TABLE IF NOT EXISTS quotes (
   rejection_reason TEXT,
   responded_at TEXT,
   seen_by_admin_at TEXT,
+  public_token TEXT UNIQUE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_quotes_public_token ON quotes(public_token);
 
 CREATE TABLE IF NOT EXISTS quote_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -280,7 +283,7 @@ try {
   }
 } catch (e) { console.warn('Migration users.notifications_enabled:', e.message); }
 
-// Migration: colunas extra em quotes (resposta do cliente, IVA, etc.)
+// Migration: colunas extra em quotes (resposta do cliente, IVA, token público, etc.)
 try {
   const cols = db.prepare(`PRAGMA table_info(quotes)`).all();
   if (cols.length) {
@@ -296,8 +299,22 @@ try {
       db.exec(`ALTER TABLE quotes ADD COLUMN seen_by_admin_at TEXT`);
       console.log('✓ Migration: quotes.seen_by_admin_at adicionada.');
     }
+    if (!cols.find(c => c.name === 'public_token')) {
+      db.exec(`ALTER TABLE quotes ADD COLUMN public_token TEXT`);
+      db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_quotes_public_token ON quotes(public_token) WHERE public_token IS NOT NULL`);
+      console.log('✓ Migration: quotes.public_token adicionada.');
+    }
   }
 } catch (e) { console.warn('Migration quotes extra columns:', e.message); }
+
+// Migration: coluna is_prospect em users (para utilizadores criados a partir de orçamentos públicos)
+try {
+  const cols = db.prepare(`PRAGMA table_info(users)`).all();
+  if (cols.length && !cols.find(c => c.name === 'is_prospect')) {
+    db.exec(`ALTER TABLE users ADD COLUMN is_prospect INTEGER NOT NULL DEFAULT 0`);
+    console.log('✓ Migration: users.is_prospect adicionada.');
+  }
+} catch (e) { console.warn('Migration users.is_prospect:', e.message); }
 
 // Migration: alargar CHECK do status em quotes para incluir 'revised'
 try {

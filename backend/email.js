@@ -199,6 +199,49 @@ Want it done? DUIT.`;
     return { subject, body, html };
   },
 
+  quoteSentProspect: (name, title, number, subtotal, iva, total, validUntil, publicToken) => {
+    const fmt = (n) => Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const link = `${PORTAL_URL}/quote.html?token=${encodeURIComponent(publicToken)}`;
+    const subject = `Orçamento DUIT — ${title} (Nº ${number})`;
+    const body =
+`Caro(a) ${name},
+
+Apresentamos a proposta solicitada à DUIT — referência ${number}.
+
+Título: ${title}
+Subtotal: ${fmt(subtotal)} €
+IVA (23%): ${fmt(iva)} €
+Total: ${fmt(total)} €${validUntil ? `
+Válido até: ${validUntil}` : ''}
+
+Para consultar o detalhe completo, aceitar ou rejeitar a proposta, aceda à ligação abaixo. A ligação é pessoal e está associada apenas a este orçamento.
+
+${link}
+
+Want it done? DUIT.`;
+    const html = layout({
+      eyebrow: 'Proposta DUIT',
+      title: `${title}`,
+      greeting: `Caro(a) ${name},`,
+      paragraphs: [
+        `Apresentamos a proposta solicitada à DUIT — referência <strong>${escapeHtml(number)}</strong>.`,
+        `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0; width:100%; border-collapse:collapse;">
+          <tr><td style="padding:8px 0; color:#8b8680; font-size:13px;">Subtotal</td>
+              <td style="padding:8px 0; text-align:right; font-size:14px; color:#2a2a2a;">${fmt(subtotal)} €</td></tr>
+          <tr><td style="padding:8px 0; border-top:1px solid #ece9e2; color:#8b8680; font-size:13px;">IVA (23%)</td>
+              <td style="padding:8px 0; border-top:1px solid #ece9e2; text-align:right; font-size:14px; color:#2a2a2a;">${fmt(iva)} €</td></tr>
+          <tr><td style="padding:10px 0 0 0; border-top:2px solid #0a0a0a; color:#0a0a0a; font-size:15px; font-weight:700;">Total</td>
+              <td style="padding:10px 0 0 0; border-top:2px solid #0a0a0a; text-align:right; font-size:18px; font-weight:700; color:#0a0a0a;">${fmt(total)} €</td></tr>
+        </table>`,
+        ...(validUntil ? [`Proposta válida até <strong>${escapeHtml(validUntil)}</strong>.`] : []),
+        'A ligação abaixo é pessoal e dá-lhe acesso direto a este orçamento — sem necessidade de criar conta. Caso aceite, entraremos em contacto para os passos seguintes.',
+      ],
+      ctaLabel: 'Consultar orçamento →',
+      ctaUrl: link,
+    });
+    return { subject, body, html };
+  },
+
   quoteSent: (name, title, number, subtotal, iva, total, validUntil) => {
     const fmt = (n) => Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const subject = `Novo orçamento — ${title} (Nº ${number})`;

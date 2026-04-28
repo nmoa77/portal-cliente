@@ -1266,15 +1266,46 @@ function openNewQuote() {
   if (rejWrap) rejWrap.style.display = 'none';
   const resendBtn = document.getElementById('q-resend-btn');
   if (resendBtn) resendBtn.style.display = 'none';
+
+  // Reset toggle prospect/cliente — por defeito cliente existente
+  setQuoteRecipientMode('client');
+  ['q-prospect-name','q-prospect-email','q-prospect-company','q-prospect-phone'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  // Em edição não permitimos mudar o destinatário; em "novo" sim.
+  const togWrap = document.getElementById('q-recipient-toggle-wrap');
+  if (togWrap) togWrap.style.display = '';
+
   addQuoteItem();
   recomputeQuoteTotals();
   openModal('modal-quote');
+}
+
+function setQuoteRecipientMode(mode) {
+  const isProspect = mode === 'prospect';
+  document.getElementById('q-user-wrap').style.display = isProspect ? 'none' : '';
+  document.getElementById('q-prospect-wrap').style.display = isProspect ? '' : 'none';
+  document.getElementById('q-user').required = !isProspect;
+  ['q-prospect-name','q-prospect-email'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.required = isProspect;
+  });
+  // Atualiza o botão segmentado
+  document.querySelectorAll('#q-recipient-toggle-wrap .seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  state._quoteMode = mode;
 }
 
 async function openEditQuote(id) {
   let full;
   try { full = await api(`/api/quotes/${id}`); }
   catch (err) { toast(err.message, 'cancel'); return; }
+  // Em edição, o destinatário não muda — escondemos o toggle prospect/cliente
+  setQuoteRecipientMode('client');
+  const togWrap = document.getElementById('q-recipient-toggle-wrap');
+  if (togWrap) togWrap.style.display = 'none';
   const sel = document.getElementById('q-user');
   sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
   sel.value = full.user_id;
@@ -1924,19 +1955,37 @@ document.addEventListener('submit', async (e) => {
     })).filter(x => x.label);
     const body = {
       number: document.getElementById('q-number').value,
-      user_id: Number(document.getElementById('q-user').value),
       title: document.getElementById('q-title').value,
       valid_until: document.getElementById('q-valid').value || null,
       items,
     };
-    if (id) body.status = document.getElementById('q-status').value;
+    // Em "novo orçamento" decide-se cliente vs prospect; em edição mantém-se o utilizador.
+    if (id) {
+      body.status = document.getElementById('q-status').value;
+    } else if (state._quoteMode === 'prospect') {
+      const email = (document.getElementById('q-prospect-email').value || '').trim();
+      const name  = (document.getElementById('q-prospect-name').value || '').trim();
+      if (!name || !email) { toast('Indique nome e email do prospect.', 'cancel'); return; }
+      body.prospect = {
+        name, email,
+        company: document.getElementById('q-prospect-company').value.trim() || null,
+        phone:   document.getElementById('q-prospect-phone').value.trim() || null,
+      };
+    } else {
+      body.user_id = Number(document.getElementById('q-user').value);
+      if (!body.user_id) { toast('Escolha um cliente.', 'cancel'); return; }
+    }
     try {
       if (id) {
         await api(`/api/quotes/${id}`, { method: 'PATCH', body });
         toast('Orçamento atualizado.', 'check');
       } else {
-        await api('/api/quotes', { method: 'POST', body });
-        toast('Orçamento criado e enviado.', 'check');
+        const r = await api('/api/quotes', { method: 'POST', body });
+        if (r.public_token) {
+          toast('Orçamento criado e enviado ao prospect por email.', 'check');
+        } else {
+          toast('Orçamento criado e enviado.', 'check');
+        }
       }
       closeModal('modal-quote'); e.target.reset();
       document.getElementById('q-id').value = '';

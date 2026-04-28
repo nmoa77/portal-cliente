@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="pt" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DUIT — Orçamento</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    body { background: var(--bg, #f5f3ef); min-height: 100vh; }
+    .pq-wrap { max-width: 760px; margin: 0 auto; padding: 40px 22px 60px; }
+    .pq-brand { display: flex; align-items: center; gap: 8px; margin-bottom: 28px; }
+    .pq-brand .d { font-family: 'Clash Display', sans-serif; font-weight: 900; font-size: 26px; color: #0a0a0a; letter-spacing: -0.04em; }
+    .pq-brand .dot { display: inline-block; width: 11px; height: 11px; background: #ffd60a; vertical-align: baseline; }
+    .pq-card { background: #fff; border: 1px solid var(--line, #ece9e2); border-radius: 16px; padding: 34px 32px; box-shadow: 0 1px 3px rgba(10,10,10,0.04); }
+    .pq-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: #8b8680; margin-bottom: 8px; }
+    .pq-title { font-family: 'Clash Display', sans-serif; font-size: 30px; line-height: 1.15; letter-spacing: -0.025em; color: #0a0a0a; margin: 0 0 6px 0; }
+    .pq-meta { font-size: 13px; color: #6b6862; margin-bottom: 24px; }
+    .pq-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; color: #8b8680; margin: 0 0 10px 0; }
+    .pq-item { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #ece9e2; gap: 14px; }
+    .pq-item:last-child { border-bottom: none; }
+    .pq-item .lbl { font-weight: 500; font-size: 14px; color: #0a0a0a; }
+    .pq-item .det { font-size: 12px; color: #6b6862; margin-top: 2px; }
+    .pq-item .amt { font-weight: 600; font-size: 14px; color: #0a0a0a; white-space: nowrap; }
+    .pq-totals { margin-top: 18px; padding-top: 14px; border-top: 1px solid #ece9e2; }
+    .pq-totals-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; color: #6b6862; }
+    .pq-totals-final { display: flex; justify-content: space-between; padding-top: 10px; border-top: 2px solid #0a0a0a; margin-top: 6px; }
+    .pq-totals-final span { font-weight: 700; font-size: 15px; color: #0a0a0a; }
+    .pq-totals-final strong { font-family: 'Clash Display', sans-serif; font-size: 26px; color: #0a0a0a; }
+    .pq-actions { margin-top: 28px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    .pq-decided { margin-top: 24px; padding: 16px 18px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+    .pq-decided.ok { background: #e8f5e8; border: 1px solid #9bce9b; color: #2a5e2a; }
+    .pq-decided.err { background: #fff0ee; border: 1px solid #f4baba; color: #9a2828; }
+    .pq-decided.warn { background: #fffbe6; border: 1px solid #ecd96a; color: #5a4a00; }
+    .pq-foot { text-align: center; margin-top: 28px; font-size: 12px; color: #8b8680; }
+    .pq-foot strong { color: #0a0a0a; font-weight: 700; }
+    .pq-error { background: #fff; border: 1px solid var(--line, #ece9e2); border-radius: 16px; padding: 40px 28px; text-align: center; }
+    .pq-error h2 { font-family: 'Clash Display', sans-serif; font-size: 24px; margin: 0 0 8px 0; color: #0a0a0a; }
+    .pq-error p { color: #6b6862; font-size: 14px; margin: 0; }
+    .pq-reject-modal {
+      position: fixed; inset: 0; background: rgba(10,10,10,0.55);
+      display: none; align-items: center; justify-content: center; padding: 20px;
+      z-index: 100;
+    }
+    .pq-reject-modal.show { display: flex; }
+    .pq-reject-modal .pq-modal-inner {
+      background: #fff; border-radius: 14px; padding: 28px;
+      max-width: 480px; width: 100%; box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+    }
+    .pq-reject-modal h3 { font-family: 'Clash Display', sans-serif; margin: 0 0 6px 0; font-size: 20px; color: #0a0a0a; }
+    .pq-reject-modal p { font-size: 13px; color: #6b6862; margin: 0 0 14px 0; line-height: 1.5; }
+    .pq-reject-modal textarea { width: 100%; min-height: 90px; padding: 10px 12px; border: 1px solid var(--line, #ece9e2); border-radius: 10px; font-family: inherit; font-size: 14px; resize: vertical; box-sizing: border-box; }
+    .pq-reject-modal .pq-modal-actions { margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end; }
+  </style>
+</head>
+<body>
+
+<div class="pq-wrap">
+
+  <div class="pq-brand">
+    <span class="d">DUIT</span>
+    <span class="dot">&nbsp;</span>
+  </div>
+
+  <div id="pq-root">
+    <div class="pq-card"><p style="text-align:center; color:#8b8680;">A carregar orçamento…</p></div>
+  </div>
+
+  <div class="pq-foot">
+    <strong>DUIT</strong> · Want it done?
+  </div>
+</div>
+
+<div class="pq-reject-modal" id="rejectModal">
+  <div class="pq-modal-inner">
+    <h3>Rejeitar orçamento</h3>
+    <p>Indique brevemente o motivo. A informação ajuda a equipa DUIT a preparar uma alternativa adequada.</p>
+    <textarea id="rejectReason" placeholder="Ex.: o valor está acima do orçamento previsto, gostaria de uma proposta com âmbito reduzido, etc." required></textarea>
+    <div class="pq-modal-actions">
+      <button class="btn btn-ghost" onclick="closeReject()">Voltar</button>
+      <button class="btn btn-primary" onclick="submitReject()">Enviar rejeição</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const fmtMoney = (n) => Number(n || 0).toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  const fmtDatePT = (s) => {
+    if (!s) return '';
+    const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
+  };
+  const escapeHtml = (s) => String(s ?? '').replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  const root = document.getElementById('pq-root');
+  let currentQuote = null;
+
+  if (!token) {
+    root.innerHTML = `
+      <div class="pq-error">
+        <h2>Ligação inválida</h2>
+        <p>O endereço que utilizou não inclui um token válido. Verifique a ligação que recebeu por email ou contacte a DUIT.</p>
+      </div>`;
+  } else {
+    loadQuote();
+  }
+
+  async function loadQuote() {
+    try {
+      const r = await fetch(`/api/public/quotes/${encodeURIComponent(token)}`);
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        showError(err.error || 'Não foi possível carregar o orçamento.');
+        return;
+      }
+      const q = await r.json();
+      currentQuote = q;
+      render(q);
+    } catch (e) {
+      showError('Erro de ligação. Verifique a sua internet ou tente novamente mais tarde.');
+    }
+  }
+
+  function showError(msg) {
+    root.innerHTML = `
+      <div class="pq-error">
+        <h2>Não foi possível abrir o orçamento</h2>
+        <p>${escapeHtml(msg)}</p>
+      </div>`;
+  }
+
+  function render(q) {
+    const isLive = q.status === 'sent' || q.status === 'revised';
+    const decidedHtml = !isLive ? renderDecided(q) : '';
+    const itemsHtml = (q.items || []).map(it => `
+      <div class="pq-item">
+        <div>
+          <div class="lbl">${escapeHtml(it.label)}</div>
+          ${it.detail ? `<div class="det">${escapeHtml(it.detail)}</div>` : ''}
+        </div>
+        <div class="amt">${fmtMoney(it.amount)}</div>
+      </div>
+    `).join('');
+
+    root.innerHTML = `
+      <div class="pq-card">
+        <div class="pq-eyebrow">Proposta DUIT</div>
+        <h1 class="pq-title">${escapeHtml(q.title)}</h1>
+        <div class="pq-meta">
+          Nº ${escapeHtml(q.number)} · Enviado ${fmtDatePT(q.sent_at)}${q.valid_until ? ' · Válido até ' + fmtDatePT(q.valid_until) : ''}
+          ${q.client_company ? ' · Para ' + escapeHtml(q.client_company) : ''}
+        </div>
+
+        ${decidedHtml}
+
+        <div class="pq-section-title">Linhas do orçamento</div>
+        <div>${itemsHtml || '<p style="color:#6b6862;">Sem linhas indicadas.</p>'}</div>
+
+        <div class="pq-totals">
+          <div class="pq-totals-row"><span>Subtotal</span><span>${fmtMoney(q.subtotal)}</span></div>
+          <div class="pq-totals-row"><span>IVA (23%)</span><span>${fmtMoney(q.iva)}</span></div>
+          <div class="pq-totals-final"><span>Total c/ IVA</span><strong>${fmtMoney(q.total)}</strong></div>
+        </div>
+
+        ${isLive ? `
+          <div class="pq-actions">
+            <button class="btn btn-ghost" onclick="openReject()">Rejeitar</button>
+            <button class="btn btn-yellow" onclick="acceptQuote()">Aceitar orçamento</button>
+          </div>
+          <p style="margin:18px 0 0 0; font-size:12px; color:#6b6862; line-height:1.5;">
+            Ao aceitar, a equipa DUIT entrará em contacto consigo para iniciar o serviço e ativar o seu acesso ao portal.
+          </p>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  function renderDecided(q) {
+    if (q.status === 'accepted') {
+      return `<div class="pq-decided ok">
+        <strong>Orçamento aceite</strong> em ${fmtDatePT(q.responded_at)}. A equipa DUIT entrará em contacto consigo brevemente.
+      </div>`;
+    }
+    if (q.status === 'rejected') {
+      return `<div class="pq-decided err">
+        <strong>Orçamento rejeitado</strong>${q.responded_at ? ' em ' + fmtDatePT(q.responded_at) : ''}.
+        ${q.rejection_reason ? `<div style="margin-top:6px; font-style:italic;">"${escapeHtml(q.rejection_reason)}"</div>` : ''}
+      </div>`;
+    }
+    if (q.status === 'draft') {
+      return `<div class="pq-decided warn"><strong>Orçamento em preparação.</strong> Ainda não foi enviado oficialmente.</div>`;
+    }
+    return '';
+  }
+
+  async function acceptQuote() {
+    if (!confirm('Confirma a aceitação deste orçamento?')) return;
+    try {
+      const r = await fetch(`/api/public/quotes/${encodeURIComponent(token)}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'accepted' }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error || 'Não foi possível registar a sua resposta.');
+        return;
+      }
+      await loadQuote();
+    } catch (e) { alert('Erro de ligação. Tente novamente.'); }
+  }
+
+  function openReject() {
+    document.getElementById('rejectReason').value = '';
+    document.getElementById('rejectModal').classList.add('show');
+  }
+  function closeReject() {
+    document.getElementById('rejectModal').classList.remove('show');
+  }
+
+  async function submitReject() {
+    const reason = document.getElementById('rejectReason').value.trim();
+    if (!reason) { alert('Indique o motivo da rejeição.'); return; }
+    try {
+      const r = await fetch(`/api/public/quotes/${encodeURIComponent(token)}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'rejected', rejection_reason: reason }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        alert(err.error || 'Não foi possível registar a sua resposta.');
+        return;
+      }
+      closeReject();
+      await loadQuote();
+    } catch (e) { alert('Erro de ligação. Tente novamente.'); }
+  }
+</script>
+</body>
+</html>

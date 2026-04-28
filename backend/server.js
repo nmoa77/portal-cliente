@@ -39,6 +39,11 @@ app.post('/api/auth/login', (req, res) => {
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return res.status(401).json({ error: 'Credenciais inválidas' });
   }
+  // Prospects (orçamentos sem conta ativa) não podem fazer login no portal —
+  // só acedem ao orçamento via link público com token.
+  if (user.is_prospect === 1) {
+    return res.status(403).json({ error: 'Esta conta ainda não está ativa. Aguardamos a sua resposta ao orçamento.' });
+  }
   setAuthCookie(res, signToken(user));
   res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
 });
@@ -292,12 +297,12 @@ app.get('/api/client-summary', requireAuth, (req, res) => {
    ================================================================ */
 app.get('/api/clients', requireAdmin, (req, res) => {
   const rows = db.prepare(
-    `SELECT u.id, u.name, u.email, u.company, u.phone, u.avatar_url, u.created_at,
+    `SELECT u.id, u.name, u.email, u.company, u.phone, u.avatar_url, u.created_at, u.is_prospect,
             (SELECT COUNT(*) FROM subscriptions s WHERE s.user_id=u.id) AS subs,
             (SELECT COUNT(*) FROM projects p WHERE p.user_id=u.id AND p.stage NOT IN ('done','cancelled')) AS projects,
             (SELECT COUNT(*) FROM tickets t WHERE t.user_id=u.id AND t.status!='closed') AS open_tickets,
             (SELECT COALESCE(SUM(price),0) FROM subscriptions s WHERE s.user_id=u.id AND s.status='active' AND s.period='mês') AS mrr
-       FROM users u WHERE u.role='client' ORDER BY u.name`
+       FROM users u WHERE u.role='client' AND u.is_prospect=0 ORDER BY u.name`
   ).all();
   res.json(rows);
 });
@@ -1078,32 +1083,73 @@ app.get('/api/quotes/:id', requireAuth, (req, res) => {
 });
 
 app.post('/api/quotes', requireAdmin, (req, res) => {
-  const { number, user_id, title, valid_until, items } = req.body || {};
-  if (!number || !user_id || !title) return res.status(400).json({ error: 'Campos obrigatórios em falta' });
+  const { number, user_id, title, valid_until, items, prospect } = req.body || {};
+  if (!number || !title) return res.status(400).json({ error: 'Campos obrigatórios em falta' });
+  if (!user_id && !prospect) return res.status(400).json({ error: 'Indique um cliente existente ou os dados do prospect.' });
+
+  let recipientUserId = user_id;
+  let isProspectQuote = false;
+
+  // Se vier um prospect, criamos um utilizador "ghost" sem login ativo,
+  // ou reutilizamos um existente com o mesmo email.
+  if (!user_id && prospect && prospect.email) {
+    const existing = db.prepare(`SELECT id, is_prospect FROM users WHERE email=?`).get(prospect.email.trim().toLowerCase());
+    if (existing) {
+      recipientUserId = existing.id;
+      isProspectQuote = existing.is_prospect === 1;
+    } else {
+      const unguessable = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
+      const info = db.prepare(
+        `INSERT INTO users (name, email, password_hash, role, company, phone, is_prospect, notifications_enabled)
+         VALUES (?, ?, ?, 'client', ?, ?, 1, 1)`
+      ).run(
+        (prospect.name || prospect.company || prospect.email).trim(),
+        prospect.email.trim().toLowerCase(),
+        unguessable,
+        prospect.company || null,
+        prospect.phone || null,
+      );
+      recipientUserId = info.lastInsertRowid;
+      isProspectQuote = true;
+    }
+  } else if (user_id) {
+    const u = db.prepare(`SELECT is_prospect FROM users WHERE id=?`).get(user_id);
+    isProspectQuote = u && u.is_prospect === 1;
+  }
+
+  if (!recipientUserId) return res.status(400).json({ error: 'Não foi possível identificar o destinatário.' });
+
+  const publicToken = isProspectQuote ? crypto.randomBytes(24).toString('base64url') : null;
   const info = db.prepare(
-    `INSERT INTO quotes (number, user_id, title, valid_until, status) VALUES (?, ?, ?, ?, 'sent')`
-  ).run(number, user_id, title, valid_until || null);
+    `INSERT INTO quotes (number, user_id, title, valid_until, status, public_token)
+     VALUES (?, ?, ?, ?, 'sent', ?)`
+  ).run(number, recipientUserId, title, valid_until || null, publicToken);
+  const quoteId = info.lastInsertRowid;
+
   const insertItem = db.prepare(
     `INSERT INTO quote_items (quote_id, label, detail, amount) VALUES (?, ?, ?, ?)`
   );
-  (items || []).forEach(it => insertItem.run(info.lastInsertRowid, it.label, it.detail || '', Number(it.amount) || 0));
+  (items || []).forEach(it => insertItem.run(quoteId, it.label, it.detail || '', Number(it.amount) || 0));
 
-  // Notifica cliente
+  // Notifica destinatário (cliente normal OU prospect com link público)
   try {
     const subtotal = (items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
     const iva = +(subtotal * IVA_RATE).toFixed(2);
     const total = +(subtotal + iva).toFixed(2);
-    const client = db.prepare(`SELECT name, email FROM users WHERE id=?`).get(user_id);
+    const client = db.prepare(`SELECT name, email FROM users WHERE id=?`).get(recipientUserId);
     if (client && client.email) {
-      const tpl = T.quoteSent(client.name, title, number, subtotal, iva, total, fmtIsoDate(valid_until));
+      const tpl = isProspectQuote
+        ? T.quoteSentProspect(client.name, title, number, subtotal, iva, total, fmtIsoDate(valid_until), publicToken)
+        : T.quoteSent(client.name, title, number, subtotal, iva, total, fmtIsoDate(valid_until));
       deliver(db, {
         to: client.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
-        user_id, kind: 'quote_sent',
+        user_id: recipientUserId, kind: isProspectQuote ? 'quote_sent_prospect' : 'quote_sent',
+        force: isProspectQuote,  // o prospect ainda não pode gerir preferências, força entrega
       });
     }
   } catch (e) { console.warn('quoteSent notify:', e.message); }
 
-  res.status(201).json({ id: info.lastInsertRowid });
+  res.status(201).json({ id: quoteId, public_token: publicToken });
 });
 
 app.patch('/api/quotes/:id', requireAuth, (req, res) => {
@@ -1263,6 +1309,89 @@ app.post('/api/quotes/:id/resend', requireAdmin, (req, res) => {
       });
     }
   } catch (e) { console.warn('quoteResent notify:', e.message); }
+
+  res.json({ ok: true });
+});
+
+/* ================================================================
+   ORÇAMENTOS — endpoints públicos (sem autenticação)
+   Permite a um prospect aceder ao seu orçamento e responder, apenas
+   através do token enviado por email. O token é único por orçamento.
+   ================================================================ */
+
+function loadPublicQuote(token) {
+  const q = db.prepare(
+    `SELECT q.*, u.name client_name, u.company client_company,
+            (SELECT COALESCE(SUM(amount),0) FROM quote_items WHERE quote_id=q.id) subtotal
+       FROM quotes q JOIN users u ON u.id=q.user_id
+      WHERE q.public_token = ?`
+  ).get(token);
+  if (!q) return null;
+  const items = db.prepare(`SELECT id, label, detail, amount FROM quote_items WHERE quote_id=? ORDER BY id`).all(q.id);
+  const iva = +(q.subtotal * IVA_RATE).toFixed(2);
+  const total = +(q.subtotal + iva).toFixed(2);
+  return { ...q, items, iva, total };
+}
+
+app.get('/api/public/quotes/:token', (req, res) => {
+  const q = loadPublicQuote(req.params.token);
+  if (!q) return res.status(404).json({ error: 'Orçamento não encontrado ou ligação expirada.' });
+  // Não revela emails internos nem informação além do estritamente necessário
+  res.json({
+    id: q.id,
+    number: q.number,
+    title: q.title,
+    sent_at: q.sent_at,
+    valid_until: q.valid_until,
+    status: q.status,
+    rejection_reason: q.rejection_reason,
+    responded_at: q.responded_at,
+    client_name: q.client_name,
+    client_company: q.client_company,
+    items: q.items,
+    subtotal: q.subtotal,
+    iva: q.iva,
+    total: q.total,
+  });
+});
+
+app.post('/api/public/quotes/:token/respond', (req, res) => {
+  const { status, rejection_reason } = req.body || {};
+  if (!['accepted','rejected'].includes(status)) return res.status(400).json({ error: 'Estado inválido' });
+  if (status === 'rejected' && (!rejection_reason || !rejection_reason.trim())) {
+    return res.status(400).json({ error: 'Indique o motivo da rejeição.' });
+  }
+
+  const q = db.prepare(
+    `SELECT q.*, u.name client_name, u.company client_company, u.email client_email
+       FROM quotes q JOIN users u ON u.id=q.user_id
+      WHERE q.public_token = ?`
+  ).get(req.params.token);
+  if (!q) return res.status(404).json({ error: 'Orçamento não encontrado ou ligação expirada.' });
+
+  // Só pode responder a orçamentos vivos (sent ou revised), não a já decididos
+  if (!['sent','revised'].includes(q.status)) {
+    return res.status(409).json({ error: 'Este orçamento já foi respondido.' });
+  }
+
+  db.prepare(
+    `UPDATE quotes
+        SET status=?, rejection_reason=?, responded_at=datetime('now'), seen_by_admin_at=NULL
+      WHERE id=?`
+  ).run(status, status === 'rejected' ? rejection_reason.trim() : null, q.id);
+
+  // Notifica todos os admins
+  try {
+    const admins = db.prepare(`SELECT id, name, email FROM users WHERE role='admin'`).all();
+    const clientLabel = q.client_company ? `${q.client_name} · ${q.client_company}` : q.client_name;
+    for (const a of admins) {
+      const tpl = T.quoteResponded(a.name, clientLabel, q.title, q.number, status, status === 'rejected' ? rejection_reason.trim() : null);
+      deliver(db, {
+        to: a.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+        user_id: a.id, kind: 'quote_response', force: true,
+      });
+    }
+  } catch (e) { console.warn('quoteResponded (public) notify:', e.message); }
 
   res.json({ ok: true });
 });

@@ -302,7 +302,31 @@
         <div class="field"><label>Nº</label><input id="q-number" required placeholder="2026-042"></div>
         <div class="field"><label>Válido até</label><input id="q-valid" type="date"></div>
       </div>
-      <div class="field"><label>Cliente</label><select id="q-user" required></select></div>
+
+      <div class="field" id="q-recipient-toggle-wrap">
+        <label>Destinatário</label>
+        <div class="seg" style="margin-bottom:6px;">
+          <button type="button" class="seg-btn active" data-mode="client" onclick="setQuoteRecipientMode('client')">Cliente existente</button>
+          <button type="button" class="seg-btn" data-mode="prospect" onclick="setQuoteRecipientMode('prospect')">Novo prospect (sem conta)</button>
+        </div>
+      </div>
+
+      <div class="field" id="q-user-wrap"><label>Cliente</label><select id="q-user"></select></div>
+
+      <div id="q-prospect-wrap" style="display:none;">
+        <p style="margin:0 0 8px 0; font-size:12px; color:var(--muted);">
+          O prospect recebe um link público por email para consultar e responder ao orçamento — sem precisar de criar conta. Quando aceitar, ativará o acesso ao portal.
+        </p>
+        <div class="grid g-2" style="gap:12px">
+          <div class="field"><label>Nome</label><input id="q-prospect-name" placeholder="Ex: Maria Silva"></div>
+          <div class="field"><label>Email</label><input id="q-prospect-email" type="email" placeholder="contacto@empresa.pt"></div>
+        </div>
+        <div class="grid g-2" style="gap:12px">
+          <div class="field"><label>Empresa</label><input id="q-prospect-company" placeholder="(opcional)"></div>
+          <div class="field"><label>Telefone</label><input id="q-prospect-phone" placeholder="(opcional)"></div>
+        </div>
+      </div>
+
       <div class="field"><label>Título</label><input id="q-title" required placeholder="Ex: Rebranding"></div>
       <div class="field" id="q-status-wrap" style="display:none">
         <label>Estado</label>
