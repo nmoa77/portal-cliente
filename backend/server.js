@@ -44,6 +44,10 @@ app.post('/api/auth/login', (req, res) => {
   if (user.is_prospect === 1) {
     return res.status(403).json({ error: 'Esta conta ainda não está ativa. Aguardamos a sua resposta ao orçamento.' });
   }
+  // Clientes ainda não ativados pelo admin também não podem entrar.
+  if (user.is_active === 0) {
+    return res.status(403).json({ error: 'A sua conta ainda não foi ativada. Aguarde o email da DUIT com os dados de acesso.' });
+  }
   setAuthCookie(res, signToken(user));
   res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
 });
@@ -366,29 +370,61 @@ app.delete('/api/prospects/:id', requireAdmin, (req, res) => {
    ================================================================ */
 app.get('/api/clients', requireAdmin, (req, res) => {
   const rows = db.prepare(
-    `SELECT u.id, u.name, u.email, u.company, u.phone, u.avatar_url, u.created_at, u.is_prospect,
+    `SELECT u.id, u.name, u.email, u.company, u.phone, u.avatar_url, u.created_at,
+            u.is_prospect, u.is_active,
             (SELECT COUNT(*) FROM subscriptions s WHERE s.user_id=u.id) AS subs,
             (SELECT COUNT(*) FROM projects p WHERE p.user_id=u.id AND p.stage NOT IN ('done','cancelled')) AS projects,
             (SELECT COUNT(*) FROM tickets t WHERE t.user_id=u.id AND t.status!='closed') AS open_tickets,
             (SELECT COALESCE(SUM(price),0) FROM subscriptions s WHERE s.user_id=u.id AND s.status='active' AND s.period='mês') AS mrr
-       FROM users u WHERE u.role='client' AND u.is_prospect=0 ORDER BY u.name`
+       FROM users u WHERE u.role='client' AND u.is_prospect=0 ORDER BY u.is_active ASC, u.name`
   ).all();
   res.json(rows);
 });
 
 app.post('/api/clients', requireAdmin, (req, res) => {
-  const { name, email, password, company, phone } = req.body || {};
-  if (!name || !email || !password) return res.status(400).json({ error: 'Nome, email e password obrigatórios' });
+  const { name, email, company, phone } = req.body || {};
+  if (!name || !email) return res.status(400).json({ error: 'Nome e email obrigatórios' });
   if (db.prepare('SELECT id FROM users WHERE email=?').get(email)) {
     return res.status(409).json({ error: 'Já existe um utilizador com este email' });
   }
-  const hash = bcrypt.hashSync(password, 10);
+  // O cliente é criado como INATIVO. Não recebe email nem credenciais —
+  // o admin pode associar serviços e subscrições e só depois ativa a conta,
+  // o que dispara a geração de password e o envio do email de boas-vindas.
+  const placeholderHash = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
   const info = db.prepare(
-    `INSERT INTO users (name, email, password_hash, role, company, phone) VALUES (?, ?, ?, 'client', ?, ?)`
-  ).run(name, email, hash, company || '', phone || '');
-  const msg = T.welcome(name, email, password);
-  deliver(db, { to: email, subject: msg.subject, body: msg.body, html: msg.html, user_id: info.lastInsertRowid, kind: 'welcome' });
-  res.status(201).json({ id: info.lastInsertRowid });
+    `INSERT INTO users (name, email, password_hash, role, company, phone, is_active)
+     VALUES (?, ?, ?, 'client', ?, ?, 0)`
+  ).run(name, email, placeholderHash, company || '', phone || '');
+  res.status(201).json({ id: info.lastInsertRowid, is_active: 0 });
+});
+
+// Ativa um cliente: gera password aleatória, marca conta como ativa e envia
+// email de boas-vindas com as credenciais.
+app.post('/api/clients/:id/activate', requireAdmin, (req, res) => {
+  const u = db.prepare(`SELECT * FROM users WHERE id=? AND role='client'`).get(req.params.id);
+  if (!u) return res.status(404).json({ error: 'Cliente não encontrado.' });
+  if (u.is_active === 1) return res.status(409).json({ error: 'Esta conta já está ativa.' });
+  if (u.is_prospect === 1) return res.status(400).json({ error: 'Este utilizador é um prospect — use a opção "Converter em cliente".' });
+
+  const tempPassword = crypto.randomBytes(8).toString('base64url').slice(0, 12);
+  const hash = bcrypt.hashSync(tempPassword, 10);
+  db.prepare(`UPDATE users SET password_hash=?, is_active=1 WHERE id=?`).run(hash, u.id);
+  try {
+    const tpl = T.welcome(u.name, u.email, tempPassword);
+    deliver(db, {
+      to: u.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+      user_id: u.id, kind: 'welcome', force: true,
+    });
+  } catch (e) { console.warn('welcome on activate:', e.message); }
+  res.json({ ok: true });
+});
+
+// Desativar um cliente (caso precisem suspender o acesso) — não apaga dados.
+app.post('/api/clients/:id/deactivate', requireAdmin, (req, res) => {
+  const u = db.prepare(`SELECT id FROM users WHERE id=? AND role='client'`).get(req.params.id);
+  if (!u) return res.status(404).json({ error: 'Cliente não encontrado.' });
+  db.prepare(`UPDATE users SET is_active=0 WHERE id=?`).run(u.id);
+  res.json({ ok: true });
 });
 
 app.patch('/api/clients/:id', requireAdmin, (req, res) => {

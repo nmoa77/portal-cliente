@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_url TEXT,
   notifications_enabled INTEGER NOT NULL DEFAULT 1,
   is_prospect INTEGER NOT NULL DEFAULT 0,
+  is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT DEFAULT (datetime('now'))
 );
 
@@ -321,6 +322,16 @@ try {
     console.log('✓ Migration: users.is_prospect adicionada.');
   }
 } catch (e) { console.warn('Migration users.is_prospect:', e.message); }
+
+// Migration: coluna is_active em users — todos os existentes ficam ativos por defeito;
+// novos clientes criados pelo admin começam com is_active=0 até serem ativados.
+try {
+  const cols = db.prepare(`PRAGMA table_info(users)`).all();
+  if (cols.length && !cols.find(c => c.name === 'is_active')) {
+    db.exec(`ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1`);
+    console.log('✓ Migration: users.is_active adicionada.');
+  }
+} catch (e) { console.warn('Migration users.is_active:', e.message); }
 
 // Migration: alargar CHECK do status em quotes para incluir 'revised'
 try {

@@ -379,13 +379,15 @@ async function viewClients(main) {
       <div class="card table-card">
         ${list.length === 0 ? `<div class="empty">Sem clientes.</div>` : `
           <table class="table">
-            <thead><tr><th>Cliente</th><th>Contacto</th><th>Subs</th><th>Projetos</th><th>MRR</th><th></th></tr></thead>
+            <thead><tr><th>Cliente</th><th>Contacto</th><th>Estado</th><th>Subs</th><th>Projetos</th><th>MRR</th><th></th></tr></thead>
             <tbody>
-              ${list.map(c => `
-                <tr class="interactive" style="${c.id === selectedId ? 'background:var(--bg-2);' : ''}" onclick="selectClient(${c.id})">
+              ${list.map(c => {
+                const inactive = c.is_active === 0;
+                return `
+                <tr class="interactive" style="${c.id === selectedId ? 'background:var(--bg-2);' : ''}${inactive ? ' opacity:0.78;' : ''}" onclick="selectClient(${c.id})">
                   <td>
                     <div style="display:flex; gap:10px; align-items:center;">
-                      <div class="avatar" style="background:var(--yellow); color:var(--black); font-size:12px; width:32px; height:32px;">${initials(c.name)}</div>
+                      <div class="avatar" style="background:${inactive ? 'var(--bg-2)' : 'var(--yellow)'}; color:var(--black); font-size:12px; width:32px; height:32px; border:1px solid var(--line);">${initials(c.name)}</div>
                       <div>
                         <div style="font-weight:500;">${escapeHtml(c.name)}</div>
                         <div style="font-size:12px; color:var(--muted);">${escapeHtml(c.company || '—')}</div>
@@ -396,15 +398,23 @@ async function viewClients(main) {
                     <div style="font-size:13px;">${escapeHtml(c.email)}</div>
                     <div style="font-size:12px; color:var(--muted);">${escapeHtml(c.phone || '—')}</div>
                   </td>
+                  <td>
+                    ${inactive
+                      ? '<span class="pill warn">Inativa</span>'
+                      : '<span class="pill ok">Ativa</span>'}
+                  </td>
                   <td>${c.subs}</td>
                   <td>${c.projects}</td>
                   <td><strong>${fmtMoney(c.mrr)}</strong></td>
                   <td style="text-align:right; white-space:nowrap;">
+                    ${inactive
+                      ? `<button class="btn btn-yellow btn-sm" title="Ativar conta e enviar credenciais" onclick="event.stopPropagation(); activateClient(${c.id}, '${escapeHtml(c.name).replace(/'/g,"\\'")}')">${svg('check')} Ativar</button>`
+                      : `<button class="btn btn-icon" title="Desativar (suspender acesso)" onclick="event.stopPropagation(); deactivateClient(${c.id}, '${escapeHtml(c.name).replace(/'/g,"\\'")}')">⏸</button>`}
                     <button class="btn btn-icon" title="Editar" onclick="event.stopPropagation(); openEditClient(${c.id})">${svg('edit')}</button>
                     <button class="btn btn-icon" title="Apagar" onclick="event.stopPropagation(); deleteClient(${c.id}, '${escapeHtml(c.name).replace(/'/g,"\\'")}')">${svg('trash')}</button>
                   </td>
                 </tr>
-              `).join('')}
+              `;}).join('')}
             </tbody>
           </table>
         `}
@@ -430,21 +440,44 @@ async function deleteClient(id, name) {
   catch (err) { toast(err.message, 'cancel'); }
 }
 
+async function activateClient(id, name) {
+  if (!confirm(`Ativar a conta de "${name}"?\n\nSerá gerada uma password aleatória e enviada por email para o cliente entrar no portal.`)) return;
+  try {
+    await api(`/api/clients/${id}/activate`, { method: 'POST' });
+    toast('Conta ativada. Email com credenciais enviado.', 'check');
+    await refreshClients();
+    go('clients');
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
+async function deactivateClient(id, name) {
+  if (!confirm(`Desativar a conta de "${name}"?\n\nO cliente perde acesso ao portal mas todos os dados (subscrições, projetos, histórico) ficam preservados. Pode ativar novamente mais tarde.`)) return;
+  try {
+    await api(`/api/clients/${id}/deactivate`, { method: 'POST' });
+    toast('Conta desativada. Acesso suspenso.', 'check');
+    await refreshClients();
+    go('clients');
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
 function openNewClient() {
   document.getElementById('modal-client-title').textContent = 'Novo cliente';
-  document.getElementById('modal-client-lede').textContent = 'Ao criar, é enviado um email de boas-vindas com as credenciais.';
+  document.getElementById('modal-client-lede').textContent = 'A conta é criada como inativa. Após associar serviços e subscrições, ative-a para enviar o email de boas-vindas com as credenciais.';
   document.getElementById('cl-id').value = '';
   document.getElementById('cl-name').value = '';
   document.getElementById('cl-company').value = '';
   document.getElementById('cl-email').value = '';
-  document.getElementById('cl-password').value = '';
   document.getElementById('cl-phone').value = '';
-  const pw = document.getElementById('cl-password');
-  const pwLabel = document.getElementById('cl-password-label');
-  if (pwLabel) pwLabel.textContent = 'Password temporária';
-  pw.setAttribute('required', 'required');
-  pw.placeholder = 'ex: bem-vindo123';
-  document.getElementById('cl-submit').textContent = 'Criar & enviar email';
+  // O campo password fica escondido/ignorado em "novo cliente" — a password
+  // só é gerada quando o admin ativa a conta mais tarde.
+  const pwField = document.getElementById('cl-password');
+  if (pwField) {
+    pwField.value = '';
+    pwField.removeAttribute('required');
+    const fieldWrap = pwField.closest('.field');
+    if (fieldWrap) fieldWrap.style.display = 'none';
+  }
+  document.getElementById('cl-submit').textContent = 'Criar (inativo)';
   openModal('modal-client');
 }
 
@@ -452,7 +485,10 @@ function openEditClient(id) {
   const c = (state.clients || []).find(x => x.id === id);
   if (!c) { toast('Cliente não encontrado.', 'cancel'); return; }
   document.getElementById('modal-client-title').textContent = 'Editar cliente';
-  document.getElementById('modal-client-lede').textContent = `Atualizar dados de ${c.name}. Deixe a password em branco para manter a atual.`;
+  const inactive = c.is_active === 0;
+  document.getElementById('modal-client-lede').textContent = inactive
+    ? `Atualizar dados de ${c.name}. A conta está inativa — pode ativá-la a partir do botão na lista.`
+    : `Atualizar dados de ${c.name}. Deixe a password em branco para manter a atual.`;
   document.getElementById('cl-id').value = c.id;
   document.getElementById('cl-name').value = c.name || '';
   document.getElementById('cl-company').value = c.company || '';
@@ -460,10 +496,15 @@ function openEditClient(id) {
   document.getElementById('cl-password').value = '';
   document.getElementById('cl-phone').value = c.phone || '';
   const pw = document.getElementById('cl-password');
-  const pwLabel = document.getElementById('cl-password-label');
-  if (pwLabel) pwLabel.textContent = 'Nova password (opcional)';
-  pw.removeAttribute('required');
-  pw.placeholder = 'Deixe em branco para manter';
+  if (pw) {
+    pw.removeAttribute('required');
+    pw.placeholder = inactive ? 'A password é gerada ao ativar a conta' : 'Deixe em branco para manter';
+    pw.disabled = inactive;
+    const fieldWrap = pw.closest('.field');
+    if (fieldWrap) fieldWrap.style.display = inactive ? 'none' : '';
+    const pwLabel = document.getElementById('cl-password-label');
+    if (pwLabel) pwLabel.textContent = 'Nova password (opcional)';
+  }
   document.getElementById('cl-submit').textContent = 'Guardar alterações';
   openModal('modal-client');
 }
@@ -1935,10 +1976,10 @@ document.addEventListener('submit', async (e) => {
         await api(`/api/clients/${id}`, { method: 'PATCH', body });
         toast('Cliente atualizado.', 'check');
       } else {
-        if (!password) { toast('Define uma password.', 'cancel'); return; }
-        body.password = password;
+        // Criação: a conta nasce inativa, sem password. O admin associa
+        // serviços/subscrições e depois ativa para enviar o email de boas-vindas.
         await api('/api/clients', { method: 'POST', body });
-        toast('Cliente criado. Email de boas-vindas enviado.', 'check');
+        toast('Cliente criado (inativo). Associe serviços e ative quando estiver pronto.', 'check');
       }
       closeModal('modal-client'); e.target.reset();
       document.getElementById('cl-id').value = '';
