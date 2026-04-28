@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS plans (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  category TEXT NOT NULL CHECK(category IN ('social','hosting','domain')),
+  category TEXT NOT NULL CHECK(category IN ('social','hosting','domain','design')),
   name TEXT NOT NULL,
   description TEXT,
   price REAL NOT NULL DEFAULT 0,
@@ -322,6 +322,34 @@ try {
     console.log('✓ Migration: users.is_prospect adicionada.');
   }
 } catch (e) { console.warn('Migration users.is_prospect:', e.message); }
+
+// Migration: alargar CHECK da categoria em plans para incluir 'design'
+try {
+  const pSql = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='plans'`).get();
+  if (pSql && pSql.sql && !pSql.sql.includes("'design'")) {
+    db.pragma('foreign_keys = OFF');
+    db.exec(`
+      BEGIN;
+      CREATE TABLE plans_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL CHECK(category IN ('social','hosting','domain','design')),
+        name TEXT NOT NULL,
+        description TEXT,
+        price REAL NOT NULL DEFAULT 0,
+        period TEXT NOT NULL DEFAULT 'mês',
+        features TEXT,
+        is_featured INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      INSERT INTO plans_new SELECT * FROM plans;
+      DROP TABLE plans;
+      ALTER TABLE plans_new RENAME TO plans;
+      COMMIT;
+    `);
+    db.pragma('foreign_keys = ON');
+    console.log('✓ Migration: plans.category alargada para incluir design.');
+  }
+} catch (e) { console.warn('Migration plans.category design:', e.message); }
 
 // Migration: coluna is_active em users — todos os existentes ficam ativos por defeito;
 // novos clientes criados pelo admin começam com is_active=0 até serem ativados.

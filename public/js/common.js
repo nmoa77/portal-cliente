@@ -139,7 +139,7 @@ function priorityPill(p) {
 }
 
 function typePill(type) {
-  const map = { hosting: 'Alojamento', domain: 'Domínio', social: 'Redes sociais' };
+  const map = { hosting: 'Alojamento', domain: 'Domínio', social: 'Redes sociais', design: 'Design' };
   return `<span class="pill">${map[type] || type}</span>`;
 }
 

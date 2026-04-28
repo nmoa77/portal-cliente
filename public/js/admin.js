@@ -650,7 +650,7 @@ async function openSubEdit(id) {
 
 function planOptionsHtml(selectedId) {
   const plans = state.plans || [];
-  const catLabel = { social: 'Redes sociais', hosting: 'Alojamento', domain: 'Domínio' };
+  const catLabel = { social: 'Redes sociais', hosting: 'Alojamento', domain: 'Domínio', design: 'Design' };
   const grouped = plans.reduce((acc, p) => {
     (acc[p.category] = acc[p.category] || []).push(p);
     return acc;
@@ -799,7 +799,7 @@ async function deleteSub(id) {
 async function viewPlans(main) {
   const plans = await api('/api/plans');
   state.plans = plans;
-  const catLabel = { social: 'Redes sociais', hosting: 'Alojamento', domain: 'Domínio' };
+  const catLabel = { social: 'Redes sociais', hosting: 'Alojamento', domain: 'Domínio', design: 'Design' };
 
   main.innerHTML = `
     <div class="page-head">
