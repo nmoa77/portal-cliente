@@ -762,14 +762,20 @@ function onSubItemPlanChange(selectEl) {
   const periodWrap = row.querySelector('.si-period-wrap');
   const note = row.querySelector('.si-social-note');
   if (isSocial) {
-    if (periodEl) periodEl.value = 'mês';
-    // Esconde o seletor de período (forçado mensal) e a nota explica
-    if (periodWrap) periodWrap.style.display = 'none';
+    if (periodEl) {
+      periodEl.value = 'mês';
+      // Mantém a célula no grid mas desativa o controlo (visual claro de que é fixo)
+      periodEl.disabled = true;
+      periodEl.title = 'Plano de redes — mensal automático';
+      periodEl.style.background = 'var(--bg-2)';
+      periodEl.style.color = 'var(--muted)';
+    }
     if (note) note.style.display = '';
-    // A renovação fica visualmente desativada — calculada pelo backend
     if (renewalEl) {
       renewalEl.disabled = true;
       renewalEl.title = 'Calculada automaticamente — fim de cada mês.';
+      renewalEl.style.background = 'var(--bg-2)';
+      renewalEl.style.color = 'var(--muted)';
       // Mantém a data já guardada se for futura; senão põe o fim deste mês.
       const today = new Date().toISOString().slice(0,10);
       if (!renewalEl.value || renewalEl.value < today) {
@@ -777,12 +783,19 @@ function onSubItemPlanChange(selectEl) {
       }
     }
   } else {
-    if (periodEl) periodEl.value = planPeriod === 'ano' ? 'ano' : 'mês';
-    if (periodWrap) periodWrap.style.display = '';
+    if (periodEl) {
+      periodEl.value = planPeriod === 'ano' ? 'ano' : 'mês';
+      periodEl.disabled = false;
+      periodEl.title = '';
+      periodEl.style.background = '';
+      periodEl.style.color = '';
+    }
     if (note) note.style.display = 'none';
     if (renewalEl) {
       renewalEl.disabled = false;
       renewalEl.title = '';
+      renewalEl.style.background = '';
+      renewalEl.style.color = '';
     }
   }
   recomputeSubTotals();
