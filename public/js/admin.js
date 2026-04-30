@@ -1049,7 +1049,7 @@ async function viewCalendar(main) {
     <div class="cal-toolbar">
       <div class="cal-filters">
         <button class="cal-filter ${filter === 'all' ? 'active' : ''}" onclick="setCalFilter('all')">Todos</button>
-        ${state.clients.map(c => `
+        ${state.clients.filter(c => (c.social_subs || 0) > 0).map(c => `
           <button class="cal-filter ${filter == c.id ? 'active' : ''}" onclick="setCalFilter(${c.id})">
             ${escapeHtml(c.company || c.name)}
           </button>
@@ -1286,7 +1286,7 @@ function openNewPostForDate(dateStr) {
   document.getElementById('mp-text').value = '';
   document.getElementById('mp-status').value = 'scheduled';
   const sel = document.getElementById('mp-user');
-  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  sel.innerHTML = state.clients.filter(c => (c.social_subs || 0) > 0).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
   if (state.calClientFilter !== 'all') sel.value = state.calClientFilter;
   document.getElementById('mp-delete-btn').style.display = 'none';
   const sw = document.getElementById('mp-suggestion-wrap');
@@ -1310,7 +1310,10 @@ async function openEditPost(id) {
   document.getElementById('mp-text').value = p.text;
   document.getElementById('mp-status').value = p.status;
   const sel = document.getElementById('mp-user');
-  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  // Apenas clientes com plano de redes sociais — mas garante incluir o atual
+  // (caso já tenha sido cancelado entretanto, para não desaparecer da edição).
+  const eligible = state.clients.filter(c => (c.social_subs || 0) > 0 || c.id === p.user_id);
+  sel.innerHTML = eligible.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
   sel.value = p.user_id;
   document.getElementById('mp-delete-btn').style.display = '';
   const sw = document.getElementById('mp-suggestion-wrap');
