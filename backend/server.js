@@ -332,6 +332,7 @@ app.get('/api/prospects', requireAdmin, (req, res) => {
     const quotes = db.prepare(
       `SELECT q.id, q.number, q.title, q.status, q.sent_at, q.responded_at,
               q.public_token, q.rejection_reason,
+              q.first_viewed_at, q.last_viewed_at, q.view_count,
               (SELECT COALESCE(SUM(amount),0) FROM quote_items WHERE quote_id=q.id) AS subtotal
          FROM quotes q WHERE q.user_id=? ORDER BY q.sent_at DESC`
     ).all(p.id);
@@ -1464,6 +1465,44 @@ function loadPublicQuote(token) {
 app.get('/api/public/quotes/:token', (req, res) => {
   const q = loadPublicQuote(req.params.token);
   if (!q) return res.status(404).json({ error: 'Orçamento não encontrado ou ligação expirada.' });
+
+  // Regista que o prospect abriu o orçamento — primeira vez e cada novo acesso.
+  // Notifica o admin no primeiro acesso por email.
+  try {
+    const isFirstView = !q.first_viewed_at;
+    db.prepare(
+      `UPDATE quotes
+          SET first_viewed_at = COALESCE(first_viewed_at, datetime('now')),
+              last_viewed_at = datetime('now'),
+              view_count = view_count + 1
+        WHERE id = ?`
+    ).run(q.id);
+
+    if (isFirstView) {
+      try {
+        const fresh = db.prepare(
+          `SELECT q.title, q.number, u.name client_name, u.company client_company
+             FROM quotes q JOIN users u ON u.id = q.user_id WHERE q.id = ?`
+        ).get(q.id);
+        const admins = db.prepare(`SELECT id, name, email FROM users WHERE role='admin'`).all();
+        const clientLabel = fresh && fresh.client_company
+          ? `${fresh.client_name} · ${fresh.client_company}`
+          : (fresh ? fresh.client_name : 'Prospect');
+        for (const a of admins) {
+          const tpl = T.quoteFirstViewed
+            ? T.quoteFirstViewed(a.name, clientLabel, fresh.title, fresh.number)
+            : null;
+          if (tpl) {
+            deliver(db, {
+              to: a.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+              user_id: a.id, kind: 'quote_first_view', force: true,
+            });
+          }
+        }
+      } catch (e) { console.warn('quoteFirstViewed notify:', e.message); }
+    }
+  } catch (e) { console.warn('public quote view tracking:', e.message); }
+
   // Não revela emails internos nem informação além do estritamente necessário
   res.json({
     id: q.id,

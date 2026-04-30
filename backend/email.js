@@ -199,6 +199,30 @@ Want it done? DUIT`;
     return { subject, body, html };
   },
 
+  quoteFirstViewed: (adminName, clientLabel, title, number) => {
+    const subject = `Orçamento aberto pelo prospect — ${title} (${number})`;
+    const body =
+`Caro(a) ${adminName},
+
+O prospect ${clientLabel} acabou de abrir o orçamento "${title}" (referência ${number}) através do link público.
+
+Pode confirmar o histórico de visualizações no painel de Prospects.
+
+Want it done? DUIT`;
+    const html = layout({
+      eyebrow: 'Orçamento aberto',
+      title: `${clientLabel} abriu "${title}"`,
+      greeting: `Caro(a) ${adminName},`,
+      paragraphs: [
+        `O prospect <strong>${escapeHtml(clientLabel)}</strong> acabou de abrir o orçamento <strong>${escapeHtml(title)}</strong> (referência ${escapeHtml(number)}) através do link público.`,
+        'Pode confirmar o histórico de visualizações no painel de Prospects.',
+      ],
+      ctaLabel: 'Abrir painel →',
+      ctaUrl: PORTAL_URL + '/admin.html',
+    });
+    return { subject, body, html };
+  },
+
   quoteSentProspect: (name, title, number, subtotal, iva, total, validUntil, publicToken) => {
     const link = `${PORTAL_URL}/quote.html?token=${encodeURIComponent(publicToken)}`;
     const subject = `Orçamento DUIT — ${title} (Nº ${number})`;

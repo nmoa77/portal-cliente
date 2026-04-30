@@ -299,15 +299,20 @@ async function viewProspects(main) {
                   const iva = +(subtotal * 0.23).toFixed(2);
                   const total = +(subtotal + iva).toFixed(2);
                   const link = q.public_token ? `${window.location.origin}/quote.html?token=${encodeURIComponent(q.public_token)}` : null;
+                  const viewed = !!q.first_viewed_at;
+                  const viewBadge = viewed
+                    ? `<span class="pill ok" title="Aberto pela primeira vez em ${fmtDateTime(q.first_viewed_at)}${q.view_count > 1 ? ' · última leitura ' + fmtDateTime(q.last_viewed_at) : ''}">${svg('check')} aberto${q.view_count > 1 ? ' · ' + q.view_count + 'x' : ''}</span>`
+                    : `<span class="pill muted" title="O prospect ainda não abriu a ligação enviada por email">por abrir</span>`;
                   return `
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px dashed var(--line-2); flex-wrap:wrap;">
                       <div style="min-width:200px; flex:1;">
                         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                           <strong style="font-size:14px;">${escapeHtml(q.title)}</strong>
                           <span class="pill ${si.cls}">${si.label}</span>
+                          ${viewBadge}
                         </div>
                         <div style="font-size:12px; color:var(--muted); margin-top:2px;">
-                          Nº ${escapeHtml(q.number)} · enviado ${fmtDate(q.sent_at)}${q.responded_at ? ' · resposta ' + fmtDate(q.responded_at) : ''}
+                          Nº ${escapeHtml(q.number)} · enviado ${fmtDate(q.sent_at)}${q.first_viewed_at ? ' · 1ª leitura ' + fmtDateTime(q.first_viewed_at) : ''}${q.responded_at ? ' · resposta ' + fmtDate(q.responded_at) : ''}
                           · total ${fmtMoney(total)} c/ IVA
                         </div>
                         ${q.rejection_reason ? `<div style="font-size:12px; color:#9a2828; margin-top:4px; font-style:italic;">"${escapeHtml(q.rejection_reason)}"</div>` : ''}
