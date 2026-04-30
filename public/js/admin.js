@@ -1403,7 +1403,7 @@ async function viewQuotes(main) {
                 <td><strong>${fmtMoney(q.total)}</strong>${q.iva ? `<div style="font-size:11px; color:var(--muted);">subtotal ${fmtMoney(q.subtotal)} + IVA ${fmtMoney(q.iva)}</div>` : ''}</td>
                 <td>${statusPill(q.status)}${q.responded_at ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;">resposta ${fmtDate(q.responded_at)}</div>` : ''}</td>
                 <td style="text-align:right; white-space:nowrap;">
-                  ${q.status === 'rejected' ? `<button class="btn btn-icon" title="Reenviar" onclick="resendQuote(${q.id})">${svg('arrow')}</button>` : ''}
+                  ${q.status !== 'draft' ? `<button class="btn btn-icon" title="${q.status === 'rejected' ? 'Reenviar (limpa motivo de rejeição)' : 'Reenviar email do orçamento'}" onclick="resendQuote(${q.id})">${svg('arrow')}</button>` : ''}
                   <button class="btn btn-icon" title="Editar" onclick="openEditQuote(${q.id})">${svg('edit')}</button>
                 </td>
               </tr>
@@ -1435,6 +1435,7 @@ function openNewQuote() {
   document.getElementById('q-number').value = `${today.getFullYear()}-${String(Math.floor(Math.random()*900+100))}`;
   document.getElementById('q-valid').value = thirty.toISOString().slice(0,10);
   document.getElementById('q-title').value = '';
+  document.getElementById('q-description').value = '';
   document.getElementById('q-items').innerHTML = '';
   const statusWrap = document.getElementById('q-status-wrap');
   if (statusWrap) statusWrap.style.display = 'none';
@@ -1527,6 +1528,7 @@ async function openEditQuote(id) {
   document.getElementById('q-number').value = full.number || '';
   document.getElementById('q-valid').value = full.valid_until ? String(full.valid_until).slice(0,10) : '';
   document.getElementById('q-title').value = full.title || '';
+  document.getElementById('q-description').value = full.description || '';
   const statusWrap = document.getElementById('q-status-wrap');
   if (statusWrap) {
     statusWrap.style.display = '';
@@ -2167,6 +2169,7 @@ document.addEventListener('submit', async (e) => {
     const body = {
       number: document.getElementById('q-number').value,
       title: document.getElementById('q-title').value,
+      description: document.getElementById('q-description').value.trim() || null,
       valid_until: document.getElementById('q-valid').value || null,
       items,
     };

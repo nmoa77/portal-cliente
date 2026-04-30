@@ -798,6 +798,10 @@ async function openQuote(id) {
     ` : ''}
 
     <div class="card quote-card">
+      ${q.description ? `
+        <div class="eyebrow" style="margin-bottom:6px;">Descrição</div>
+        <div style="font-size:14px; line-height:1.6; color:var(--text); white-space:pre-wrap; margin-bottom:18px; padding:12px 14px; background:var(--bg-2); border-left:3px solid var(--yellow); border-radius:6px;">${escapeHtml(q.description)}</div>
+      ` : ''}
       <div class="quote-items">
         ${q.items.map(it => `
           <div class="quote-item">

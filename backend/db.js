@@ -161,6 +161,7 @@ CREATE TABLE IF NOT EXISTS quotes (
   first_viewed_at TEXT,
   last_viewed_at TEXT,
   view_count INTEGER NOT NULL DEFAULT 0,
+  description TEXT,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 -- Nota: o índice em public_token é criado depois da migration correr
@@ -320,6 +321,10 @@ try {
     if (!cols.find(c => c.name === 'view_count')) {
       db.exec(`ALTER TABLE quotes ADD COLUMN view_count INTEGER NOT NULL DEFAULT 0`);
       console.log('✓ Migration: quotes.view_count adicionada.');
+    }
+    if (!cols.find(c => c.name === 'description')) {
+      db.exec(`ALTER TABLE quotes ADD COLUMN description TEXT`);
+      console.log('✓ Migration: quotes.description adicionada.');
     }
     // Índice idempotente — corre sempre, mas só cria efectivamente se a coluna
     // já existir (que existe sempre depois do bloco acima).

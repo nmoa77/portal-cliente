@@ -1190,7 +1190,7 @@ app.get('/api/quotes/:id', requireAuth, (req, res) => {
 });
 
 app.post('/api/quotes', requireAdmin, (req, res) => {
-  const { number, user_id, title, valid_until, items, prospect } = req.body || {};
+  const { number, user_id, title, description, valid_until, items, prospect } = req.body || {};
   if (!number || !title) return res.status(400).json({ error: 'Campos obrigatórios em falta' });
   if (!user_id && !prospect) return res.status(400).json({ error: 'Indique um cliente existente ou os dados do prospect.' });
 
@@ -1228,9 +1228,9 @@ app.post('/api/quotes', requireAdmin, (req, res) => {
 
   const publicToken = isProspectQuote ? crypto.randomBytes(24).toString('base64url') : null;
   const info = db.prepare(
-    `INSERT INTO quotes (number, user_id, title, valid_until, status, public_token)
-     VALUES (?, ?, ?, ?, 'sent', ?)`
-  ).run(number, recipientUserId, title, valid_until || null, publicToken);
+    `INSERT INTO quotes (number, user_id, title, description, valid_until, status, public_token)
+     VALUES (?, ?, ?, ?, ?, 'sent', ?)`
+  ).run(number, recipientUserId, title, description || null, valid_until || null, publicToken);
   const quoteId = info.lastInsertRowid;
 
   const insertItem = db.prepare(
@@ -1266,7 +1266,7 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
   ).get(req.params.id);
   if (!q) return res.status(404).json({ error: 'Orçamento não encontrado' });
   if (req.user.role !== 'admin' && q.user_id !== req.user.id) return res.status(403).json({ error: 'Sem permissão' });
-  const { status, number, title, valid_until, user_id, items, rejection_reason } = req.body || {};
+  const { status, number, title, description, valid_until, user_id, items, rejection_reason } = req.body || {};
 
   // Cliente só pode aceitar ou rejeitar
   if (req.user.role !== 'admin') {
@@ -1324,6 +1324,7 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
          status=?,
          number=COALESCE(?, number),
          title=COALESCE(?, title),
+         description=COALESCE(?, description),
          valid_until=COALESCE(?, valid_until),
          user_id=COALESCE(?, user_id),
          rejection_reason=NULL,
@@ -1333,6 +1334,7 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
        WHERE id=?`
     ).run(
       finalStatus, number ?? null, title ?? null,
+      description ?? null,
       valid_until ?? null, user_id ?? null, req.params.id
     );
   } else {
@@ -1341,11 +1343,13 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
          status=COALESCE(?, status),
          number=COALESCE(?, number),
          title=COALESCE(?, title),
+         description=COALESCE(?, description),
          valid_until=COALESCE(?, valid_until),
          user_id=COALESCE(?, user_id)
        WHERE id=?`
     ).run(
       status ?? null, number ?? null, title ?? null,
+      description ?? null,
       valid_until ?? null, user_id ?? null, req.params.id
     );
   }
@@ -1411,15 +1415,21 @@ app.post('/api/quotes/:id/resend', requireAdmin, (req, res) => {
     db.prepare(`UPDATE quotes SET public_token=? WHERE id=?`).run(publicToken, q.id);
   }
 
-  db.prepare(
-    `UPDATE quotes
-        SET status='sent',
-            rejection_reason=NULL,
-            responded_at=NULL,
-            seen_by_admin_at=NULL,
-            sent_at=datetime('now')
-      WHERE id=?`
-  ).run(q.id);
+  // Se foi rejeitado, faz reset completo (volta a 'sent', limpa motivo). Caso contrário,
+  // apenas atualiza o sent_at — o estado e a resposta anterior ficam intactos.
+  if (q.status === 'rejected') {
+    db.prepare(
+      `UPDATE quotes
+          SET status='sent',
+              rejection_reason=NULL,
+              responded_at=NULL,
+              seen_by_admin_at=NULL,
+              sent_at=datetime('now')
+        WHERE id=?`
+    ).run(q.id);
+  } else {
+    db.prepare(`UPDATE quotes SET sent_at=datetime('now') WHERE id=?`).run(q.id);
+  }
 
   // Notifica destinatário — usa o template apropriado consoante seja prospect (link público)
   // ou cliente normal (vai ao portal).
@@ -1508,6 +1518,7 @@ app.get('/api/public/quotes/:token', (req, res) => {
     id: q.id,
     number: q.number,
     title: q.title,
+    description: q.description,
     sent_at: q.sent_at,
     valid_until: q.valid_until,
     status: q.status,

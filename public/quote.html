@@ -160,6 +160,11 @@
 
         ${decidedHtml}
 
+        ${q.description ? `
+          <div class="pq-section-title">Descrição</div>
+          <div style="font-size:14px; color:#2a2a2a; line-height:1.6; white-space:pre-wrap; margin-bottom:18px; padding:12px 14px; background:#fafaf8; border-left:3px solid #ffd60a; border-radius:6px;">${escapeHtml(q.description)}</div>
+        ` : ''}
+
         <div class="pq-section-title">Linhas do orçamento</div>
         <div>${itemsHtml || '<p style="color:#6b6862;">Sem linhas indicadas.</p>'}</div>
 
