@@ -1818,35 +1818,78 @@ async function setTicketStatus(id, status) {
    ========================================================================= */
 async function viewNotifications(main) {
   const rows = await api('/api/notifications');
+  const kindMap = {
+    welcome: { cls: 'ok',     label: 'Boas-vindas' },
+    welcome_after_conversion: { cls: 'ok', label: 'Conversão' },
+    project_created: { cls: 'accent', label: 'Projeto criado' },
+    project_status:  { cls: 'accent', label: 'Mudança de fase' },
+    project_message: { cls: 'accent', label: 'Nota de projeto' },
+    quote_sent:      { cls: 'warn',   label: 'Orçamento enviado' },
+    quote_sent_prospect: { cls: 'warn', label: 'Orçamento (prospect)' },
+    quote_resent:    { cls: 'warn',   label: 'Orçamento reenviado' },
+    quote_revised:   { cls: 'warn',   label: 'Orçamento revisto' },
+    quote_response:  { cls: 'warn',   label: 'Resposta a orçamento' },
+    quote_first_view:{ cls: 'warn',   label: 'Orçamento aberto' },
+    cancel_request:  { cls: 'err',    label: 'Pedido cancelamento' },
+    cancel_decision: { cls: 'err',    label: 'Decisão cancelamento' },
+    mockup_ready:    { cls: 'accent', label: 'Mockup pronto' },
+    password_reset:  { cls: 'muted',  label: 'Recuperação senha' },
+    client_login:    { cls: 'ok',     label: 'Login do cliente' },
+  };
+  // Filtros rápidos
+  const filter = state._notifFilter || 'all';
+
+  const filtered = filter === 'logins' ? rows.filter(r => r.kind === 'client_login')
+                 : filter === 'emails' ? rows.filter(r => r.kind !== 'client_login')
+                 : rows;
+
   main.innerHTML = `
     <div class="page-head">
       <div>
-        <div class="eyebrow">Emails enviados</div>
+        <div class="eyebrow">Atividade</div>
         <h1>Notificações</h1>
-        <p class="lede">Registo dos últimos emails que a DUIT despachou (simulados em dev, prontos para SMTP).</p>
+        <p class="lede">Registo de emails enviados pela DUIT e acessos dos clientes ao portal.</p>
+      </div>
+      <div class="page-head-actions">
+        <div class="seg">
+          <button class="seg-btn ${filter === 'all' ? 'active' : ''}" onclick="setNotifFilter('all')">Tudo</button>
+          <button class="seg-btn ${filter === 'emails' ? 'active' : ''}" onclick="setNotifFilter('emails')">Emails</button>
+          <button class="seg-btn ${filter === 'logins' ? 'active' : ''}" onclick="setNotifFilter('logins')">Logins</button>
+        </div>
       </div>
     </div>
     <div class="card table-card">
-      ${rows.length === 0 ? `<div class="empty">Sem notificações.</div>` : `
+      ${filtered.length === 0 ? `<div class="empty">Sem registos.</div>` : `
         <table class="table">
-          <thead><tr><th>Para</th><th>Tipo</th><th>Assunto</th><th>Quando</th></tr></thead>
+          <thead><tr><th>Quem</th><th>Tipo</th><th>Detalhe</th><th>Quando</th></tr></thead>
           <tbody>
-            ${rows.map(n => `
-              <tr>
+            ${filtered.map(n => {
+              const k = kindMap[n.kind] || { cls: 'muted', label: n.kind || '—' };
+              const isLogin = n.kind === 'client_login';
+              return `
+              <tr ${isLogin ? 'style="background:rgba(42,138,42,0.04);"' : ''}>
                 <td>
                   <div style="font-weight:500;">${escapeHtml(n.user_name || n.to_email || '—')}</div>
                   <div style="font-size:12px; color:var(--muted);">${escapeHtml(n.to_email || '')}</div>
                 </td>
-                <td><span class="pill muted">${escapeHtml(n.kind || '—')}</span></td>
-                <td>${escapeHtml(n.subject || '')}</td>
-                <td>${fmtDateTime(n.created_at)}</td>
+                <td><span class="pill ${k.cls}">${escapeHtml(k.label)}</span></td>
+                <td>
+                  <div style="font-size:13px;">${escapeHtml(n.subject || '')}</div>
+                  ${isLogin && n.body ? `<div style="font-size:11px; color:var(--muted); margin-top:2px; white-space:pre-wrap;">${escapeHtml(n.body)}</div>` : ''}
+                </td>
+                <td style="white-space:nowrap;">${fmtDateTime(n.created_at)}</td>
               </tr>
-            `).join('')}
+            `;}).join('')}
           </tbody>
         </table>
       `}
     </div>
   `;
+}
+
+function setNotifFilter(f) {
+  state._notifFilter = f;
+  go('notifications');
 }
 
 /* =========================================================================

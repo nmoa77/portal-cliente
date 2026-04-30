@@ -49,6 +49,21 @@ app.post('/api/auth/login', (req, res) => {
     return res.status(403).json({ error: 'A sua conta ainda não foi ativada. Aguarde o email da DUIT com os dados de acesso.' });
   }
   setAuthCookie(res, signToken(user));
+
+  // Regista o acesso na tabela de notificações para o admin acompanhar.
+  // Não envia email — apenas log interno consultável em /api/notifications.
+  if (user.role === 'client') {
+    try {
+      const ip = (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim();
+      const ua = (req.headers['user-agent'] || '').toString().slice(0, 200);
+      const subject = `Acesso ao portal — ${user.name}`;
+      const body = `${user.name} (${user.email}) iniciou sessão no portal.${ip ? `\nIP: ${ip}` : ''}${ua ? `\nUser-Agent: ${ua}` : ''}`;
+      db.prepare(
+        `INSERT INTO notifications (user_id, kind, to_email, subject, body) VALUES (?, ?, ?, ?, ?)`
+      ).run(user.id, 'client_login', user.email, subject, body);
+    } catch (e) { console.warn('client_login log:', e.message); }
+  }
+
   res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
 });
 
