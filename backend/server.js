@@ -306,6 +306,23 @@ app.get('/api/client-summary', requireAuth, (req, res) => {
        JOIN users au ON au.id = pm.author_id
       WHERE p.user_id = ? AND au.role='admin' AND pm.read_by_client_at IS NULL`
   ).get(uid).c;
+  // Renovações iminentes de planos de redes sociais (5 dias ou menos).
+  // Usado para mostrar um aviso na home do cliente.
+  const upcomingSocialRenewals = db.prepare(
+    `SELECT si.id, si.label, si.price, si.renewal_date,
+            s.id subscription_id, s.name subscription_name
+       FROM subscription_items si
+       JOIN subscriptions s ON s.id = si.subscription_id
+       JOIN plans p ON p.id = si.plan_id
+      WHERE s.user_id = ?
+        AND p.category = 'social'
+        AND si.status = 'active'
+        AND si.renewal_date IS NOT NULL
+        AND date(si.renewal_date) >= date('now','localtime')
+        AND date(si.renewal_date) <= date('now','localtime','+5 days')
+      ORDER BY si.renewal_date ASC`
+  ).all(uid);
+
   // Tickets em curso com mensagens de admin ainda não lidas pelo cliente
   const unreadClientTickets = db.prepare(
     `SELECT COUNT(DISTINCT t.id) c FROM tickets t
@@ -321,7 +338,7 @@ app.get('/api/client-summary', requireAuth, (req, res) => {
     activeSubs, openProjects, pendingMockups, pendingQuotes, revisedQuotes,
     monthTotal, weekPosts, awaitingPosts: draftPosts, draftPosts,
     // alertas
-    unreadProjectNotes, unreadClientTickets,
+    unreadProjectNotes, unreadClientTickets, upcomingSocialRenewals,
   });
 });
 
@@ -531,8 +548,25 @@ app.delete('/api/plans/:id', requireAdmin, (req, res) => {
    - O preço total da subscrição é a soma dos preços finais das linhas.
    ================================================================ */
 
+// Helpers de data — usados pelos planos de redes sociais (renovam sempre no
+// fim do mês, sem entrada manual do admin).
+function lastDayOfMonth(d = new Date()) {
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const last = new Date(y, m + 1, 0); // 0º dia do mês seguinte = último deste
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${last.getFullYear()}-${pad(last.getMonth()+1)}-${pad(last.getDate())}`;
+}
+function lastDayOfNextMonth(d = new Date()) {
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const last = new Date(y, m + 2, 0);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${last.getFullYear()}-${pad(last.getMonth()+1)}-${pad(last.getDate())}`;
+}
+
 function loadSubItems(subId) {
-  return db.prepare(
+  const rows = db.prepare(
     `SELECT si.id, si.plan_id, si.label, si.detail, si.default_price, si.discount, si.price,
             si.period, si.renewal_date, si.status,
             p.category AS plan_category, p.name AS plan_name
@@ -541,6 +575,20 @@ function loadSubItems(subId) {
       WHERE si.subscription_id = ?
       ORDER BY si.id`
   ).all(subId);
+  // Auto-rolling: planos de redes sociais activos cuja data de renovação
+  // já passou avançam automaticamente para o fim do mês seguinte.
+  const today = new Date().toISOString().slice(0,10);
+  let touched = false;
+  for (const it of rows) {
+    if (it.plan_category === 'social' && it.status === 'active'
+        && it.renewal_date && it.renewal_date < today) {
+      const next = lastDayOfNextMonth();
+      db.prepare(`UPDATE subscription_items SET renewal_date=? WHERE id=?`).run(next, it.id);
+      it.renewal_date = next;
+      touched = true;
+    }
+  }
+  return rows;
 }
 
 function attachItemsAndTotal(sub) {
@@ -576,10 +624,21 @@ function replaceSubItems(subId, items) {
     const defaultPrice = plan ? Number(plan.price || 0) : Number(it.default_price || 0);
     const discount = Math.max(0, Number(it.discount) || 0);
     const finalPrice = Math.max(0, +(defaultPrice - discount).toFixed(2));
-    const period = (it.period === 'ano' || it.period === 'mês')
+    let period = (it.period === 'ano' || it.period === 'mês')
       ? it.period
       : (plan && plan.period) || 'mês';
-    const renewalDate = it.renewal_date || null;
+    let renewalDate = it.renewal_date || null;
+    // Planos de redes sociais são sempre mensais, com renovação no último dia
+    // do mês — nunca aceita data manual nem outro período.
+    if (plan && plan.category === 'social') {
+      period = 'mês';
+      // Mantém a data existente se ainda for futura; senão usa o fim deste mês
+      // ou do mês seguinte se o atual já passou.
+      const today = new Date().toISOString().slice(0,10);
+      if (!renewalDate || renewalDate < today) {
+        renewalDate = lastDayOfMonth() < today ? lastDayOfNextMonth() : lastDayOfMonth();
+      }
+    }
     const allowedStatuses = ['active','pending','paused','cancelled','expired'];
     const status = allowedStatuses.includes(it.status) ? it.status : 'active';
     insert.run(

@@ -119,6 +119,7 @@ async function viewHome(main) {
 
   const activeProj = projs.filter(p => p.stage !== 'done' && p.stage !== 'cancelled').slice(0, 3);
   const revised = Array.isArray(s.revisedQuotes) ? s.revisedQuotes : [];
+  const renewals = Array.isArray(s.upcomingSocialRenewals) ? s.upcomingSocialRenewals : [];
 
   main.innerHTML = `
     <div class="page-head">
@@ -132,6 +133,27 @@ async function viewHome(main) {
         <button class="btn btn-yellow" onclick="go('projects')">${svg('folder')} Os meus projetos</button>
       </div>
     </div>
+
+    ${renewals.length ? `
+      <div class="card" style="margin-bottom:14px; border-left:4px solid #ffd60a; background:#fffbe6;">
+        <div style="display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:240px;">
+            <div class="eyebrow" style="margin-bottom:6px; color:#5a4a00;">Renovação automática</div>
+            <h3 style="margin:0 0 6px 0; font-family:'Clash Display'; font-size:20px;">
+              ${renewals.length === 1
+                ? 'O seu plano de redes sociais será renovado automaticamente.'
+                : `${renewals.length} planos de redes sociais serão renovados automaticamente.`}
+            </h3>
+            <ul style="margin:8px 0 0 0; padding-left:18px; color:#5a4a00; font-size:14px; line-height:1.7;">
+              ${renewals.map(r => `<li><strong>${escapeHtml(r.label)}</strong> — ${fmtMoney(r.price)}/mês · ${fmtDate(r.renewal_date, true)}</li>`).join('')}
+            </ul>
+            <p style="margin:10px 0 0 0; color:#5a4a00; font-size:13px; line-height:1.5;">
+              Caso não pretenda renovar, agradecemos que entre em contacto pelo menu Subscrições.
+            </p>
+          </div>
+        </div>
+      </div>
+    ` : ''}
 
     ${revised.length ? `
       <div class="card" style="margin-bottom:20px; border-left:4px solid #ffd60a; background:#fffbe6;">

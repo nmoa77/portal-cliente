@@ -693,16 +693,19 @@ function addSubItem(it = {}) {
     </div>
     <button type="button" class="btn btn-icon" title="Remover" onclick="this.parentElement.remove(); recomputeSubTotals()">${svg('trash')}</button>
 
-    <div class="field" style="margin:0;">
+    <div class="field si-period-wrap" style="margin:0;">
       <label style="font-size:11px;">Período</label>
       <select class="si-period" onchange="recomputeSubTotals()">
         <option value="mês" ${period === 'mês' ? 'selected' : ''}>mensal</option>
         <option value="ano" ${period === 'ano' ? 'selected' : ''}>anual</option>
       </select>
     </div>
-    <div class="field" style="margin:0;">
+    <div class="field si-renewal-wrap" style="margin:0;">
       <label style="font-size:11px;">Próxima renovação</label>
       <input class="si-renewal" type="date" value="${renewal}">
+      <small class="si-social-note" style="display:none; color:var(--muted); font-size:11px; margin-top:4px;">
+        Plano de redes — renova automaticamente no fim de cada mês.
+      </small>
     </div>
     <div></div>
 
@@ -735,6 +738,10 @@ function addSubItem(it = {}) {
     </div>
   `;
   wrap.appendChild(row);
+  // Se o item já vem com plan_id (edição), aplica imediatamente a lógica de plano
+  // social (esconder/forçar campos consoante a categoria).
+  const sel = row.querySelector('.si-plan');
+  if (sel && sel.value) onSubItemPlanChange(sel);
 }
 
 function onSubItemPlanChange(selectEl) {
@@ -743,13 +750,48 @@ function onSubItemPlanChange(selectEl) {
   const price = Number(opt?.dataset?.price || 0);
   const desc = opt?.dataset?.desc || '';
   const planPeriod = opt?.dataset?.period || 'mês';
+  // O optgroup pai indica a categoria (Redes sociais / Alojamento / etc.)
+  const optgroupLabel = (opt?.parentElement?.label || '').toLowerCase();
+  const isSocial = optgroupLabel.includes('redes sociais');
   row.querySelector('.si-default').value = price.toFixed(2);
   const detailEl = row.querySelector('.si-detail');
   if (!detailEl.value.trim()) detailEl.value = desc;
-  // Pré-seleciona o período do plano se o utilizador ainda não tiver mexido
+  // Pré-seleciona o período do plano
   const periodEl = row.querySelector('.si-period');
-  if (periodEl) periodEl.value = planPeriod === 'ano' ? 'ano' : 'mês';
+  const renewalEl = row.querySelector('.si-renewal');
+  const periodWrap = row.querySelector('.si-period-wrap');
+  const note = row.querySelector('.si-social-note');
+  if (isSocial) {
+    if (periodEl) periodEl.value = 'mês';
+    // Esconde o seletor de período (forçado mensal) e a nota explica
+    if (periodWrap) periodWrap.style.display = 'none';
+    if (note) note.style.display = '';
+    // A renovação fica visualmente desativada — calculada pelo backend
+    if (renewalEl) {
+      renewalEl.disabled = true;
+      renewalEl.title = 'Calculada automaticamente — fim de cada mês.';
+      // Mantém a data já guardada se for futura; senão põe o fim deste mês.
+      const today = new Date().toISOString().slice(0,10);
+      if (!renewalEl.value || renewalEl.value < today) {
+        renewalEl.value = lastDayOfMonthClient();
+      }
+    }
+  } else {
+    if (periodEl) periodEl.value = planPeriod === 'ano' ? 'ano' : 'mês';
+    if (periodWrap) periodWrap.style.display = '';
+    if (note) note.style.display = 'none';
+    if (renewalEl) {
+      renewalEl.disabled = false;
+      renewalEl.title = '';
+    }
+  }
   recomputeSubTotals();
+}
+
+function lastDayOfMonthClient(date = new Date()) {
+  const last = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${last.getFullYear()}-${pad(last.getMonth()+1)}-${pad(last.getDate())}`;
 }
 
 function recomputeSubTotals() {
