@@ -243,16 +243,28 @@ async function viewHome(main) {
   `;
 }
 
-function projectRow(p) {
-  const order = ['new','analysis','production','final_review','done','cancelled'];
-  const idx = order.indexOf(p.stage);
+function renderProjectStages(stage) {
+  const order = ['new','analysis','production','final_review','done'];
+  const isCancelled = stage === 'cancelled';
+  const isDone = stage === 'done';
+  const idx = order.indexOf(stage);
   const stages = order.map((k, i) => {
-    const cls = i < idx ? 'done' : (i === idx ? 'current' : '');
+    let cls = '';
+    if (isCancelled)  cls = 'cancelled';
+    else if (isDone)  cls = 'complete';
+    else if (i < idx) cls = 'done';
+    else if (i === idx) cls = 'current';
     return `<div class="stage ${cls}"></div>`;
   }).join('');
-  const labels = order.map((k, i) =>
-    `<span class="${i === idx ? 'cur' : ''}">${stageLabel(k)}</span>`
-  ).join('');
+  const labels = order.map((k, i) => {
+    const isCurrent = !isCancelled && (isDone ? k === 'done' : i === idx);
+    return `<span class="${isCurrent ? 'cur' : ''}">${stageLabel(k)}</span>`;
+  }).join('') + (isCancelled ? `<span class="cur" style="color:#9a2828;">${stageLabel('cancelled')}</span>` : '');
+  return { stages, labels };
+}
+
+function projectRow(p) {
+  const { stages, labels } = renderProjectStages(p.stage);
   const unread = Number(p.unread_notes) || 0;
   return `
     <div class="project-row ${unread > 0 ? 'has-unread' : ''}" onclick="openProject(${p.id})" style="cursor:pointer;">
@@ -452,15 +464,7 @@ async function openProject(id) {
     return;
   }
 
-  const order = ['new','analysis','production','final_review','done','cancelled'];
-  const idx = order.indexOf(p.stage);
-  const stages = order.map((k, i) => {
-    const cls = i < idx ? 'done' : (i === idx ? 'current' : '');
-    return `<div class="stage ${cls}"></div>`;
-  }).join('');
-  const labels = order.map((k, i) =>
-    `<span class="${i === idx ? 'cur' : ''}">${stageLabel(k)}</span>`
-  ).join('');
+  const { stages, labels } = renderProjectStages(p.stage);
 
   const threadHtml = msgs.length === 0
     ? `<div class="empty" style="padding:20px 0;">Ainda não existem notas neste projeto. Envie a primeira em baixo.</div>`
