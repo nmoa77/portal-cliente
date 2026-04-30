@@ -184,8 +184,15 @@ app.get('/api/stats', requireAdmin, (req, res) => {
   const openTickets = db.prepare(`SELECT COUNT(*) c FROM tickets WHERE status!='closed'`).get().c;
   const openProjects = db.prepare(`SELECT COUNT(*) c FROM projects WHERE stage NOT IN ('done','cancelled')`).get().c;
   const draftPosts = db.prepare(`SELECT COUNT(*) c FROM social_posts WHERE status='draft'`).get().c;
+  // Receita recorrente = soma das avenças mensais de planos de redes sociais
+  // (apenas itens ativos, com período mensal e categoria 'social' no plano).
   const monthlyRevenue = db.prepare(
-    `SELECT COALESCE(SUM(price),0) r FROM subscriptions WHERE status='active' AND period='mês'`
+    `SELECT COALESCE(SUM(si.price), 0) r
+       FROM subscription_items si
+       JOIN plans p ON p.id = si.plan_id
+      WHERE si.status = 'active'
+        AND si.period = 'mês'
+        AND p.category = 'social'`
   ).get().r;
 
   // Alertas (apenas itens novos/não lidos — desaparecem quando o admin os trata)

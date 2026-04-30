@@ -162,7 +162,7 @@ async function viewHome(main) {
       <div class="card stat y">
         <div class="eyebrow">Receita recorrente</div>
         <div class="value">${fmtMoney(s.monthlyRevenue || 0)}</div>
-        <div class="delta">${s.activeSubs || 0} subscrições ativas</div>
+        <div class="delta">avenças mensais de redes sociais</div>
       </div>
       <div class="card stat dark">
         <div class="eyebrow">Clientes</div>
