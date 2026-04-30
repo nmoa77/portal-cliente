@@ -409,7 +409,12 @@ app.get('/api/clients', requireAdmin, (req, res) => {
             (SELECT COUNT(*) FROM projects p WHERE p.user_id=u.id AND p.stage NOT IN ('done','cancelled')) AS projects,
             (SELECT COUNT(*) FROM tickets t WHERE t.user_id=u.id AND t.status!='closed') AS open_tickets,
             (SELECT COALESCE(SUM(price),0) FROM subscriptions s WHERE s.user_id=u.id AND s.status='active' AND s.period='mês') AS mrr,
-            (SELECT COUNT(*) FROM subscriptions s WHERE s.user_id=u.id AND s.type='social' AND s.status IN ('active','pending','paused')) AS social_subs
+            (SELECT COUNT(*) FROM subscription_items si
+               JOIN subscriptions s ON s.id = si.subscription_id
+               JOIN plans p ON p.id = si.plan_id
+              WHERE s.user_id = u.id
+                AND p.category = 'social'
+                AND si.status IN ('active','pending','paused')) AS social_subs
        FROM users u WHERE u.role='client' AND u.is_prospect=0 ORDER BY u.is_active ASC, u.name`
   ).all();
   res.json(rows);
