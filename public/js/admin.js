@@ -1259,7 +1259,31 @@ function dayBlock(title, dateStr, drafts, totalForDay) {
 }
 
 function dayPostRow(p) {
-  const next = nextStatusLabel(p.status);
+  // Botões disponíveis para o admin escolher consoante o estado atual.
+  // - draft     → pode "Agendar" (transição normal) OU saltar para "Publicado"
+  // - scheduled → pode "Publicado"
+  // - cancelled → pode "Reativar" (volta a agendado)
+  // - published → sem ações de progresso
+  let actions = [];
+  if (p.status === 'draft') {
+    actions = [
+      { key: 'scheduled', label: 'Agendar',   variant: 'ghost', title: 'Passar para agendado' },
+      { key: 'published', label: '✓ Publicado', variant: 'yellow', title: 'Marcar como publicado (saltar agendamento)' },
+    ];
+  } else if (p.status === 'scheduled') {
+    actions = [
+      { key: 'published', label: '✓ Publicado', variant: 'yellow', title: 'Marcar como publicado' },
+    ];
+  } else if (p.status === 'cancelled') {
+    actions = [
+      { key: 'scheduled', label: 'Reativar', variant: 'yellow', title: 'Voltar a agendar' },
+    ];
+  }
+
+  const actionButtons = actions.map(a => `
+    <button class="btn btn-${a.variant} btn-sm" onclick="quickSetStatus(${p.id}, '${a.key}')" title="${a.title}">${a.label}</button>
+  `).join('');
+
   return `
     <div class="day-post ${p.status}">
       <div class="dp-left">
@@ -1274,23 +1298,12 @@ function dayPostRow(p) {
         </div>
       </div>
       <div class="dp-actions">
-        ${next ? `<button class="btn btn-yellow btn-sm" onclick="quickSetStatus(${p.id}, '${next.key}')" title="${next.title}">${next.label}</button>` : ''}
+        ${actionButtons}
         <button class="btn btn-ghost btn-sm" onclick="openEditPost(${p.id})" title="Editar">${svg('edit')}</button>
-        <button class="btn btn-icon" title="Cancelar post" onclick="quickSetStatus(${p.id}, 'cancelled')">✕</button>
+        ${p.status !== 'cancelled' ? `<button class="btn btn-icon" title="Cancelar post" onclick="quickSetStatus(${p.id}, 'cancelled')">✕</button>` : ''}
       </div>
     </div>
   `;
-}
-
-function nextStatusLabel(status) {
-  // Fluxo "pica como vais fazendo": rascunho → agendado → publicado
-  switch (status) {
-    case 'draft':     return { key: 'scheduled', label: 'Agendar',     title: 'Passar para agendado' };
-    case 'scheduled': return { key: 'published', label: '✓ Publicado', title: 'Marcar como publicado' };
-    case 'cancelled': return { key: 'scheduled', label: 'Reativar',    title: 'Voltar a agendar' };
-    case 'published': return null;
-    default:          return { key: 'scheduled', label: 'Agendar',     title: 'Agendar' };
-  }
 }
 
 async function quickSetStatus(id, status) {
