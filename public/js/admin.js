@@ -1267,16 +1267,16 @@ function dayPostRow(p) {
   let actions = [];
   if (p.status === 'draft') {
     actions = [
-      { key: 'scheduled', label: 'Agendar',   variant: 'ghost', title: 'Passar para agendado' },
-      { key: 'published', label: '✓ Publicado', variant: 'yellow', title: 'Marcar como publicado (saltar agendamento)' },
+      { key: 'scheduled', label: 'Agendar',     variant: 'ghost', title: 'Passar para agendado' },
+      { key: 'published', label: '✓ Publicado', variant: 'ghost', title: 'Marcar como publicado (saltar agendamento)' },
     ];
   } else if (p.status === 'scheduled') {
     actions = [
-      { key: 'published', label: '✓ Publicado', variant: 'yellow', title: 'Marcar como publicado' },
+      { key: 'published', label: '✓ Publicado', variant: 'ghost', title: 'Marcar como publicado' },
     ];
   } else if (p.status === 'cancelled') {
     actions = [
-      { key: 'scheduled', label: 'Reativar', variant: 'yellow', title: 'Voltar a agendar' },
+      { key: 'scheduled', label: 'Reativar', variant: 'ghost', title: 'Voltar a agendar' },
     ];
   }
 
