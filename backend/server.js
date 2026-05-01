@@ -421,7 +421,7 @@ app.get('/api/clients', requireAdmin, (req, res) => {
                JOIN plans p ON p.id = si.plan_id
               WHERE s.user_id = u.id
                 AND p.category = 'social'
-                AND si.status IN ('active','pending','paused')) AS social_subs
+                AND si.status = 'active') AS social_subs
        FROM users u WHERE u.role='client' AND u.is_prospect=0 ORDER BY u.is_active ASC, u.name`
   ).all();
   res.json(rows);
