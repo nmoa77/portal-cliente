@@ -90,6 +90,18 @@
   const forgotErr  = document.getElementById('forgotErr');
   const forgotOk   = document.getElementById('forgotOk');
 
+  // Aviso quando o utilizador foi deslogado por inatividade
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('reason') === 'idle') {
+      errBox.textContent = 'A sua sessão foi encerrada por inatividade. Volte a entrar para continuar.';
+      errBox.classList.add('show');
+      // Limpa o parâmetro da URL para o aviso desaparecer ao recarregar
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  } catch (e) { /* ignore */ }
+
   document.getElementById('forgotLink').addEventListener('click', (e) => {
     e.preventDefault();
     loginForm.style.display = 'none';

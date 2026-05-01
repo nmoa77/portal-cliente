@@ -228,3 +228,85 @@ document.documentElement.setAttribute(
   'data-theme',
   localStorage.getItem('duit-theme') || document.documentElement.getAttribute('data-theme') || 'light'
 );
+
+/* ---- Auto-logout por inatividade ----------------------------------------
+   Após 5 minutos sem qualquer interação (rato, teclado, scroll ou toque),
+   a sessão é encerrada e o utilizador é redirecionado para a página de login.
+   Aplica-se ao portal do cliente e ao painel de admin (carrega via common.js).
+   Não corre em páginas públicas (login, recuperação, orçamento de prospect).
+---------------------------------------------------------------------------- */
+(function setupIdleTimeout() {
+  const path = window.location.pathname || '';
+  // Não ativa nas páginas públicas (login, reset, quote público).
+  if (/(^|\/)(index\.html|reset\.html|quote\.html)?$/i.test(path) && !/cliente\.html|admin\.html/i.test(path)) {
+    return;
+  }
+
+  const TIMEOUT_MS = 5 * 60 * 1000;     // 5 minutos
+  const WARN_MS    = 30 * 1000;         // aviso 30s antes
+  let warnTimer = null;
+  let logoutTimer = null;
+  let warnEl = null;
+
+  function clearTimers() {
+    if (warnTimer)   { clearTimeout(warnTimer);   warnTimer = null; }
+    if (logoutTimer) { clearTimeout(logoutTimer); logoutTimer = null; }
+    if (warnEl) { warnEl.remove(); warnEl = null; }
+  }
+
+  async function doLogout() {
+    clearTimers();
+    try {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch (e) { /* ignore */ }
+    // Volta sempre para a raiz (login).
+    window.location.href = '/?reason=idle';
+  }
+
+  function showWarning() {
+    if (warnEl) return;
+    warnEl = document.createElement('div');
+    warnEl.style = `
+      position: fixed; right: 20px; bottom: 20px; z-index: 9999;
+      background: #0a0a0a; color: #fff; padding: 14px 18px;
+      border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,0.25);
+      font-size: 13px; line-height: 1.5; max-width: 320px;
+      border-left: 4px solid #ffd60a;
+    `;
+    warnEl.innerHTML = `
+      <div style="font-weight:600; margin-bottom:4px;">Sessão prestes a expirar</div>
+      <div style="color:rgba(255,255,255,0.75);">
+        Por inatividade, a sessão será encerrada em 30 segundos. Mexa o rato ou clique para continuar.
+      </div>
+    `;
+    document.body.appendChild(warnEl);
+  }
+
+  function reset() {
+    if (warnTimer)   clearTimeout(warnTimer);
+    if (logoutTimer) clearTimeout(logoutTimer);
+    if (warnEl) { warnEl.remove(); warnEl = null; }
+    warnTimer   = setTimeout(showWarning, TIMEOUT_MS - WARN_MS);
+    logoutTimer = setTimeout(doLogout, TIMEOUT_MS);
+  }
+
+  ['mousemove','mousedown','keydown','scroll','touchstart','click','focus','wheel']
+    .forEach(ev => document.addEventListener(ev, reset, { passive: true, capture: true }));
+  window.addEventListener('focus', reset);
+
+  // Sincroniza entre tabs do mesmo portal — atividade num separador renova
+  // o relógio nos restantes.
+  try {
+    const KEY = 'duit-last-activity';
+    const sync = () => {
+      try { localStorage.setItem(KEY, String(Date.now())); } catch (e) {}
+    };
+    document.addEventListener('mousemove', sync, { passive: true });
+    document.addEventListener('keydown',   sync, { passive: true });
+    window.addEventListener('storage', (e) => {
+      if (e.key === KEY) reset();
+    });
+  } catch (e) { /* localStorage indisponível — segue sem sync */ }
+
+  reset();
+})();
