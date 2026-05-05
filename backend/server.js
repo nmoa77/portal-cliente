@@ -19,7 +19,21 @@ app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// PWA — garantir os MIME types correctos para manifest e service worker.
+// Express por defeito serve .webmanifest como text/plain em algumas versões.
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.webmanifest') || filePath.endsWith('manifest.json')) {
+      res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+    }
+    // O service worker tem de ser servido sem cache agressivo, para apanhar
+    // updates rapidamente após cada deploy.
+    if (filePath.endsWith('/sw.js') || filePath.endsWith('\\sw.js')) {
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Service-Worker-Allowed', '/');
+    }
+  },
+}));
 
 // Healthcheck simples para o Railway
 app.get('/healthz', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));

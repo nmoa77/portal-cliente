@@ -229,6 +229,46 @@ document.documentElement.setAttribute(
   localStorage.getItem('duit-theme') || document.documentElement.getAttribute('data-theme') || 'light'
 );
 
+/* ---- Registo do Service Worker (PWA) ---------------------------------- */
+if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch((e) => {
+      console.warn('SW registration failed:', e && e.message);
+    });
+  });
+}
+
+/* ---- Prompt de instalação (Android/Chrome) ---------------------------- */
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // Mostra um pequeno botão flutuante "Instalar app" no canto inferior direito.
+  if (document.getElementById('duit-install-cta')) return;
+  const btn = document.createElement('button');
+  btn.id = 'duit-install-cta';
+  btn.textContent = '+ Instalar app DUIT';
+  btn.style = `
+    position: fixed; right: 16px; bottom: 16px; z-index: 9000;
+    background: #ffd60a; color: #0a0a0a; font-weight: 600;
+    border: 0; padding: 10px 14px; border-radius: 999px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18); cursor: pointer;
+    font-family: inherit; font-size: 13px;
+  `;
+  btn.onclick = async () => {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    try { await deferredInstallPrompt.userChoice; } catch (_) {}
+    deferredInstallPrompt = null;
+    btn.remove();
+  };
+  document.body.appendChild(btn);
+});
+window.addEventListener('appinstalled', () => {
+  const btn = document.getElementById('duit-install-cta');
+  if (btn) btn.remove();
+});
+
 /* ---- Auto-logout por inatividade ----------------------------------------
    Após 5 minutos sem qualquer interação (rato, teclado, scroll ou toque),
    a sessão é encerrada e o utilizador é redirecionado para a página de login.

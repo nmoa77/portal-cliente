@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0a0a0a" rx="96"/>
+  <g font-family="Helvetica, Arial, sans-serif" font-weight="900" text-anchor="middle">
+    <text x="248" y="305" fill="#ffffff" font-size="120" letter-spacing="-4">DUIT</text>
+    <rect x="362" y="282" width="32" height="32" fill="#ffd60a"/>
+  </g>
+</svg>
