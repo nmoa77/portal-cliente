@@ -778,3 +778,94 @@ label {
   .mockup-grid { grid-template-columns: 1fr; }
   .project-row { grid-template-columns: 1fr; }
 }
+
+/* ================================================================
+   Tabelas responsivas — em mobile (<= 720px) cada linha vira um
+   cartão empilhado, com a header escondida. Cada célula mostra a
+   sua label antes do valor (via atributo data-label injetado pelo JS
+   ou, caso ausente, pelo nome do header capturado em CSS).
+   Funciona para todas as listagens (Clientes, Subscrições, Serviços,
+   Orçamentos, Notificações, Suporte, etc.)
+   ================================================================ */
+@media (max-width: 720px) {
+  .card.table-card { padding: 8px; overflow-x: visible; }
+  .table { display: block; }
+  .table thead { display: none; }
+  .table tbody, .table tr, .table td { display: block; width: 100%; }
+  .table tr {
+    border: 1px solid var(--line-2);
+    border-radius: 12px;
+    background: var(--surface, #fff);
+    margin-bottom: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 1px 1px rgba(10,10,10,0.03);
+  }
+  .table tr.interactive:hover { background: var(--bg-2); }
+  .table td {
+    border: none;
+    padding: 6px 0;
+    text-align: left !important;
+    white-space: normal !important;
+    font-size: 14px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-weight: 500;
+    padding-top: 2px;
+    min-width: 80px;
+  }
+  /* Esconde células que ficaram vazias para não poluir o cartão */
+  .table td:empty { display: none; }
+  /* A primeira célula (geralmente Cliente/Nome) ocupa cabeçalho do cartão */
+  .table td:first-child {
+    flex-direction: column;
+    align-items: stretch;
+    border-bottom: 1px solid var(--line-2);
+    padding-bottom: 10px;
+    margin-bottom: 4px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .table td:first-child::before { display: none; }
+  /* Botões de ação em cartões alinhados à direita */
+  .table td:last-child {
+    justify-content: flex-end;
+    border-top: 1px solid var(--line-2);
+    padding-top: 10px;
+    margin-top: 4px;
+  }
+  .table td:last-child::before { display: none; }
+
+  /* Page head: esconder a barra "seg" lateral em mobile e empilhar acções */
+  .page-head { flex-wrap: wrap; gap: 14px; }
+  .page-head-actions { width: 100%; flex-wrap: wrap; }
+
+  /* Calendário e cal-toolbar quebram melhor */
+  .cal-toolbar { flex-direction: column; align-items: stretch; gap: 8px; }
+  .cal-filters { overflow-x: auto; flex-wrap: nowrap; }
+
+  /* Modais ocupam quase a largura total */
+  .modal { width: 96%; max-height: 88vh; overflow-y: auto; }
+  .modal.wide { width: 96%; }
+}
+
+/* Em ecrãs muito pequenos (< 480px), reduzir ainda mais */
+@media (max-width: 480px) {
+  h1 { font-size: 28px; }
+  .main { padding: 14px; }
+  .card { padding: 16px; }
+  .card.stat .value { font-size: 28px; }
+  .table tr { padding: 10px 12px; }
+  .table td::before { min-width: 70px; }
+  .btn { padding: 10px 14px; font-size: 13px; }
+  .btn-sm { padding: 8px 10px; font-size: 12px; }
+}

@@ -229,6 +229,32 @@ document.documentElement.setAttribute(
   localStorage.getItem('duit-theme') || document.documentElement.getAttribute('data-theme') || 'light'
 );
 
+/* ---- Acessibilidade: injetar data-label nas tabelas para layout mobile.
+   No modo cartão (ecrãs pequenos), o CSS usa content:attr(data-label) para
+   mostrar o nome da coluna antes do valor. Em vez de atualizar cada
+   viewX(), observamos o <main> e aplicamos sempre que houver novas tabelas. */
+function applyTableLabels(root) {
+  const tables = (root || document).querySelectorAll('table.table');
+  tables.forEach(t => {
+    const headers = Array.from(t.querySelectorAll('thead th')).map(th => th.textContent.trim());
+    if (headers.length === 0) return;
+    t.querySelectorAll('tbody tr').forEach(tr => {
+      Array.from(tr.children).forEach((td, i) => {
+        const label = headers[i] || '';
+        if (label && !td.hasAttribute('data-label')) td.setAttribute('data-label', label);
+      });
+    });
+  });
+}
+(function watchTables() {
+  if (typeof MutationObserver === 'undefined') return;
+  const main = document.getElementById('main') || document.body;
+  const obs = new MutationObserver(() => applyTableLabels(main));
+  obs.observe(main, { childList: true, subtree: true });
+  // Aplica também na primeira render
+  document.addEventListener('DOMContentLoaded', () => applyTableLabels(document));
+})();
+
 /* ---- Registo do Service Worker (PWA) ---------------------------------- */
 if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
   window.addEventListener('load', () => {
