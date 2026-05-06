@@ -4,7 +4,7 @@
    o portal abra mesmo sem ligação, com a versão mais recente que ficou em cache.
 */
 
-const VERSION = 'duit-v1';
+const VERSION = 'duit-v3';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -76,7 +76,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Assets estáticos: cache-first.
+  // CSS e JS — stale-while-revalidate: serve a cache imediatamente para
+  // velocidade, mas vai buscar a versão nova em background para a próxima visita.
+  // Isto garante que mudanças de design chegam ao utilizador sem esperar
+  // por um reset manual da app.
+  if (/\.(css|js)$/i.test(url.pathname)) {
+    event.respondWith(
+      caches.open(RUNTIME_CACHE).then(async (cache) => {
+        const cached = await cache.match(req);
+        const fetchPromise = fetch(req)
+          .then((res) => {
+            if (res.ok && (res.type === 'basic' || res.type === 'default')) {
+              cache.put(req, res.clone()).catch(() => null);
+            }
+            return res;
+          })
+          .catch(() => cached);
+        return cached || fetchPromise;
+      })
+    );
+    return;
+  }
+
+  // Outros assets estáticos (imagens, fonts, etc.): cache-first com fallback de rede.
   event.respondWith(
     caches.match(req).then((cached) => {
       if (cached) return cached;
@@ -91,4 +113,10 @@ self.addEventListener('fetch', (event) => {
         .catch(() => cached);
     })
   );
+});
+
+// Permite ao cliente (frontend) forçar um SKIP_WAITING via postMessage —
+// usado pelo botão "Atualizar" que pode ser exposto na UI.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
 });

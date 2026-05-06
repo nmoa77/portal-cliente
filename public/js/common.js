@@ -255,13 +255,61 @@ function applyTableLabels(root) {
   document.addEventListener('DOMContentLoaded', () => applyTableLabels(document));
 })();
 
-/* ---- Registo do Service Worker (PWA) ---------------------------------- */
+/* ---- Registo do Service Worker (PWA) ----------------------------------
+   Quando há uma nova versão do SW (= mudámos VERSION em sw.js, ou novos
+   ficheiros pré-cache), aparece um pequeno cartão a oferecer "Atualizar".
+   Clicar manda SKIP_WAITING ao SW novo e recarrega a página, garantindo
+   que o utilizador apanha a nova versão sem reinstalar a app. */
 if ('serviceWorker' in navigator && window.location.protocol !== 'file:') {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch((e) => {
+    navigator.serviceWorker.register('/sw.js').then((reg) => {
+      // Se já há um SW à espera (instalado mas não ativo), oferece atualizar.
+      if (reg.waiting) showUpdateBanner(reg.waiting);
+      reg.addEventListener('updatefound', () => {
+        const next = reg.installing;
+        if (!next) return;
+        next.addEventListener('statechange', () => {
+          if (next.state === 'installed' && navigator.serviceWorker.controller) {
+            showUpdateBanner(next);
+          }
+        });
+      });
+    }).catch((e) => {
       console.warn('SW registration failed:', e && e.message);
     });
+
+    // Quando o SW novo assume o controlo, recarrega para apanhar tudo fresco.
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
   });
+}
+function showUpdateBanner(worker) {
+  if (document.getElementById('duit-update-cta')) return;
+  const el = document.createElement('div');
+  el.id = 'duit-update-cta';
+  el.style = `
+    position: fixed; left: 16px; bottom: 16px; z-index: 9001;
+    background: #0a0a0a; color: #fff; padding: 12px 14px;
+    border-radius: 12px; box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+    font-size: 13px; max-width: 320px;
+    border-left: 4px solid #ffd60a;
+  `;
+  el.innerHTML = `
+    <div style="font-weight:600; margin-bottom:6px;">Nova versão disponível</div>
+    <div style="color:rgba(255,255,255,0.78); margin-bottom:10px; line-height:1.5;">
+      O DUIT foi atualizado. Recarregue para aplicar as novidades.
+    </div>
+    <button style="background:#ffd60a; color:#0a0a0a; border:0; padding:7px 12px; border-radius:8px; font-weight:600; cursor:pointer; font-family:inherit;">Atualizar agora</button>
+  `;
+  el.querySelector('button').addEventListener('click', () => {
+    try { worker.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {}
+    el.remove();
+  });
+  document.body.appendChild(el);
 }
 
 /* ---- Prompt de instalação (Android/Chrome) ---------------------------- */
