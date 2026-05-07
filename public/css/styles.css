@@ -404,7 +404,7 @@ label {
   color: var(--muted); font-family: 'Space Grotesk';
   font-size: 14px; font-weight: 400; margin-left: 8px;
 }
-.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); width: 100%; }
 .cal-dow {
   padding: 10px; font-size: 10px; text-transform: uppercase;
   color: var(--muted); letter-spacing: .1em; text-align: center;
@@ -412,6 +412,8 @@ label {
 }
 .cal-day {
   min-height: 108px;
+  min-width: 0;            /* permite que o grid 1fr respeite a largura disponível */
+  overflow: hidden;        /* impede que posts compridos empurrem a coluna */
   border-right: 1px solid var(--line-2); border-bottom: 1px solid var(--line-2);
   padding: 8px; display: flex; flex-direction: column; gap: 3px;
   font-size: 12px; transition: background var(--t); cursor: pointer;
