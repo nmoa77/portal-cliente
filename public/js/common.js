@@ -356,8 +356,8 @@ window.addEventListener('appinstalled', () => {
     return;
   }
 
-  const TIMEOUT_MS = 5 * 60 * 1000;     // 5 minutos
-  const WARN_MS    = 30 * 1000;         // aviso 30s antes
+  const TIMEOUT_MS = 25 * 60 * 1000;    // 25 minutos
+  const WARN_MS    = 60 * 1000;         // aviso 60s antes
   let warnTimer = null;
   let logoutTimer = null;
   let warnEl = null;
@@ -390,7 +390,7 @@ window.addEventListener('appinstalled', () => {
     warnEl.innerHTML = `
       <div style="font-weight:600; margin-bottom:4px;">Sessão prestes a expirar</div>
       <div style="color:rgba(255,255,255,0.75);">
-        Por inatividade, a sessão será encerrada em 30 segundos. Mexa o rato ou clique para continuar.
+        Por inatividade, a sessão será encerrada em 1 minuto. Mexa o rato ou clique para continuar.
       </div>
     `;
     document.body.appendChild(warnEl);
