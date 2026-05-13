@@ -210,6 +210,32 @@ CREATE TABLE IF NOT EXISTS social_posts (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS announcements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'info' CHECK(kind IN ('info','warning','success','urgent')),
+  starts_at TEXT,
+  ends_at TEXT,
+  dismissible INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  author_id INTEGER,
+  FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_announcements_active ON announcements(starts_at, ends_at);
+
+CREATE TABLE IF NOT EXISTS announcement_dismissals (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  announcement_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  dismissed_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(announcement_id, user_id),
+  FOREIGN KEY (announcement_id) REFERENCES announcements(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_announcement_dismissals_user ON announcement_dismissals(user_id);
+
 CREATE TABLE IF NOT EXISTS notifications (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER,

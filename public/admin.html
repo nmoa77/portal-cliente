@@ -295,6 +295,48 @@
   </div>
 </div>
 
+<div class="overlay" id="modal-announcement">
+  <div class="modal wide">
+    <h3 id="modal-announcement-title">Novo anúncio</h3>
+    <p class="lede">Mensagem que aparece a todos os clientes no topo da Home. Use para avisos gerais, manutenção, férias, novidades.</p>
+    <form id="announcementForm">
+      <input type="hidden" id="ann-id">
+      <div class="field"><label>Título</label><input id="ann-title" required maxlength="120" placeholder="Ex: Fechado de 1 a 15 de agosto"></div>
+      <div class="field"><label>Mensagem</label>
+        <textarea id="ann-body" rows="5" required placeholder="Descreva o aviso. Pode usar quebras de linha para parágrafos."></textarea>
+      </div>
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Tipo</label>
+          <select id="ann-kind">
+            <option value="info">Informativo (cinza/azul)</option>
+            <option value="success">Boa notícia (verde)</option>
+            <option value="warning">Atenção (amarelo)</option>
+            <option value="urgent">Urgente (vermelho)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:8px; padding-top:18px;">
+            <input type="checkbox" id="ann-dismissible" checked style="width:18px; height:18px; accent-color:#ffd60a;">
+            <span style="font-size:13px;">Pode ser dispensado pelo cliente</span>
+          </label>
+        </div>
+      </div>
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Mostrar a partir de (opcional)</label><input id="ann-starts" type="datetime-local"></div>
+        <div class="field"><label>Mostrar até (opcional)</label><input id="ann-ends" type="datetime-local"></div>
+      </div>
+      <div class="field">
+        <label>Pré-visualização</label>
+        <div id="ann-preview" style="padding:14px 16px; border-radius:12px; font-size:13px; line-height:1.55;"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close="modal-announcement">Cancelar</button>
+        <button type="submit" class="btn btn-yellow" id="ann-submit">Publicar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="overlay" id="modal-quote">
   <div class="modal wide">
     <h3 id="modal-quote-title">Novo orçamento</h3>

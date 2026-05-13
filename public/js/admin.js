@@ -65,6 +65,8 @@ function renderShell() {
     { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   alert: s.unseenQuoteResponses,   alertTitle: `${s.unseenQuoteResponses || 0} resposta(s) de cliente por ver` },
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',alert: s.pendingCancels,         alertTitle: `${s.pendingCancels || 0} cancelamento(s) pendente(s)` },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      alert: s.unreadAdminTickets,     alertTitle: `${s.unreadAdminTickets || 0} ticket(s) com nova resposta de cliente` },
+    { id: 'announcements', icon: 'sparkle', label: 'Anúncios',
+        count: s.activeAnnouncements, countTitle: `${s.activeAnnouncements || 0} anúncio(s) ativo(s)` },
     { id: 'notifications', icon: 'bell', label: 'Notificações' },
     { id: 'profile',   icon: 'user',    label: 'Perfil' },
   ];
@@ -118,6 +120,7 @@ async function go(view) {
     else if (view === 'invoices') await viewInvoices(main);
     else if (view === 'cancels')  await viewCancels(main);
     else if (view === 'support')  await viewSupport(main);
+    else if (view === 'announcements') await viewAnnouncements(main);
     else if (view === 'notifications') await viewNotifications(main);
     else if (view === 'profile')  await viewProfile(main);
   } catch (e) {
@@ -1901,6 +1904,165 @@ async function setTicketStatus(id, status) {
 /* =========================================================================
    NOTIFICAÇÕES
    ========================================================================= */
+/* =========================================================================
+   ANÚNCIOS — admin publica mensagens visíveis no topo da Home dos clientes.
+   ========================================================================= */
+const ANN_STYLES = {
+  info:    { bg: '#e8f0fe', border: '#9bb8dc', color: '#1c3a5c', pill: 'accent', label: 'Informativo' },
+  success: { bg: '#e8f5e8', border: '#9bce9b', color: '#2a5e2a', pill: 'ok',     label: 'Boa notícia' },
+  warning: { bg: '#fffbe6', border: '#ecd96a', color: '#5a4a00', pill: 'warn',   label: 'Atenção' },
+  urgent:  { bg: '#fff0ee', border: '#f4baba', color: '#9a2828', pill: 'err',    label: 'Urgente' },
+};
+
+async function viewAnnouncements(main) {
+  let rows = [];
+  try { rows = await api('/api/admin/announcements'); }
+  catch (e) { main.innerHTML = `<div class="empty">Erro: ${escapeHtml(e.message)}</div>`; return; }
+  state.announcements = rows;
+
+  const statusPillMap = {
+    active:    '<span class="pill ok">ativo</span>',
+    scheduled: '<span class="pill warn">agendado</span>',
+    expired:   '<span class="pill muted">expirado</span>',
+  };
+
+  main.innerHTML = `
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Comunicação</div>
+        <h1>Anúncios</h1>
+        <p class="lede">Publique avisos gerais que aparecem no topo da área de todos os clientes. Use para férias, manutenção, novidades ou comunicação institucional.</p>
+      </div>
+      <div class="page-head-actions">
+        <button class="btn btn-yellow" onclick="openNewAnnouncement()">${svg('plus')} Novo anúncio</button>
+      </div>
+    </div>
+
+    ${rows.length === 0 ? `
+      <div class="card"><div class="empty" style="padding:40px 0;">
+        Ainda não publicou nenhum anúncio. Use o botão acima para criar o primeiro.
+      </div></div>
+    ` : `
+      <div class="grid" style="gap:14px;">
+        ${rows.map(a => {
+          const st = ANN_STYLES[a.kind] || ANN_STYLES.info;
+          return `
+          <div class="card" style="border-left:4px solid ${st.border};">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
+              <div style="flex:1; min-width:260px;">
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
+                  <h3 style="margin:0; font-family:'Clash Display'; font-size:20px;">${escapeHtml(a.title)}</h3>
+                  <span class="pill ${st.pill}">${st.label}</span>
+                  ${statusPillMap[a.status] || ''}
+                  ${a.dismissible ? '<span class="pill muted">dispensável</span>' : '<span class="pill muted">fixo</span>'}
+                </div>
+                <div style="color:var(--muted); font-size:12px; margin-bottom:10px;">
+                  Por ${escapeHtml(a.author_name || '—')} · criado ${fmtDateTime(a.created_at)}
+                  ${a.starts_at ? ' · início ' + fmtDateTime(a.starts_at) : ''}
+                  ${a.ends_at ? ' · termina ' + fmtDateTime(a.ends_at) : ''}
+                  · ${a.dismissed_count} cliente(s) dispensaram
+                </div>
+                <div style="padding:12px 14px; background:${st.bg}; border-radius:10px; color:${st.color}; font-size:14px; line-height:1.55; white-space:pre-wrap;">${escapeHtml(a.body)}</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px; min-width:160px;">
+                <button class="btn btn-ghost btn-sm" onclick="openEditAnnouncement(${a.id})">${svg('edit')} Editar</button>
+                ${a.dismissed_count > 0 ? `<button class="btn btn-ghost btn-sm" onclick="resetAnnouncementDismissals(${a.id})">Reforçar (limpar dispensas)</button>` : ''}
+                <button class="btn btn-icon" title="Apagar" onclick="deleteAnnouncement(${a.id}, '${escapeHtml(a.title).replace(/'/g,"\\'")}')">${svg('trash')}</button>
+              </div>
+            </div>
+          </div>
+        `;}).join('')}
+      </div>
+    `}
+  `;
+}
+
+function annPreview() {
+  const kind = document.getElementById('ann-kind').value;
+  const title = document.getElementById('ann-title').value || 'Título do anúncio';
+  const body = document.getElementById('ann-body').value || 'Mensagem ainda em branco.';
+  const st = ANN_STYLES[kind] || ANN_STYLES.info;
+  const preview = document.getElementById('ann-preview');
+  preview.style.background = st.bg;
+  preview.style.border = `1px solid ${st.border}`;
+  preview.style.color = st.color;
+  preview.innerHTML = `
+    <div style="font-weight:600; margin-bottom:4px;">${escapeHtml(title)}</div>
+    <div style="white-space:pre-wrap;">${escapeHtml(body)}</div>
+  `;
+}
+
+function openNewAnnouncement() {
+  document.getElementById('modal-announcement-title').textContent = 'Novo anúncio';
+  document.getElementById('ann-submit').textContent = 'Publicar';
+  document.getElementById('ann-id').value = '';
+  document.getElementById('ann-title').value = '';
+  document.getElementById('ann-body').value = '';
+  document.getElementById('ann-kind').value = 'info';
+  document.getElementById('ann-dismissible').checked = true;
+  document.getElementById('ann-starts').value = '';
+  document.getElementById('ann-ends').value = '';
+  annPreview();
+  openModal('modal-announcement');
+  // Bind eventos de pré-visualização (uma vez)
+  if (!state._annPreviewBound) {
+    ['ann-title','ann-body','ann-kind'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', annPreview);
+      if (el) el.addEventListener('change', annPreview);
+    });
+    state._annPreviewBound = true;
+  }
+}
+
+function openEditAnnouncement(id) {
+  const a = (state.announcements || []).find(x => x.id === id);
+  if (!a) { toast('Anúncio não encontrado.', 'cancel'); return; }
+  document.getElementById('modal-announcement-title').textContent = 'Editar anúncio';
+  document.getElementById('ann-submit').textContent = 'Guardar alterações';
+  document.getElementById('ann-id').value = a.id;
+  document.getElementById('ann-title').value = a.title || '';
+  document.getElementById('ann-body').value = a.body || '';
+  document.getElementById('ann-kind').value = a.kind || 'info';
+  document.getElementById('ann-dismissible').checked = a.dismissible === 1;
+  document.getElementById('ann-starts').value = a.starts_at ? toLocalDateTime(a.starts_at) : '';
+  document.getElementById('ann-ends').value = a.ends_at ? toLocalDateTime(a.ends_at) : '';
+  annPreview();
+  openModal('modal-announcement');
+  if (!state._annPreviewBound) {
+    ['ann-title','ann-body','ann-kind'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', annPreview);
+      if (el) el.addEventListener('change', annPreview);
+    });
+    state._annPreviewBound = true;
+  }
+}
+
+// Converte "YYYY-MM-DD HH:MM:SS" → "YYYY-MM-DDTHH:MM" para o input datetime-local.
+function toLocalDateTime(s) {
+  if (!s) return '';
+  return String(s).slice(0,16).replace(' ', 'T');
+}
+
+async function deleteAnnouncement(id, title) {
+  if (!confirm(`Apagar o anúncio "${title}"?\n\nDesaparece imediatamente da área de todos os clientes.`)) return;
+  try {
+    await api(`/api/admin/announcements/${id}`, { method: 'DELETE' });
+    toast('Anúncio apagado.');
+    go('announcements');
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
+async function resetAnnouncementDismissals(id) {
+  if (!confirm('Limpar as dispensas deste anúncio?\n\nClientes que já o tinham dispensado vão voltar a vê-lo no topo da Home.')) return;
+  try {
+    await api(`/api/admin/announcements/${id}/reset-dismissals`, { method: 'POST' });
+    toast('Anúncio reposto para todos os clientes.', 'check');
+    go('announcements');
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
 async function viewNotifications(main) {
   const rows = await api('/api/notifications');
   const kindMap = {
@@ -2091,6 +2253,34 @@ document.addEventListener('submit', async (e) => {
       });
       e.target.reset();
       toast('Password atualizada.', 'check');
+    } catch (err) { toast(err.message, 'cancel'); }
+    return;
+  }
+
+  if (e.target.id === 'announcementForm') {
+    e.preventDefault();
+    const id = document.getElementById('ann-id').value;
+    // datetime-local devolve "YYYY-MM-DDTHH:MM"; o backend espera "YYYY-MM-DD HH:MM:SS".
+    const norm = (s) => s ? s.replace('T', ' ') + (s.length === 16 ? ':00' : '') : null;
+    const body = {
+      title: document.getElementById('ann-title').value.trim(),
+      body:  document.getElementById('ann-body').value.trim(),
+      kind:  document.getElementById('ann-kind').value,
+      dismissible: document.getElementById('ann-dismissible').checked,
+      starts_at: norm(document.getElementById('ann-starts').value),
+      ends_at:   norm(document.getElementById('ann-ends').value),
+    };
+    if (!body.title || !body.body) { toast('Preencha o título e a mensagem.', 'cancel'); return; }
+    try {
+      if (id) {
+        await api(`/api/admin/announcements/${id}`, { method: 'PATCH', body });
+        toast('Anúncio atualizado.', 'check');
+      } else {
+        await api('/api/admin/announcements', { method: 'POST', body });
+        toast('Anúncio publicado a todos os clientes.', 'check');
+      }
+      closeModal('modal-announcement');
+      go('announcements');
     } catch (err) { toast(err.message, 'cancel'); }
     return;
   }

@@ -102,10 +102,11 @@ async function go(view) {
    HOME
    ========================================================================= */
 async function viewHome(main) {
-  const [subs, projs, invs] = await Promise.all([
+  const [subs, projs, invs, announcements] = await Promise.all([
     api('/api/subscriptions'),
     api('/api/projects'),
     api('/api/invoices'),
+    api('/api/announcements').catch(() => []),
   ]);
   const s = state.summary || {};
   const now = new Date();
@@ -133,6 +134,27 @@ async function viewHome(main) {
         <button class="btn btn-yellow" onclick="go('projects')">${svg('folder')} Os meus projetos</button>
       </div>
     </div>
+
+    ${(announcements || []).map(a => {
+      const styles = {
+        info:    { bg: '#e8f0fe', border: '#9bb8dc', color: '#1c3a5c' },
+        success: { bg: '#e8f5e8', border: '#9bce9b', color: '#2a5e2a' },
+        warning: { bg: '#fffbe6', border: '#ecd96a', color: '#5a4a00' },
+        urgent:  { bg: '#fff0ee', border: '#f4baba', color: '#9a2828' },
+      };
+      const s = styles[a.kind] || styles.info;
+      return `
+        <div class="card" style="margin-bottom:12px; border-left:4px solid ${s.border}; background:${s.bg}; color:${s.color};">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+            <div style="flex:1; min-width:0;">
+              <h3 style="margin:0 0 6px 0; font-family:'Clash Display'; font-size:18px; color:${s.color};">${escapeHtml(a.title)}</h3>
+              <div style="font-size:14px; line-height:1.55; white-space:pre-wrap;">${escapeHtml(a.body)}</div>
+            </div>
+            ${a.dismissible ? `<button onclick="dismissAnnouncement(${a.id})" title="Dispensar este aviso" style="background:transparent; border:0; color:${s.color}; opacity:0.65; cursor:pointer; padding:4px 8px; font-size:18px; line-height:1;">×</button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('')}
 
     ${renewals.length ? `
       <div class="card" style="margin-bottom:14px; border-left:4px solid #ffd60a; background:#fffbe6;">
@@ -359,6 +381,13 @@ async function viewSubs(main) {
       </div>
     `).join('')}
   `;
+}
+
+async function dismissAnnouncement(id) {
+  try {
+    await api(`/api/announcements/${id}/dismiss`, { method: 'POST' });
+    go('home');
+  } catch (err) { toast(err.message, 'cancel'); }
 }
 
 async function openCancel(subId) {

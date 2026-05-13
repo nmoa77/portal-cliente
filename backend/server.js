@@ -247,6 +247,12 @@ app.get('/api/stats', requireAdmin, (req, res) => {
   const totalProspects = db.prepare(
     `SELECT COUNT(*) c FROM users WHERE role='client' AND is_prospect=1`
   ).get().c;
+  // Anúncios ativos (dentro do intervalo de datas, se definido)
+  const activeAnnouncements = db.prepare(
+    `SELECT COUNT(*) c FROM announcements
+      WHERE (starts_at IS NULL OR starts_at <= datetime('now'))
+        AND (ends_at   IS NULL OR ends_at   >= datetime('now'))`
+  ).get().c;
   // Prospects que já responderam ao orçamento (aceite ou rejeitado) e ainda
   // estão por converter — alerta ativo
   const pendingProspectActions = db.prepare(
@@ -265,7 +271,7 @@ app.get('/api/stats', requireAdmin, (req, res) => {
     pendingCancels, pendingQuotes, pendingSubs,
     unreadClientNotes, unseenQuoteResponses,
     unreadAdminTickets, pendingPostSuggestions, todayDrafts,
-    totalProspects, pendingProspectActions,
+    totalProspects, pendingProspectActions, activeAnnouncements,
   });
 });
 
@@ -1885,6 +1891,117 @@ app.post('/api/social-posts/bulk-generate', requireAdmin, (req, res) => {
   const created = txn(dates);
 
   res.json({ ok: true, created, planned: dates.length });
+});
+
+/* ================================================================
+   ANÚNCIOS — admin publica para todos os clientes verem na Home
+   ================================================================ */
+
+// Helper para classificar o estado de um anúncio em relação ao tempo atual.
+function announcementStatus(a) {
+  const now = new Date().toISOString().slice(0,19).replace('T',' ');
+  if (a.ends_at && a.ends_at < now) return 'expired';
+  if (a.starts_at && a.starts_at > now) return 'scheduled';
+  return 'active';
+}
+
+// Listagem para admin (todos os anúncios + contagens)
+app.get('/api/admin/announcements', requireAdmin, (req, res) => {
+  const rows = db.prepare(
+    `SELECT a.*, u.name author_name,
+            (SELECT COUNT(*) FROM announcement_dismissals d WHERE d.announcement_id=a.id) AS dismissed_count
+       FROM announcements a
+       LEFT JOIN users u ON u.id = a.author_id
+      ORDER BY a.created_at DESC`
+  ).all();
+  res.json(rows.map(a => ({ ...a, status: announcementStatus(a) })));
+});
+
+app.post('/api/admin/announcements', requireAdmin, (req, res) => {
+  const { title, body, kind, starts_at, ends_at, dismissible } = req.body || {};
+  if (!title || !body) return res.status(400).json({ error: 'Título e mensagem obrigatórios.' });
+  const allowed = ['info','warning','success','urgent'];
+  const k = allowed.includes(kind) ? kind : 'info';
+  const info = db.prepare(
+    `INSERT INTO announcements (title, body, kind, starts_at, ends_at, dismissible, author_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    title.trim(), body.trim(), k,
+    starts_at || null, ends_at || null,
+    (dismissible === false || dismissible === 0) ? 0 : 1,
+    req.user.id
+  );
+  res.status(201).json({ id: info.lastInsertRowid });
+});
+
+app.patch('/api/admin/announcements/:id', requireAdmin, (req, res) => {
+  const { title, body, kind, starts_at, ends_at, dismissible } = req.body || {};
+  const a = db.prepare(`SELECT id FROM announcements WHERE id=?`).get(req.params.id);
+  if (!a) return res.status(404).json({ error: 'Anúncio não encontrado.' });
+  const allowed = ['info','warning','success','urgent'];
+  db.prepare(
+    `UPDATE announcements SET
+        title=COALESCE(?, title),
+        body=COALESCE(?, body),
+        kind=COALESCE(?, kind),
+        starts_at=?,
+        ends_at=?,
+        dismissible=COALESCE(?, dismissible),
+        updated_at=datetime('now')
+      WHERE id=?`
+  ).run(
+    title ?? null,
+    body ?? null,
+    kind && allowed.includes(kind) ? kind : null,
+    starts_at || null,
+    ends_at || null,
+    dismissible === undefined ? null : (dismissible ? 1 : 0),
+    req.params.id
+  );
+  res.json({ ok: true });
+});
+
+app.delete('/api/admin/announcements/:id', requireAdmin, (req, res) => {
+  const info = db.prepare(`DELETE FROM announcements WHERE id=?`).run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Anúncio não encontrado.' });
+  res.json({ ok: true });
+});
+
+// Limpa todas as dismissals de um anúncio (para o admin "reforçar" um aviso
+// para quem já o tinha dispensado).
+app.post('/api/admin/announcements/:id/reset-dismissals', requireAdmin, (req, res) => {
+  db.prepare(`DELETE FROM announcement_dismissals WHERE announcement_id=?`).run(req.params.id);
+  res.json({ ok: true });
+});
+
+// Cliente: anúncios ativos que ainda não dispensou.
+app.get('/api/announcements', requireAuth, (req, res) => {
+  if (req.user.role === 'admin') return res.json([]);
+  const rows = db.prepare(
+    `SELECT a.id, a.title, a.body, a.kind, a.dismissible, a.created_at,
+            a.starts_at, a.ends_at,
+            CASE WHEN d.id IS NULL THEN 0 ELSE 1 END AS dismissed
+       FROM announcements a
+       LEFT JOIN announcement_dismissals d
+              ON d.announcement_id = a.id AND d.user_id = ?
+      WHERE (a.starts_at IS NULL OR a.starts_at <= datetime('now'))
+        AND (a.ends_at   IS NULL OR a.ends_at   >= datetime('now'))
+      ORDER BY a.created_at DESC`
+  ).all(req.user.id);
+  // Filtra os que já foram dispensados pelo próprio cliente
+  res.json(rows.filter(r => r.dismissed === 0));
+});
+
+// Cliente: dispensar um anúncio (só se for dismissible).
+app.post('/api/announcements/:id/dismiss', requireAuth, (req, res) => {
+  if (req.user.role === 'admin') return res.status(400).json({ error: 'Apenas clientes podem dispensar anúncios.' });
+  const a = db.prepare(`SELECT id, dismissible FROM announcements WHERE id=?`).get(req.params.id);
+  if (!a) return res.status(404).json({ error: 'Anúncio não encontrado.' });
+  if (a.dismissible !== 1) return res.status(409).json({ error: 'Este aviso não pode ser dispensado.' });
+  db.prepare(
+    `INSERT OR IGNORE INTO announcement_dismissals (announcement_id, user_id) VALUES (?, ?)`
+  ).run(a.id, req.user.id);
+  res.json({ ok: true });
 });
 
 /* ================================================================
