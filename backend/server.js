@@ -1894,6 +1894,264 @@ app.post('/api/social-posts/bulk-generate', requireAdmin, (req, res) => {
 });
 
 /* ================================================================
+   META ADS — campanhas, conjuntos e anúncios, com estatísticas
+   ================================================================ */
+
+// Constrói a nomenclatura de uma campanha no estilo do Excel original.
+function buildCampaignNomenclature(c) {
+  return [
+    c.empresa,
+    `${c.produto} | ${c.ref_year}-${c.ref_month}-${c.ref_day} | ${c.objetivo} | ${c.budget || 0} | ${capitalize(c.temperatura)} | ${c.country || ''}`,
+  ].filter(Boolean).join(' ::. ');
+}
+function buildSetNomenclature(s) {
+  return `${s.ref_year}-${s.ref_month}-${s.ref_day} | ${s.audience_name} | ${s.segmentation}`;
+}
+function buildAdNomenclature(a) {
+  return `${a.formato} | ${a.ref_year}-${a.ref_month}-${a.ref_day} | ${a.variacao}`;
+}
+function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+function loadCampaignFull(campaignId) {
+  const c = db.prepare(
+    `SELECT ac.*, u.name client_name, u.company client_company
+       FROM ad_campaigns ac JOIN users u ON u.id = ac.user_id
+      WHERE ac.id = ?`
+  ).get(campaignId);
+  if (!c) return null;
+  c.empresa = c.client_company || c.client_name;
+  const sets = db.prepare(`SELECT * FROM ad_sets WHERE campaign_id = ? ORDER BY id`).all(campaignId);
+  for (const s of sets) {
+    s.ads = db.prepare(`SELECT * FROM ad_creatives WHERE ad_set_id = ? ORDER BY id`).all(s.id);
+    s.nomenclature = buildSetNomenclature(s);
+    s.spent = s.ads.reduce((t, a) => t + (Number(a.spent) || 0), 0);
+    s.clicks = s.ads.reduce((t, a) => t + (Number(a.clicks) || 0), 0);
+    for (const a of s.ads) a.nomenclature = buildAdNomenclature(a);
+  }
+  const totalSpent  = sets.reduce((t, s) => t + s.spent, 0);
+  const totalClicks = sets.reduce((t, s) => t + s.clicks, 0);
+  return {
+    ...c,
+    nomenclature: buildCampaignNomenclature(c),
+    sets,
+    total_spent: +totalSpent.toFixed(2),
+    total_clicks: totalClicks,
+    avg_cpc: totalClicks > 0 ? +(totalSpent / totalClicks).toFixed(2) : 0,
+  };
+}
+
+// Lista de campanhas para o admin
+app.get('/api/ad-campaigns', requireAdmin, (req, res) => {
+  const rows = db.prepare(
+    `SELECT ac.*, u.name client_name, u.company client_company,
+            (SELECT COALESCE(SUM(spent),0) FROM ad_creatives c
+               JOIN ad_sets s ON s.id = c.ad_set_id
+              WHERE s.campaign_id = ac.id) AS total_spent,
+            (SELECT COALESCE(SUM(clicks),0) FROM ad_creatives c
+               JOIN ad_sets s ON s.id = c.ad_set_id
+              WHERE s.campaign_id = ac.id) AS total_clicks,
+            (SELECT COUNT(*) FROM ad_sets s WHERE s.campaign_id = ac.id) AS set_count,
+            (SELECT COUNT(*) FROM ad_creatives c
+               JOIN ad_sets s ON s.id = c.ad_set_id
+              WHERE s.campaign_id = ac.id) AS ad_count
+       FROM ad_campaigns ac
+       JOIN users u ON u.id = ac.user_id
+      ORDER BY ac.ref_year DESC, ac.ref_month DESC, ac.ref_day DESC, ac.id DESC`
+  ).all();
+  res.json(rows.map(c => ({
+    ...c,
+    empresa: c.client_company || c.client_name,
+    nomenclature: buildCampaignNomenclature({ ...c, empresa: c.client_company || c.client_name }),
+    avg_cpc: c.total_clicks > 0 ? +((c.total_spent || 0) / c.total_clicks).toFixed(2) : 0,
+  })));
+});
+
+app.get('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
+  const full = loadCampaignFull(Number(req.params.id));
+  if (!full) return res.status(404).json({ error: 'Campanha não encontrada.' });
+  res.json(full);
+});
+
+app.post('/api/ad-campaigns', requireAdmin, (req, res) => {
+  const { user_id, produto, objetivo, temperatura, country,
+          ref_year, ref_month, ref_day, budget, starts_at, ends_at, notes } = req.body || {};
+  if (!user_id || !produto || !objetivo) {
+    return res.status(400).json({ error: 'Cliente, produto e objetivo obrigatórios.' });
+  }
+  const now = new Date();
+  const info = db.prepare(
+    `INSERT INTO ad_campaigns
+       (user_id, produto, objetivo, temperatura, country,
+        ref_year, ref_month, ref_day, budget, starts_at, ends_at, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    user_id, produto.trim(), objetivo.trim(),
+    ['frio','morno','quente'].includes(temperatura) ? temperatura : 'morno',
+    country || 'Portugal',
+    Number(ref_year) || now.getFullYear(),
+    Number(ref_month) || (now.getMonth()+1),
+    Number(ref_day) || now.getDate(),
+    Number(budget) || 0,
+    starts_at || null, ends_at || null,
+    notes || null
+  );
+  res.status(201).json({ id: info.lastInsertRowid });
+});
+
+app.patch('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
+  const c = db.prepare(`SELECT id FROM ad_campaigns WHERE id=?`).get(req.params.id);
+  if (!c) return res.status(404).json({ error: 'Campanha não encontrada.' });
+  const { produto, objetivo, temperatura, country,
+          ref_year, ref_month, ref_day, budget, starts_at, ends_at, notes } = req.body || {};
+  db.prepare(
+    `UPDATE ad_campaigns SET
+       produto = COALESCE(?, produto),
+       objetivo = COALESCE(?, objetivo),
+       temperatura = COALESCE(?, temperatura),
+       country = COALESCE(?, country),
+       ref_year = COALESCE(?, ref_year),
+       ref_month = COALESCE(?, ref_month),
+       ref_day = COALESCE(?, ref_day),
+       budget = COALESCE(?, budget),
+       starts_at = ?,
+       ends_at = ?,
+       notes = ?,
+       updated_at = datetime('now')
+     WHERE id = ?`
+  ).run(
+    produto ?? null, objetivo ?? null,
+    (temperatura && ['frio','morno','quente'].includes(temperatura)) ? temperatura : null,
+    country ?? null,
+    ref_year ?? null, ref_month ?? null, ref_day ?? null,
+    budget === undefined ? null : Number(budget),
+    starts_at || null, ends_at || null, notes ?? null,
+    req.params.id
+  );
+  res.json({ ok: true });
+});
+
+app.delete('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
+  const info = db.prepare(`DELETE FROM ad_campaigns WHERE id=?`).run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Campanha não encontrada.' });
+  res.json({ ok: true });
+});
+
+// Conjuntos de anúncios (ad sets)
+app.post('/api/ad-sets', requireAdmin, (req, res) => {
+  const { campaign_id, audience_name, segmentation, ref_year, ref_month, ref_day } = req.body || {};
+  if (!campaign_id || !audience_name || !segmentation) {
+    return res.status(400).json({ error: 'Campanha, público e segmentação obrigatórios.' });
+  }
+  const camp = db.prepare(`SELECT id, ref_year, ref_month, ref_day FROM ad_campaigns WHERE id=?`).get(campaign_id);
+  if (!camp) return res.status(404).json({ error: 'Campanha não encontrada.' });
+  const info = db.prepare(
+    `INSERT INTO ad_sets (campaign_id, audience_name, segmentation, ref_year, ref_month, ref_day)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(
+    campaign_id, audience_name.trim(), segmentation.trim(),
+    Number(ref_year) || camp.ref_year,
+    Number(ref_month) || camp.ref_month,
+    Number(ref_day) || camp.ref_day,
+  );
+  res.status(201).json({ id: info.lastInsertRowid });
+});
+
+app.patch('/api/ad-sets/:id', requireAdmin, (req, res) => {
+  const s = db.prepare(`SELECT id FROM ad_sets WHERE id=?`).get(req.params.id);
+  if (!s) return res.status(404).json({ error: 'Conjunto não encontrado.' });
+  const { audience_name, segmentation, ref_year, ref_month, ref_day } = req.body || {};
+  db.prepare(
+    `UPDATE ad_sets SET
+       audience_name=COALESCE(?, audience_name),
+       segmentation=COALESCE(?, segmentation),
+       ref_year=COALESCE(?, ref_year),
+       ref_month=COALESCE(?, ref_month),
+       ref_day=COALESCE(?, ref_day)
+     WHERE id=?`
+  ).run(audience_name ?? null, segmentation ?? null,
+        ref_year ?? null, ref_month ?? null, ref_day ?? null,
+        req.params.id);
+  res.json({ ok: true });
+});
+
+app.delete('/api/ad-sets/:id', requireAdmin, (req, res) => {
+  const info = db.prepare(`DELETE FROM ad_sets WHERE id=?`).run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Conjunto não encontrado.' });
+  res.json({ ok: true });
+});
+
+// Anúncios (criativos)
+app.post('/api/ad-creatives', requireAdmin, (req, res) => {
+  const { ad_set_id, formato, variacao, ref_year, ref_month, ref_day } = req.body || {};
+  if (!ad_set_id || !formato) {
+    return res.status(400).json({ error: 'Conjunto e formato obrigatórios.' });
+  }
+  const set = db.prepare(`SELECT id, ref_year, ref_month, ref_day FROM ad_sets WHERE id=?`).get(ad_set_id);
+  if (!set) return res.status(404).json({ error: 'Conjunto não encontrado.' });
+  const info = db.prepare(
+    `INSERT INTO ad_creatives (ad_set_id, formato, variacao, ref_year, ref_month, ref_day)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(
+    ad_set_id, formato.trim(), Number(variacao) || 1,
+    Number(ref_year) || set.ref_year,
+    Number(ref_month) || set.ref_month,
+    Number(ref_day) || set.ref_day,
+  );
+  res.status(201).json({ id: info.lastInsertRowid });
+});
+
+app.patch('/api/ad-creatives/:id', requireAdmin, (req, res) => {
+  const a = db.prepare(`SELECT id FROM ad_creatives WHERE id=?`).get(req.params.id);
+  if (!a) return res.status(404).json({ error: 'Anúncio não encontrado.' });
+  const { formato, variacao, ref_year, ref_month, ref_day,
+          impressions, clicks, ctr, cpc, spent, notes } = req.body || {};
+  // Auto-cálculo: se ctr não vier mas tivermos impressions e clicks, calcula.
+  let finalCtr = ctr;
+  if ((ctr === undefined || ctr === null || ctr === '') &&
+       impressions && clicks) {
+    finalCtr = +((Number(clicks) / Number(impressions)) * 100).toFixed(2);
+  }
+  let finalCpc = cpc;
+  if ((cpc === undefined || cpc === null || cpc === '') &&
+       spent && clicks) {
+    finalCpc = +(Number(spent) / Number(clicks)).toFixed(2);
+  }
+  db.prepare(
+    `UPDATE ad_creatives SET
+       formato=COALESCE(?, formato),
+       variacao=COALESCE(?, variacao),
+       ref_year=COALESCE(?, ref_year),
+       ref_month=COALESCE(?, ref_month),
+       ref_day=COALESCE(?, ref_day),
+       impressions=?,
+       clicks=?,
+       ctr=?,
+       cpc=?,
+       spent=?,
+       notes=?
+     WHERE id=?`
+  ).run(
+    formato ?? null,
+    variacao === undefined ? null : Number(variacao),
+    ref_year ?? null, ref_month ?? null, ref_day ?? null,
+    impressions === undefined || impressions === '' ? null : Number(impressions),
+    clicks === undefined || clicks === '' ? null : Number(clicks),
+    finalCtr === undefined || finalCtr === '' ? null : Number(finalCtr),
+    finalCpc === undefined || finalCpc === '' ? null : Number(finalCpc),
+    spent === undefined || spent === '' ? null : Number(spent),
+    notes ?? null,
+    req.params.id
+  );
+  res.json({ ok: true });
+});
+
+app.delete('/api/ad-creatives/:id', requireAdmin, (req, res) => {
+  const info = db.prepare(`DELETE FROM ad_creatives WHERE id=?`).run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Anúncio não encontrado.' });
+  res.json({ ok: true });
+});
+
+/* ================================================================
    ANÚNCIOS — admin publica para todos os clientes verem na Home
    ================================================================ */
 

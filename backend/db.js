@@ -210,6 +210,63 @@ CREATE TABLE IF NOT EXISTS social_posts (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+/* ==============================================================
+   META ADS — campanhas, conjuntos e anúncios, com estatísticas
+   preenchidas manualmente pelo admin no fim de cada campanha.
+   ============================================================== */
+CREATE TABLE IF NOT EXISTS ad_campaigns (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,           -- cliente associado (sempre obrigatório)
+  produto TEXT NOT NULL,              -- ex: "post redes sociais"
+  objetivo TEXT NOT NULL,             -- ex: "alcance"
+  temperatura TEXT NOT NULL DEFAULT 'morno' CHECK(temperatura IN ('frio','morno','quente')),
+  country TEXT DEFAULT 'Portugal',
+  ref_year INTEGER NOT NULL,
+  ref_month INTEGER NOT NULL,
+  ref_day INTEGER NOT NULL,
+  budget REAL DEFAULT 0,              -- orçamento previsto da campanha
+  starts_at TEXT,                     -- data início real
+  ends_at TEXT,                       -- data fim real
+  notes TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_ad_campaigns_user ON ad_campaigns(user_id);
+
+CREATE TABLE IF NOT EXISTS ad_sets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  campaign_id INTEGER NOT NULL,
+  audience_name TEXT NOT NULL,        -- ex: "PF"
+  segmentation TEXT NOT NULL,         -- ex: "PT"
+  ref_year INTEGER NOT NULL,
+  ref_month INTEGER NOT NULL,
+  ref_day INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (campaign_id) REFERENCES ad_campaigns(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_ad_sets_campaign ON ad_sets(campaign_id);
+
+CREATE TABLE IF NOT EXISTS ad_creatives (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ad_set_id INTEGER NOT NULL,
+  formato TEXT NOT NULL,              -- imagem / video / carrossel / reel / stories
+  variacao INTEGER NOT NULL DEFAULT 1,-- número da variação
+  ref_year INTEGER NOT NULL,
+  ref_month INTEGER NOT NULL,
+  ref_day INTEGER NOT NULL,
+  -- estatísticas preenchidas manualmente no fim da campanha:
+  impressions INTEGER,
+  clicks INTEGER,
+  ctr REAL,                            -- percentagem (ex: 1.85 = 1.85%)
+  cpc REAL,                            -- € por clique
+  spent REAL,                          -- € gasto neste anúncio
+  notes TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (ad_set_id) REFERENCES ad_sets(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_ad_creatives_set ON ad_creatives(ad_set_id);
+
 CREATE TABLE IF NOT EXISTS announcements (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,

@@ -65,6 +65,7 @@ function renderShell() {
     { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   alert: s.unseenQuoteResponses,   alertTitle: `${s.unseenQuoteResponses || 0} resposta(s) de cliente por ver` },
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',alert: s.pendingCancels,         alertTitle: `${s.pendingCancels || 0} cancelamento(s) pendente(s)` },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      alert: s.unreadAdminTickets,     alertTitle: `${s.unreadAdminTickets || 0} ticket(s) com nova resposta de cliente` },
+    { id: 'metaads',   icon: 'quote',   label: 'Meta Ads' },
     { id: 'announcements', icon: 'sparkle', label: 'Anúncios',
         count: s.activeAnnouncements, countTitle: `${s.activeAnnouncements || 0} anúncio(s) ativo(s)` },
     { id: 'notifications', icon: 'bell', label: 'Notificações' },
@@ -120,6 +121,8 @@ async function go(view) {
     else if (view === 'invoices') await viewInvoices(main);
     else if (view === 'cancels')  await viewCancels(main);
     else if (view === 'support')  await viewSupport(main);
+    else if (view === 'metaads')  await viewMetaAds(main);
+    else if (view === 'metaads-detail') await viewMetaAdDetail(main, state._currentCampaignId);
     else if (view === 'announcements') await viewAnnouncements(main);
     else if (view === 'notifications') await viewNotifications(main);
     else if (view === 'profile')  await viewProfile(main);
@@ -1905,6 +1908,503 @@ async function setTicketStatus(id, status) {
    NOTIFICAÇÕES
    ========================================================================= */
 /* =========================================================================
+   META ADS — gestão de campanhas, conjuntos e anúncios (Facebook/Instagram).
+   ========================================================================= */
+const META_OBJETIVOS = [
+  'alcance','tráfego','interação','conversões','mensagens','leads','vendas',
+  'reconhecimento','reproduções de vídeo','instalações de app',
+];
+const META_FORMATOS = ['imagem','vídeo','carrossel','reel','stories','coleção'];
+
+async function viewMetaAds(main) {
+  let rows = [];
+  try { rows = await api('/api/ad-campaigns'); }
+  catch (e) { main.innerHTML = `<div class="empty">Erro: ${escapeHtml(e.message)}</div>`; return; }
+  state.adCampaigns = rows;
+  await ensureClientsLoaded();
+
+  // Totais agregados
+  const totalBudget  = rows.reduce((t, c) => t + (Number(c.budget) || 0), 0);
+  const totalSpent   = rows.reduce((t, c) => t + (Number(c.total_spent) || 0), 0);
+  const totalClicks  = rows.reduce((t, c) => t + (Number(c.total_clicks) || 0), 0);
+  const avgCpc       = totalClicks > 0 ? totalSpent / totalClicks : 0;
+
+  main.innerHTML = `
+    <div class="page-head">
+      <div>
+        <div class="eyebrow">Performance</div>
+        <h1>Meta Ads</h1>
+        <p class="lede">Gestão de campanhas no Facebook e Instagram — nomenclatura automática, orçamento previsto vs. gasto, e estatísticas por anúncio.</p>
+      </div>
+      <div class="page-head-actions">
+        <button class="btn btn-yellow" onclick="openNewAdCampaign()">${svg('plus')} Nova campanha</button>
+      </div>
+    </div>
+
+    <div class="grid g-4" style="margin-bottom:14px;">
+      <div class="card stat y">
+        <div class="eyebrow">Campanhas</div>
+        <div class="value">${rows.length}</div>
+        <div class="delta">no histórico</div>
+      </div>
+      <div class="card stat">
+        <div class="eyebrow">Orçamento total</div>
+        <div class="value">${fmtMoney(totalBudget)}</div>
+        <div class="delta">previsto</div>
+      </div>
+      <div class="card stat">
+        <div class="eyebrow">Gasto total</div>
+        <div class="value">${fmtMoney(totalSpent)}</div>
+        <div class="delta">${totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) + '% do orçamento' : '—'}</div>
+      </div>
+      <div class="card stat">
+        <div class="eyebrow">CPC médio</div>
+        <div class="value">${fmtMoney(avgCpc)}</div>
+        <div class="delta">${totalClicks.toLocaleString('pt-PT')} cliques</div>
+      </div>
+    </div>
+
+    ${rows.length === 0 ? `
+      <div class="card"><div class="empty" style="padding:40px 0;">
+        Ainda não tem campanhas registadas. Use o botão acima para criar a primeira.
+      </div></div>
+    ` : `
+      <div class="card table-card">
+        <table class="table">
+          <thead><tr>
+            <th>Campanha</th>
+            <th>Cliente</th>
+            <th>Objetivo</th>
+            <th>Orçamento</th>
+            <th>Gasto</th>
+            <th>Cliques</th>
+            <th>CPC</th>
+            <th></th>
+          </tr></thead>
+          <tbody>
+            ${rows.map(c => `
+              <tr class="interactive" onclick="openMetaAdDetail(${c.id})">
+                <td>
+                  <div style="font-weight:500;">${escapeHtml(c.produto)}</div>
+                  <div style="font-size:11px; color:var(--muted); font-family:monospace; word-break:break-all;">${escapeHtml(c.nomenclature || '')}</div>
+                </td>
+                <td>${escapeHtml(c.empresa)}</td>
+                <td><span class="pill">${escapeHtml(c.objetivo)}</span></td>
+                <td>${fmtMoney(c.budget)}</td>
+                <td><strong>${fmtMoney(c.total_spent || 0)}</strong></td>
+                <td>${(c.total_clicks || 0).toLocaleString('pt-PT')}</td>
+                <td>${c.total_clicks > 0 ? fmtMoney(c.avg_cpc) : '—'}</td>
+                <td style="text-align:right; white-space:nowrap;">
+                  <button class="btn btn-icon" title="Editar campanha" onclick="event.stopPropagation(); openEditAdCampaign(${c.id})">${svg('edit')}</button>
+                  <button class="btn btn-icon" title="Apagar" onclick="event.stopPropagation(); deleteAdCampaign(${c.id}, '${escapeHtml(c.produto).replace(/'/g,"\\'")}')">${svg('trash')}</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `}
+  `;
+}
+
+async function openMetaAdDetail(id) {
+  state._currentCampaignId = id;
+  state.view = 'metaads-detail';
+  setActive();
+  const main = document.getElementById('main');
+  main.innerHTML = `<div class="empty">A carregar campanha…</div>`;
+  try { await viewMetaAdDetail(main, id); }
+  catch (e) { main.innerHTML = `<div class="empty">Erro: ${escapeHtml(e.message)}</div>`; }
+}
+
+async function viewMetaAdDetail(main, id) {
+  if (!id) { main.innerHTML = '<div class="empty">Campanha não encontrada.</div>'; return; }
+  let c;
+  try { c = await api(`/api/ad-campaigns/${id}`); }
+  catch (e) { main.innerHTML = `<div class="empty">Erro: ${escapeHtml(e.message)}</div>`; return; }
+  state._currentCampaign = c;
+
+  const budget = Number(c.budget) || 0;
+  const spent  = Number(c.total_spent) || 0;
+  const remaining = +(budget - spent).toFixed(2);
+  const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
+
+  main.innerHTML = `
+    <div class="page-head">
+      <div>
+        <button class="btn btn-ghost btn-sm" onclick="go('metaads')">← Voltar</button>
+        <h1 style="margin-top:8px;">${escapeHtml(c.produto)}</h1>
+        <p class="lede">${escapeHtml(c.empresa)} · ${escapeHtml(c.objetivo)} · ${escapeHtml(capitalize(c.temperatura))} · ${escapeHtml(c.country || '')}</p>
+      </div>
+      <div class="page-head-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openEditAdCampaign(${c.id})">${svg('edit')} Editar campanha</button>
+        <button class="btn btn-yellow" onclick="openNewAdSet(${c.id})">${svg('plus')} Novo conjunto</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+      <div class="eyebrow" style="margin-bottom:6px;">Nomenclatura da campanha</div>
+      <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <code style="background:var(--bg-2); padding:8px 12px; border-radius:8px; font-size:13px; word-break:break-all; flex:1; min-width:0;">${escapeHtml(c.nomenclature)}</code>
+        <button class="btn btn-ghost btn-sm" onclick="copyToClipboard('${escapeHtml(c.nomenclature).replace(/'/g, "\\'")}')">Copiar</button>
+      </div>
+    </div>
+
+    <div class="grid g-4" style="margin-bottom:18px;">
+      <div class="card stat y">
+        <div class="eyebrow">Orçamento</div>
+        <div class="value">${fmtMoney(budget)}</div>
+        <div class="delta">previsto</div>
+      </div>
+      <div class="card stat">
+        <div class="eyebrow">Gasto</div>
+        <div class="value">${fmtMoney(spent)}</div>
+        <div class="delta">${pct}% do orçamento</div>
+      </div>
+      <div class="card stat">
+        <div class="eyebrow">Restante</div>
+        <div class="value">${fmtMoney(remaining)}</div>
+        <div class="delta">${remaining < 0 ? 'em excesso' : 'disponível'}</div>
+      </div>
+      <div class="card stat">
+        <div class="eyebrow">CPC médio</div>
+        <div class="value">${c.total_clicks > 0 ? fmtMoney(c.avg_cpc) : '—'}</div>
+        <div class="delta">${(c.total_clicks || 0).toLocaleString('pt-PT')} cliques</div>
+      </div>
+    </div>
+
+    ${c.sets.length === 0 ? `
+      <div class="card"><div class="empty" style="padding:40px 0;">
+        Sem conjuntos de anúncios. Crie o primeiro para começar a registar anúncios.
+      </div></div>
+    ` : c.sets.map(s => `
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap; margin-bottom:14px;">
+          <div style="flex:1; min-width:240px;">
+            <div style="font-family:'Clash Display'; font-size:18px;">Conjunto · ${escapeHtml(s.audience_name)} · ${escapeHtml(s.segmentation)}</div>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+              <code style="background:var(--bg-2); padding:4px 8px; border-radius:6px; font-size:12px;">${escapeHtml(s.nomenclature)}</code>
+              <button class="btn btn-icon" title="Copiar" onclick="copyToClipboard('${escapeHtml(s.nomenclature).replace(/'/g, "\\'")}')">${svg('chat')}</button>
+            </div>
+            <div style="font-size:12px; color:var(--muted); margin-top:6px;">
+              ${s.ads.length} anúncio(s) · ${fmtMoney(s.spent || 0)} gasto · ${(s.clicks || 0).toLocaleString('pt-PT')} cliques
+            </div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="openNewAdCreative(${s.id})">${svg('plus')} Novo anúncio</button>
+            <button class="btn btn-icon" title="Editar conjunto" onclick="openEditAdSet(${s.id})">${svg('edit')}</button>
+            <button class="btn btn-icon" title="Apagar conjunto" onclick="deleteAdSet(${s.id})">${svg('trash')}</button>
+          </div>
+        </div>
+
+        ${s.ads.length === 0 ? `
+          <div class="empty" style="padding:20px 0; font-size:13px;">Sem anúncios neste conjunto.</div>
+        ` : `
+          <table class="table" style="margin:0 -16px;">
+            <thead><tr>
+              <th>Anúncio</th>
+              <th>Impressões</th>
+              <th>Cliques</th>
+              <th>CTR</th>
+              <th>CPC</th>
+              <th>Gasto</th>
+              <th></th>
+            </tr></thead>
+            <tbody>
+              ${s.ads.map(a => `
+                <tr>
+                  <td>
+                    <div style="font-weight:500;">${escapeHtml(a.formato)} · variação ${a.variacao}</div>
+                    <div style="font-size:11px; color:var(--muted); font-family:monospace;">${escapeHtml(a.nomenclature)}</div>
+                  </td>
+                  <td>${a.impressions != null ? Number(a.impressions).toLocaleString('pt-PT') : '—'}</td>
+                  <td>${a.clicks != null ? Number(a.clicks).toLocaleString('pt-PT') : '—'}</td>
+                  <td>${a.ctr != null ? Number(a.ctr).toFixed(2) + '%' : '—'}</td>
+                  <td>${a.cpc != null ? fmtMoney(a.cpc) : '—'}</td>
+                  <td><strong>${a.spent != null ? fmtMoney(a.spent) : '—'}</strong></td>
+                  <td style="text-align:right; white-space:nowrap;">
+                    <button class="btn btn-icon" title="Editar estatísticas" onclick="openEditAdCreative(${a.id})">${svg('edit')}</button>
+                    <button class="btn btn-icon" title="Apagar" onclick="deleteAdCreative(${a.id})">${svg('trash')}</button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `}
+      </div>
+    `).join('')}
+  `;
+}
+
+async function ensureClientsLoaded() {
+  if (!Array.isArray(state.clients) || state.clients.length === 0) {
+    try { state.clients = await api('/api/clients'); }
+    catch (e) { state.clients = []; }
+  }
+}
+function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
+
+async function openNewAdCampaign() {
+  await ensureClientsLoaded();
+  const now = new Date();
+  state._editingCampaignId = null;
+  showAdCampaignModal({
+    user_id: state.clients[0]?.id || '',
+    produto: '', objetivo: 'alcance', temperatura: 'morno', country: 'Portugal',
+    ref_year: now.getFullYear(), ref_month: now.getMonth()+1, ref_day: now.getDate(),
+    budget: 0, starts_at: '', ends_at: '', notes: '',
+  });
+}
+
+async function openEditAdCampaign(id) {
+  await ensureClientsLoaded();
+  let c;
+  try { c = await api(`/api/ad-campaigns/${id}`); }
+  catch (err) { toast(err.message, 'cancel'); return; }
+  state._editingCampaignId = id;
+  showAdCampaignModal(c);
+}
+
+function showAdCampaignModal(c) {
+  const wrap = document.getElementById('modal-adcampaign-root');
+  wrap.innerHTML = `
+    <div class="overlay show" id="modal-adcampaign">
+      <div class="modal wide">
+        <h3>${state._editingCampaignId ? 'Editar campanha' : 'Nova campanha Meta'}</h3>
+        <form id="adCampaignForm">
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>Cliente</label>
+              <select id="adc-user" required>
+                ${state.clients.map(cl => `<option value="${cl.id}" ${cl.id === c.user_id ? 'selected' : ''}>${escapeHtml(cl.name)}${cl.company ? ' · ' + escapeHtml(cl.company) : ''}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field"><label>Produto / âmbito</label>
+              <input id="adc-produto" required placeholder="post redes sociais" value="${escapeHtml(c.produto || '')}">
+            </div>
+          </div>
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>Objetivo</label>
+              <select id="adc-objetivo">
+                ${META_OBJETIVOS.map(o => `<option value="${o}" ${o === c.objetivo ? 'selected' : ''}>${o}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field"><label>Temperatura</label>
+              <select id="adc-temp">
+                <option value="frio"   ${c.temperatura === 'frio' ? 'selected' : ''}>Frio</option>
+                <option value="morno"  ${c.temperatura === 'morno' ? 'selected' : ''}>Morno</option>
+                <option value="quente" ${c.temperatura === 'quente' ? 'selected' : ''}>Quente</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>País</label>
+              <input id="adc-country" value="${escapeHtml(c.country || 'Portugal')}">
+            </div>
+            <div class="field"><label>Orçamento previsto (€)</label>
+              <input id="adc-budget" type="number" step="0.01" value="${Number(c.budget || 0)}">
+            </div>
+          </div>
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>Data início</label>
+              <input id="adc-start" type="date" value="${(c.starts_at || '').slice(0,10)}">
+            </div>
+            <div class="field"><label>Data fim</label>
+              <input id="adc-end" type="date" value="${(c.ends_at || '').slice(0,10)}">
+            </div>
+          </div>
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>Data referência (dia)</label>
+              <input id="adc-day" type="number" min="1" max="31" value="${c.ref_day}">
+            </div>
+            <div class="field"><label>Mês</label>
+              <input id="adc-month" type="number" min="1" max="12" value="${c.ref_month}">
+            </div>
+          </div>
+          <input type="hidden" id="adc-year" value="${c.ref_year}">
+          <div class="field"><label>Notas internas</label>
+            <textarea id="adc-notes" rows="2">${escapeHtml(c.notes || '')}</textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="closeAdModal('modal-adcampaign')">Cancelar</button>
+            <button type="submit" class="btn btn-yellow">${state._editingCampaignId ? 'Guardar' : 'Criar campanha'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function openNewAdSet(campaignId) {
+  const c = state._currentCampaign || { ref_year: new Date().getFullYear(), ref_month: new Date().getMonth()+1, ref_day: new Date().getDate() };
+  state._editingSetId = null;
+  state._editingSetCampaign = campaignId;
+  showAdSetModal({
+    campaign_id: campaignId,
+    audience_name: '', segmentation: '',
+    ref_year: c.ref_year, ref_month: c.ref_month, ref_day: c.ref_day,
+  });
+}
+async function openEditAdSet(setId) {
+  // Procura o set dentro do currentCampaign (já carregado)
+  let set = null;
+  if (state._currentCampaign) {
+    set = (state._currentCampaign.sets || []).find(x => x.id === setId);
+  }
+  if (!set) { toast('Conjunto não encontrado.', 'cancel'); return; }
+  state._editingSetId = setId;
+  showAdSetModal(set);
+}
+function showAdSetModal(s) {
+  const wrap = document.getElementById('modal-adset-root');
+  wrap.innerHTML = `
+    <div class="overlay show" id="modal-adset">
+      <div class="modal">
+        <h3>${state._editingSetId ? 'Editar conjunto' : 'Novo conjunto de anúncios'}</h3>
+        <form id="adSetForm">
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>Nome do público</label>
+              <input id="ads-aud" required value="${escapeHtml(s.audience_name || '')}" placeholder="PF / Mulheres 25-44 / Lookalike">
+            </div>
+            <div class="field"><label>Segmentação</label>
+              <input id="ads-seg" required value="${escapeHtml(s.segmentation || '')}" placeholder="PT / Lisboa+Porto / Interesses moda">
+            </div>
+          </div>
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>Dia</label>
+              <input id="ads-day" type="number" min="1" max="31" value="${s.ref_day}">
+            </div>
+            <div class="field"><label>Mês</label>
+              <input id="ads-month" type="number" min="1" max="12" value="${s.ref_month}">
+            </div>
+          </div>
+          <input type="hidden" id="ads-year" value="${s.ref_year}">
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="closeAdModal('modal-adset')">Cancelar</button>
+            <button type="submit" class="btn btn-yellow">${state._editingSetId ? 'Guardar' : 'Criar conjunto'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function openNewAdCreative(setId) {
+  const set = (state._currentCampaign?.sets || []).find(s => s.id === setId);
+  state._editingAdId = null;
+  state._editingAdSet = setId;
+  showAdCreativeModal({
+    ad_set_id: setId,
+    formato: 'imagem', variacao: 1,
+    ref_year: set?.ref_year || new Date().getFullYear(),
+    ref_month: set?.ref_month || (new Date().getMonth()+1),
+    ref_day: set?.ref_day || new Date().getDate(),
+    impressions: '', clicks: '', ctr: '', cpc: '', spent: '', notes: '',
+  });
+}
+async function openEditAdCreative(adId) {
+  let ad = null;
+  for (const s of state._currentCampaign?.sets || []) {
+    ad = (s.ads || []).find(x => x.id === adId);
+    if (ad) break;
+  }
+  if (!ad) { toast('Anúncio não encontrado.', 'cancel'); return; }
+  state._editingAdId = adId;
+  showAdCreativeModal(ad);
+}
+function showAdCreativeModal(a) {
+  const wrap = document.getElementById('modal-adcreative-root');
+  wrap.innerHTML = `
+    <div class="overlay show" id="modal-adcreative">
+      <div class="modal wide">
+        <h3>${state._editingAdId ? 'Editar anúncio' : 'Novo anúncio'}</h3>
+        <form id="adCreativeForm">
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>Formato</label>
+              <select id="adcr-fmt">
+                ${META_FORMATOS.map(f => `<option value="${f}" ${f === a.formato ? 'selected' : ''}>${f}</option>`).join('')}
+              </select>
+            </div>
+            <div class="field"><label>Variação (nº)</label>
+              <input id="adcr-var" type="number" min="1" value="${a.variacao || 1}">
+            </div>
+          </div>
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>Dia</label>
+              <input id="adcr-day" type="number" min="1" max="31" value="${a.ref_day}">
+            </div>
+            <div class="field"><label>Mês</label>
+              <input id="adcr-month" type="number" min="1" max="12" value="${a.ref_month}">
+            </div>
+          </div>
+          <input type="hidden" id="adcr-year" value="${a.ref_year}">
+
+          <hr style="border:none; border-top:1px solid var(--line); margin:14px 0;">
+          <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">
+            Estatísticas — preencha no fim da campanha com os números do Meta Ads Manager. O CTR e o CPC calculam-se automaticamente se forem deixados em branco.
+          </p>
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>Impressões</label>
+              <input id="adcr-imp" type="number" min="0" value="${a.impressions ?? ''}">
+            </div>
+            <div class="field"><label>Cliques</label>
+              <input id="adcr-clicks" type="number" min="0" value="${a.clicks ?? ''}">
+            </div>
+          </div>
+          <div class="grid g-2" style="gap:12px;">
+            <div class="field"><label>CTR (%)</label>
+              <input id="adcr-ctr" type="number" step="0.01" placeholder="auto" value="${a.ctr ?? ''}">
+            </div>
+            <div class="field"><label>CPC (€)</label>
+              <input id="adcr-cpc" type="number" step="0.01" placeholder="auto" value="${a.cpc ?? ''}">
+            </div>
+          </div>
+          <div class="field"><label>Montante gasto (€)</label>
+            <input id="adcr-spent" type="number" step="0.01" value="${a.spent ?? ''}">
+          </div>
+          <div class="field"><label>Notas (opcional)</label>
+            <textarea id="adcr-notes" rows="2">${escapeHtml(a.notes || '')}</textarea>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" onclick="closeAdModal('modal-adcreative')">Cancelar</button>
+            <button type="submit" class="btn btn-yellow">${state._editingAdId ? 'Guardar' : 'Criar anúncio'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function closeAdModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+async function deleteAdCampaign(id, label) {
+  if (!confirm(`Apagar a campanha "${label}"?\n\nIsto apaga também todos os conjuntos e anúncios associados, com as estatísticas.`)) return;
+  try {
+    await api(`/api/ad-campaigns/${id}`, { method: 'DELETE' });
+    toast('Campanha apagada.');
+    go('metaads');
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+async function deleteAdSet(id) {
+  if (!confirm('Apagar este conjunto e os anúncios incluídos?')) return;
+  try {
+    await api(`/api/ad-sets/${id}`, { method: 'DELETE' });
+    toast('Conjunto apagado.');
+    go('metaads-detail');
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+async function deleteAdCreative(id) {
+  if (!confirm('Apagar este anúncio e as suas estatísticas?')) return;
+  try {
+    await api(`/api/ad-creatives/${id}`, { method: 'DELETE' });
+    toast('Anúncio apagado.');
+    go('metaads-detail');
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
+/* =========================================================================
    ANÚNCIOS — admin publica mensagens visíveis no topo da Home dos clientes.
    ========================================================================= */
 const ANN_STYLES = {
@@ -2253,6 +2753,95 @@ document.addEventListener('submit', async (e) => {
       });
       e.target.reset();
       toast('Password atualizada.', 'check');
+    } catch (err) { toast(err.message, 'cancel'); }
+    return;
+  }
+
+  if (e.target.id === 'adCampaignForm') {
+    e.preventDefault();
+    const body = {
+      user_id: Number(document.getElementById('adc-user').value),
+      produto: document.getElementById('adc-produto').value.trim(),
+      objetivo: document.getElementById('adc-objetivo').value,
+      temperatura: document.getElementById('adc-temp').value,
+      country: document.getElementById('adc-country').value.trim() || 'Portugal',
+      budget: Number(document.getElementById('adc-budget').value) || 0,
+      starts_at: document.getElementById('adc-start').value || null,
+      ends_at: document.getElementById('adc-end').value || null,
+      ref_year: Number(document.getElementById('adc-year').value),
+      ref_month: Number(document.getElementById('adc-month').value),
+      ref_day: Number(document.getElementById('adc-day').value),
+      notes: document.getElementById('adc-notes').value.trim() || null,
+    };
+    try {
+      if (state._editingCampaignId) {
+        await api(`/api/ad-campaigns/${state._editingCampaignId}`, { method: 'PATCH', body });
+        toast('Campanha atualizada.', 'check');
+      } else {
+        await api('/api/ad-campaigns', { method: 'POST', body });
+        toast('Campanha criada.', 'check');
+      }
+      closeAdModal('modal-adcampaign');
+      if (state._editingCampaignId) go('metaads-detail');
+      else go('metaads');
+    } catch (err) { toast(err.message, 'cancel'); }
+    return;
+  }
+
+  if (e.target.id === 'adSetForm') {
+    e.preventDefault();
+    const body = {
+      campaign_id: state._editingSetCampaign || state._currentCampaignId,
+      audience_name: document.getElementById('ads-aud').value.trim(),
+      segmentation: document.getElementById('ads-seg').value.trim(),
+      ref_year: Number(document.getElementById('ads-year').value),
+      ref_month: Number(document.getElementById('ads-month').value),
+      ref_day: Number(document.getElementById('ads-day').value),
+    };
+    try {
+      if (state._editingSetId) {
+        await api(`/api/ad-sets/${state._editingSetId}`, { method: 'PATCH', body });
+        toast('Conjunto atualizado.', 'check');
+      } else {
+        await api('/api/ad-sets', { method: 'POST', body });
+        toast('Conjunto criado.', 'check');
+      }
+      closeAdModal('modal-adset');
+      go('metaads-detail');
+    } catch (err) { toast(err.message, 'cancel'); }
+    return;
+  }
+
+  if (e.target.id === 'adCreativeForm') {
+    e.preventDefault();
+    const num = (id) => {
+      const v = document.getElementById(id).value;
+      return v === '' ? null : Number(v);
+    };
+    const body = {
+      ad_set_id: state._editingAdSet || (state._editingAdId ? undefined : null),
+      formato: document.getElementById('adcr-fmt').value,
+      variacao: Number(document.getElementById('adcr-var').value) || 1,
+      ref_year: Number(document.getElementById('adcr-year').value),
+      ref_month: Number(document.getElementById('adcr-month').value),
+      ref_day: Number(document.getElementById('adcr-day').value),
+      impressions: num('adcr-imp'),
+      clicks: num('adcr-clicks'),
+      ctr: num('adcr-ctr'),
+      cpc: num('adcr-cpc'),
+      spent: num('adcr-spent'),
+      notes: document.getElementById('adcr-notes').value.trim() || null,
+    };
+    try {
+      if (state._editingAdId) {
+        await api(`/api/ad-creatives/${state._editingAdId}`, { method: 'PATCH', body });
+        toast('Anúncio atualizado.', 'check');
+      } else {
+        await api('/api/ad-creatives', { method: 'POST', body });
+        toast('Anúncio criado.', 'check');
+      }
+      closeAdModal('modal-adcreative');
+      go('metaads-detail');
     } catch (err) { toast(err.message, 'cancel'); }
     return;
   }
