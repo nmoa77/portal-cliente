@@ -2168,7 +2168,7 @@ async function openEditAdCampaign(id) {
 function showAdCampaignModal(c) {
   const wrap = document.getElementById('modal-adcampaign-root');
   wrap.innerHTML = `
-    <div class="overlay show" id="modal-adcampaign">
+    <div class="overlay open" id="modal-adcampaign">
       <div class="modal wide">
         <h3>${state._editingCampaignId ? 'Editar campanha' : 'Nova campanha Meta'}</h3>
         <form id="adCampaignForm">
@@ -2257,7 +2257,7 @@ async function openEditAdSet(setId) {
 function showAdSetModal(s) {
   const wrap = document.getElementById('modal-adset-root');
   wrap.innerHTML = `
-    <div class="overlay show" id="modal-adset">
+    <div class="overlay open" id="modal-adset">
       <div class="modal">
         <h3>${state._editingSetId ? 'Editar conjunto' : 'Novo conjunto de anúncios'}</h3>
         <form id="adSetForm">
@@ -2314,7 +2314,7 @@ async function openEditAdCreative(adId) {
 function showAdCreativeModal(a) {
   const wrap = document.getElementById('modal-adcreative-root');
   wrap.innerHTML = `
-    <div class="overlay show" id="modal-adcreative">
+    <div class="overlay open" id="modal-adcreative">
       <div class="modal wide">
         <h3>${state._editingAdId ? 'Editar anúncio' : 'Novo anúncio'}</h3>
         <form id="adCreativeForm">
