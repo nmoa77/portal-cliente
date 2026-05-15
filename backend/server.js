@@ -1935,6 +1935,20 @@ app.delete('/api/ad-vocabularies/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// Repor vocabulários para os valores predefinidos (apaga tudo e ressemeia).
+app.post('/api/ad-vocabularies/reset', requireAdmin, (req, res) => {
+  const defaults = db.AD_VOCAB_DEFAULTS || {};
+  const insert = db.prepare(`INSERT INTO ad_vocabularies (category, value, sort_order) VALUES (?, ?, ?)`);
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM ad_vocabularies`).run();
+    for (const [cat, vals] of Object.entries(defaults)) {
+      vals.forEach((v, i) => insert.run(cat, v, i));
+    }
+  });
+  tx();
+  res.json({ ok: true });
+});
+
 /* ================================================================
    META ADS — campanhas, conjuntos e anúncios, com estatísticas
    ================================================================ */

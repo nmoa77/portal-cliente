@@ -2474,11 +2474,23 @@ function renderVocabEditor() {
         </div>
 
         <div class="modal-actions" style="margin-top:18px;">
+          <button type="button" class="btn btn-ghost" onclick="resetVocab()">Repor valores predefinidos</button>
           <button type="button" class="btn btn-ghost" onclick="closeAdModal('modal-vocab')">Fechar</button>
         </div>
       </div>
     </div>
   `;
+}
+
+async function resetVocab() {
+  if (!confirm('Repor todas as listas para os valores predefinidos?\n\nAs entradas adicionadas manualmente serão removidas. As campanhas, conjuntos e anúncios já criados não são afetados (mantêm os valores guardados).')) return;
+  try {
+    await api('/api/ad-vocabularies/reset', { method: 'POST' });
+    state.adVocab = null;
+    await ensureAdVocab();
+    renderVocabEditor();
+    toast('Vocabulário reposto.', 'check');
+  } catch (err) { toast(err.message, 'cancel'); }
 }
 
 async function addVocabValue(category) {

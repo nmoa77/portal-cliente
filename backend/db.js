@@ -527,6 +527,29 @@ try {
   }
 } catch (e) { console.warn('Migration ad_campaigns stats:', e.message); }
 
+// Valores predefinidos dos vocabulários Meta Ads (também usado pelo endpoint
+// admin "Repor valores predefinidos" para sincronizar BDs existentes).
+const AD_VOCAB_DEFAULTS = {
+  produto:  ['ebook','landing page','site','post redes sociais','video','black friday','cyber monday','loja online','Story'],
+  objetivo: ['marca','alcance','trafego','instaap','vizvideo','geracaocadastros','envolvimento','curtidaspagina','participaevento','conversoes','vendadecatalogo','visitasaoestabelecimento','visualizações','perfil','mensagens'],
+  publico:  [
+    'PF',
+    'Visitantes do Site [30D]','Visitantes do Site [60D]','Visitantes do Site [90D]','Visitantes do Site [180D]',
+    'PC Produto X [30D]','PO Produto X [30D]',
+    'EGJ FB [30D]','EGJ FB [60D]','EGJ FB [90D]','EGJ FB [180D]',
+    'EGJ IG [30D]','EGJ IG [60D]','EGJ IG [90D]','EGJ IG [180D]',
+    'Leads','Compradores [Produto X]',
+    'VV 50% [30D]','VV 50% [60D]','VV 50% [90D]',
+    'Formulário [30D]','Formulário [60D]','Formulário [90D]',
+    'Lookalike 1% EGJ FB [30D]','Lookalike 1% EGJ IG [30D]','Lookalike 1% VV 50% [30D]',
+    'Lookalike 1% Leads','Lookalike 1% Compradores Produto X',
+  ],
+  segmentacao: ['PT','BR','ES','UK','EU','Internacional'],
+  formato:  ['video','imagem','link','carrolink','texto','canvas','album','story'],
+  pais:     ['Portugal','Brasil','Espanha','Reino Unido','Internacional'],
+  temperatura: ['Quente','Frio','Looklike'],
+};
+
 // Seed dos vocabulários iniciais (apenas se a tabela estiver vazia)
 try {
   const hasTable = db.prepare(
@@ -535,15 +558,7 @@ try {
   if (hasTable) {
     const total = db.prepare(`SELECT COUNT(*) c FROM ad_vocabularies`).get().c;
     if (total === 0) {
-      const seed = {
-        produto:  ['ebook','landing page','site','post redes sociais','video','black friday','cyber monday','loja online','Story'],
-        objetivo: ['marca','alcance','trafego','instaap','vizvideo','geracaocadastros','envolvimento','curtidaspagina','participaevento','conversoes','vendadecatalogo','visitasaoestabelecimento','visualizações','perfil','mensagens'],
-        publico:  ['PF','Visitantes do Site [30D]','Visitantes do Site [60D]','Visitantes do Site [90D]','Visitantes do Site [180D]','PC Produto X [30D]','PO Produto X [30D]','EGJ FB [30D]','EGJ FB [60D]','EGJ FB [90D]','EGJ FB [180D]','EGJ IG [30D]','EGJ IG [60D]','EGJ IG [90D]','EGJ IG [180D]','Leads','Compradores [Produto X]','VV 50% [30D]','VV 50% [60D]','VV 50% [90D]','Formulário [30D]','Formulário [60D]'],
-        segmentacao: ['PT','BR','ES','UK','EU','Internacional'],
-        formato:  ['imagem','video','carrossel','reel','stories','colecao'],
-        pais:     ['Portugal','Brasil','Espanha','Reino Unido','Internacional'],
-        temperatura: ['frio','morno','quente'],
-      };
+      const seed = AD_VOCAB_DEFAULTS;
       const insert = db.prepare(`INSERT INTO ad_vocabularies (category, value, sort_order) VALUES (?, ?, ?)`);
       const tx = db.transaction(() => {
         for (const [cat, vals] of Object.entries(seed)) {
@@ -1021,4 +1036,5 @@ try {
   }
 } catch (e) { console.warn('Sync subscription_items:', e.message); }
 
+db.AD_VOCAB_DEFAULTS = AD_VOCAB_DEFAULTS;
 module.exports = db;
