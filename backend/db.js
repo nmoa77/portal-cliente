@@ -219,7 +219,7 @@ CREATE TABLE IF NOT EXISTS ad_campaigns (
   user_id INTEGER NOT NULL,           -- cliente associado (sempre obrigatório)
   produto TEXT NOT NULL,              -- ex: "post redes sociais"
   objetivo TEXT NOT NULL,             -- ex: "alcance"
-  temperatura TEXT NOT NULL DEFAULT 'morno' CHECK(temperatura IN ('frio','morno','quente')),
+  temperatura TEXT NOT NULL DEFAULT 'morno',
   country TEXT DEFAULT 'Portugal',
   ref_year INTEGER NOT NULL,
   ref_month INTEGER NOT NULL,
@@ -227,6 +227,12 @@ CREATE TABLE IF NOT EXISTS ad_campaigns (
   budget REAL DEFAULT 0,              -- orçamento previsto da campanha
   starts_at TEXT,                     -- data início real
   ends_at TEXT,                       -- data fim real
+  -- estatísticas finais da campanha (preenchidas pelo admin no fim):
+  impressions INTEGER,
+  clicks INTEGER,
+  ctr REAL,
+  cpc REAL,
+  spent REAL,
   notes TEXT,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now')),
@@ -266,6 +272,19 @@ CREATE TABLE IF NOT EXISTS ad_creatives (
   FOREIGN KEY (ad_set_id) REFERENCES ad_sets(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_ad_creatives_set ON ad_creatives(ad_set_id);
+
+-- Vocabulários editáveis pelo admin: produtos, objetivos, públicos,
+-- segmentações, formatos, países, temperaturas. Usados como dropdowns
+-- na criação de campanhas/conjuntos/anúncios.
+CREATE TABLE IF NOT EXISTS ad_vocabularies (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  category TEXT NOT NULL,
+  value TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(category, value)
+);
+CREATE INDEX IF NOT EXISTS idx_ad_vocabularies_cat ON ad_vocabularies(category, sort_order);
 
 CREATE TABLE IF NOT EXISTS announcements (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -453,6 +472,89 @@ try {
     console.log('✓ Migration: plans.category alargada para incluir design.');
   }
 } catch (e) { console.warn('Migration plans.category design:', e.message); }
+
+// Migration: estatísticas da campanha em ad_campaigns
+try {
+  const cols = db.prepare(`PRAGMA table_info(ad_campaigns)`).all();
+  if (cols.length) {
+    const need = (n) => !cols.find(c => c.name === n);
+    if (need('impressions')) db.exec(`ALTER TABLE ad_campaigns ADD COLUMN impressions INTEGER`);
+    if (need('clicks'))      db.exec(`ALTER TABLE ad_campaigns ADD COLUMN clicks INTEGER`);
+    if (need('ctr'))         db.exec(`ALTER TABLE ad_campaigns ADD COLUMN ctr REAL`);
+    if (need('cpc'))         db.exec(`ALTER TABLE ad_campaigns ADD COLUMN cpc REAL`);
+    if (need('spent'))       db.exec(`ALTER TABLE ad_campaigns ADD COLUMN spent REAL`);
+    // O CHECK antigo de temperatura impedia novos valores — recria sem CHECK
+    const sql = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ad_campaigns'`).get();
+    if (sql && sql.sql && sql.sql.includes("CHECK(temperatura IN")) {
+      db.pragma('foreign_keys = OFF');
+      db.exec(`
+        BEGIN;
+        CREATE TABLE ad_campaigns_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          produto TEXT NOT NULL,
+          objetivo TEXT NOT NULL,
+          temperatura TEXT NOT NULL DEFAULT 'morno',
+          country TEXT DEFAULT 'Portugal',
+          ref_year INTEGER NOT NULL,
+          ref_month INTEGER NOT NULL,
+          ref_day INTEGER NOT NULL,
+          budget REAL DEFAULT 0,
+          starts_at TEXT,
+          ends_at TEXT,
+          impressions INTEGER,
+          clicks INTEGER,
+          ctr REAL,
+          cpc REAL,
+          spent REAL,
+          notes TEXT,
+          created_at TEXT DEFAULT (datetime('now')),
+          updated_at TEXT DEFAULT (datetime('now')),
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        );
+        INSERT INTO ad_campaigns_new
+          SELECT id, user_id, produto, objetivo, temperatura, country,
+                 ref_year, ref_month, ref_day, budget, starts_at, ends_at,
+                 impressions, clicks, ctr, cpc, spent, notes, created_at, updated_at
+            FROM ad_campaigns;
+        DROP TABLE ad_campaigns;
+        ALTER TABLE ad_campaigns_new RENAME TO ad_campaigns;
+        COMMIT;
+      `);
+      db.pragma('foreign_keys = ON');
+      console.log('✓ Migration: ad_campaigns sem CHECK em temperatura.');
+    }
+  }
+} catch (e) { console.warn('Migration ad_campaigns stats:', e.message); }
+
+// Seed dos vocabulários iniciais (apenas se a tabela estiver vazia)
+try {
+  const hasTable = db.prepare(
+    `SELECT COUNT(*) c FROM sqlite_master WHERE type='table' AND name='ad_vocabularies'`
+  ).get().c > 0;
+  if (hasTable) {
+    const total = db.prepare(`SELECT COUNT(*) c FROM ad_vocabularies`).get().c;
+    if (total === 0) {
+      const seed = {
+        produto:  ['ebook','landing page','site','post redes sociais','video','black friday','cyber monday','loja online','Story'],
+        objetivo: ['marca','alcance','trafego','instaap','vizvideo','geracaocadastros','envolvimento','curtidaspagina','participaevento','conversoes','vendadecatalogo','visitasaoestabelecimento','visualizações','perfil','mensagens'],
+        publico:  ['PF','Visitantes do Site [30D]','Visitantes do Site [60D]','Visitantes do Site [90D]','Visitantes do Site [180D]','PC Produto X [30D]','PO Produto X [30D]','EGJ FB [30D]','EGJ FB [60D]','EGJ FB [90D]','EGJ FB [180D]','EGJ IG [30D]','EGJ IG [60D]','EGJ IG [90D]','EGJ IG [180D]','Leads','Compradores [Produto X]','VV 50% [30D]','VV 50% [60D]','VV 50% [90D]','Formulário [30D]','Formulário [60D]'],
+        segmentacao: ['PT','BR','ES','UK','EU','Internacional'],
+        formato:  ['imagem','video','carrossel','reel','stories','colecao'],
+        pais:     ['Portugal','Brasil','Espanha','Reino Unido','Internacional'],
+        temperatura: ['frio','morno','quente'],
+      };
+      const insert = db.prepare(`INSERT INTO ad_vocabularies (category, value, sort_order) VALUES (?, ?, ?)`);
+      const tx = db.transaction(() => {
+        for (const [cat, vals] of Object.entries(seed)) {
+          vals.forEach((v, i) => insert.run(cat, v, i));
+        }
+      });
+      tx();
+      console.log('✓ Vocabulários Meta Ads populados com valores iniciais.');
+    }
+  }
+} catch (e) { console.warn('Seed ad_vocabularies:', e.message); }
 
 // Migration: coluna is_active em users — todos os existentes ficam ativos por defeito;
 // novos clientes criados pelo admin começam com is_active=0 até serem ativados.

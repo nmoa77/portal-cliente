@@ -1894,6 +1894,48 @@ app.post('/api/social-posts/bulk-generate', requireAdmin, (req, res) => {
 });
 
 /* ================================================================
+   META ADS — vocabulários geríveis pelo admin (dropdowns dinâmicos)
+   ================================================================ */
+const AD_VOCAB_CATEGORIES = ['produto','objetivo','publico','segmentacao','formato','pais','temperatura'];
+
+app.get('/api/ad-vocabularies', requireAdmin, (req, res) => {
+  const rows = db.prepare(
+    `SELECT id, category, value, sort_order FROM ad_vocabularies ORDER BY category, sort_order, value`
+  ).all();
+  const grouped = {};
+  for (const cat of AD_VOCAB_CATEGORIES) grouped[cat] = [];
+  for (const r of rows) {
+    if (!grouped[r.category]) grouped[r.category] = [];
+    grouped[r.category].push(r);
+  }
+  res.json(grouped);
+});
+
+app.post('/api/ad-vocabularies', requireAdmin, (req, res) => {
+  const { category, value } = req.body || {};
+  if (!category || !value) return res.status(400).json({ error: 'Categoria e valor obrigatórios.' });
+  if (!AD_VOCAB_CATEGORIES.includes(category)) return res.status(400).json({ error: 'Categoria inválida.' });
+  const trim = value.trim();
+  if (!trim) return res.status(400).json({ error: 'Valor não pode ser vazio.' });
+  const max = db.prepare(`SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM ad_vocabularies WHERE category=?`).get(category).n;
+  try {
+    const info = db.prepare(
+      `INSERT INTO ad_vocabularies (category, value, sort_order) VALUES (?, ?, ?)`
+    ).run(category, trim, max);
+    res.status(201).json({ id: info.lastInsertRowid });
+  } catch (e) {
+    if (String(e.message).includes('UNIQUE')) return res.status(409).json({ error: 'Esse valor já existe nesta categoria.' });
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/ad-vocabularies/:id', requireAdmin, (req, res) => {
+  const info = db.prepare(`DELETE FROM ad_vocabularies WHERE id=?`).run(req.params.id);
+  if (!info.changes) return res.status(404).json({ error: 'Entrada não encontrada.' });
+  res.json({ ok: true });
+});
+
+/* ================================================================
    META ADS — campanhas, conjuntos e anúncios, com estatísticas
    ================================================================ */
 
@@ -1924,19 +1966,12 @@ function loadCampaignFull(campaignId) {
   for (const s of sets) {
     s.ads = db.prepare(`SELECT * FROM ad_creatives WHERE ad_set_id = ? ORDER BY id`).all(s.id);
     s.nomenclature = buildSetNomenclature(s);
-    s.spent = s.ads.reduce((t, a) => t + (Number(a.spent) || 0), 0);
-    s.clicks = s.ads.reduce((t, a) => t + (Number(a.clicks) || 0), 0);
     for (const a of s.ads) a.nomenclature = buildAdNomenclature(a);
   }
-  const totalSpent  = sets.reduce((t, s) => t + s.spent, 0);
-  const totalClicks = sets.reduce((t, s) => t + s.clicks, 0);
   return {
     ...c,
     nomenclature: buildCampaignNomenclature(c),
     sets,
-    total_spent: +totalSpent.toFixed(2),
-    total_clicks: totalClicks,
-    avg_cpc: totalClicks > 0 ? +(totalSpent / totalClicks).toFixed(2) : 0,
   };
 }
 
@@ -1944,12 +1979,6 @@ function loadCampaignFull(campaignId) {
 app.get('/api/ad-campaigns', requireAdmin, (req, res) => {
   const rows = db.prepare(
     `SELECT ac.*, u.name client_name, u.company client_company,
-            (SELECT COALESCE(SUM(spent),0) FROM ad_creatives c
-               JOIN ad_sets s ON s.id = c.ad_set_id
-              WHERE s.campaign_id = ac.id) AS total_spent,
-            (SELECT COALESCE(SUM(clicks),0) FROM ad_creatives c
-               JOIN ad_sets s ON s.id = c.ad_set_id
-              WHERE s.campaign_id = ac.id) AS total_clicks,
             (SELECT COUNT(*) FROM ad_sets s WHERE s.campaign_id = ac.id) AS set_count,
             (SELECT COUNT(*) FROM ad_creatives c
                JOIN ad_sets s ON s.id = c.ad_set_id
@@ -1962,7 +1991,6 @@ app.get('/api/ad-campaigns', requireAdmin, (req, res) => {
     ...c,
     empresa: c.client_company || c.client_name,
     nomenclature: buildCampaignNomenclature({ ...c, empresa: c.client_company || c.client_name }),
-    avg_cpc: c.total_clicks > 0 ? +((c.total_spent || 0) / c.total_clicks).toFixed(2) : 0,
   })));
 });
 
@@ -1986,7 +2014,7 @@ app.post('/api/ad-campaigns', requireAdmin, (req, res) => {
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     user_id, produto.trim(), objetivo.trim(),
-    ['frio','morno','quente'].includes(temperatura) ? temperatura : 'morno',
+    temperatura || 'morno',
     country || 'Portugal',
     Number(ref_year) || now.getFullYear(),
     Number(ref_month) || (now.getMonth()+1),
@@ -2002,7 +2030,21 @@ app.patch('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
   const c = db.prepare(`SELECT id FROM ad_campaigns WHERE id=?`).get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Campanha não encontrada.' });
   const { produto, objetivo, temperatura, country,
-          ref_year, ref_month, ref_day, budget, starts_at, ends_at, notes } = req.body || {};
+          ref_year, ref_month, ref_day, budget, starts_at, ends_at,
+          impressions, clicks, ctr, cpc, spent, notes } = req.body || {};
+
+  // Auto-cálculo de CTR e CPC quando não vêm preenchidos
+  let finalCtr = ctr;
+  if ((ctr === undefined || ctr === null || ctr === '') &&
+      impressions && clicks) {
+    finalCtr = +((Number(clicks) / Number(impressions)) * 100).toFixed(2);
+  }
+  let finalCpc = cpc;
+  if ((cpc === undefined || cpc === null || cpc === '') &&
+      spent && clicks) {
+    finalCpc = +(Number(spent) / Number(clicks)).toFixed(2);
+  }
+
   db.prepare(
     `UPDATE ad_campaigns SET
        produto = COALESCE(?, produto),
@@ -2015,16 +2057,27 @@ app.patch('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
        budget = COALESCE(?, budget),
        starts_at = ?,
        ends_at = ?,
+       impressions = ?,
+       clicks = ?,
+       ctr = ?,
+       cpc = ?,
+       spent = ?,
        notes = ?,
        updated_at = datetime('now')
      WHERE id = ?`
   ).run(
     produto ?? null, objetivo ?? null,
-    (temperatura && ['frio','morno','quente'].includes(temperatura)) ? temperatura : null,
+    temperatura ?? null,
     country ?? null,
     ref_year ?? null, ref_month ?? null, ref_day ?? null,
     budget === undefined ? null : Number(budget),
-    starts_at || null, ends_at || null, notes ?? null,
+    starts_at || null, ends_at || null,
+    impressions === undefined || impressions === '' ? null : Number(impressions),
+    clicks === undefined || clicks === '' ? null : Number(clicks),
+    finalCtr === undefined || finalCtr === '' ? null : Number(finalCtr),
+    finalCpc === undefined || finalCpc === '' ? null : Number(finalCpc),
+    spent === undefined || spent === '' ? null : Number(spent),
+    notes ?? null,
     req.params.id
   );
   res.json({ ok: true });
@@ -2103,19 +2156,7 @@ app.post('/api/ad-creatives', requireAdmin, (req, res) => {
 app.patch('/api/ad-creatives/:id', requireAdmin, (req, res) => {
   const a = db.prepare(`SELECT id FROM ad_creatives WHERE id=?`).get(req.params.id);
   if (!a) return res.status(404).json({ error: 'Anúncio não encontrado.' });
-  const { formato, variacao, ref_year, ref_month, ref_day,
-          impressions, clicks, ctr, cpc, spent, notes } = req.body || {};
-  // Auto-cálculo: se ctr não vier mas tivermos impressions e clicks, calcula.
-  let finalCtr = ctr;
-  if ((ctr === undefined || ctr === null || ctr === '') &&
-       impressions && clicks) {
-    finalCtr = +((Number(clicks) / Number(impressions)) * 100).toFixed(2);
-  }
-  let finalCpc = cpc;
-  if ((cpc === undefined || cpc === null || cpc === '') &&
-       spent && clicks) {
-    finalCpc = +(Number(spent) / Number(clicks)).toFixed(2);
-  }
+  const { formato, variacao, ref_year, ref_month, ref_day, notes } = req.body || {};
   db.prepare(
     `UPDATE ad_creatives SET
        formato=COALESCE(?, formato),
@@ -2123,22 +2164,12 @@ app.patch('/api/ad-creatives/:id', requireAdmin, (req, res) => {
        ref_year=COALESCE(?, ref_year),
        ref_month=COALESCE(?, ref_month),
        ref_day=COALESCE(?, ref_day),
-       impressions=?,
-       clicks=?,
-       ctr=?,
-       cpc=?,
-       spent=?,
        notes=?
      WHERE id=?`
   ).run(
     formato ?? null,
     variacao === undefined ? null : Number(variacao),
     ref_year ?? null, ref_month ?? null, ref_day ?? null,
-    impressions === undefined || impressions === '' ? null : Number(impressions),
-    clicks === undefined || clicks === '' ? null : Number(clicks),
-    finalCtr === undefined || finalCtr === '' ? null : Number(finalCtr),
-    finalCpc === undefined || finalCpc === '' ? null : Number(finalCpc),
-    spent === undefined || spent === '' ? null : Number(spent),
     notes ?? null,
     req.params.id
   );

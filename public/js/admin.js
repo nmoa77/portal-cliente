@@ -1909,12 +1909,32 @@ async function setTicketStatus(id, status) {
    ========================================================================= */
 /* =========================================================================
    META ADS — gestão de campanhas, conjuntos e anúncios (Facebook/Instagram).
+   Todas as listas (produto/objetivo/público/segmentação/formato/país/temperatura)
+   são geridas dinamicamente na secção "Vocabulário".
    ========================================================================= */
-const META_OBJETIVOS = [
-  'alcance','tráfego','interação','conversões','mensagens','leads','vendas',
-  'reconhecimento','reproduções de vídeo','instalações de app',
-];
-const META_FORMATOS = ['imagem','vídeo','carrossel','reel','stories','coleção'];
+async function ensureAdVocab() {
+  if (!state.adVocab) {
+    try { state.adVocab = await api('/api/ad-vocabularies'); }
+    catch (e) { state.adVocab = {}; }
+  }
+  return state.adVocab;
+}
+function vocabOptions(category, selected) {
+  const list = (state.adVocab && state.adVocab[category]) || [];
+  if (list.length === 0) return `<option value="">— sem opções (vá a Vocabulário) —</option>`;
+  let html = '';
+  let found = false;
+  for (const v of list) {
+    const sel = v.value === selected ? 'selected' : '';
+    if (sel) found = true;
+    html += `<option value="${escapeHtml(v.value)}" ${sel}>${escapeHtml(v.value)}</option>`;
+  }
+  // Se o valor guardado não estiver na lista atual, mostra-o como opção extra
+  if (selected && !found) {
+    html = `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} (descontinuado)</option>` + html;
+  }
+  return html;
+}
 
 async function viewMetaAds(main) {
   let rows = [];
@@ -1922,11 +1942,12 @@ async function viewMetaAds(main) {
   catch (e) { main.innerHTML = `<div class="empty">Erro: ${escapeHtml(e.message)}</div>`; return; }
   state.adCampaigns = rows;
   await ensureClientsLoaded();
+  await ensureAdVocab();
 
-  // Totais agregados
+  // Totais agregados (usa estatísticas guardadas na campanha)
   const totalBudget  = rows.reduce((t, c) => t + (Number(c.budget) || 0), 0);
-  const totalSpent   = rows.reduce((t, c) => t + (Number(c.total_spent) || 0), 0);
-  const totalClicks  = rows.reduce((t, c) => t + (Number(c.total_clicks) || 0), 0);
+  const totalSpent   = rows.reduce((t, c) => t + (Number(c.spent) || 0), 0);
+  const totalClicks  = rows.reduce((t, c) => t + (Number(c.clicks) || 0), 0);
   const avgCpc       = totalClicks > 0 ? totalSpent / totalClicks : 0;
 
   main.innerHTML = `
@@ -1937,6 +1958,7 @@ async function viewMetaAds(main) {
         <p class="lede">Gestão de campanhas no Facebook e Instagram — nomenclatura automática, orçamento previsto vs. gasto, e estatísticas por anúncio.</p>
       </div>
       <div class="page-head-actions">
+        <button class="btn btn-ghost" onclick="openVocabEditor()">${svg('edit')} Vocabulário</button>
         <button class="btn btn-yellow" onclick="openNewAdCampaign()">${svg('plus')} Nova campanha</button>
       </div>
     </div>
@@ -1991,9 +2013,9 @@ async function viewMetaAds(main) {
                 <td>${escapeHtml(c.empresa)}</td>
                 <td><span class="pill">${escapeHtml(c.objetivo)}</span></td>
                 <td>${fmtMoney(c.budget)}</td>
-                <td><strong>${fmtMoney(c.total_spent || 0)}</strong></td>
-                <td>${(c.total_clicks || 0).toLocaleString('pt-PT')}</td>
-                <td>${c.total_clicks > 0 ? fmtMoney(c.avg_cpc) : '—'}</td>
+                <td><strong>${fmtMoney(c.spent || 0)}</strong></td>
+                <td>${(c.clicks || 0).toLocaleString('pt-PT')}</td>
+                <td>${c.cpc != null ? fmtMoney(c.cpc) : '—'}</td>
                 <td style="text-align:right; white-space:nowrap;">
                   <button class="btn btn-icon" title="Editar campanha" onclick="event.stopPropagation(); openEditAdCampaign(${c.id})">${svg('edit')}</button>
                   <button class="btn btn-icon" title="Apagar" onclick="event.stopPropagation(); deleteAdCampaign(${c.id}, '${escapeHtml(c.produto).replace(/'/g,"\\'")}')">${svg('trash')}</button>
@@ -2025,7 +2047,8 @@ async function viewMetaAdDetail(main, id) {
   state._currentCampaign = c;
 
   const budget = Number(c.budget) || 0;
-  const spent  = Number(c.total_spent) || 0;
+  const spent  = Number(c.spent) || 0;
+  const clicks = Number(c.clicks) || 0;
   const remaining = +(budget - spent).toFixed(2);
   const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0;
 
@@ -2067,9 +2090,9 @@ async function viewMetaAdDetail(main, id) {
         <div class="delta">${remaining < 0 ? 'em excesso' : 'disponível'}</div>
       </div>
       <div class="card stat">
-        <div class="eyebrow">CPC médio</div>
-        <div class="value">${c.total_clicks > 0 ? fmtMoney(c.avg_cpc) : '—'}</div>
-        <div class="delta">${(c.total_clicks || 0).toLocaleString('pt-PT')} cliques</div>
+        <div class="eyebrow">CPC</div>
+        <div class="value">${c.cpc != null ? fmtMoney(c.cpc) : '—'}</div>
+        <div class="delta">${clicks.toLocaleString('pt-PT')} cliques · CTR ${c.ctr != null ? c.ctr.toFixed(2) + '%' : '—'}</div>
       </div>
     </div>
 
@@ -2087,7 +2110,7 @@ async function viewMetaAdDetail(main, id) {
               <button class="btn btn-icon" title="Copiar" onclick="copyToClipboard('${escapeHtml(s.nomenclature).replace(/'/g, "\\'")}')">${svg('chat')}</button>
             </div>
             <div style="font-size:12px; color:var(--muted); margin-top:6px;">
-              ${s.ads.length} anúncio(s) · ${fmtMoney(s.spent || 0)} gasto · ${(s.clicks || 0).toLocaleString('pt-PT')} cliques
+              ${s.ads.length} anúncio(s)
             </div>
           </div>
           <div style="display:flex; gap:6px;">
@@ -2103,11 +2126,7 @@ async function viewMetaAdDetail(main, id) {
           <table class="table" style="margin:0 -16px;">
             <thead><tr>
               <th>Anúncio</th>
-              <th>Impressões</th>
-              <th>Cliques</th>
-              <th>CTR</th>
-              <th>CPC</th>
-              <th>Gasto</th>
+              <th>Nomenclatura</th>
               <th></th>
             </tr></thead>
             <tbody>
@@ -2115,15 +2134,12 @@ async function viewMetaAdDetail(main, id) {
                 <tr>
                   <td>
                     <div style="font-weight:500;">${escapeHtml(a.formato)} · variação ${a.variacao}</div>
-                    <div style="font-size:11px; color:var(--muted); font-family:monospace;">${escapeHtml(a.nomenclature)}</div>
                   </td>
-                  <td>${a.impressions != null ? Number(a.impressions).toLocaleString('pt-PT') : '—'}</td>
-                  <td>${a.clicks != null ? Number(a.clicks).toLocaleString('pt-PT') : '—'}</td>
-                  <td>${a.ctr != null ? Number(a.ctr).toFixed(2) + '%' : '—'}</td>
-                  <td>${a.cpc != null ? fmtMoney(a.cpc) : '—'}</td>
-                  <td><strong>${a.spent != null ? fmtMoney(a.spent) : '—'}</strong></td>
+                  <td style="font-family:monospace; font-size:12px;">${escapeHtml(a.nomenclature)}
+                    <button class="btn btn-icon" title="Copiar" onclick="copyToClipboard('${escapeHtml(a.nomenclature).replace(/'/g, "\\'")}')">${svg('chat')}</button>
+                  </td>
                   <td style="text-align:right; white-space:nowrap;">
-                    <button class="btn btn-icon" title="Editar estatísticas" onclick="openEditAdCreative(${a.id})">${svg('edit')}</button>
+                    <button class="btn btn-icon" title="Editar" onclick="openEditAdCreative(${a.id})">${svg('edit')}</button>
                     <button class="btn btn-icon" title="Apagar" onclick="deleteAdCreative(${a.id})">${svg('trash')}</button>
                   </td>
                 </tr>
@@ -2146,18 +2162,25 @@ function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 
 async function openNewAdCampaign() {
   await ensureClientsLoaded();
+  await ensureAdVocab();
   const now = new Date();
   state._editingCampaignId = null;
   showAdCampaignModal({
     user_id: state.clients[0]?.id || '',
-    produto: '', objetivo: 'alcance', temperatura: 'morno', country: 'Portugal',
+    produto: (state.adVocab.produto || [])[0]?.value || '',
+    objetivo: (state.adVocab.objetivo || [])[0]?.value || '',
+    temperatura: (state.adVocab.temperatura || [])[1]?.value || 'morno',
+    country: (state.adVocab.pais || [])[0]?.value || 'Portugal',
     ref_year: now.getFullYear(), ref_month: now.getMonth()+1, ref_day: now.getDate(),
-    budget: 0, starts_at: '', ends_at: '', notes: '',
+    budget: 0, starts_at: '', ends_at: '',
+    impressions: '', clicks: '', ctr: '', cpc: '', spent: '',
+    notes: '',
   });
 }
 
 async function openEditAdCampaign(id) {
   await ensureClientsLoaded();
+  await ensureAdVocab();
   let c;
   try { c = await api(`/api/ad-campaigns/${id}`); }
   catch (err) { toast(err.message, 'cancel'); return; }
@@ -2179,26 +2202,20 @@ function showAdCampaignModal(c) {
               </select>
             </div>
             <div class="field"><label>Produto / âmbito</label>
-              <input id="adc-produto" required placeholder="post redes sociais" value="${escapeHtml(c.produto || '')}">
+              <select id="adc-produto" required>${vocabOptions('produto', c.produto)}</select>
             </div>
           </div>
           <div class="grid g-2" style="gap:12px;">
             <div class="field"><label>Objetivo</label>
-              <select id="adc-objetivo">
-                ${META_OBJETIVOS.map(o => `<option value="${o}" ${o === c.objetivo ? 'selected' : ''}>${o}</option>`).join('')}
-              </select>
+              <select id="adc-objetivo">${vocabOptions('objetivo', c.objetivo)}</select>
             </div>
             <div class="field"><label>Temperatura</label>
-              <select id="adc-temp">
-                <option value="frio"   ${c.temperatura === 'frio' ? 'selected' : ''}>Frio</option>
-                <option value="morno"  ${c.temperatura === 'morno' ? 'selected' : ''}>Morno</option>
-                <option value="quente" ${c.temperatura === 'quente' ? 'selected' : ''}>Quente</option>
-              </select>
+              <select id="adc-temp">${vocabOptions('temperatura', c.temperatura)}</select>
             </div>
           </div>
           <div class="grid g-2" style="gap:12px;">
             <div class="field"><label>País</label>
-              <input id="adc-country" value="${escapeHtml(c.country || 'Portugal')}">
+              <select id="adc-country">${vocabOptions('pais', c.country || 'Portugal')}</select>
             </div>
             <div class="field"><label>Orçamento previsto (€)</label>
               <input id="adc-budget" type="number" step="0.01" value="${Number(c.budget || 0)}">
@@ -2221,6 +2238,34 @@ function showAdCampaignModal(c) {
             </div>
           </div>
           <input type="hidden" id="adc-year" value="${c.ref_year}">
+
+          ${state._editingCampaignId ? `
+            <hr style="border:none; border-top:1px solid var(--line); margin:16px 0;">
+            <h4 style="margin:0 0 6px 0;">Estatísticas da campanha</h4>
+            <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">
+              Preencha no fim da campanha com os números do Meta Ads Manager. O CTR e o CPC calculam-se automaticamente se forem deixados em branco.
+            </p>
+            <div class="grid g-2" style="gap:12px;">
+              <div class="field"><label>Impressões</label>
+                <input id="adc-imp" type="number" min="0" value="${c.impressions ?? ''}">
+              </div>
+              <div class="field"><label>Cliques</label>
+                <input id="adc-clicks" type="number" min="0" value="${c.clicks ?? ''}">
+              </div>
+            </div>
+            <div class="grid g-2" style="gap:12px;">
+              <div class="field"><label>CTR (%)</label>
+                <input id="adc-ctr" type="number" step="0.01" placeholder="auto" value="${c.ctr ?? ''}">
+              </div>
+              <div class="field"><label>CPC (€)</label>
+                <input id="adc-cpc" type="number" step="0.01" placeholder="auto" value="${c.cpc ?? ''}">
+              </div>
+            </div>
+            <div class="field"><label>Montante gasto total (€)</label>
+              <input id="adc-spent" type="number" step="0.01" value="${c.spent ?? ''}">
+            </div>
+          ` : ''}
+
           <div class="field"><label>Notas internas</label>
             <textarea id="adc-notes" rows="2">${escapeHtml(c.notes || '')}</textarea>
           </div>
@@ -2263,10 +2308,10 @@ function showAdSetModal(s) {
         <form id="adSetForm">
           <div class="grid g-2" style="gap:12px;">
             <div class="field"><label>Nome do público</label>
-              <input id="ads-aud" required value="${escapeHtml(s.audience_name || '')}" placeholder="PF / Mulheres 25-44 / Lookalike">
+              <select id="ads-aud" required>${vocabOptions('publico', s.audience_name)}</select>
             </div>
             <div class="field"><label>Segmentação</label>
-              <input id="ads-seg" required value="${escapeHtml(s.segmentation || '')}" placeholder="PT / Lisboa+Porto / Interesses moda">
+              <select id="ads-seg" required>${vocabOptions('segmentacao', s.segmentation)}</select>
             </div>
           </div>
           <div class="grid g-2" style="gap:12px;">
@@ -2315,14 +2360,13 @@ function showAdCreativeModal(a) {
   const wrap = document.getElementById('modal-adcreative-root');
   wrap.innerHTML = `
     <div class="overlay open" id="modal-adcreative">
-      <div class="modal wide">
+      <div class="modal">
         <h3>${state._editingAdId ? 'Editar anúncio' : 'Novo anúncio'}</h3>
+        <p class="lede">As estatísticas (cliques, CTR, CPC, gasto) ficam na campanha, não no anúncio. Aqui só define formato e variação.</p>
         <form id="adCreativeForm">
           <div class="grid g-2" style="gap:12px;">
             <div class="field"><label>Formato</label>
-              <select id="adcr-fmt">
-                ${META_FORMATOS.map(f => `<option value="${f}" ${f === a.formato ? 'selected' : ''}>${f}</option>`).join('')}
-              </select>
+              <select id="adcr-fmt">${vocabOptions('formato', a.formato)}</select>
             </div>
             <div class="field"><label>Variação (nº)</label>
               <input id="adcr-var" type="number" min="1" value="${a.variacao || 1}">
@@ -2337,30 +2381,6 @@ function showAdCreativeModal(a) {
             </div>
           </div>
           <input type="hidden" id="adcr-year" value="${a.ref_year}">
-
-          <hr style="border:none; border-top:1px solid var(--line); margin:14px 0;">
-          <p style="font-size:12px; color:var(--muted); margin-bottom:10px;">
-            Estatísticas — preencha no fim da campanha com os números do Meta Ads Manager. O CTR e o CPC calculam-se automaticamente se forem deixados em branco.
-          </p>
-          <div class="grid g-2" style="gap:12px;">
-            <div class="field"><label>Impressões</label>
-              <input id="adcr-imp" type="number" min="0" value="${a.impressions ?? ''}">
-            </div>
-            <div class="field"><label>Cliques</label>
-              <input id="adcr-clicks" type="number" min="0" value="${a.clicks ?? ''}">
-            </div>
-          </div>
-          <div class="grid g-2" style="gap:12px;">
-            <div class="field"><label>CTR (%)</label>
-              <input id="adcr-ctr" type="number" step="0.01" placeholder="auto" value="${a.ctr ?? ''}">
-            </div>
-            <div class="field"><label>CPC (€)</label>
-              <input id="adcr-cpc" type="number" step="0.01" placeholder="auto" value="${a.cpc ?? ''}">
-            </div>
-          </div>
-          <div class="field"><label>Montante gasto (€)</label>
-            <input id="adcr-spent" type="number" step="0.01" value="${a.spent ?? ''}">
-          </div>
           <div class="field"><label>Notas (opcional)</label>
             <textarea id="adcr-notes" rows="2">${escapeHtml(a.notes || '')}</textarea>
           </div>
@@ -2395,6 +2415,94 @@ async function deleteAdSet(id) {
     go('metaads-detail');
   } catch (err) { toast(err.message, 'cancel'); }
 }
+/* ===== Editor de Vocabulário ============================================= */
+async function openVocabEditor() {
+  // força reload fresco
+  state.adVocab = null;
+  await ensureAdVocab();
+  renderVocabEditor();
+}
+
+function renderVocabEditor() {
+  const v = state.adVocab || {};
+  const labels = {
+    produto:     'Produtos',
+    objetivo:    'Objetivos',
+    publico:     'Públicos',
+    segmentacao: 'Segmentações',
+    formato:     'Formatos',
+    pais:        'Países',
+    temperatura: 'Temperaturas',
+  };
+  const wrap = document.getElementById('modal-vocab-root') || (() => {
+    const d = document.createElement('div');
+    d.id = 'modal-vocab-root';
+    document.body.appendChild(d);
+    return d;
+  })();
+
+  wrap.innerHTML = `
+    <div class="overlay open" id="modal-vocab">
+      <div class="modal wide" style="max-width:760px;">
+        <h3>Vocabulário Meta Ads</h3>
+        <p class="lede">Adicione ou remova opções que aparecem nos dropdowns ao criar campanhas, conjuntos e anúncios. As alterações são imediatas.</p>
+
+        <div class="grid g-2" style="gap:14px; align-items:start;">
+          ${Object.keys(labels).map(cat => {
+            const list = v[cat] || [];
+            return `
+              <div style="border:1px solid var(--line); border-radius:12px; padding:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <strong style="font-size:14px;">${labels[cat]}</strong>
+                  <span style="font-size:11px; color:var(--muted);">${list.length} ${list.length === 1 ? 'opção' : 'opções'}</span>
+                </div>
+                <div style="display:flex; gap:6px; margin-bottom:10px;">
+                  <input id="vocab-input-${cat}" type="text" placeholder="Novo valor…" style="flex:1; padding:6px 10px; border:1px solid var(--line); border-radius:8px; font-size:13px;">
+                  <button class="btn btn-yellow btn-sm" type="button" onclick="addVocabValue('${cat}')">+ Adicionar</button>
+                </div>
+                <div style="display:flex; flex-wrap:wrap; gap:6px; max-height:200px; overflow-y:auto;">
+                  ${list.map(item => `
+                    <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 8px; background:var(--bg-2); border:1px solid var(--line-2); border-radius:999px; font-size:12px;">
+                      ${escapeHtml(item.value)}
+                      <button type="button" title="Remover" onclick="removeVocabValue(${item.id})" style="border:0; background:transparent; cursor:pointer; color:var(--muted); padding:0; line-height:1; font-size:16px;">×</button>
+                    </span>
+                  `).join('') || '<span style="color:var(--muted); font-size:12px;">(vazio)</span>'}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div class="modal-actions" style="margin-top:18px;">
+          <button type="button" class="btn btn-ghost" onclick="closeAdModal('modal-vocab')">Fechar</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function addVocabValue(category) {
+  const input = document.getElementById('vocab-input-' + category);
+  const value = (input?.value || '').trim();
+  if (!value) { toast('Indique um valor.', 'cancel'); return; }
+  try {
+    await api('/api/ad-vocabularies', { method: 'POST', body: { category, value } });
+    state.adVocab = null;     // força refresh
+    await ensureAdVocab();
+    renderVocabEditor();
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
+async function removeVocabValue(id) {
+  if (!confirm('Remover esta opção do vocabulário?')) return;
+  try {
+    await api(`/api/ad-vocabularies/${id}`, { method: 'DELETE' });
+    state.adVocab = null;
+    await ensureAdVocab();
+    renderVocabEditor();
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
 async function deleteAdCreative(id) {
   if (!confirm('Apagar este anúncio e as suas estatísticas?')) return;
   try {
@@ -2759,18 +2867,30 @@ document.addEventListener('submit', async (e) => {
 
   if (e.target.id === 'adCampaignForm') {
     e.preventDefault();
+    const num = (id) => {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      const v = el.value;
+      return v === '' ? null : Number(v);
+    };
     const body = {
       user_id: Number(document.getElementById('adc-user').value),
-      produto: document.getElementById('adc-produto').value.trim(),
+      produto: document.getElementById('adc-produto').value,
       objetivo: document.getElementById('adc-objetivo').value,
       temperatura: document.getElementById('adc-temp').value,
-      country: document.getElementById('adc-country').value.trim() || 'Portugal',
+      country: document.getElementById('adc-country').value || 'Portugal',
       budget: Number(document.getElementById('adc-budget').value) || 0,
       starts_at: document.getElementById('adc-start').value || null,
       ends_at: document.getElementById('adc-end').value || null,
       ref_year: Number(document.getElementById('adc-year').value),
       ref_month: Number(document.getElementById('adc-month').value),
       ref_day: Number(document.getElementById('adc-day').value),
+      // Estatísticas (só existem em modo edição)
+      impressions: num('adc-imp'),
+      clicks: num('adc-clicks'),
+      ctr: num('adc-ctr'),
+      cpc: num('adc-cpc'),
+      spent: num('adc-spent'),
       notes: document.getElementById('adc-notes').value.trim() || null,
     };
     try {
@@ -2814,22 +2934,13 @@ document.addEventListener('submit', async (e) => {
 
   if (e.target.id === 'adCreativeForm') {
     e.preventDefault();
-    const num = (id) => {
-      const v = document.getElementById(id).value;
-      return v === '' ? null : Number(v);
-    };
     const body = {
-      ad_set_id: state._editingAdSet || (state._editingAdId ? undefined : null),
+      ad_set_id: state._editingAdSet || undefined,
       formato: document.getElementById('adcr-fmt').value,
       variacao: Number(document.getElementById('adcr-var').value) || 1,
       ref_year: Number(document.getElementById('adcr-year').value),
       ref_month: Number(document.getElementById('adcr-month').value),
       ref_day: Number(document.getElementById('adcr-day').value),
-      impressions: num('adcr-imp'),
-      clicks: num('adcr-clicks'),
-      ctr: num('adcr-ctr'),
-      cpc: num('adcr-cpc'),
-      spent: num('adcr-spent'),
       notes: document.getElementById('adcr-notes').value.trim() || null,
     };
     try {
