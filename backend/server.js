@@ -350,6 +350,33 @@ app.get('/api/client-summary', requireAuth, (req, res) => {
       ORDER BY si.renewal_date ASC`
   ).all(uid);
 
+  // Tem subscrição ativa de redes sociais? Determina se mostra widget de posts.
+  const hasSocial = db.prepare(
+    `SELECT COUNT(*) c FROM subscription_items si
+       JOIN subscriptions s ON s.id = si.subscription_id
+       JOIN plans p ON p.id = si.plan_id
+      WHERE s.user_id = ? AND p.category = 'social' AND si.status = 'active'`
+  ).get(uid).c > 0;
+
+  // Estatísticas de posts dos últimos 3 meses + próximo mês (apenas se for cliente social)
+  let socialPostStats = [];
+  if (hasSocial) {
+    socialPostStats = db.prepare(
+      `SELECT substr(date, 1, 7) AS month,
+              SUM(CASE WHEN status='published' THEN 1 ELSE 0 END) AS published,
+              SUM(CASE WHEN status='scheduled' THEN 1 ELSE 0 END) AS scheduled,
+              SUM(CASE WHEN status='draft'     THEN 1 ELSE 0 END) AS draft,
+              SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END) AS cancelled,
+              COUNT(*) AS total
+         FROM social_posts
+        WHERE user_id = ?
+          AND date >= date('now','start of month','-2 months')
+          AND date <= date('now','start of month','+1 month','+1 month','-1 day')
+        GROUP BY substr(date, 1, 7)
+        ORDER BY month`
+    ).all(uid);
+  }
+
   // Tickets em curso com mensagens de admin ainda não lidas pelo cliente
   const unreadClientTickets = db.prepare(
     `SELECT COUNT(DISTINCT t.id) c FROM tickets t
@@ -364,6 +391,7 @@ app.get('/api/client-summary', requireAuth, (req, res) => {
   res.json({
     activeSubs, openProjects, pendingMockups, pendingQuotes, revisedQuotes,
     monthTotal, weekPosts, awaitingPosts: draftPosts, draftPosts,
+    hasSocial, socialPostStats,
     // alertas
     unreadProjectNotes, unreadClientTickets, upcomingSocialRenewals,
   });

@@ -230,6 +230,50 @@ async function viewHome(main) {
         activeProj.map(p => projectRow(p)).join('')}
     </div>
 
+    ${s.hasSocial ? `
+      <div class="section-head" style="margin-top:24px;">
+        <h2>Redes sociais</h2>
+        <button class="link" onclick="go('calendar')">Abrir calendário ${svg('arrow')}</button>
+      </div>
+      <div class="card">
+        <p style="color:var(--muted); font-size:13px; margin:0 0 14px 0;">
+          Resumo dos posts agendados, publicados e em rascunho nos últimos meses.
+        </p>
+        ${(s.socialPostStats || []).length === 0 ? `
+          <div class="empty" style="padding:20px 0;">Sem posts registados nos últimos meses.</div>
+        ` : `
+          <div class="card table-card" style="padding:0; border:1px solid var(--line-2); border-radius:10px; overflow:hidden;">
+            <table class="table">
+              <thead><tr>
+                <th>Mês</th>
+                <th style="text-align:right;">Publicados</th>
+                <th style="text-align:right;">Agendados</th>
+                <th style="text-align:right;">Rascunhos</th>
+                <th style="text-align:right;">Cancelados</th>
+                <th style="text-align:right;">Total</th>
+              </tr></thead>
+              <tbody>
+                ${(s.socialPostStats || []).map(m => {
+                  const dt = new Date(m.month + '-01');
+                  const label = dt.toLocaleDateString('pt-PT', { month: 'long', year: 'numeric' });
+                  return `
+                    <tr>
+                      <td><strong>${escapeHtml(label)}</strong></td>
+                      <td style="text-align:right; color:#2a8a2a;"><strong>${m.published || 0}</strong></td>
+                      <td style="text-align:right; color:#5a4a00;"><strong>${m.scheduled || 0}</strong></td>
+                      <td style="text-align:right; color:var(--muted);">${m.draft || 0}</td>
+                      <td style="text-align:right; color:#9a2828;">${m.cancelled || 0}</td>
+                      <td style="text-align:right;"><strong>${m.total || 0}</strong></td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    ` : ''}
+
     <div class="grid g-2" style="margin-top:24px;">
       <div class="card">
         <h3 style="margin-bottom:14px;">Próxima renovação</h3>
@@ -693,11 +737,14 @@ async function viewCalendar(main) {
     cells.push(`
       <div class="cal-day ${isToday ? 'today' : ''}">
         <div class="date">${d}</div>
-        ${dayPosts.map(p => `
-          <div class="cal-post ${netCls(p.network)} ${p.status === 'draft' ? 'draft' : ''}" title="${escapeHtml(p.text)} — clica para ver/sugerir" onclick="openPostView(${p.id})" style="cursor:pointer;">
-            ${escapeHtml(p.text.slice(0, 22))}${p.text.length > 22 ? '…' : ''}
-          </div>
-        `).join('')}
+        ${dayPosts.map(p => {
+          const netShort = (p.network || '').slice(0,2).toUpperCase();
+          return `
+          <div class="cal-post ${p.status}" title="${escapeHtml(netLabel(p.network) + ' · ' + p.text + ' · ' + p.status)} — clique para ver/sugerir" onclick="openPostView(${p.id})" style="cursor:pointer;">
+            <span class="net">${netShort}</span>
+            ${escapeHtml(p.text.slice(0, 20))}${p.text.length > 20 ? '…' : ''}
+          </div>`;
+        }).join('')}
       </div>
     `);
   }
