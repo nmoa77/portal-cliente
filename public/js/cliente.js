@@ -768,11 +768,6 @@ async function viewCalendar(main) {
         ${cells.join('')}
       </div>
     </div>
-    <div class="grid g-3" style="margin-top:18px;">
-      <div class="card"><div style="display:flex; gap:10px; align-items:center;"><span class="pill violet">IG</span> <span style="font-size:13px;">Instagram</span></div></div>
-      <div class="card"><div style="display:flex; gap:10px; align-items:center;"><span class="pill ok">FB</span> <span style="font-size:13px;">Facebook</span></div></div>
-      <div class="card"><div style="display:flex; gap:10px; align-items:center;"><span class="pill teal">LI</span> <span style="font-size:13px;">LinkedIn</span></div></div>
-    </div>
   `;
 }
 
