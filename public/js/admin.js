@@ -1944,10 +1944,11 @@ async function viewMetaAds(main) {
   await ensureClientsLoaded();
   await ensureAdVocab();
 
-  // Totais agregados (usa estatísticas guardadas na campanha)
-  const totalBudget  = rows.reduce((t, c) => t + (Number(c.budget) || 0), 0);
-  const totalSpent   = rows.reduce((t, c) => t + (Number(c.spent) || 0), 0);
-  const totalClicks  = rows.reduce((t, c) => t + (Number(c.clicks) || 0), 0);
+  // Totais agregados — apenas campanhas ativas contam para os KPIs do topo.
+  const activeRows = rows.filter(c => c.status === 'active');
+  const totalBudget  = activeRows.reduce((t, c) => t + (Number(c.budget) || 0), 0);
+  const totalSpent   = activeRows.reduce((t, c) => t + (Number(c.spent) || 0), 0);
+  const totalClicks  = activeRows.reduce((t, c) => t + (Number(c.clicks) || 0), 0);
   const avgCpc       = totalClicks > 0 ? totalSpent / totalClicks : 0;
 
   main.innerHTML = `
@@ -1965,14 +1966,14 @@ async function viewMetaAds(main) {
 
     <div class="grid g-4" style="margin-bottom:14px;">
       <div class="card stat y">
-        <div class="eyebrow">Campanhas</div>
-        <div class="value">${rows.length}</div>
-        <div class="delta">no histórico</div>
+        <div class="eyebrow">Campanhas ativas</div>
+        <div class="value">${activeRows.length}</div>
+        <div class="delta">${rows.length - activeRows.length} inativas no histórico</div>
       </div>
       <div class="card stat">
         <div class="eyebrow">Orçamento total</div>
         <div class="value">${fmtMoney(totalBudget)}</div>
-        <div class="delta">previsto</div>
+        <div class="delta">apenas ativas</div>
       </div>
       <div class="card stat">
         <div class="eyebrow">Gasto total</div>
@@ -1982,7 +1983,7 @@ async function viewMetaAds(main) {
       <div class="card stat">
         <div class="eyebrow">CPC médio</div>
         <div class="value">${fmtMoney(avgCpc)}</div>
-        <div class="delta">${totalClicks.toLocaleString('pt-PT')} cliques</div>
+        <div class="delta">${totalClicks.toLocaleString('pt-PT')} cliques · ativas</div>
       </div>
     </div>
 
@@ -1997,6 +1998,7 @@ async function viewMetaAds(main) {
             <th>Campanha</th>
             <th>Cliente</th>
             <th>Objetivo</th>
+            <th>Estado</th>
             <th>Orçamento</th>
             <th>Gasto</th>
             <th>Cliques</th>
@@ -2012,11 +2014,17 @@ async function viewMetaAds(main) {
                 </td>
                 <td>${escapeHtml(c.empresa)}</td>
                 <td><span class="pill">${escapeHtml(c.objetivo)}</span></td>
+                <td>
+                  ${c.status === 'active'
+                    ? '<span class="pill ok">Ativa</span>'
+                    : '<span class="pill muted">Inativa</span>'}
+                </td>
                 <td>${fmtMoney(c.budget)}</td>
                 <td><strong>${fmtMoney(c.spent || 0)}</strong></td>
                 <td>${(c.clicks || 0).toLocaleString('pt-PT')}</td>
                 <td>${c.cpc != null ? fmtMoney(c.cpc) : '—'}</td>
                 <td style="text-align:right; white-space:nowrap;">
+                  <button class="btn btn-icon" title="${c.status === 'active' ? 'Marcar como inativa' : 'Reativar campanha'}" onclick="event.stopPropagation(); toggleAdCampaignStatus(${c.id})">${c.status === 'active' ? '⏸' : '▶'}</button>
                   <button class="btn btn-icon" title="Editar campanha" onclick="event.stopPropagation(); openEditAdCampaign(${c.id})">${svg('edit')}</button>
                   <button class="btn btn-icon" title="Apagar" onclick="event.stopPropagation(); deleteAdCampaign(${c.id}, '${escapeHtml(c.produto).replace(/'/g,"\\'")}')">${svg('trash')}</button>
                 </td>
@@ -2397,6 +2405,14 @@ function showAdCreativeModal(a) {
 function closeAdModal(id) {
   const el = document.getElementById(id);
   if (el) el.remove();
+}
+
+async function toggleAdCampaignStatus(id) {
+  try {
+    const r = await api(`/api/ad-campaigns/${id}/toggle-status`, { method: 'POST' });
+    toast(r.status === 'active' ? 'Campanha reativada.' : 'Campanha marcada como inativa.', 'check');
+    go('metaads');
+  } catch (err) { toast(err.message, 'cancel'); }
 }
 
 async function deleteAdCampaign(id, label) {

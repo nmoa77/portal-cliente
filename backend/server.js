@@ -2017,8 +2017,22 @@ function loadCampaignFull(campaignId) {
   };
 }
 
+// Auto-desativa campanhas cuja data fim já passou (corre na listagem).
+function autoDeactivateExpiredCampaigns() {
+  try {
+    db.prepare(
+      `UPDATE ad_campaigns
+          SET status = 'inactive'
+        WHERE status = 'active'
+          AND ends_at IS NOT NULL
+          AND date(ends_at) < date('now','localtime')`
+    ).run();
+  } catch (e) { console.warn('autoDeactivate campaigns:', e.message); }
+}
+
 // Lista de campanhas para o admin
 app.get('/api/ad-campaigns', requireAdmin, (req, res) => {
+  autoDeactivateExpiredCampaigns();
   const rows = db.prepare(
     `SELECT ac.*, u.name client_name, u.company client_company,
             (SELECT COUNT(*) FROM ad_sets s WHERE s.campaign_id = ac.id) AS set_count,
@@ -2129,6 +2143,15 @@ app.delete('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
   const info = db.prepare(`DELETE FROM ad_campaigns WHERE id=?`).run(req.params.id);
   if (!info.changes) return res.status(404).json({ error: 'Campanha não encontrada.' });
   res.json({ ok: true });
+});
+
+// Alterna manualmente o estado (Ativa / Inativa).
+app.post('/api/ad-campaigns/:id/toggle-status', requireAdmin, (req, res) => {
+  const c = db.prepare(`SELECT id, status FROM ad_campaigns WHERE id=?`).get(req.params.id);
+  if (!c) return res.status(404).json({ error: 'Campanha não encontrada.' });
+  const next = c.status === 'active' ? 'inactive' : 'active';
+  db.prepare(`UPDATE ad_campaigns SET status=?, updated_at=datetime('now') WHERE id=?`).run(next, c.id);
+  res.json({ ok: true, status: next });
 });
 
 // Conjuntos de anúncios (ad sets)

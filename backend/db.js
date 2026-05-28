@@ -227,6 +227,7 @@ CREATE TABLE IF NOT EXISTS ad_campaigns (
   budget REAL DEFAULT 0,              -- orçamento previsto da campanha
   starts_at TEXT,                     -- data início real
   ends_at TEXT,                       -- data fim real
+  status TEXT NOT NULL DEFAULT 'active',
   -- estatísticas finais da campanha (preenchidas pelo admin no fim):
   impressions INTEGER,
   clicks INTEGER,
@@ -483,6 +484,7 @@ try {
     if (need('ctr'))         db.exec(`ALTER TABLE ad_campaigns ADD COLUMN ctr REAL`);
     if (need('cpc'))         db.exec(`ALTER TABLE ad_campaigns ADD COLUMN cpc REAL`);
     if (need('spent'))       db.exec(`ALTER TABLE ad_campaigns ADD COLUMN spent REAL`);
+    if (need('status'))      db.exec(`ALTER TABLE ad_campaigns ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`);
     // O CHECK antigo de temperatura impedia novos valores — recria sem CHECK
     const sql = db.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='ad_campaigns'`).get();
     if (sql && sql.sql && sql.sql.includes("CHECK(temperatura IN")) {
@@ -502,6 +504,7 @@ try {
           budget REAL DEFAULT 0,
           starts_at TEXT,
           ends_at TEXT,
+          status TEXT NOT NULL DEFAULT 'active',
           impressions INTEGER,
           clicks INTEGER,
           ctr REAL,
