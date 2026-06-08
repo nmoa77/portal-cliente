@@ -22,7 +22,10 @@ const state = {
     if (state.me.role !== 'client') { window.location.href = '/admin.html'; return; }
     await refreshSummary();
     renderShell();
-    go('home');
+    // Restaurar vista após logout por inatividade (?view=xxx).
+    const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';
+    try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}
+    go(initial);
   } catch (e) {
     console.error(e);
     window.location.href = '/';

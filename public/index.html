@@ -143,7 +143,23 @@
         errBox.classList.add('show');
         return;
       }
-      window.location.href = data.role === 'admin' ? '/admin.html' : '/cliente.html';
+      // Restaurar vista anterior quando o logout foi por inatividade.
+      let dest = data.role === 'admin' ? '/admin.html' : '/cliente.html';
+      try {
+        const raw = sessionStorage.getItem('duit-idle-return');
+        if (raw) {
+          const info = JSON.parse(raw);
+          sessionStorage.removeItem('duit-idle-return');
+          // Aceita o restauro apenas se: tem menos de 60 min, e o path
+          // corresponde ao role do utilizador (admin → /admin.html, cliente → /cliente.html).
+          const fresh = info && (Date.now() - (info.when || 0)) < 60 * 60 * 1000;
+          const matchesRole = info && info.path === dest;
+          if (fresh && matchesRole && info.view) {
+            dest = `${info.path}?view=${encodeURIComponent(info.view)}`;
+          }
+        }
+      } catch (e) { /* ignore */ }
+      window.location.href = dest;
     } catch (err) {
       errBox.textContent = 'Erro de ligação. Verifique o servidor.';
       errBox.classList.add('show');

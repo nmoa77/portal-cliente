@@ -24,7 +24,11 @@ const state = {
     if (state.me.role !== 'admin') { window.location.href = '/cliente.html'; return; }
     await Promise.all([refreshStats(), refreshClients()]);
     renderShell();
-    go('home');
+    // Se vier ?view=xxx (vinda do restauro pós-logout por inatividade), navega para lá.
+    const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';
+    // Limpa a query da URL para não ficar marcada
+    try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}
+    go(initial);
   } catch (e) {
     console.error(e);
     window.location.href = '/';

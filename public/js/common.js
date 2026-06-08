@@ -16,6 +16,8 @@ async function api(path, opts = {}) {
 }
 
 async function logout() {
+  // Logout manual: NÃO restaurar vista no próximo login (apaga eventual estado guardado por inatividade).
+  try { sessionStorage.removeItem('duit-idle-return'); } catch (_) {}
   try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (_) {}
   window.location.href = '/';
 }
@@ -370,6 +372,12 @@ window.addEventListener('appinstalled', () => {
 
   async function doLogout() {
     clearTimers();
+    // Guarda a vista atual para a podermos restaurar depois do próximo login.
+    try {
+      const view = (typeof state !== 'undefined' && state && state.view) || null;
+      const path = window.location.pathname;
+      sessionStorage.setItem('duit-idle-return', JSON.stringify({ path, view, when: Date.now() }));
+    } catch (e) { /* sessionStorage indisponível — segue sem restauro */ }
     try {
       await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     } catch (e) { /* ignore */ }
