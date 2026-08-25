@@ -82,3 +82,4 @@ try {
 
 require('./crm-server');
 require('./prospect-seed');
+require('./prospect-seed-20');
