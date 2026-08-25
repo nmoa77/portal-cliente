@@ -13,7 +13,7 @@
   function emailState(p) {
     if (!p.email_sent_at) return '<span class="pill muted">⚪ Não enviado</span>';
     if (!p.email_first_opened_at) return `<span class="pill warn" title="Enviado ${fmtDateTime(p.email_sent_at)}">🟡 Enviado · por abrir</span>`;
-    return `<span class="pill ok" title="1ª abertura ${fmtDateTime(p.email_first_opened_at)}${p.email_last_opened_at ? ' · última '+fmtDateTime(p.email_last_opened_at) : ''}">🟢 Visto${Number(p.email_open_count||0)>1?' · '+p.email_open_count+'x':''}</span>`;
+    return `<span class="pill ok" title="1ª abertura ${fmtDateTime(p.email_first_opened_at)}${p.email_last_opened_at ? ' · última '+fmtDateTime(p.email_last_opened_at) : ''}">🟢 Visto · ${Number(p.email_open_count||0)}x</span>`;
   }
   function decorateTable() {
     document.querySelectorAll('tr[onclick*="openCrmProspect("]').forEach(tr => {
@@ -33,6 +33,14 @@
   window.crmDuplicateProspect=function(id){const p=byId(id);if(!p)return toast('Prospect não encontrado.','cancel');closeCrmProspect?.();openCrmProspect();setTimeout(()=>{const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v??''};set('crm-company',p.company);set('crm-name',p.name);set('crm-email','');set('crm-phone',p.phone);set('crm-sector',p.sector);set('crm-location',p.location);set('crm-website',p.website);set('crm-instagram',p.instagram);set('crm-opportunity',p.opportunity);set('crm-idea',p.idea);set('crm-priority',p.priority||'possivel');set('crm-status','por_contactar');set('crm-plan',p.recommended_plan);set('crm-monthly',p.monthly_value);set('crm-offer',p.offer_value);set('crm-first-contact','');set('crm-followup','');set('crm-notes',p.notes);set('crm-proposal',p.proposal_email);const title=document.getElementById('crm-modal-title');if(title)title.textContent=`Duplicar · ${p.company||p.name}`;crmApplyPlan?.(false);document.getElementById('crm-email')?.focus();},50)};
   window.crmSendProspectEmail=async function(id){const p=byId(id);if(!p)return;const currentId=Number(document.getElementById('crm-id')?.value||0);const text=currentId===Number(id)?document.getElementById('crm-proposal')?.value:p.proposal_email;if(!text?.trim())return toast('O email está vazio.','cancel');if(!confirm(`Enviar agora o email comercial para ${p.email}?`))return;try{await api(`/api/crm/prospects/${id}/send-email`,{method:'POST',body:{text}});toast('Email enviado. O tracking ficou ativo.','check');closeCrmProspect?.();await refresh();if(typeof viewProspects==='function')await viewProspects(document.getElementById('main'));}catch(e){toast(e.message,'cancel')}};
   window.crmConvertProspect=async function(id){const p=byId(id);if(!p)return;if(!confirm(`Converter "${p.company||p.name}" em cliente?\n\nA conta será ativada e o cliente receberá as credenciais por email.`))return;try{await api(`/api/crm/prospects/${id}/convert`,{method:'POST'});toast('Prospect convertido em cliente.','check');closeCrmProspect?.();if(typeof refreshClients==='function')await refreshClients();go('clients');}catch(e){toast(e.message,'cancel')}};
+
+  // A tabela é re-renderizada sempre que muda de página/filtro. Observa o #main e volta
+  // a aplicar o estado do email e as ações aos 15 prospects atualmente visíveis.
+  let decorateTimer=null;
+  function queueDecorate(){clearTimeout(decorateTimer);decorateTimer=setTimeout(()=>{if(typeof state!=='undefined'&&state.view==='prospects')decorateTable();},25)}
+  const main=document.getElementById('main');
+  if(main)new MutationObserver(m=>{if(m.some(x=>x.type==='childList'&&(x.addedNodes.length||x.removedNodes.length)))queueDecorate()}).observe(main,{childList:true,subtree:true});
+
   const originalView=window.viewProspects;if(typeof originalView==='function')window.viewProspects=async function(main){await originalView(main);await refresh();decorateTable()};
   const originalOpen=window.openCrmProspect;if(typeof originalOpen==='function')window.openCrmProspect=function(id=null){originalOpen(id);if(id){if(rows.length)decorateModal(id);else refresh().then(()=>decorateModal(id))}};
   refresh().then(()=>{if(typeof state!=='undefined'&&state.view==='prospects')decorateTable()});
