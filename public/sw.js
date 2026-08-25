@@ -1,12 +1,12 @@
 /* DUIT Portal — Service Worker */
-const VERSION = 'duit-v4';
+const VERSION = 'duit-v5';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
 const PRECACHE_URLS = [
   '/', '/index.html', '/cliente.html', '/admin.html', '/reset.html', '/quote.html',
   '/css/styles.css', '/js/common.js', '/js/cliente.js', '/js/admin.js',
-  '/js/prospects-crm.js', '/js/prospects-actions.js',
+  '/js/prospects-crm.js', '/js/prospects-actions.js', '/js/prospects-pagination.js',
   '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'
 ];
 
@@ -36,7 +36,6 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // JS/CSS: network-first para garantir que correções do portal entram imediatamente.
   if (/\.(css|js)$/i.test(url.pathname)) {
     event.respondWith(fetch(req).then(res => {
       if (res.ok && (res.type === 'basic' || res.type === 'default')) {
