@@ -5,7 +5,6 @@ const { requireAdmin } = require('./auth');
 const { deliver, T } = require('./email');
 
 module.exports = function installProspectCrmActions(app) {
-  // Migração incremental, sem tocar no módulo de Orçamentos.
   const cols = db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c => c.name);
   const add = (name, sql) => { if (!cols.includes(name)) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ${name} ${sql}`); };
   add('email_tracking_token', 'TEXT');
@@ -23,6 +22,10 @@ module.exports = function installProspectCrmActions(app) {
     const paragraphs = clean.split(/\n{2,}/).map(p => `<div style="margin:0 0 15px;color:#2a2a2a;font-size:15px;line-height:1.65;white-space:pre-line">${esc(p)}</div>`).join('');
     return `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px;background:#f5f3ef"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:22px 34px;color:#fff;font-size:27px;font-weight:900">DUIT<span style="color:#ffd60a">.</span></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px">${paragraphs}<div style="padding-top:12px;color:#2a2a2a;font-size:15px">Cumprimentos,</div><div style="padding-top:8px"><img src="${portal}/assinatura_duit.png" width="400" alt="DUIT" style="display:block;width:100%;max-width:400px;height:auto;border:0"></div></td></tr></table><img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0"></td></tr></table></body></html>`;
   }
+
+  app.get('/api/crm/prospects/email-status', requireAdmin, (req,res) => {
+    res.json(db.prepare(`SELECT user_id,email_sent_at,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count FROM prospect_crm`).all());
+  });
 
   app.get('/api/crm/prospects/email-open/:token.png', (req, res) => {
     try {
