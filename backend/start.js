@@ -2,8 +2,6 @@ const fs = require('fs');
 const path = require('path');
 
 // Prospects é um CRM de prospeção independente de Orçamentos.
-// Antes de arrancar, liga apenas as ações próprias do CRM:
-// envio/tracking de email, duplicação e conversão em cliente.
 try {
   const crmServer = path.join(__dirname, 'crm-server.js');
   let serverSource = fs.readFileSync(crmServer, 'utf8');
@@ -19,26 +17,35 @@ try {
   const crmJs = path.join(__dirname, '..', 'public', 'js', 'prospects-crm.js');
   let source = fs.readFileSync(crmJs, 'utf8');
 
+  // Corrige gravação dupla de JSON, caso ainda exista numa versão antiga.
   source = source.replace(/body:JSON\.stringify\(body\)/g, 'body');
+
+  // Remove bridges antigos para Orçamentos.
   source = source.replace(/\n;\(\(\) => \{\n  if \(document\.querySelector\('script\[data-duit-legacy-bridge\]'\)\)[\s\S]*?\n\}\)\(\);\n?/g, '\n');
+
+  // Ações próprias dos Prospects.
   const marker = 'prospects-actions.js';
   if (!source.includes(marker)) {
-    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260825d';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
+    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260826a';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
   } else {
-    source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260825d');
+    source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260826a');
   }
 
-  // Paginação visual dos Prospects: 15 por página.
-  // Versão alterada sempre que há correções para furar cache do browser/PWA.
-  if (!source.includes('prospects-pagination.js')) {
-    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-pagination]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-pagination.js?v=20260825c';\n  s.dataset.duitProspectPagination = '1';\n  document.body.appendChild(s);\n})();\n`;
-  } else {
-    source = source.replace(/prospects-pagination\.js\?v=[^'\"]+/g, 'prospects-pagination.js?v=20260825c');
+  // Remove a paginação externa antiga. Estava a correr fora do ciclo normal do CRM
+  // e os botões podiam ficar visíveis sem conseguirem alterar a lista.
+  source = source.replace(/\n;\(\(\) => \{\n  if \(document\.querySelector\('script\[data-duit-prospect-pagination\]'\)\)[\s\S]*?\n\}\)\(\);\n?/g, '\n');
+
+  // Paginação integrada no próprio render do CRM: 15 prospects por página.
+  // Usa onclick global, sem MutationObserver nem script externo.
+  if (!source.includes('DUIT_CRM_NATIVE_PAGINATION')) {
+    const paginationPatch = `\n  /* DUIT_CRM_NATIVE_PAGINATION */\n  let crmCurrentPage = 1;\n  const CRM_PAGE_SIZE = 15;\n  const crmRenderTableBase = renderCrmTable;\n\n  function crmApplyNativePagination(main) {\n    const table = main?.querySelector('.table-card table.table');\n    main?.querySelector('#crm-pagination-native')?.remove();\n    if (!table) return;\n\n    const rows = Array.from(table.querySelectorAll('tbody > tr'));\n    const total = rows.length;\n    const pages = Math.max(1, Math.ceil(total / CRM_PAGE_SIZE));\n    crmCurrentPage = Math.max(1, Math.min(crmCurrentPage, pages));\n\n    const start = (crmCurrentPage - 1) * CRM_PAGE_SIZE;\n    const end = Math.min(start + CRM_PAGE_SIZE, total);\n    rows.forEach((row, index) => { row.style.display = index >= start && index < end ? '' : 'none'; });\n\n    const pager = document.createElement('div');\n    pager.id = 'crm-pagination-native';\n    pager.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 2px 0;font-size:13px;color:var(--muted)';\n\n    if (total <= CRM_PAGE_SIZE) {\n      pager.innerHTML = '<span>' + total + ' prospect' + (total === 1 ? '' : 's') + '</span>';\n    } else {\n      const nums = Array.from({length:pages}, (_,i)=>i+1).map(n =>\n        '<button type="button" class="btn ' + (n===crmCurrentPage?'btn-yellow':'btn-ghost') + ' btn-sm" style="min-width:36px" onclick="crmGoPage(' + n + ')">' + n + '</button>'\n      ).join('');\n      pager.innerHTML =\n        '<span>A mostrar ' + (start + 1) + '–' + end + ' de ' + total + '</span>' +\n        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +\n          '<button type="button" class="btn btn-ghost btn-sm" onclick="crmGoPage(' + (crmCurrentPage - 1) + ')" ' + (crmCurrentPage===1?'disabled':'') + '>‹ Anterior</button>' +\n          nums +\n          '<button type="button" class="btn btn-ghost btn-sm" onclick="crmGoPage(' + (crmCurrentPage + 1) + ')" ' + (crmCurrentPage===pages?'disabled':'') + '>Seguinte ›</button>' +\n        '</div>';\n    }\n    table.closest('.table-card')?.insertAdjacentElement('afterend', pager);\n  }\n\n  renderCrmTable = function(main) {\n    crmRenderTableBase(main);\n    crmApplyNativePagination(main);\n  };\n\n  window.crmGoPage = function(page) {\n    const total = filteredProspects().length;\n    const pages = Math.max(1, Math.ceil(total / CRM_PAGE_SIZE));\n    crmCurrentPage = Math.max(1, Math.min(Number(page) || 1, pages));\n    renderCrmTable(document.getElementById('main'));\n    document.querySelector('#main .table-card')?.scrollIntoView({behavior:'smooth', block:'start'});\n  };\n\n  const crmSetFilterBase = window.crmSetFilter;\n  if (typeof crmSetFilterBase === 'function') {\n    window.crmSetFilter = function(key, value) {\n      crmCurrentPage = 1;\n      return crmSetFilterBase(key, value);\n    };\n  }\n`;
+
+    source = source.replace('\n  window.viewProspects=async function(main){', paginationPatch + '\n  window.viewProspects=async function(main){');
   }
 
   fs.writeFileSync(crmJs, source, 'utf8');
 } catch (e) {
-  console.warn('[crm] não foi possível ligar ações de Prospects:', e.message);
+  console.warn('[crm] não foi possível ligar ações/paginação de Prospects:', e.message);
 }
 
 // Usa o logo branco real na sidebar do painel Admin e mantém-no mais compacto.
@@ -62,7 +69,6 @@ try {
 }
 
 // Mantém a secção atual da Admin no URL (#prospects, #quotes, etc.).
-// Assim, ao fazer refresh, o painel regressa à página onde o utilizador estava.
 try {
   const adminJs = path.join(__dirname, '..', 'public', 'js', 'admin.js');
   let adminJsSource = fs.readFileSync(adminJs, 'utf8');
