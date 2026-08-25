@@ -12,19 +12,24 @@ module.exports = function installProspectCrmActions(app) {
   add('email_first_opened_at', 'TEXT');
   add('email_last_opened_at', 'TEXT');
   add('email_open_count', 'INTEGER DEFAULT 0');
+  add('outreach_response', 'TEXT');
+  add('outreach_response_reason', 'TEXT');
+  add('outreach_responded_at', 'TEXT');
 
   const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const portal = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
 
   function emailHtml(text, token) {
-    const clean = String(text || '').replace(/^Assunto:.*?(\r?\n){1,2}/i, '').trim();
-    const paragraphs = clean.split(/\n{2,}/).map(p => `<div style="margin:0 0 15px;color:#2a2a2a;font-size:15px;line-height:1.65;white-space:pre-line">${esc(p)}</div>`).join('');
-    return `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px;background:#f5f3ef"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:22px 34px;color:#fff;font-size:27px;font-weight:900">DUIT<span style="color:#ffd60a">.</span></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px">${paragraphs}<div style="padding-top:12px;color:#2a2a2a;font-size:15px">Cumprimentos,</div><div style="padding-top:8px"><img src="${portal}/assinatura_duit.png" width="400" alt="DUIT" style="display:block;width:100%;max-width:400px;height:auto;border:0"></div></td></tr></table><img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0"></td></tr></table></body></html>`;
+    let clean = String(text || '').replace(/^Assunto:.*?(\r?\n){1,2}/i, '').trim();
+    clean = clean.replace(/Quer avançar\?\s*Responda a este email e tratamos do resto\.?/gi, '').trim();
+    const paragraphs = clean.split(/\n{2,}/).filter(Boolean).map(p => `<div style="margin:0 0 15px;color:#2a2a2a;font-size:15px;line-height:1.65;white-space:pre-line">${esc(p)}</div>`).join('');
+    const responseUrl = `${portal}/prospect-response.html?token=${encodeURIComponent(token)}`;
+    return `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px;background:#f5f3ef"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:22px 34px;color:#fff;font-size:27px;font-weight:900">DUIT<span style="color:#ffd60a">.</span></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px">${paragraphs}<div style="margin:24px 0 10px"><a href="${responseUrl}" style="display:inline-block;background:#ffd60a;color:#0a0a0a;text-decoration:none;font-weight:700;font-size:15px;padding:13px 22px;border-radius:9px">Ver e responder à proposta</a></div><div style="font-size:12px;color:#777;margin-bottom:20px">Pode aceitar ou rejeitar. Se rejeitar, o motivo é opcional.</div><div style="padding-top:12px;color:#2a2a2a;font-size:15px">Cumprimentos,</div><div style="padding-top:8px"><img src="${portal}/assinatura_duit.png" width="400" alt="DUIT" style="display:block;width:100%;max-width:400px;height:auto;border:0"></div></td></tr></table><img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0"></td></tr></table></body></html>`;
   }
 
   app.get('/api/crm/prospects/email-status', requireAdmin, (req,res) => {
-    res.json(db.prepare(`SELECT user_id,email_sent_at,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count FROM prospect_crm`).all());
+    res.json(db.prepare(`SELECT user_id,email_sent_at,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,outreach_response,outreach_response_reason,outreach_responded_at FROM prospect_crm`).all());
   });
 
   app.get('/api/crm/prospects/email-open/:token.png', (req, res) => {
@@ -37,6 +42,23 @@ module.exports = function installProspectCrmActions(app) {
     res.send(pixel);
   });
 
+  app.get('/api/public/prospect-outreach/:token', (req,res) => {
+    const p = db.prepare(`SELECT u.name,u.company,c.recommended_plan,c.monthly_value,c.offer_value,c.outreach_response,c.outreach_response_reason,c.outreach_responded_at FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(String(req.params.token||''));
+    if (!p) return res.status(404).json({error:'Ligação inválida ou expirada.'});
+    res.json(p);
+  });
+
+  app.post('/api/public/prospect-outreach/:token/respond', (req,res) => {
+    const token=String(req.params.token||'');
+    const status=String(req.body?.status||'');
+    const reason=String(req.body?.reason||'').trim();
+    if (!['accepted','rejected'].includes(status)) return res.status(400).json({error:'Resposta inválida.'});
+    const p=db.prepare(`SELECT c.user_id FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(token);
+    if(!p) return res.status(404).json({error:'Ligação inválida ou expirada.'});
+    db.prepare(`UPDATE prospect_crm SET outreach_response=?,outreach_response_reason=?,outreach_responded_at=datetime('now'),lead_status=?,updated_at=datetime('now') WHERE email_tracking_token=?`).run(status,reason,status==='accepted'?'interessado':'sem_interesse',token);
+    res.json({ok:true,status});
+  });
+
   app.post('/api/crm/prospects/:id/send-email', requireAdmin, (req, res) => {
     const id = Number(req.params.id);
     const p = db.prepare(`SELECT u.id,u.name,u.email,u.company,c.proposal_email FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id WHERE u.id=? AND u.is_prospect=1`).get(id);
@@ -47,7 +69,7 @@ module.exports = function installProspectCrmActions(app) {
     const subjectMatch = text.match(/^Assunto:\s*(.+)$/mi);
     const subject = (subjectMatch?.[1] || `${p.company || p.name} — proposta DUIT`).trim();
     const token = crypto.randomBytes(24).toString('hex');
-    db.prepare(`UPDATE prospect_crm SET proposal_email=?, email_tracking_token=?, email_sent_at=datetime('now'), email_first_opened_at=NULL, email_last_opened_at=NULL, email_open_count=0, lead_status='contactado', first_contact_at=COALESCE(first_contact_at,date('now')), updated_at=datetime('now') WHERE user_id=?`).run(text, token, id);
+    db.prepare(`UPDATE prospect_crm SET proposal_email=?, email_tracking_token=?, email_sent_at=datetime('now'), email_first_opened_at=NULL, email_last_opened_at=NULL, email_open_count=0, outreach_response=NULL,outreach_response_reason=NULL,outreach_responded_at=NULL,lead_status='contactado', first_contact_at=COALESCE(first_contact_at,date('now')), updated_at=datetime('now') WHERE user_id=?`).run(text, token, id);
     deliver(db, { to:p.email, subject, body:text, html:emailHtml(text, token), user_id:id, kind:'prospect_outreach', force:true });
     res.json({ ok:true });
   });
