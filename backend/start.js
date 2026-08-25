@@ -52,5 +52,33 @@ try {
   console.warn('[admin] não foi possível aplicar o logo branco:', e.message);
 }
 
+// Mantém a secção atual da Admin no URL (#prospects, #quotes, etc.).
+// Assim, ao fazer refresh, o painel regressa à página onde o utilizador estava.
+try {
+  const adminJs = path.join(__dirname, '..', 'public', 'js', 'admin.js');
+  let adminJsSource = fs.readFileSync(adminJs, 'utf8');
+
+  adminJsSource = adminJsSource.replace(
+    "const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';",
+    "const queryView = new URLSearchParams(window.location.search).get('view');\n    const hashView = decodeURIComponent((window.location.hash || '').replace(/^#/, ''));\n    const initial = hashView || queryView || 'home';"
+  );
+
+  adminJsSource = adminJsSource.replace(
+    "try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}",
+    "try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(initial)); } catch (e) {}"
+  );
+
+  if (!adminJsSource.includes("window.location.pathname + '#' + encodeURIComponent(view)")) {
+    adminJsSource = adminJsSource.replace(
+      "async function go(view) {\n  state.view = view;",
+      "async function go(view) {\n  state.view = view;\n  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}"
+    );
+  }
+
+  fs.writeFileSync(adminJs, adminJsSource, 'utf8');
+} catch (e) {
+  console.warn('[admin] não foi possível manter a página após refresh:', e.message);
+}
+
 require('./crm-server');
 require('./prospect-seed');
