@@ -1,1 +1,121 @@
-<!doctype html><html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DUIT — Responder à proposta</title><link rel="stylesheet" href="/css/styles.css"><style>body{background:#f5f3ef;font-family:'Space Grotesk',Arial,sans-serif}.wrap{max-width:650px;margin:0 auto;padding:45px 20px}.brand{font-size:30px;font-weight:900;margin-bottom:25px}.brand b{color:#ffd60a}.card{background:#fff;border-radius:16px;padding:34px;box-shadow:0 1px 4px #0000000d}.ey{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#888}.card h1{font-size:28px;margin:8px 0 12px}.meta{color:#666;line-height:1.6}.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:28px;flex-wrap:wrap}.reason{display:none;margin-top:22px}.reason.show{display:block}.reason textarea{width:100%;min-height:90px;box-sizing:border-box;padding:12px;border:1px solid #ddd;border-radius:10px;font:inherit}.done{padding:18px;border-radius:10px;margin-top:20px;background:#f7f7f4}.foot{text-align:center;color:#888;font-size:12px;margin-top:24px}</style></head><body><div class="wrap"><div class="brand">DUIT<b>.</b></div><div class="card" id="root">A carregar…</div><div class="foot">DUIT · Want it done?</div></div><script>const token=new URLSearchParams(location.search).get('token'),root=document.getElementById('root');const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));async function load(){if(!token)return root.innerHTML='<h1>Ligação inválida</h1>';const r=await fetch('/api/public/prospect-outreach/'+encodeURIComponent(token));const p=await r.json();if(!r.ok)return root.innerHTML='<h1>Ligação inválida</h1><p>'+esc(p.error||'Não foi possível abrir esta proposta.')+'</p>';if(p.outreach_response)return root.innerHTML='<div class="ey">Proposta DUIT</div><h1>Obrigado pela resposta.</h1><div class="done">'+(p.outreach_response==='accepted'?'✓ Indicou que pretende avançar. Entraremos em contacto consigo.':'Resposta registada. Obrigado pelo seu tempo.')+'</div>';root.innerHTML='<div class="ey">Proposta DUIT</div><h1>'+esc(p.company||p.name||'')+'</h1><div class="meta">'+(p.recommended_plan?'<strong>'+esc(p.recommended_plan)+'</strong><br>':'')+(p.monthly_value?esc(p.monthly_value)+' €/mês':'')+(p.offer_value?' · oferta inicial '+esc(p.offer_value)+' €':'')+'</div><div class="actions"><button class="btn btn-ghost" onclick="showReject()">Não avançar</button><button class="btn btn-yellow" onclick="respond(\'accepted\')">Quero avançar</button></div><div class="reason" id="reason"><label>Motivo <span style="color:#888">(opcional)</span></label><textarea id="reasonText" placeholder="Se quiser, diga-nos brevemente o motivo."></textarea><div class="actions"><button class="btn btn-ghost" onclick="document.getElementById(\'reason\').classList.remove(\'show\')">Voltar</button><button class="btn btn-primary" onclick="respond(\'rejected\')">Enviar resposta</button></div></div>'}function showReject(){document.getElementById('reason').classList.add('show')}async function respond(status){if(status==='accepted'&&!confirm('Confirma que pretende avançar?'))return;const reason=document.getElementById('reasonText')?.value||'';const r=await fetch('/api/public/prospect-outreach/'+encodeURIComponent(token)+'/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,reason})});if(!r.ok){const e=await r.json().catch(()=>({}));return alert(e.error||'Não foi possível registar a resposta.')}load()}load();</script></body></html>
+<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>DUIT — Proposta</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    body{margin:0;background:#f5f3ef;font-family:'Space Grotesk',Arial,sans-serif;color:#111}
+    .wrap{max-width:820px;margin:0 auto;padding:42px 20px 64px}
+    .brand{margin:0 0 28px}.brand img{display:block;max-width:180px;width:100%;height:auto}
+    .card{background:#fff;border:1px solid #ebe8e1;border-radius:18px;padding:38px;box-shadow:0 4px 18px rgba(0,0,0,.04)}
+    .ey{font-size:11px;text-transform:uppercase;letter-spacing:.16em;color:#8d8982;margin-bottom:8px}
+    h1{font-size:34px;line-height:1.1;margin:0 0 8px;font-weight:700;letter-spacing:-.03em}
+    .intro{font-size:15px;line-height:1.65;color:#5f5c57;margin:0 0 26px;max-width:680px}
+    .offer{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;margin:22px 0}
+    .box{background:#faf9f6;border-radius:14px;padding:20px}
+    .box h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:#77726b;margin:0 0 12px}
+    .plan-name{font-size:22px;font-weight:700;text-transform:capitalize;margin-bottom:5px}
+    .price{font-size:34px;font-weight:700;line-height:1}.price small{font-size:15px;font-weight:500;color:#666}
+    .saving{background:#fff7cf;border:1px solid #f2d75c}.saving strong{display:block;font-size:29px;margin:4px 0 2px}.saving p{margin:0;color:#62591f;font-size:13px;line-height:1.5}
+    .section{margin-top:28px}.section h2{font-size:18px;margin:0 0 13px}.items{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}.item{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45}.tick{width:20px;height:20px;border-radius:50%;background:#ffd60a;display:inline-flex;align-items:center;justify-content:center;flex:0 0 20px;font-size:12px;font-weight:700}
+    .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.step{border:1px solid #ece9e2;border-radius:12px;padding:15px}.step b{display:block;font-size:13px;margin-bottom:5px}.step span{font-size:12px;color:#716d66;line-height:1.45}
+    .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:32px;flex-wrap:wrap;padding-top:24px;border-top:1px solid #ece9e2}
+    .reason{display:none;margin-top:20px;padding:18px;background:#faf9f6;border-radius:12px}.reason.show{display:block}.reason label{display:block;font-size:13px;font-weight:600;margin-bottom:8px}.reason textarea{width:100%;min-height:96px;box-sizing:border-box;padding:12px;border:1px solid #ddd8ce;border-radius:10px;font:inherit;resize:vertical}
+    .done{padding:18px;border-radius:12px;margin-top:20px;background:#f7f7f4;line-height:1.55}
+    .foot{text-align:center;color:#99948d;font-size:12px;margin-top:24px}
+    @media(max-width:680px){.card{padding:26px 20px}.offer,.items,.steps{grid-template-columns:1fr}.actions .btn{width:100%;justify-content:center}.brand img{max-width:145px}h1{font-size:28px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand"><img src="/logo-email.png" alt="DUIT"></div>
+    <div class="card" id="root">A carregar proposta…</div>
+    <div class="foot">DUIT · Design & Social Media</div>
+  </div>
+
+<script>
+const token=new URLSearchParams(location.search).get('token');
+const root=document.getElementById('root');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const PLANS={
+  base:{label:'Base',items:['2 publicações por semana','Design gráfico + copy incluído','Planeamento mensal de conteúdos','Agendamento e publicação','Adaptação para Instagram e Facebook','Consultoria básica de perfil','Relatório mensal simples']},
+  intermedio:{label:'Intermédio',items:['3 publicações por semana','Até 6 stories por semana','Planeamento e gestão de destaques','Design + copy adaptado ao negócio','Agendamento e publicação','Análise mensal com sugestões']},
+  premium:{label:'Premium',items:['4 a 5 publicações por semana','Stories de segunda a sexta — até 15 por semana','Edição simples de reels','Criação de campanhas e promoções','Gestão de mensagens e comentários (a definir)','Análises quinzenais com insights']},
+  personalizado:{label:'Proposta personalizada',items:['Serviço adaptado às necessidades do negócio']}
+};
+function fmt(v){return Number(v||0).toLocaleString('pt-PT',{minimumFractionDigits:0,maximumFractionDigits:2})+' €'}
+async function load(){
+  if(!token){root.innerHTML='<h1>Ligação inválida</h1><p class="intro">Esta ligação não contém uma proposta válida.</p>';return}
+  try{
+    const r=await fetch('/api/public/prospect-outreach/'+encodeURIComponent(token));
+    const p=await r.json();
+    if(!r.ok){root.innerHTML='<h1>Ligação inválida</h1><p class="intro">'+esc(p.error||'Não foi possível abrir esta proposta.')+'</p>';return}
+    if(p.outreach_response){
+      root.innerHTML='<div class="ey">Proposta DUIT</div><h1>Obrigado pela resposta.</h1><div class="done">'+(p.outreach_response==='accepted'?'✓ Indicou que pretende avançar. A DUIT entrará em contacto consigo para tratar dos próximos passos.':'A sua resposta ficou registada. Obrigado pelo seu tempo.')+'</div>';
+      return;
+    }
+    const plan=PLANS[p.recommended_plan]||PLANS.personalizado;
+    const items=plan.items.map(i=>'<div class="item"><span class="tick">✓</span><span>'+esc(i)+'</span></div>').join('');
+    root.innerHTML=`
+      <div class="ey">Proposta preparada para ${esc(p.company||p.name||'a sua empresa')}</div>
+      <h1>Uma solução simples para manter as redes sociais ativas.</h1>
+      <p class="intro">Sabemos que nem sempre há tempo para pensar no que publicar. A proposta abaixo foi pensada para retirar esse peso do dia a dia e deixar a DUIT tratar do planeamento, criação e publicação.</p>
+
+      <div class="offer">
+        <div class="box">
+          <h2>Solução recomendada</h2>
+          <div class="plan-name">${esc(plan.label)}</div>
+          <div class="price">${fmt(p.monthly_value)} <small>/ mês</small></div>
+        </div>
+        <div class="box saving">
+          <h2>Oferta inicial</h2>
+          <strong>15 dias por nossa conta</strong>
+          <p>${p.offer_value?`Poupança inicial de ${fmt(p.offer_value)}.`:'Comece sem pagar os primeiros 15 dias de serviço.'}</p>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>O que está incluído</h2>
+        <div class="items">${items}</div>
+      </div>
+
+      <div class="section">
+        <h2>Como funciona</h2>
+        <div class="steps">
+          <div class="step"><b>1. Aceite a proposta</b><span>Basta clicar em “Quero avançar”. Não precisa de responder ao email.</span></div>
+          <div class="step"><b>2. Tratamos do arranque</b><span>Entramos em contacto apenas para recolher o essencial e organizar o início.</span></div>
+          <div class="step"><b>3. A DUIT trata das redes</b><span>Planeamos, criamos e publicamos para reduzir o tempo que o negócio perde com conteúdos.</span></div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-ghost" onclick="showReject()">Não avançar</button>
+        <button class="btn btn-yellow" onclick="respond('accepted')">Quero avançar</button>
+      </div>
+      <div class="reason" id="reason">
+        <label>Motivo <span style="font-weight:400;color:#888">(opcional)</span></label>
+        <textarea id="reasonText" placeholder="Se quiser, diga-nos brevemente porque não pretende avançar neste momento."></textarea>
+        <div class="actions" style="margin-top:14px;padding-top:0;border-top:0">
+          <button class="btn btn-ghost" onclick="document.getElementById('reason').classList.remove('show')">Voltar</button>
+          <button class="btn btn-primary" onclick="respond('rejected')">Enviar resposta</button>
+        </div>
+      </div>`;
+  }catch(e){root.innerHTML='<h1>Erro de ligação</h1><p class="intro">Não foi possível carregar a proposta. Tente novamente dentro de instantes.</p>'}
+}
+function showReject(){document.getElementById('reason')?.classList.add('show')}
+async function respond(status){
+  if(status==='accepted'&&!confirm('Confirma que pretende avançar com esta proposta?'))return;
+  const reason=document.getElementById('reasonText')?.value||'';
+  const r=await fetch('/api/public/prospect-outreach/'+encodeURIComponent(token)+'/respond',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status,reason})});
+  if(!r.ok){const e=await r.json().catch(()=>({}));alert(e.error||'Não foi possível registar a resposta.');return}
+  load();
+}
+load();
+</script>
+</body>
+</html>
