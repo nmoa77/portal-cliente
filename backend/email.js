@@ -5,6 +5,7 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'DUIT <no-reply@duit.pt>';
 const PORTAL_URL = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
 const LOGO_URL = `${PORTAL_URL}/logo-email.png`;
+const SIGNATURE_URL = `${PORTAL_URL}/assinatura_duit.png`;
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => (
@@ -24,13 +25,9 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
     </td></tr>` : '';
 
   const signature = `
-    <tr><td style="padding:32px 0 0 0;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-        <tr><td style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif; font-size:15px; color:#0a0a0a;">
-          <span style="color:#8b8680; font-style:italic;">Want it done?</span>
-          <span style="font-weight:900; letter-spacing:-0.04em; color:#0a0a0a; margin-left:6px;">DUIT</span><span style="display:inline-block; width:8px; height:8px; background:#ffd60a; margin-left:3px; vertical-align:baseline;">&nbsp;</span>
-        </td></tr>
-      </table>
+    <tr><td style="padding:28px 0 0 0; color:#2a2a2a; font-size:15px; line-height:1.5;">Cumprimentos,</td></tr>
+    <tr><td style="padding:10px 0 0 0;">
+      <img src="${SIGNATURE_URL}" alt="Nuno Alho — DUIT" width="400" style="display:block; width:100%; max-width:400px; height:auto; border:0; outline:none; text-decoration:none;">
     </td></tr>`;
 
   const greetRow = greeting ? `
@@ -175,7 +172,7 @@ Por favor, aceda ao portal em ${PORTAL_URL} e altere a palavra-passe no primeiro
 
 Para qualquer esclarecimento adicional, agradecemos que responda diretamente a este email.
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Conta criada',
       title: `Bem-vindo à DUIT${first ? ', ' + first : ''}.`,
@@ -208,7 +205,7 @@ O prospect ${clientLabel} acabou de abrir o orçamento "${title}" (referência $
 
 Pode confirmar o histórico de visualizações no painel de Prospects.
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Orçamento aberto',
       title: `${clientLabel} abriu "${title}"`,
@@ -238,7 +235,7 @@ Para consultar o detalhe completo da proposta, valores e condições, e para ace
 
 ${link}
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Proposta DUIT',
       title: `${title}`,
@@ -267,7 +264,7 @@ Válido até: ${validUntil}` : ''}
 
 Para consultar o detalhe completo, valores e condições, e responder com aceitação ou rejeição, aceda ao seu portal em ${PORTAL_URL}
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Novo orçamento',
       title: `${title}`,
@@ -302,7 +299,7 @@ ${accepted
   ? 'Pode avançar com a execução. O orçamento está marcado como aceite no portal.'
   : 'Poderá rever a proposta e reenviar uma nova versão a partir do portal.'}
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: accepted ? 'Orçamento aceite' : 'Orçamento rejeitado',
       title: accepted
@@ -336,7 +333,7 @@ Válido até: ${validUntil}` : ''}
 
 Convidamo-lo(a) a consultar a nova proposta — com o detalhe completo e os valores atualizados — em ${PORTAL_URL}
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Orçamento revisto',
       title: `${title} — nova versão`,
@@ -367,7 +364,7 @@ ${description}` : ''}
 
 Poderá acompanhar o estado do projeto, consultar ficheiros e mockups, e enviar notas em ${PORTAL_URL}
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Novo projeto',
       title: `"${project}" — projeto criado`,
@@ -398,7 +395,7 @@ Informamos que o seu projeto "${project}" mudou de fase: encontra-se agora em ${
 ${msg ? '\n' + msg + '\n' : ''}
 Poderá consultar o andamento completo em ${PORTAL_URL}
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Atualização de projeto',
       title: `"${project}" — ${stage}`,
@@ -424,7 +421,7 @@ Durante este período, a subscrição mantém-se ativa e todos os serviços func
 
 Poderá consultar o estado do pedido em ${PORTAL_URL}
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Pedido recebido',
       title: 'Pedido de cancelamento recebido',
@@ -449,12 +446,12 @@ Informamos que o seu pedido de cancelamento referente a "${service}" foi aprovad
 
 Agradecemos a confiança depositada na DUIT. Caso volte a necessitar dos nossos serviços, estaremos ao seu inteiro dispor.
 
-Want it done? DUIT`
+Cumprimentos,`
       : `Caro(a) ${name},
 
 De momento não foi possível aprovar o cancelamento referente a "${service}". Entraremos em contacto brevemente para apresentar alternativas que possam ir ao encontro das suas necessidades.
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: approved ? 'Cancelamento aprovado' : 'Cancelamento não aprovado',
       title: approved
@@ -484,7 +481,7 @@ Informamos que se encontra disponível uma nova versão de "${title}" para a sua
 
 Convidamo-lo(a) a aceder ao portal em ${PORTAL_URL} para visualizar a proposta e partilhar o seu feedback, ou aprovar a versão apresentada.
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'A aguardar aprovação',
       title: `Novo mockup: ${title}`,
@@ -513,7 +510,7 @@ A ligação é válida durante 1 hora e só pode ser utilizada uma vez.
 
 Caso não tenha sido o(a) próprio(a) a solicitar esta alteração, ignore este email — a palavra-passe atual mantém-se inalterada.
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Recuperação de acesso',
       title: 'Definir nova palavra-passe',
@@ -543,7 +540,7 @@ ${isAdminAuthor ? 'A equipa DUIT' : `O cliente (${authorLabel})`} deixou uma nov
 
 Poderá consultar e responder no portal: ${PORTAL_URL}
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Nota de projeto',
       title: `Nova nota — ${project}`,
@@ -570,7 +567,7 @@ Informamos que o calendário editorial referente a ${month} foi redefinido. Enco
 
 Assim que estiver pronta, receberá notificação para aprovação no portal.
 
-Want it done? DUIT`;
+Cumprimentos,`;
     const html = layout({
       eyebrow: 'Calendário editorial',
       title: `${month} — calendário redefinido`,
