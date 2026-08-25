@@ -1,0 +1,54 @@
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const db = require('./db');
+
+// Segunda ronda de prospeção DUIT — empresas locais verificadas em Odivelas/Loures.
+// Quando não existe email público confirmado, guardamos o telefone e assinalamos nas notas.
+const leads = [
+  {company:'Oditerapia',sector:'Fisioterapia / Saúde',location:'Odivelas',website:'https://www.oditerapia.com/',phone:'+351 219 315 473',email:'oditerapia@gmail.com',opportunity:'a diversidade de serviços permite criar conteúdos educativos regulares e campanhas específicas por especialidade, reforçando confiança e marcações',idea:'Conteúdos educativos + campanhas por serviço',priority:'atacar',plan:'intermedio',monthly:200,offer:100},
+  {company:'New Clinic',sector:'Clínica Dentária / Saúde',location:'Odivelas',website:'https://clinicadentariaodivelas.pt/',phone:'+351 219 333 986 / +351 926 992 844',email:'geral@newclinic.pt',opportunity:'tem várias especialidades e uma oferta forte que pode ser comunicada de forma mais contínua para gerar confiança e pedidos de consulta',idea:'Especialidades + casos/educação + primeira consulta',priority:'atacar',plan:'intermedio',monthly:200,offer:100},
+  {company:'Centro Clínico de Odivelas',sector:'Clínica Dentária',location:'Odivelas',website:'https://centroclinicoodivelas.pt/',phone:'+351 219 329 135 / +351 915 004 882',email:'geral@centroclinicodeodivelas.pt',opportunity:'a experiência de mais de quatro décadas é um argumento forte que pode ser transformado em comunicação de confiança, educação e captação',idea:'Autoridade + tratamentos + conteúdos educativos',priority:'atacar',plan:'intermedio',monthly:200,offer:100},
+  {company:'Pleno Sorriso Odivelas',sector:'Clínica Médica e Dentária',location:'Odivelas',website:'https://www.plenosorriso.pt/',phone:'+351 219 333 014 / +351 914 508 164',email:'odivelas@plenosorriso.pt',opportunity:'a combinação de medicina dentária com outras especialidades dá margem para uma comunicação variada e campanhas de captação ao longo do mês',idea:'Campanhas por especialidade + conteúdos de confiança',priority:'atacar',plan:'intermedio',monthly:200,offer:100},
+  {company:'Policlínica Jardim da Arroja',sector:'Saúde / Clínica',location:'Odivelas',phone:'+351 219 318 107 / +351 911 949 705',email:'ruialves59@gmail.com',opportunity:'as várias áreas clínicas podem ser organizadas numa comunicação mais clara e regular para aumentar notoriedade local e pedidos de informação',idea:'Calendário por especialidade + conteúdos educativos',priority:'possivel',plan:'base',monthly:150,offer:75},
+  {company:'Phisio Athletic Odivelas',sector:'Fisioterapia / Pilates / Performance',location:'Odivelas',website:'https://phisioathletic.pt/',phone:'+351 933 089 230',email:'phisioathletic@gmail.com',opportunity:'o posicionamento ligado a saúde e performance permite trabalhar conteúdo visual, educativo e de autoridade com forte potencial nas redes',idea:'Performance + recuperação + Pilates + equipa',priority:'atacar',plan:'intermedio',monthly:200,offer:100},
+  {company:'Loures Fisioterapia',sector:'Fisioterapia',location:'Loures',website:'https://louresfisioterapia.pt/',phone:'+351 211 508 405 / +351 939 057 539',email:'fisioloures@hotmail.com',opportunity:'a clínica pode usar as redes para explicar tratamentos, responder a dúvidas frequentes e manter presença regular junto do público local',idea:'Educação + serviços + marcações',priority:'atacar',plan:'intermedio',monthly:200,offer:100},
+  {company:'Re.equilibra - Clínica de Fisioterapia',sector:'Fisioterapia',location:'Odivelas',phone:'+351 938 383 029',opportunity:'uma clínica local beneficia de comunicação consistente para mostrar áreas de intervenção, equipa e resultados esperados sem depender apenas de recomendação',idea:'Rubricas educativas + equipa + avaliação',priority:'possivel',plan:'base',monthly:150,offer:75},
+  {company:'Clínica Dentária de Odivelas',sector:'Clínica Dentária',location:'Odivelas',phone:'+351 924 208 655',opportunity:'há espaço para reforçar presença local através de conteúdos simples sobre prevenção, tratamentos e confiança na equipa clínica',idea:'Saúde oral + tratamentos + equipa',priority:'possivel',plan:'intermedio',monthly:200,offer:100},
+  {company:'Angels and Dreams',sector:'Cabeleireiro / Estética / Terapias',location:'Odivelas - Colinas do Cruzeiro',phone:'+351 963 120 006',opportunity:'a variedade de serviços é muito visual e permite criar uma presença social regular com tratamentos, transformação, equipa e campanhas',idea:'Serviços + campanhas + bastidores',priority:'atacar',plan:'intermedio',monthly:200,offer:100},
+  {company:'Clínica Dentária Vitabio',sector:'Clínica Dentária / Medical Spa',location:'Odivelas',phone:'+351 936 377 125',opportunity:'a combinação de saúde oral e estética permite construir uma comunicação diferenciada, visual e orientada a confiança',idea:'Sorriso + estética + conteúdos educativos',priority:'atacar',plan:'intermedio',monthly:200,offer:100},
+  {company:'Caridente Clínica Dentária',sector:'Clínica Dentária',location:'Odivelas',phone:'+351 219 316 329',opportunity:'uma comunicação regular pode ajudar a explicar tratamentos e manter a clínica presente quando potenciais pacientes estão a decidir onde marcar',idea:'Tratamentos + prevenção + confiança',priority:'possivel',plan:'base',monthly:150,offer:75},
+  {company:'UNA - Centro de Estética e Formação',sector:'Estética / Formação',location:'Póvoa de Santo Adrião',phone:'+351 934 466 487',opportunity:'estética e formação geram conteúdo visual e educativo suficiente para criar uma presença forte e campanhas recorrentes',idea:'Tratamentos + formação + campanhas',priority:'atacar',plan:'intermedio',monthly:200,offer:100},
+  {company:'Andreia Lourenço - Fisioterapia Osteopatia',sector:'Fisioterapia / Osteopatia',location:'Odivelas',phone:'+351 967 413 420',opportunity:'a marca pessoal pode crescer com conteúdos de especialidade que expliquem problemas comuns, abordagens e benefícios do acompanhamento',idea:'Marca pessoal + educação + marcações',priority:'possivel',plan:'base',monthly:150,offer:75},
+  {company:'Clinisete Fisioterapia Loures',sector:'Fisioterapia',location:'Loures',phone:'+351 219 844 929',opportunity:'há potencial para tornar a comunicação mais presente e educativa, mostrando serviços e criando motivos regulares para contacto',idea:'Conteúdo educativo + serviços + captação local',priority:'possivel',plan:'base',monthly:150,offer:75},
+  {company:'Fisik - Fisioterapia',sector:'Fisioterapia',location:'Loures',phone:'+351 214 039 022',opportunity:'uma estratégia simples e regular pode aumentar reconhecimento local e transformar conhecimento técnico em conteúdo útil para potenciais clientes',idea:'Dicas + patologias + serviços',priority:'possivel',plan:'base',monthly:150,offer:75},
+  {company:'MF Centro de Estética',sector:'Estética',location:'Loures',phone:'+351 925 992 911',opportunity:'os serviços de estética são altamente visuais e adequados a campanhas, demonstrações e conteúdos frequentes que ajudam a gerar marcações',idea:'Tratamentos + campanhas mensais + stories',priority:'possivel',plan:'intermedio',monthly:200,offer:100},
+  {company:'Estética ChrisMartins',sector:'Estética',location:'Loures',phone:'+351 936 729 185',opportunity:'há margem para transformar tratamentos e resultados em comunicação consistente, com campanhas locais e conteúdos que incentivem marcações',idea:'Campanhas por tratamento + resultados + stories',priority:'possivel',plan:'intermedio',monthly:200,offer:100},
+  {company:'EssênciaVet - Clínica Veterinária',sector:'Veterinária',location:'Odivelas - Colinas do Cruzeiro',phone:'+351 212 410 390',opportunity:'saúde animal permite criar conteúdos úteis, sazonais e emocionais que reforçam confiança e mantêm a clínica presente junto dos tutores',idea:'Prevenção + cuidados sazonais + equipa/pacientes',priority:'atacar',plan:'intermedio',monthly:200,offer:100},
+  {company:'RC Arquitetura',sector:'Arquitetura / Interiores / Remodelação',location:'Odivelas - Colinas do Cruzeiro',phone:'+351 937 548 803',opportunity:'projetos, processos e detalhes de obra são matéria-prima visual forte para demonstrar experiência e captar novos pedidos',idea:'Projetos + processo + dicas + bastidores de obra',priority:'atacar',plan:'intermedio',monthly:200,offer:100}
+];
+
+const planItems={
+  base:['2 publicações por semana','Design + copy','Planeamento mensal','Agendamento e publicação','Instagram + Facebook','Consultoria básica de perfil','Relatório mensal simples'],
+  intermedio:['3 publicações por semana','Até 6 stories por semana','Planeamento e gestão de destaques','Design + copy','Agendamento e publicação','Análise mensal com sugestões']
+};
+function proposal(l){const lines=planItems[l.plan].map(x=>`✓ ${x}`).join('\n');return `Assunto: ${l.company} — 15 dias por nossa conta\n\nOlá,\n\nEstivemos a analisar a comunicação da ${l.company} e acreditamos que ${l.opportunity}.\n\nSabemos que nem sempre há tempo para pensar no que publicar. É aí que podemos ajudar.\n\nA nossa proposta para a ${l.company} é:\n\n${lines}\n\n${l.monthly}€/mês\n\nPrimeiros 15 dias por nossa conta.\nPoupa ${l.offer}€ no arranque.`;}
+
+function seed(){
+  const placeholderHash=bcrypt.hashSync(crypto.randomBytes(24).toString('hex'),10);
+  const findByCompany=db.prepare(`SELECT id FROM users WHERE role='client' AND is_prospect=1 AND lower(company)=lower(?)`);
+  const findByEmail=db.prepare(`SELECT id FROM users WHERE lower(email)=lower(?)`);
+  const insertUser=db.prepare(`INSERT INTO users (name,email,password_hash,role,company,phone,is_prospect,is_active) VALUES (?,?,?,?,?,?,1,0)`);
+  const insertCrm=db.prepare(`INSERT OR IGNORE INTO prospect_crm (user_id,sector,location,website,opportunity,idea,recommended_plan,solution_text,monthly_value,offer_value,lead_status,priority,notes,proposal_email,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?, 'por_contactar',?,?,?,datetime('now'))`);
+  let added=0;
+  for(const l of leads){
+    let u=findByCompany.get(l.company);
+    if(!u&&l.email)u=findByEmail.get(l.email);
+    if(u)continue;
+    const internalEmail=l.email||`prospect-${l.company.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}@prospect.local`;
+    const id=Number(insertUser.run(l.company,internalEmail,placeholderHash,'client',l.company,l.phone||'').lastInsertRowid);
+    insertCrm.run(id,l.sector,l.location,l.website||'',l.opportunity,l.idea,l.plan,planItems[l.plan].join('; '),l.monthly,l.offer,l.priority,l.email?'Contacto público verificado.':'Email público por encontrar — telefone disponível e verificado.',proposal(l));
+    added++;
+  }
+  console.log(`[crm] segunda ronda: ${added} novos prospects importados`);
+}
+try{seed();}catch(e){console.warn('[crm] seed segunda ronda:',e.message);}
