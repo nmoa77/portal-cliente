@@ -18,11 +18,20 @@ try {
 
   const crmJs = path.join(__dirname, '..', 'public', 'js', 'prospects-crm.js');
   let source = fs.readFileSync(crmJs, 'utf8');
+
+  // Corrige a gravação do formulário CRM: a função api() já serializa objetos
+  // para JSON. O código antigo fazia JSON.stringify() antes, provocando uma
+  // dupla serialização e o backend recebia uma string em vez de req.body.
+  source = source.replace(/body:JSON\.stringify\(body\)/g, 'body');
+
   // Remove o loader antigo que misturava Prospects com Orçamentos.
   source = source.replace(/\n;\(\(\) => \{\n  if \(document\.querySelector\('script\[data-duit-legacy-bridge\]'\)\)[\s\S]*?\n\}\)\(\);\n?/g, '\n');
   const marker = 'prospects-actions.js';
   if (!source.includes(marker)) {
-    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260825c';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
+    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260825d';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
+  } else {
+    // Bump simples da versão para evitar cache do browser/service worker.
+    source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260825d');
   }
   fs.writeFileSync(crmJs, source, 'utf8');
 } catch (e) {
