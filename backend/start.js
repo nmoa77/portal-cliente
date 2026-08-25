@@ -1,33 +1,32 @@
 const fs = require('fs');
 const path = require('path');
 
-// Garante que o CRM novo inclui MESMO o fluxo antigo completo de propostas:
-// serviços existentes, valores personalizados, envio por email com link público,
-// tracking de abertura, aprovação/rejeição e conversão em cliente.
+// Prospects é um CRM de prospeção independente de Orçamentos.
+// Antes de arrancar, liga apenas as ações próprias do CRM:
+// envio/tracking de email, duplicação e conversão em cliente.
 try {
-  const crmJs = path.join(__dirname, '..', 'public', 'js', 'prospects-crm.js');
-  const bridgeJs = path.join(__dirname, '..', 'public', 'js', 'prospects-legacy-bridge.js');
   const crmServer = path.join(__dirname, 'crm-server.js');
-
-  let crmSource = fs.readFileSync(crmJs, 'utf8');
-  const bridgeSource = fs.readFileSync(bridgeJs, 'utf8');
-
-  // Em vez de depender de um segundo <script> carregado depois, junta a ponte
-  // diretamente ao ficheiro CRM servido ao browser. Evita problemas de timing/cache.
-  if (!crmSource.includes('DUIT — Bridge CRM + fluxo antigo de propostas')) {
-    crmSource += `\n\n${bridgeSource}\n`;
-    fs.writeFileSync(crmJs, crmSource, 'utf8');
+  let serverSource = fs.readFileSync(crmServer, 'utf8');
+  const installLine = "require('./prospect-crm-actions')(capturedApp);";
+  if (!serverSource.includes(installLine)) {
+    serverSource = serverSource.replace(
+      '// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.',
+      `${installLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`
+    );
+    fs.writeFileSync(crmServer, serverSource, 'utf8');
   }
 
-  // Força nova versão do JS no HTML para o browser não reutilizar a versão antiga.
-  let serverSource = fs.readFileSync(crmServer, 'utf8');
-  serverSource = serverSource.replace(
-    /prospects-crm\.js\?v=[^\"']+/g,
-    'prospects-crm.js?v=20260825c'
-  );
-  fs.writeFileSync(crmServer, serverSource, 'utf8');
+  const crmJs = path.join(__dirname, '..', 'public', 'js', 'prospects-crm.js');
+  let source = fs.readFileSync(crmJs, 'utf8');
+  // Remove o loader antigo que misturava Prospects com Orçamentos.
+  source = source.replace(/\n;\(\(\) => \{\n  if \(document\.querySelector\('script\[data-duit-legacy-bridge\]'\)\)[\s\S]*?\n\}\)\(\);\n?/g, '\n');
+  const marker = 'prospects-actions.js';
+  if (!source.includes(marker)) {
+    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260825c';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
+  }
+  fs.writeFileSync(crmJs, source, 'utf8');
 } catch (e) {
-  console.warn('[crm] não foi possível ligar fluxo completo de propostas:', e.message);
+  console.warn('[crm] não foi possível ligar ações de Prospects:', e.message);
 }
 
 require('./crm-server');
