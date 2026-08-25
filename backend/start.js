@@ -29,10 +29,11 @@ try {
   }
 
   // Paginação visual dos Prospects: 15 por página.
+  // Versão alterada sempre que há correções para furar cache do browser/PWA.
   if (!source.includes('prospects-pagination.js')) {
-    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-pagination]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-pagination.js?v=20260825a';\n  s.dataset.duitProspectPagination = '1';\n  document.body.appendChild(s);\n})();\n`;
+    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-pagination]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-pagination.js?v=20260825c';\n  s.dataset.duitProspectPagination = '1';\n  document.body.appendChild(s);\n})();\n`;
   } else {
-    source = source.replace(/prospects-pagination\.js\?v=[^'\"]+/g, 'prospects-pagination.js?v=20260825a');
+    source = source.replace(/prospects-pagination\.js\?v=[^'\"]+/g, 'prospects-pagination.js?v=20260825c');
   }
 
   fs.writeFileSync(crmJs, source, 'utf8');
