@@ -27,7 +27,7 @@
     .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:32px;flex-wrap:wrap;padding-top:24px;border-top:1px solid #ece9e2}
     .reason{display:none;margin-top:20px;padding:18px;background:#faf9f6;border-radius:12px}.reason.show{display:block}.reason label{display:block;font-size:13px;font-weight:600;margin-bottom:8px}.reason textarea{width:100%;min-height:96px;box-sizing:border-box;padding:12px;border:1px solid #ddd8ce;border-radius:10px;font:inherit;resize:vertical}
     .done{padding:18px;border-radius:12px;margin-top:20px;background:#f7f7f4;line-height:1.55}
-    .foot{text-align:center;color:#99948d;font-size:12px;margin-top:24px}
+    .foot{text-align:center;font-size:13px;margin-top:24px}.foot a{color:#8d8982;text-decoration:none}.foot a:hover{color:#111}.foot strong{font-weight:700;color:#111}
     @media(max-width:680px){.card{padding:26px 20px}.offer,.items,.steps{grid-template-columns:1fr}.actions .btn{width:100%;justify-content:center}.brand img{max-width:145px}h1{font-size:28px}}
   </style>
 </head>
@@ -35,7 +35,7 @@
   <div class="wrap">
     <div class="brand"><img src="/logo-email.png" alt="DUIT"></div>
     <div class="card" id="root">A carregar proposta…</div>
-    <div class="foot">DUIT · Design & Social Media</div>
+    <div class="foot"><a href="https://www.duit.pt/" target="_blank" rel="noopener">Want it Done? <strong>We DUIT.</strong></a></div>
   </div>
 
 <script>
@@ -65,46 +65,11 @@ async function load(){
       <div class="ey">Proposta preparada para ${esc(p.company||p.name||'a sua empresa')}</div>
       <h1>Uma solução simples para manter as redes sociais ativas.</h1>
       <p class="intro">Sabemos que nem sempre há tempo para pensar no que publicar. A proposta abaixo foi pensada para retirar esse peso do dia a dia e deixar a DUIT tratar do planeamento, criação e publicação.</p>
-
-      <div class="offer">
-        <div class="box">
-          <h2>Solução recomendada</h2>
-          <div class="plan-name">${esc(plan.label)}</div>
-          <div class="price">${fmt(p.monthly_value)} <small>/ mês</small></div>
-        </div>
-        <div class="box saving">
-          <h2>Oferta inicial</h2>
-          <strong>15 dias por nossa conta</strong>
-          <p>${p.offer_value?`Poupança inicial de ${fmt(p.offer_value)}.`:'Comece sem pagar os primeiros 15 dias de serviço.'}</p>
-        </div>
-      </div>
-
-      <div class="section">
-        <h2>O que está incluído</h2>
-        <div class="items">${items}</div>
-      </div>
-
-      <div class="section">
-        <h2>Como funciona</h2>
-        <div class="steps">
-          <div class="step"><b>1. Aceite a proposta</b><span>Basta clicar em “Quero avançar”. Não precisa de responder ao email.</span></div>
-          <div class="step"><b>2. Tratamos do arranque</b><span>Entramos em contacto apenas para recolher o essencial e organizar o início.</span></div>
-          <div class="step"><b>3. A DUIT trata das redes</b><span>Planeamos, criamos e publicamos para reduzir o tempo que o negócio perde com conteúdos.</span></div>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button class="btn btn-ghost" onclick="showReject()">Não avançar</button>
-        <button class="btn btn-yellow" onclick="respond('accepted')">Quero avançar</button>
-      </div>
-      <div class="reason" id="reason">
-        <label>Motivo <span style="font-weight:400;color:#888">(opcional)</span></label>
-        <textarea id="reasonText" placeholder="Se quiser, diga-nos brevemente porque não pretende avançar neste momento."></textarea>
-        <div class="actions" style="margin-top:14px;padding-top:0;border-top:0">
-          <button class="btn btn-ghost" onclick="document.getElementById('reason').classList.remove('show')">Voltar</button>
-          <button class="btn btn-primary" onclick="respond('rejected')">Enviar resposta</button>
-        </div>
-      </div>`;
+      <div class="offer"><div class="box"><h2>Solução recomendada</h2><div class="plan-name">${esc(plan.label)}</div><div class="price">${fmt(p.monthly_value)} <small>/ mês</small></div></div><div class="box saving"><h2>Oferta inicial</h2><strong>15 dias por nossa conta</strong><p>${p.offer_value?`Poupança inicial de ${fmt(p.offer_value)}.`:'Comece sem pagar os primeiros 15 dias de serviço.'}</p></div></div>
+      <div class="section"><h2>O que está incluído</h2><div class="items">${items}</div></div>
+      <div class="section"><h2>Como funciona</h2><div class="steps"><div class="step"><b>1. Aceite a proposta</b><span>Basta clicar em “Quero avançar”. Não precisa de responder ao email.</span></div><div class="step"><b>2. Tratamos do arranque</b><span>Entramos em contacto apenas para recolher o essencial e organizar o início.</span></div><div class="step"><b>3. A DUIT trata das redes</b><span>Planeamos, criamos e publicamos para reduzir o tempo que o negócio perde com conteúdos.</span></div></div></div>
+      <div class="actions"><button class="btn btn-ghost" onclick="showReject()">Não avançar</button><button class="btn btn-yellow" onclick="respond('accepted')">Quero avançar</button></div>
+      <div class="reason" id="reason"><label>Motivo <span style="font-weight:400;color:#888">(opcional)</span></label><textarea id="reasonText" placeholder="Se quiser, diga-nos brevemente porque não pretende avançar neste momento."></textarea><div class="actions" style="margin-top:14px;padding-top:0;border-top:0"><button class="btn btn-ghost" onclick="document.getElementById('reason').classList.remove('show')">Voltar</button><button class="btn btn-primary" onclick="respond('rejected')">Enviar resposta</button></div></div>`;
   }catch(e){root.innerHTML='<h1>Erro de ligação</h1><p class="intro">Não foi possível carregar a proposta. Tente novamente dentro de instantes.</p>'}
 }
 function showReject(){document.getElementById('reason')?.classList.add('show')}
