@@ -1,11 +1,11 @@
 {
   "name": "portal-cliente",
   "version": "1.0.0",
-  "description": "Portal de cliente para estúdio de design — gestão de subscrições (alojamento, domínios, redes sociais), tickets e clientes.",
-  "main": "backend/server.js",
+  "description": "Portal de cliente para estúdio de design — gestão de subscrições (alojamento, domínios, redes sociais), tickets, clientes e prospeção comercial.",
+  "main": "backend/crm-server.js",
   "scripts": {
-    "start": "node backend/server.js",
-    "dev": "node backend/server.js"
+    "start": "node backend/crm-server.js",
+    "dev": "node backend/crm-server.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
