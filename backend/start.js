@@ -17,29 +17,36 @@ try {
   const crmJs = path.join(__dirname, '..', 'public', 'js', 'prospects-crm.js');
   let source = fs.readFileSync(crmJs, 'utf8');
 
-  // Corrige gravação dupla de JSON, caso ainda exista numa versão antiga.
   source = source.replace(/body:JSON\.stringify\(body\)/g, 'body');
-
-  // Remove bridges antigos para Orçamentos.
   source = source.replace(/\n;\(\(\) => \{\n  if \(document\.querySelector\('script\[data-duit-legacy-bridge\]'\)\)[\s\S]*?\n\}\)\(\);\n?/g, '\n');
 
-  // Ações próprias dos Prospects.
   const marker = 'prospects-actions.js';
   if (!source.includes(marker)) {
-    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260826a';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
+    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260826b';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
   } else {
-    source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260826a');
+    source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260826b');
   }
 
-  // Remove a paginação externa antiga. Estava a correr fora do ciclo normal do CRM
-  // e os botões podiam ficar visíveis sem conseguirem alterar a lista.
   source = source.replace(/\n;\(\(\) => \{\n  if \(document\.querySelector\('script\[data-duit-prospect-pagination\]'\)\)[\s\S]*?\n\}\)\(\);\n?/g, '\n');
 
-  // Paginação integrada no próprio render do CRM: 15 prospects por página.
-  // Usa onclick global, sem MutationObserver nem script externo.
-  if (!source.includes('DUIT_CRM_NATIVE_PAGINATION')) {
-    const paginationPatch = `\n  /* DUIT_CRM_NATIVE_PAGINATION */\n  let crmCurrentPage = 1;\n  const CRM_PAGE_SIZE = 15;\n  const crmRenderTableBase = renderCrmTable;\n\n  function crmApplyNativePagination(main) {\n    const table = main?.querySelector('.table-card table.table');\n    main?.querySelector('#crm-pagination-native')?.remove();\n    if (!table) return;\n\n    const rows = Array.from(table.querySelectorAll('tbody > tr'));\n    const total = rows.length;\n    const pages = Math.max(1, Math.ceil(total / CRM_PAGE_SIZE));\n    crmCurrentPage = Math.max(1, Math.min(crmCurrentPage, pages));\n\n    const start = (crmCurrentPage - 1) * CRM_PAGE_SIZE;\n    const end = Math.min(start + CRM_PAGE_SIZE, total);\n    rows.forEach((row, index) => { row.style.display = index >= start && index < end ? '' : 'none'; });\n\n    const pager = document.createElement('div');\n    pager.id = 'crm-pagination-native';\n    pager.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 2px 0;font-size:13px;color:var(--muted)';\n\n    if (total <= CRM_PAGE_SIZE) {\n      pager.innerHTML = '<span>' + total + ' prospect' + (total === 1 ? '' : 's') + '</span>';\n    } else {\n      const nums = Array.from({length:pages}, (_,i)=>i+1).map(n =>\n        '<button type="button" class="btn ' + (n===crmCurrentPage?'btn-yellow':'btn-ghost') + ' btn-sm" style="min-width:36px" onclick="crmGoPage(' + n + ')">' + n + '</button>'\n      ).join('');\n      pager.innerHTML =\n        '<span>A mostrar ' + (start + 1) + '–' + end + ' de ' + total + '</span>' +\n        '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +\n          '<button type="button" class="btn btn-ghost btn-sm" onclick="crmGoPage(' + (crmCurrentPage - 1) + ')" ' + (crmCurrentPage===1?'disabled':'') + '>‹ Anterior</button>' +\n          nums +\n          '<button type="button" class="btn btn-ghost btn-sm" onclick="crmGoPage(' + (crmCurrentPage + 1) + ')" ' + (crmCurrentPage===pages?'disabled':'') + '>Seguinte ›</button>' +\n        '</div>';\n    }\n    table.closest('.table-card')?.insertAdjacentElement('afterend', pager);\n  }\n\n  renderCrmTable = function(main) {\n    crmRenderTableBase(main);\n    crmApplyNativePagination(main);\n  };\n\n  window.crmGoPage = function(page) {\n    const total = filteredProspects().length;\n    const pages = Math.max(1, Math.ceil(total / CRM_PAGE_SIZE));\n    crmCurrentPage = Math.max(1, Math.min(Number(page) || 1, pages));\n    renderCrmTable(document.getElementById('main'));\n    document.querySelector('#main .table-card')?.scrollIntoView({behavior:'smooth', block:'start'});\n  };\n\n  const crmSetFilterBase = window.crmSetFilter;\n  if (typeof crmSetFilterBase === 'function') {\n    window.crmSetFilter = function(key, value) {\n      crmCurrentPage = 1;\n      return crmSetFilterBase(key, value);\n    };\n  }\n`;
+  // Junta o estado de tracking à lista principal e ordena pela data de envio.
+  // Emails enviados mais recentemente aparecem primeiro; prospects ainda não enviados ficam no fim.
+  const oldLoader = "async function loadProspects(){ crmProspects = await api('/api/crm/prospects'); return crmProspects; }";
+  const newLoader = `async function loadProspects(){
+    const [prospects,statuses] = await Promise.all([api('/api/crm/prospects'),api('/api/crm/prospects/email-status')]);
+    const sm = new Map((statuses||[]).map(s=>[Number(s.user_id),s]));
+    crmProspects = (prospects||[]).map(p=>({...p,...(sm.get(Number(p.id))||{})})).sort((a,b)=>{
+      const ad = a.email_sent_at ? new Date(String(a.email_sent_at).replace(' ','T')+'Z').getTime() : 0;
+      const bd = b.email_sent_at ? new Date(String(b.email_sent_at).replace(' ','T')+'Z').getTime() : 0;
+      if (ad !== bd) return bd - ad;
+      return Number(b.id||0) - Number(a.id||0);
+    });
+    return crmProspects;
+  }`;
+  if (source.includes(oldLoader)) source = source.replace(oldLoader, newLoader);
 
+  if (!source.includes('DUIT_CRM_NATIVE_PAGINATION')) {
+    const paginationPatch = `\n  /* DUIT_CRM_NATIVE_PAGINATION */\n  let crmCurrentPage = 1;\n  const CRM_PAGE_SIZE = 15;\n  const crmRenderTableBase = renderCrmTable;\n\n  function crmApplyNativePagination(main) {\n    const table = main?.querySelector('.table-card table.table');\n    main?.querySelector('#crm-pagination-native')?.remove();\n    if (!table) return;\n    const rows = Array.from(table.querySelectorAll('tbody > tr'));\n    const total = rows.length;\n    const pages = Math.max(1, Math.ceil(total / CRM_PAGE_SIZE));\n    crmCurrentPage = Math.max(1, Math.min(crmCurrentPage, pages));\n    const start = (crmCurrentPage - 1) * CRM_PAGE_SIZE;\n    const end = Math.min(start + CRM_PAGE_SIZE, total);\n    rows.forEach((row, index) => { row.style.display = index >= start && index < end ? '' : 'none'; });\n    const pager = document.createElement('div');\n    pager.id = 'crm-pagination-native';\n    pager.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 2px 0;font-size:13px;color:var(--muted)';\n    if (total <= CRM_PAGE_SIZE) {\n      pager.innerHTML = '<span>' + total + ' prospect' + (total === 1 ? '' : 's') + '</span>';\n    } else {\n      const nums = Array.from({length:pages}, (_,i)=>i+1).map(n => '<button type="button" class="btn ' + (n===crmCurrentPage?'btn-yellow':'btn-ghost') + ' btn-sm" style="min-width:36px" onclick="crmGoPage(' + n + ')">' + n + '</button>').join('');\n      pager.innerHTML = '<span>A mostrar ' + (start + 1) + '–' + end + ' de ' + total + '</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-ghost btn-sm" onclick="crmGoPage(' + (crmCurrentPage - 1) + ')" ' + (crmCurrentPage===1?'disabled':'') + '>‹ Anterior</button>' + nums + '<button type="button" class="btn btn-ghost btn-sm" onclick="crmGoPage(' + (crmCurrentPage + 1) + ')" ' + (crmCurrentPage===pages?'disabled':'') + '>Seguinte ›</button></div>';\n    }\n    table.closest('.table-card')?.insertAdjacentElement('afterend', pager);\n  }\n  renderCrmTable = function(main) { crmRenderTableBase(main); crmApplyNativePagination(main); };\n  window.crmGoPage = function(page) {\n    const total = filteredProspects().length;\n    const pages = Math.max(1, Math.ceil(total / CRM_PAGE_SIZE));\n    crmCurrentPage = Math.max(1, Math.min(Number(page) || 1, pages));\n    renderCrmTable(document.getElementById('main'));\n    document.querySelector('#main .table-card')?.scrollIntoView({behavior:'smooth', block:'start'});\n  };\n  const crmSetFilterBase = window.crmSetFilter;\n  if (typeof crmSetFilterBase === 'function') { window.crmSetFilter = function(key, value) { crmCurrentPage = 1; return crmSetFilterBase(key, value); }; }\n`;
     source = source.replace('\n  window.viewProspects=async function(main){', paginationPatch + '\n  window.viewProspects=async function(main){');
   }
 
@@ -48,52 +55,24 @@ try {
   console.warn('[crm] não foi possível ligar ações/paginação de Prospects:', e.message);
 }
 
-// Usa o logo branco real na sidebar do painel Admin e mantém-no mais compacto.
 try {
   const adminHtml = path.join(__dirname, '..', 'public', 'admin.html');
   let adminSource = fs.readFileSync(adminHtml, 'utf8');
-
-  adminSource = adminSource.replace(
-    '<div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>',
-    '<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>'
-  );
-
-  adminSource = adminSource.replace(
-    /<div class="brand"><img src="\/logo-branco\.png" alt="DUIT" style="[^"]*max-width:\d+px;[^"]*"><\/div>/,
-    '<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>'
-  );
-
+  adminSource = adminSource.replace('<div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>','<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>');
+  adminSource = adminSource.replace(/<div class="brand"><img src="\/logo-branco\.png" alt="DUIT" style="[^"]*max-width:\d+px;[^"]*"><\/div>/,'<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>');
   fs.writeFileSync(adminHtml, adminSource, 'utf8');
-} catch (e) {
-  console.warn('[admin] não foi possível aplicar o logo branco:', e.message);
-}
+} catch (e) { console.warn('[admin] não foi possível aplicar o logo branco:', e.message); }
 
-// Mantém a secção atual da Admin no URL (#prospects, #quotes, etc.).
 try {
   const adminJs = path.join(__dirname, '..', 'public', 'js', 'admin.js');
   let adminJsSource = fs.readFileSync(adminJs, 'utf8');
-
-  adminJsSource = adminJsSource.replace(
-    "const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';",
-    "const queryView = new URLSearchParams(window.location.search).get('view');\n    const hashView = decodeURIComponent((window.location.hash || '').replace(/^#/, ''));\n    const initial = hashView || queryView || 'home';"
-  );
-
-  adminJsSource = adminJsSource.replace(
-    "try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}",
-    "try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(initial)); } catch (e) {}"
-  );
-
+  adminJsSource = adminJsSource.replace("const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';","const queryView = new URLSearchParams(window.location.search).get('view');\n    const hashView = decodeURIComponent((window.location.hash || '').replace(/^#/, ''));\n    const initial = hashView || queryView || 'home';");
+  adminJsSource = adminJsSource.replace("try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}","try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(initial)); } catch (e) {}");
   if (!adminJsSource.includes("window.location.pathname + '#' + encodeURIComponent(view)")) {
-    adminJsSource = adminJsSource.replace(
-      "async function go(view) {\n  state.view = view;",
-      "async function go(view) {\n  state.view = view;\n  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}"
-    );
+    adminJsSource = adminJsSource.replace("async function go(view) {\n  state.view = view;","async function go(view) {\n  state.view = view;\n  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}");
   }
-
   fs.writeFileSync(adminJs, adminJsSource, 'utf8');
-} catch (e) {
-  console.warn('[admin] não foi possível manter a página após refresh:', e.message);
-}
+} catch (e) { console.warn('[admin] não foi possível manter a página após refresh:', e.message); }
 
 require('./crm-server');
 require('./prospect-seed');
