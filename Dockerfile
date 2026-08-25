@@ -23,4 +23,5 @@ EXPOSE 3000
 # Para que a BD SQLite viva num volume persistente, monta-o em /data
 # e define DATABASE_PATH=/data/portal.db nas variáveis do serviço.
 
-CMD ["node", "backend/server.js"]
+# Arranca pela camada CRM + importação inicial de prospects
+CMD ["node", "backend/start.js"]
