@@ -22,15 +22,13 @@ try {
 
   const marker = 'prospects-actions.js';
   if (!source.includes(marker)) {
-    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260826b';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
+    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260826c';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
   } else {
-    source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260826b');
+    source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260826c');
   }
 
   source = source.replace(/\n;\(\(\) => \{\n  if \(document\.querySelector\('script\[data-duit-prospect-pagination\]'\)\)[\s\S]*?\n\}\)\(\);\n?/g, '\n');
 
-  // Junta o estado de tracking à lista principal e ordena pela data de envio.
-  // Emails enviados mais recentemente aparecem primeiro; prospects ainda não enviados ficam no fim.
   const oldLoader = "async function loadProspects(){ crmProspects = await api('/api/crm/prospects'); return crmProspects; }";
   const newLoader = `async function loadProspects(){
     const [prospects,statuses] = await Promise.all([api('/api/crm/prospects'),api('/api/crm/prospects/email-status')]);
