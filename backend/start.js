@@ -27,6 +27,14 @@ try {
   } else {
     source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260825d');
   }
+
+  // Paginação visual dos Prospects: 15 por página.
+  if (!source.includes('prospects-pagination.js')) {
+    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-pagination]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-pagination.js?v=20260825a';\n  s.dataset.duitProspectPagination = '1';\n  document.body.appendChild(s);\n})();\n`;
+  } else {
+    source = source.replace(/prospects-pagination\.js\?v=[^'\"]+/g, 'prospects-pagination.js?v=20260825a');
+  }
+
   fs.writeFileSync(crmJs, source, 'utf8');
 } catch (e) {
   console.warn('[crm] não foi possível ligar ações de Prospects:', e.message);
