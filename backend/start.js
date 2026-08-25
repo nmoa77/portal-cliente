@@ -38,5 +38,18 @@ try {
   console.warn('[crm] não foi possível ligar ações de Prospects:', e.message);
 }
 
+// Usa o logo branco real na sidebar do painel Admin.
+try {
+  const adminHtml = path.join(__dirname, '..', 'public', 'admin.html');
+  let adminSource = fs.readFileSync(adminHtml, 'utf8');
+  adminSource = adminSource.replace(
+    '<div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>',
+    '<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:170px;height:auto;object-fit:contain"></div>'
+  );
+  fs.writeFileSync(adminHtml, adminSource, 'utf8');
+} catch (e) {
+  console.warn('[admin] não foi possível aplicar o logo branco:', e.message);
+}
+
 require('./crm-server');
 require('./prospect-seed');
