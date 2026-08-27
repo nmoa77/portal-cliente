@@ -11,8 +11,17 @@ try {
       '// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.',
       `${installLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`
     );
-    fs.writeFileSync(crmServer, serverSource, 'utf8');
   }
+
+  // Endpoint simples com a versão deste arranque. Em cada deploy/restart muda automaticamente.
+  // O frontend usa-o para perceber que existe uma versão nova e recarrega sozinho.
+  if (!serverSource.includes("/api/app-version")) {
+    serverSource = serverSource.replace(
+      '// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.',
+      `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => {\n  res.set('Cache-Control','no-store, no-cache, must-revalidate');\n  res.json({version: DUIT_APP_VERSION});\n});\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`
+    );
+  }
+  fs.writeFileSync(crmServer, serverSource, 'utf8');
 
   const crmJs = path.join(__dirname, '..', 'public', 'js', 'prospects-crm.js');
   let source = fs.readFileSync(crmJs, 'utf8');
@@ -22,9 +31,14 @@ try {
 
   const marker = 'prospects-actions.js';
   if (!source.includes(marker)) {
-    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260826c';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
+    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260827a';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
   } else {
-    source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260826c');
+    source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260827a');
+  }
+
+  // Auto-refresh após novo deploy: verifica a versão do servidor e recarrega a página sozinho.
+  if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) {
+    source += `\n;(() => {\n  /* DUIT_AUTO_VERSION_REFRESH */\n  let knownVersion = null;\n  let reloading = false;\n  async function checkVersion(){\n    if (reloading) return;\n    try {\n      const r = await fetch('/api/app-version?t=' + Date.now(), { cache:'no-store' });\n      if (!r.ok) return;\n      const data = await r.json();\n      if (!data?.version) return;\n      if (knownVersion === null) { knownVersion = data.version; return; }\n      if (data.version !== knownVersion) {\n        reloading = true;\n        location.reload();\n      }\n    } catch (_) {}\n  }\n  checkVersion();\n  setInterval(checkVersion, 10000);\n  window.addEventListener('focus', checkVersion);\n  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });\n})();\n`;
   }
 
   source = source.replace(/\n;\(\(\) => \{\n  if \(document\.querySelector\('script\[data-duit-prospect-pagination\]'\)\)[\s\S]*?\n\}\)\(\);\n?/g, '\n');
