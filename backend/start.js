@@ -14,7 +14,7 @@ try {
   }
 
   // Força nova versão do módulo principal de Prospects para evitar frontend antigo em cache.
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260828c');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260828d');
 
   // Endpoint simples com a versão deste arranque. Em cada deploy/restart muda automaticamente.
   // O frontend usa-o para perceber que existe uma versão nova e recarrega sozinho.
@@ -79,6 +79,10 @@ try {
     });
   }`;
   if (source.includes(oldFiltered)) source = source.replace(oldFiltered, newFiltered);
+
+  // Mostra na listagem a data/hora do último envio de email registado para cada prospect.
+  source = source.replace('<th>Follow-up</th><th></th>', '<th>Último envio</th><th>Follow-up</th><th></th>');
+  source = source.replace("<td>${p.follow_up_at?fmtDate(p.follow_up_at):'—'}</td><td><div class=\"crm-actions\">", "<td>${p.email_sent_at?fmtDateTime(p.email_sent_at):'—'}</td><td>${p.follow_up_at?fmtDate(p.follow_up_at):'—'}</td><td><div class=\"crm-actions\">");
 
   // Corrige os filtros: a tabela era filtrada, mas ao redesenhar os selects voltavam
   // visualmente a "Todos", dando a sensação de que o filtro não tinha sido aplicado.
