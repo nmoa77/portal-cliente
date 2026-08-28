@@ -13,6 +13,9 @@ try {
     );
   }
 
+  // Força nova versão do módulo principal de Prospects para evitar frontend antigo em cache.
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260828b');
+
   // Endpoint simples com a versão deste arranque. Em cada deploy/restart muda automaticamente.
   // O frontend usa-o para perceber que existe uma versão nova e recarrega sozinho.
   if (!serverSource.includes("/api/app-version")) {
@@ -56,6 +59,24 @@ try {
     return crmProspects;
   }`;
   if (source.includes(oldLoader)) source = source.replace(oldLoader, newLoader);
+
+  // Corrige os filtros: a tabela era filtrada, mas ao redesenhar os selects voltavam
+  // visualmente a "Todos", dando a sensação de que o filtro não tinha sido aplicado.
+  // Mantém agora a opção realmente ativa e melhora o layout dos três controlos.
+  source = source.replace(
+    '.crm-toolbar input,.crm-toolbar select{min-height:40px}.crm-toolbar .crm-search{flex:1;min-width:220px}',
+    '.crm-toolbar input,.crm-toolbar select{min-height:40px}.crm-toolbar .crm-search{flex:1 1 320px;min-width:220px}.crm-toolbar select{width:auto;flex:0 0 auto;min-width:190px}@media(max-width:760px){.crm-toolbar .crm-search,.crm-toolbar select{width:100%;flex:1 1 100%;min-width:0}}'
+  );
+
+  source = source.replace(
+    '<option value="all">Todas as prioridades</option><option value="atacar">🔥 Atacar</option><option value="possivel">🟡 Possível</option><option value="nao_prioritario">Não prioritário</option>',
+    '<option value="all"${crmFilter.priority===\'all\'?\' selected\':\'\'}>Todas as prioridades</option><option value="atacar"${crmFilter.priority===\'atacar\'?\' selected\':\'\'}>🔥 Atacar</option><option value="possivel"${crmFilter.priority===\'possivel\'?\' selected\':\'\'}>🟡 Possível</option><option value="nao_prioritario"${crmFilter.priority===\'nao_prioritario\'?\' selected\':\'\'}>Não prioritário</option>'
+  );
+
+  source = source.replace(
+    '<option value="all">Todos os estados</option>${Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join(\'\')}',
+    '<option value="all"${crmFilter.status===\'all\'?\' selected\':\'\'}>Todos os estados</option>${Object.entries(STATUS).map(([k,v])=>`<option value="${k}"${crmFilter.status===k?\' selected\':\'\'}>${v[0]}</option>`).join(\'\')}'
+  );
 
   if (!source.includes('DUIT_CRM_NATIVE_PAGINATION')) {
     const paginationPatch = `\n  /* DUIT_CRM_NATIVE_PAGINATION */\n  let crmCurrentPage = 1;\n  const CRM_PAGE_SIZE = 15;\n  const crmRenderTableBase = renderCrmTable;\n\n  function crmApplyNativePagination(main) {\n    const table = main?.querySelector('.table-card table.table');\n    main?.querySelector('#crm-pagination-native')?.remove();\n    if (!table) return;\n    const rows = Array.from(table.querySelectorAll('tbody > tr'));\n    const total = rows.length;\n    const pages = Math.max(1, Math.ceil(total / CRM_PAGE_SIZE));\n    crmCurrentPage = Math.max(1, Math.min(crmCurrentPage, pages));\n    const start = (crmCurrentPage - 1) * CRM_PAGE_SIZE;\n    const end = Math.min(start + CRM_PAGE_SIZE, total);\n    rows.forEach((row, index) => { row.style.display = index >= start && index < end ? '' : 'none'; });\n    const pager = document.createElement('div');\n    pager.id = 'crm-pagination-native';\n    pager.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 2px 0;font-size:13px;color:var(--muted)';\n    if (total <= CRM_PAGE_SIZE) {\n      pager.innerHTML = '<span>' + total + ' prospect' + (total === 1 ? '' : 's') + '</span>';\n    } else {\n      const nums = Array.from({length:pages}, (_,i)=>i+1).map(n => '<button type="button" class="btn ' + (n===crmCurrentPage?'btn-yellow':'btn-ghost') + ' btn-sm" style="min-width:36px" onclick="crmGoPage(' + n + ')">' + n + '</button>').join('');\n      pager.innerHTML = '<span>A mostrar ' + (start + 1) + '–' + end + ' de ' + total + '</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-ghost btn-sm" onclick="crmGoPage(' + (crmCurrentPage - 1) + ')" ' + (crmCurrentPage===1?'disabled':'') + '>‹ Anterior</button>' + nums + '<button type="button" class="btn btn-ghost btn-sm" onclick="crmGoPage(' + (crmCurrentPage + 1) + ')" ' + (crmCurrentPage===pages?'disabled':'') + '>Seguinte ›</button></div>';\n    }\n    table.closest('.table-card')?.insertAdjacentElement('afterend', pager);\n  }\n  renderCrmTable = function(main) { crmRenderTableBase(main); crmApplyNativePagination(main); };\n  window.crmGoPage = function(page) {\n    const total = filteredProspects().length;\n    const pages = Math.max(1, Math.ceil(total / CRM_PAGE_SIZE));\n    crmCurrentPage = Math.max(1, Math.min(Number(page) || 1, pages));\n    renderCrmTable(document.getElementById('main'));\n    document.querySelector('#main .table-card')?.scrollIntoView({behavior:'smooth', block:'start'});\n  };\n  const crmSetFilterBase = window.crmSetFilter;\n  if (typeof crmSetFilterBase === 'function') { window.crmSetFilter = function(key, value) { crmCurrentPage = 1; return crmSetFilterBase(key, value); }; }\n`;
