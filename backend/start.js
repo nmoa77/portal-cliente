@@ -14,7 +14,7 @@ try {
   }
 
   // Força nova versão do módulo principal de Prospects para evitar frontend antigo em cache.
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260828b');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260828c');
 
   // Endpoint simples com a versão deste arranque. Em cada deploy/restart muda automaticamente.
   // O frontend usa-o para perceber que existe uma versão nova e recarrega sozinho.
@@ -59,6 +59,26 @@ try {
     return crmProspects;
   }`;
   if (source.includes(oldLoader)) source = source.replace(oldLoader, newLoader);
+
+  // "Sem resposta" deve refletir o estado real do email: enviado e ainda sem aceite/rejeição.
+  // "Respondeu" inclui qualquer resposta registada na proposta, independentemente do lead_status manual.
+  const oldFiltered = "function filteredProspects(){ const q=crmFilter.q.trim().toLowerCase(); return crmProspects.filter(p=>{ if(crmFilter.status!=='all'&&p.lead_status!==crmFilter.status)return false;if(crmFilter.priority!=='all'&&p.priority!==crmFilter.priority)return false;if(!q)return true;return [p.company,p.name,p.email,p.phone,p.sector,p.location,p.opportunity,p.idea].filter(Boolean).join(' ').toLowerCase().includes(q); }); }";
+  const newFiltered = `function filteredProspects(){
+    const q=crmFilter.q.trim().toLowerCase();
+    return crmProspects.filter(p=>{
+      if(crmFilter.status!=='all'){
+        if(crmFilter.status==='sem_resposta'){
+          if(!(p.email_sent_at && !p.outreach_response)) return false;
+        } else if(crmFilter.status==='respondeu'){
+          if(!p.outreach_response) return false;
+        } else if(p.lead_status!==crmFilter.status) return false;
+      }
+      if(crmFilter.priority!=='all'&&p.priority!==crmFilter.priority)return false;
+      if(!q)return true;
+      return [p.company,p.name,p.email,p.phone,p.sector,p.location,p.opportunity,p.idea].filter(Boolean).join(' ').toLowerCase().includes(q);
+    });
+  }`;
+  if (source.includes(oldFiltered)) source = source.replace(oldFiltered, newFiltered);
 
   // Corrige os filtros: a tabela era filtrada, mas ao redesenhar os selects voltavam
   // visualmente a "Todos", dando a sensação de que o filtro não tinha sido aplicado.
