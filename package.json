@@ -2,10 +2,10 @@
   "name": "portal-cliente",
   "version": "1.0.0",
   "description": "Portal de cliente para estúdio de design — gestão de subscrições (alojamento, domínios, redes sociais), tickets, clientes e prospeção comercial.",
-  "main": "backend/start.js",
+  "main": "backend/run.js",
   "scripts": {
-    "start": "node backend/start.js",
-    "dev": "node backend/start.js"
+    "start": "node backend/run.js",
+    "dev": "node backend/run.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
