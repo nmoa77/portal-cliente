@@ -13,20 +13,18 @@ module.exports = function installProspectCrmActions(app) {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
   const portal = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
   const guideTarget = process.env.DUIT_GUIDE_URL || `${portal}/ebook-duit.pdf`;
-  const SEND_GAP_MINUTES=3, BLOCK_SIZE=6, BLOCK_PAUSE_MINUTES=30, DAILY_LIMIT=25;
+  const LIMIT_30M=6, LIMIT_60M=10, DAILY_LIMIT=25;
 
   function favoritePage(){ try{return db.prepare(`SELECT * FROM ebook_pages WHERE active=1 ORDER BY is_favorite DESC,id ASC LIMIT 1`).get();}catch(_){return null;} }
   function resolvedPage(explicitId){ try{if(explicitId){const p=db.prepare(`SELECT * FROM ebook_pages WHERE id=? AND active=1`).get(Number(explicitId));if(p)return p;}return favoritePage();}catch(_){return null;} }
+  const sentSince = mins => db.prepare(`SELECT email_sent_at FROM prospect_crm WHERE email_sent_at IS NOT NULL AND datetime(email_sent_at) > datetime('now', ?) ORDER BY datetime(email_sent_at) ASC`).all(`-${mins} minutes`);
   function sendingState(){
-    const now=Date.now();
-    const today=db.prepare(`SELECT COUNT(*) n FROM prospect_crm WHERE email_sent_at IS NOT NULL AND date(email_sent_at,'localtime')=date('now','localtime')`).get().n||0;
-    const recent=db.prepare(`SELECT email_sent_at FROM prospect_crm WHERE email_sent_at IS NOT NULL ORDER BY datetime(email_sent_at) DESC LIMIT ?`).all(BLOCK_SIZE);
-    const last=recent[0]?.email_sent_at ? new Date(String(recent[0].email_sent_at).replace(' ','T')+'Z').getTime() : 0;
-    let nextAt=0,reason='';
+    const today=Number(db.prepare(`SELECT COUNT(*) n FROM prospect_crm WHERE email_sent_at IS NOT NULL AND date(email_sent_at,'localtime')=date('now','localtime')`).get().n||0);
+    const m30=sentSince(30),m60=sentSince(60);let nextAt=0,reason='';
     if(today>=DAILY_LIMIT){const d=new Date();d.setDate(d.getDate()+1);d.setHours(0,0,0,0);nextAt=d.getTime();reason='daily';}
-    else if(recent.length>=BLOCK_SIZE){const oldest=new Date(String(recent[BLOCK_SIZE-1].email_sent_at).replace(' ','T')+'Z').getTime();const blockUntil=oldest+BLOCK_PAUSE_MINUTES*60000;if(blockUntil>now){nextAt=blockUntil;reason='block';}}
-    if(!nextAt&&last){const gapUntil=last+SEND_GAP_MINUTES*60000;if(gapUntil>now){nextAt=gapUntil;reason='gap';}}
-    return {allowed:!nextAt,reason,next_at:nextAt?new Date(nextAt).toISOString():null,today,daily_limit:DAILY_LIMIT,block_size:BLOCK_SIZE,block_pause_minutes:BLOCK_PAUSE_MINUTES,gap_minutes:SEND_GAP_MINUTES};
+    else if(m30.length>=LIMIT_30M){nextAt=new Date(String(m30[0].email_sent_at).replace(' ','T')+'Z').getTime()+30*60000;reason='30m';}
+    else if(m60.length>=LIMIT_60M){nextAt=new Date(String(m60[0].email_sent_at).replace(' ','T')+'Z').getTime()+60*60000;reason='60m';}
+    return {allowed:!nextAt,reason,next_at:nextAt?new Date(nextAt).toISOString():null,today,daily_limit:DAILY_LIMIT,sent_30m:m30.length,limit_30m:LIMIT_30M,sent_60m:m60.length,limit_60m:LIMIT_60M};
   }
 
   function emailHtml(text, token) {
@@ -44,7 +42,7 @@ module.exports = function installProspectCrmActions(app) {
   app.post('/api/public/prospect-outreach/:token/respond',(req,res)=>{const token=String(req.params.token||''),status=String(req.body?.status||''),reason=String(req.body?.reason||'').trim();if(!['accepted','rejected'].includes(status))return res.status(400).json({error:'Resposta inválida.'});const p=db.prepare(`SELECT c.user_id FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(token);if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});db.prepare(`UPDATE prospect_crm SET outreach_response=?,outreach_response_reason=?,outreach_responded_at=datetime('now'),lead_status=?,updated_at=datetime('now') WHERE email_tracking_token=?`).run(status,reason,status==='accepted'?'interessado':'sem_interesse',token);res.json({ok:true,status});});
 
   app.post('/api/crm/prospects/:id/send-email',requireAdmin,(req,res)=>{
-    const limit=sendingState();if(!limit.allowed){const mins=Math.max(1,Math.ceil((new Date(limit.next_at).getTime()-Date.now())/60000));const msg=limit.reason==='daily'?`Limite diário de ${DAILY_LIMIT} emails atingido. Novos envios ficam disponíveis amanhã.`:limit.reason==='block'?`Proteção de envio ativa após ${BLOCK_SIZE} emails. Aguarde cerca de ${mins} min antes de continuar.`:`Aguarde cerca de ${mins} min antes do próximo email.`;return res.status(429).json({error:msg,send_limit:limit});}
+    const limit=sendingState();if(!limit.allowed){const mins=Math.max(1,Math.ceil((new Date(limit.next_at).getTime()-Date.now())/60000));const msg=limit.reason==='daily'?`Limite diário de ${DAILY_LIMIT} emails atingido. Novos envios ficam disponíveis amanhã.`:limit.reason==='30m'?`Já enviou ${LIMIT_30M} emails nos últimos 30 minutos. Aguarde cerca de ${mins} min.`:`Já enviou ${LIMIT_60M} emails na última hora. Aguarde cerca de ${mins} min.`;return res.status(429).json({error:msg,send_limit:limit});}
     const id=Number(req.params.id);const p=db.prepare(`SELECT u.id,u.name,u.email,u.company,c.proposal_email,c.ebook_page_id FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id WHERE u.id=? AND u.is_prospect=1`).get(id);if(!p)return res.status(404).json({error:'Prospect não encontrado.'});
     const text=String(req.body?.text||p.proposal_email||'').trim();if(!text)return res.status(400).json({error:'O email está vazio.'});if(!p.email)return res.status(400).json({error:'Este prospect não tem email.'});
     const subjectMatch=text.match(/^Assunto:\s*(.+)$/mi),subject=(subjectMatch?.[1]||`${p.company||p.name} — proposta DUIT`).trim(),token=crypto.randomBytes(24).toString('hex'),chosen=resolvedPage(req.body?.ebook_page_id||p.ebook_page_id);
