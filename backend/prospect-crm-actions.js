@@ -7,93 +7,50 @@ const { deliver, T } = require('./email');
 module.exports = function installProspectCrmActions(app) {
   const cols = db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c => c.name);
   const add = (name, sql) => { if (!cols.includes(name)) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ${name} ${sql}`); };
-  add('email_tracking_token', 'TEXT');
-  add('email_sent_at', 'TEXT');
-  add('email_first_opened_at', 'TEXT');
-  add('email_last_opened_at', 'TEXT');
-  add('email_open_count', 'INTEGER DEFAULT 0');
-  add('guide_first_opened_at', 'TEXT');
-  add('guide_last_opened_at', 'TEXT');
-  add('guide_open_count', 'INTEGER DEFAULT 0');
-  add('outreach_response', 'TEXT');
-  add('outreach_response_reason', 'TEXT');
-  add('outreach_responded_at', 'TEXT');
-  add('ebook_page_id', 'INTEGER');
+  add('email_tracking_token', 'TEXT'); add('email_sent_at', 'TEXT'); add('email_first_opened_at', 'TEXT'); add('email_last_opened_at', 'TEXT'); add('email_open_count', 'INTEGER DEFAULT 0'); add('guide_first_opened_at', 'TEXT'); add('guide_last_opened_at', 'TEXT'); add('guide_open_count', 'INTEGER DEFAULT 0'); add('outreach_response', 'TEXT'); add('outreach_response_reason', 'TEXT'); add('outreach_responded_at', 'TEXT'); add('ebook_page_id', 'INTEGER');
 
   const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
-  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
   const portal = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
   const guideTarget = process.env.DUIT_GUIDE_URL || `${portal}/ebook-duit.pdf`;
+  const SEND_GAP_MINUTES=3, BLOCK_SIZE=6, BLOCK_PAUSE_MINUTES=30, DAILY_LIMIT=25;
 
-  function favoritePage(){
-    try { return db.prepare(`SELECT * FROM ebook_pages WHERE active=1 ORDER BY is_favorite DESC,id ASC LIMIT 1`).get(); }
-    catch(_) { return null; }
-  }
-  function resolvedPage(explicitId){
-    try {
-      if(explicitId){const p=db.prepare(`SELECT * FROM ebook_pages WHERE id=? AND active=1`).get(Number(explicitId));if(p)return p;}
-      return favoritePage();
-    } catch(_) { return null; }
+  function favoritePage(){ try{return db.prepare(`SELECT * FROM ebook_pages WHERE active=1 ORDER BY is_favorite DESC,id ASC LIMIT 1`).get();}catch(_){return null;} }
+  function resolvedPage(explicitId){ try{if(explicitId){const p=db.prepare(`SELECT * FROM ebook_pages WHERE id=? AND active=1`).get(Number(explicitId));if(p)return p;}return favoritePage();}catch(_){return null;} }
+  function sendingState(){
+    const now=Date.now();
+    const today=db.prepare(`SELECT COUNT(*) n FROM prospect_crm WHERE email_sent_at IS NOT NULL AND date(email_sent_at,'localtime')=date('now','localtime')`).get().n||0;
+    const recent=db.prepare(`SELECT email_sent_at FROM prospect_crm WHERE email_sent_at IS NOT NULL ORDER BY datetime(email_sent_at) DESC LIMIT ?`).all(BLOCK_SIZE);
+    const last=recent[0]?.email_sent_at ? new Date(String(recent[0].email_sent_at).replace(' ','T')+'Z').getTime() : 0;
+    let nextAt=0,reason='';
+    if(today>=DAILY_LIMIT){const d=new Date();d.setDate(d.getDate()+1);d.setHours(0,0,0,0);nextAt=d.getTime();reason='daily';}
+    else if(recent.length>=BLOCK_SIZE){const oldest=new Date(String(recent[BLOCK_SIZE-1].email_sent_at).replace(' ','T')+'Z').getTime();const blockUntil=oldest+BLOCK_PAUSE_MINUTES*60000;if(blockUntil>now){nextAt=blockUntil;reason='block';}}
+    if(!nextAt&&last){const gapUntil=last+SEND_GAP_MINUTES*60000;if(gapUntil>now){nextAt=gapUntil;reason='gap';}}
+    return {allowed:!nextAt,reason,next_at:nextAt?new Date(nextAt).toISOString():null,today,daily_limit:DAILY_LIMIT,block_size:BLOCK_SIZE,block_pause_minutes:BLOCK_PAUSE_MINUTES,gap_minutes:SEND_GAP_MINUTES};
   }
 
   function emailHtml(text, token) {
-    let clean = String(text || '').replace(/^Assunto:.*?(\r?\n){1,2}/i, '').trim();
-    clean = clean.replace(/Quer avançar\?\s*Responda a este email e tratamos do resto\.?/gi, '').trim();
-    const paragraphs = clean.split(/\n{2,}/).filter(Boolean).map(p => {
-      let html=esc(p).replace(/ebook gratuito/gi,'<strong>ebook gratuito</strong>');
-      return `<div style="margin:0 0 15px;color:#2a2a2a;font-size:15px;line-height:1.65;white-space:pre-line">${html}</div>`;
-    }).join('');
-    const responseUrl = `${portal}/prospect-response.html?token=${encodeURIComponent(token)}`;
-    const cacheKey = Date.now();
-    return `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px;background:#f5f3ef"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:18px 34px"><img src="${portal}/logo-branco.png?v=${cacheKey}" width="135" alt="DUIT" style="display:block;width:135px;max-width:100%;height:auto;border:0"></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px">${paragraphs}<div style="margin:24px 0 10px"><a href="${responseUrl}" style="display:inline-block;background:#ffd60a;color:#0a0a0a;text-decoration:none;font-weight:700;font-size:15px;padding:13px 22px;border-radius:9px">Ver o que preparámos para si</a></div><div style="padding-top:12px;color:#2a2a2a;font-size:15px">Cumprimentos,</div><div style="padding-top:8px"><img src="${portal}/assinatura-email.png?v=${cacheKey}" width="400" alt="Nuno Alho — DUIT" style="display:block;width:100%;max-width:400px;height:auto;border:0"></div></td></tr></table><img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0"></td></tr></table></body></html>`;
+    let clean=String(text||'').replace(/^Assunto:.*?(\r?\n){1,2}/i,'').trim();clean=clean.replace(/Quer avançar\?\s*Responda a este email e tratamos do resto\.?/gi,'').trim();
+    const paragraphs=clean.split(/\n{2,}/).filter(Boolean).map(p=>`<div style="margin:0 0 15px;color:#2a2a2a;font-size:15px;line-height:1.65;white-space:pre-line">${esc(p).replace(/ebook gratuito/gi,'<strong>ebook gratuito</strong>')}</div>`).join('');
+    const responseUrl=`${portal}/prospect-response.html?token=${encodeURIComponent(token)}`,cacheKey=Date.now();
+    return `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px;background:#f5f3ef"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:18px 34px"><img src="${portal}/logo-branco.png?v=${cacheKey}" width="135" alt="DUIT"></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px">${paragraphs}<div style="margin:24px 0 10px"><a href="${responseUrl}" style="display:inline-block;background:#ffd60a;color:#0a0a0a;text-decoration:none;font-weight:700;font-size:15px;padding:13px 22px;border-radius:9px">Ver o que preparámos para si</a></div><div style="padding-top:12px;color:#2a2a2a;font-size:15px">Cumprimentos,</div><div style="padding-top:8px"><img src="${portal}/assinatura-email.png?v=${cacheKey}" width="400" alt="Nuno Alho — DUIT" style="display:block;width:100%;max-width:400px;height:auto;border:0"></div></td></tr></table><img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt=""></td></tr></table></body></html>`;
   }
 
-  app.get('/api/crm/prospects/email-status', requireAdmin, (req,res) => {
-    res.json(db.prepare(`SELECT user_id,email_sent_at,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at FROM prospect_crm`).all());
-  });
+  app.get('/api/crm/prospects/email-status',requireAdmin,(req,res)=>res.json(db.prepare(`SELECT user_id,email_sent_at,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at FROM prospect_crm`).all()));
+  app.get('/api/crm/prospects/send-limit',requireAdmin,(req,res)=>res.json(sendingState()));
+  app.get('/api/crm/prospects/email-open/:token.png',(req,res)=>{try{const token=String(req.params.token||'');if(token)db.prepare(`UPDATE prospect_crm SET email_first_opened_at=COALESCE(email_first_opened_at,datetime('now')),email_last_opened_at=datetime('now'),email_open_count=COALESCE(email_open_count,0)+1 WHERE email_tracking_token=?`).run(token);}catch(e){console.warn('[crm] tracking email:',e.message);}res.set('Content-Type','image/png');res.set('Cache-Control','no-store, no-cache, must-revalidate, private');res.send(pixel);});
+  app.get('/api/public/prospect-guide/:token',(req,res)=>{const token=String(req.params.token||'');const p=db.prepare(`SELECT user_id,ebook_page_id FROM prospect_crm WHERE email_tracking_token=?`).get(token);if(!p)return res.status(404).send('Ligação inválida ou expirada.');db.prepare(`UPDATE prospect_crm SET guide_first_opened_at=COALESCE(guide_first_opened_at,datetime('now')),guide_last_opened_at=datetime('now'),guide_open_count=COALESCE(guide_open_count,0)+1,updated_at=datetime('now') WHERE email_tracking_token=?`).run(token);const page=resolvedPage(p.ebook_page_id);res.set('Cache-Control','no-store');res.redirect(302,page?.pdf_path||guideTarget);});
+  app.get('/api/public/prospect-outreach/:token',(req,res)=>{const p=db.prepare(`SELECT u.name,u.company,c.recommended_plan,c.monthly_value,c.offer_value,c.outreach_response,c.outreach_response_reason,c.outreach_responded_at,c.ebook_page_id,e.title ebook_title FROM prospect_crm c JOIN users u ON u.id=c.user_id LEFT JOIN ebook_pages e ON e.id=c.ebook_page_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(String(req.params.token||''));if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});res.json(p);});
+  app.post('/api/public/prospect-outreach/:token/respond',(req,res)=>{const token=String(req.params.token||''),status=String(req.body?.status||''),reason=String(req.body?.reason||'').trim();if(!['accepted','rejected'].includes(status))return res.status(400).json({error:'Resposta inválida.'});const p=db.prepare(`SELECT c.user_id FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(token);if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});db.prepare(`UPDATE prospect_crm SET outreach_response=?,outreach_response_reason=?,outreach_responded_at=datetime('now'),lead_status=?,updated_at=datetime('now') WHERE email_tracking_token=?`).run(status,reason,status==='accepted'?'interessado':'sem_interesse',token);res.json({ok:true,status});});
 
-  app.get('/api/crm/prospects/email-open/:token.png', (req, res) => {
-    try { const token=String(req.params.token||''); if(token) db.prepare(`UPDATE prospect_crm SET email_first_opened_at=COALESCE(email_first_opened_at,datetime('now')),email_last_opened_at=datetime('now'),email_open_count=COALESCE(email_open_count,0)+1 WHERE email_tracking_token=?`).run(token); } catch(e){ console.warn('[crm] tracking email:',e.message); }
-    res.set('Content-Type','image/png'); res.set('Cache-Control','no-store, no-cache, must-revalidate, private'); res.send(pixel);
-  });
-
-  app.get('/api/public/prospect-guide/:token', (req,res) => {
-    const token=String(req.params.token||'');
-    const p=db.prepare(`SELECT user_id,ebook_page_id FROM prospect_crm WHERE email_tracking_token=?`).get(token);
-    if(!p) return res.status(404).send('Ligação inválida ou expirada.');
-    db.prepare(`UPDATE prospect_crm SET guide_first_opened_at=COALESCE(guide_first_opened_at,datetime('now')),guide_last_opened_at=datetime('now'),guide_open_count=COALESCE(guide_open_count,0)+1,updated_at=datetime('now') WHERE email_tracking_token=?`).run(token);
-    const page=resolvedPage(p.ebook_page_id);
-    res.set('Cache-Control','no-store'); res.redirect(302,page?.pdf_path||guideTarget);
-  });
-
-  app.get('/api/public/prospect-outreach/:token', (req,res) => {
-    const p=db.prepare(`SELECT u.name,u.company,c.recommended_plan,c.monthly_value,c.offer_value,c.outreach_response,c.outreach_response_reason,c.outreach_responded_at,c.ebook_page_id,e.title ebook_title FROM prospect_crm c JOIN users u ON u.id=c.user_id LEFT JOIN ebook_pages e ON e.id=c.ebook_page_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(String(req.params.token||''));
-    if(!p) return res.status(404).json({error:'Ligação inválida ou expirada.'}); res.json(p);
-  });
-
-  app.post('/api/public/prospect-outreach/:token/respond', (req,res) => {
-    const token=String(req.params.token||''); const status=String(req.body?.status||''); const reason=String(req.body?.reason||'').trim();
-    if(!['accepted','rejected'].includes(status)) return res.status(400).json({error:'Resposta inválida.'});
-    const p=db.prepare(`SELECT c.user_id FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(token);
-    if(!p) return res.status(404).json({error:'Ligação inválida ou expirada.'});
-    db.prepare(`UPDATE prospect_crm SET outreach_response=?,outreach_response_reason=?,outreach_responded_at=datetime('now'),lead_status=?,updated_at=datetime('now') WHERE email_tracking_token=?`).run(status,reason,status==='accepted'?'interessado':'sem_interesse',token); res.json({ok:true,status});
-  });
-
-  app.post('/api/crm/prospects/:id/send-email', requireAdmin, (req,res) => {
-    const id=Number(req.params.id); const p=db.prepare(`SELECT u.id,u.name,u.email,u.company,c.proposal_email,c.ebook_page_id FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id WHERE u.id=? AND u.is_prospect=1`).get(id);
-    if(!p) return res.status(404).json({error:'Prospect não encontrado.'});
-    const text=String(req.body?.text||p.proposal_email||'').trim(); if(!text) return res.status(400).json({error:'O email está vazio.'}); if(!p.email) return res.status(400).json({error:'Este prospect não tem email.'});
-    const subjectMatch=text.match(/^Assunto:\s*(.+)$/mi); const subject=(subjectMatch?.[1]||`${p.company||p.name} — proposta DUIT`).trim(); const token=crypto.randomBytes(24).toString('hex');
-    const chosen=resolvedPage(req.body?.ebook_page_id||p.ebook_page_id);
+  app.post('/api/crm/prospects/:id/send-email',requireAdmin,(req,res)=>{
+    const limit=sendingState();if(!limit.allowed){const mins=Math.max(1,Math.ceil((new Date(limit.next_at).getTime()-Date.now())/60000));const msg=limit.reason==='daily'?`Limite diário de ${DAILY_LIMIT} emails atingido. Novos envios ficam disponíveis amanhã.`:limit.reason==='block'?`Proteção de envio ativa após ${BLOCK_SIZE} emails. Aguarde cerca de ${mins} min antes de continuar.`:`Aguarde cerca de ${mins} min antes do próximo email.`;return res.status(429).json({error:msg,send_limit:limit});}
+    const id=Number(req.params.id);const p=db.prepare(`SELECT u.id,u.name,u.email,u.company,c.proposal_email,c.ebook_page_id FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id WHERE u.id=? AND u.is_prospect=1`).get(id);if(!p)return res.status(404).json({error:'Prospect não encontrado.'});
+    const text=String(req.body?.text||p.proposal_email||'').trim();if(!text)return res.status(400).json({error:'O email está vazio.'});if(!p.email)return res.status(400).json({error:'Este prospect não tem email.'});
+    const subjectMatch=text.match(/^Assunto:\s*(.+)$/mi),subject=(subjectMatch?.[1]||`${p.company||p.name} — proposta DUIT`).trim(),token=crypto.randomBytes(24).toString('hex'),chosen=resolvedPage(req.body?.ebook_page_id||p.ebook_page_id);
     db.prepare(`UPDATE prospect_crm SET proposal_email=?,ebook_page_id=?,email_tracking_token=?,email_sent_at=datetime('now'),email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,guide_first_opened_at=NULL,guide_last_opened_at=NULL,guide_open_count=0,outreach_response=NULL,outreach_response_reason=NULL,outreach_responded_at=NULL,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),updated_at=datetime('now') WHERE user_id=?`).run(text,chosen?.id||null,token,id);
-    deliver(db,{to:p.email,subject,body:text,html:emailHtml(text,token),user_id:id,kind:'prospect_outreach',force:true}); res.json({ok:true,ebook_page_id:chosen?.id||null});
+    deliver(db,{to:p.email,subject,body:text,html:emailHtml(text,token),user_id:id,kind:'prospect_outreach',force:true});res.json({ok:true,ebook_page_id:chosen?.id||null,send_limit:sendingState()});
   });
 
-  app.post('/api/crm/prospects/:id/convert', requireAdmin, (req,res) => {
-    const id=Number(req.params.id); const u=db.prepare(`SELECT * FROM users WHERE id=? AND role='client' AND is_prospect=1`).get(id);
-    if(!u) return res.status(404).json({error:'Prospect não encontrado ou já convertido.'});
-    const tempPassword=crypto.randomBytes(8).toString('base64url').slice(0,12); const hash=bcrypt.hashSync(tempPassword,10); db.prepare(`UPDATE users SET password_hash=?,is_prospect=0,is_active=1 WHERE id=?`).run(hash,id);
-    try { const tpl=T.welcome(u.name,u.email,tempPassword); deliver(db,{to:u.email,subject:tpl.subject,body:tpl.body,html:tpl.html,user_id:id,kind:'welcome_after_conversion',force:true}); } catch(e){ console.warn('[crm] welcome convert:',e.message); }
-    res.json({ok:true});
-  });
+  app.post('/api/crm/prospects/:id/convert',requireAdmin,(req,res)=>{const id=Number(req.params.id),u=db.prepare(`SELECT * FROM users WHERE id=? AND role='client' AND is_prospect=1`).get(id);if(!u)return res.status(404).json({error:'Prospect não encontrado ou já convertido.'});const tempPassword=crypto.randomBytes(8).toString('base64url').slice(0,12),hash=bcrypt.hashSync(tempPassword,10);db.prepare(`UPDATE users SET password_hash=?,is_prospect=0,is_active=1 WHERE id=?`).run(hash,id);try{const tpl=T.welcome(u.name,u.email,tempPassword);deliver(db,{to:u.email,subject:tpl.subject,body:tpl.body,html:tpl.html,user_id:id,kind:'welcome_after_conversion',force:true});}catch(e){console.warn('[crm] welcome convert:',e.message);}res.json({ok:true});});
 };
