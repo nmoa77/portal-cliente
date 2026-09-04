@@ -50,12 +50,12 @@ module.exports = function installEbookLeads(app) {
       FOREIGN KEY(page_id) REFERENCES ebook_pages(id) ON DELETE SET NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ebook_leads_email ON ebook_leads(lower(email));
-    CREATE INDEX IF NOT EXISTS idx_ebook_leads_page ON ebook_leads(page_id);
     CREATE INDEX IF NOT EXISTS idx_ebook_leads_created ON ebook_leads(created_at);
   `);
 
   const cols = db.prepare(`PRAGMA table_info(ebook_leads)`).all().map(c=>c.name);
   if (!cols.includes('page_id')) db.exec(`ALTER TABLE ebook_leads ADD COLUMN page_id INTEGER`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_ebook_leads_page ON ebook_leads(page_id);`);
 
   let defaultPage = db.prepare(`SELECT * FROM ebook_pages ORDER BY id LIMIT 1`).get();
   if (!defaultPage) {
@@ -64,11 +64,11 @@ module.exports = function installEbookLeads(app) {
   }
   db.prepare(`UPDATE ebook_leads SET page_id=? WHERE page_id IS NULL`).run(defaultPage.id);
 
-  // Integra a área no painel sem obrigar a alterar manualmente o admin principal.
   try {
     const adminHtml=path.join(publicDir,'admin.html');
     let h=fs.readFileSync(adminHtml,'utf8');
-    if(!h.includes('/js/ebook-manager.js')) h=h.replace('</body>','<script src="/js/ebook-manager.js?v=20260904a"></script>\n</body>');
+    if(!h.includes('/js/ebook-manager.js')) h=h.replace('</body>','<script src="/js/ebook-manager.js?v=20260904b"></script>\n</body>');
+    else h=h.replace(/ebook-manager\.js\?v=[^'\"]+/g,'ebook-manager.js?v=20260904b');
     fs.writeFileSync(adminHtml,h,'utf8');
   } catch(_) {}
   try {
@@ -92,7 +92,7 @@ module.exports = function installEbookLeads(app) {
   app.get('/api/public/ebook-page/:slug',(req,res)=>{
     const page=pageBySlug(req.params.slug);
     if(!page || !page.active) return res.status(404).json({error:'Landing page não disponível.'});
-    const source=clean(req.query.src||req.query.source,120)||'direto';
+    const source=clean(req.query.src||req.query.source||req.query.utm_source,120)||'direto';
     const campaign=clean(req.query.campaign||req.query.utm_campaign,120);
     db.prepare(`INSERT INTO ebook_page_visits(page_id,source,campaign) VALUES(?,?,?)`).run(page.id,source,campaign);
     res.set('Cache-Control','no-store');
@@ -146,15 +146,6 @@ module.exports = function installEbookLeads(app) {
     } catch(e) { res.status(500).send('Não foi possível abrir o ebook.'); }
   });
 
-  app.get('/api/public/ebook-asset/:id/:kind',(req,res)=>{
-    const page=pageById(req.params.id);if(!page)return res.sendStatus(404);
-    const kind=req.params.kind==='pdf'?'pdf':'image';
-    const p=kind==='pdf'?page.pdf_path:page.image_path;
-    if(!p || !p.startsWith('/api/public/ebook-asset-file/')) return res.sendStatus(404);
-    const file=path.join(assetDir,path.basename(p));
-    if(!fs.existsSync(file)) return res.sendStatus(404);
-    res.sendFile(file);
-  });
   app.get('/api/public/ebook-asset-file/:file',(req,res)=>{
     const file=path.join(assetDir,path.basename(req.params.file));
     if(!fs.existsSync(file)) return res.sendStatus(404);
@@ -217,6 +208,6 @@ module.exports = function installEbookLeads(app) {
 
   app.get('/api/crm/ebook-pages/:id/sources', requireAdmin, (req,res) => {
     const id=Number(req.params.id);
-    res.json(db.prepare(`SELECT source,campaign,COUNT(*) visits FROM ebook_page_visits WHERE page_id=? GROUP BY source,campaign ORDER BY visits DESC`).all(id));
+    res.json(db.prepare(`SELECT COALESCE(NULLIF(source,''),'direto') source,COALESCE(campaign,'') campaign,COUNT(*) visits FROM ebook_page_visits WHERE page_id=? GROUP BY source,campaign ORDER BY visits DESC`).all(id));
   });
 };
