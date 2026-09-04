@@ -6,88 +6,33 @@ try {
   const crmServer = path.join(__dirname, 'crm-server.js');
   let serverSource = fs.readFileSync(crmServer, 'utf8');
   const installLine = "require('./prospect-crm-actions')(capturedApp);";
-  if (!serverSource.includes(installLine)) {
-    serverSource = serverSource.replace(
-      '// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.',
-      `${installLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`
-    );
-  }
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260828d');
-  if (!serverSource.includes("/api/app-version")) {
-    serverSource = serverSource.replace(
-      '// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.',
-      `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => {\n  res.set('Cache-Control','no-store, no-cache, must-revalidate');\n  res.json({version: DUIT_APP_VERSION});\n});\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`
-    );
-  }
+  if (!serverSource.includes(installLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${installLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904a');
+  if (!serverSource.includes("/api/app-version")) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => { res.set('Cache-Control','no-store, no-cache, must-revalidate'); res.json({version: DUIT_APP_VERSION}); });\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
   fs.writeFileSync(crmServer, serverSource, 'utf8');
 
   const crmJs = path.join(__dirname, '..', 'public', 'js', 'prospects-crm.js');
   let source = fs.readFileSync(crmJs, 'utf8');
   source = source.replace(/body:JSON\.stringify\(body\)/g, 'body');
-  source = source.replace(/\n;\(\(\) => \{\n  if \(document\.querySelector\('script\[data-duit-legacy-bridge\]'\)\)[\s\S]*?\n\}\)\(\);\n?/g, '\n');
+  const marker='prospects-actions.js';
+  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260904a'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260904a');
 
-  const marker = 'prospects-actions.js';
-  if (!source.includes(marker)) {
-    source += `\n;(() => {\n  if (document.querySelector('script[data-duit-prospect-actions]')) return;\n  const s = document.createElement('script');\n  s.src = '/js/prospects-actions.js?v=20260827a';\n  s.dataset.duitProspectActions = '1';\n  document.body.appendChild(s);\n})();\n`;
-  } else source = source.replace(/prospects-actions\.js\?v=[^'\"]+/g, 'prospects-actions.js?v=20260827a');
+  if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) source += `\n;(() => { /* DUIT_AUTO_VERSION_REFRESH */ let knownVersion=null,reloading=false; async function checkVersion(){ if(reloading)return; try{const r=await fetch('/api/app-version?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const data=await r.json();if(!data?.version)return;if(knownVersion===null){knownVersion=data.version;return;}if(data.version!==knownVersion){reloading=true;location.reload();}}catch(_){}} checkVersion();setInterval(checkVersion,10000);window.addEventListener('focus',checkVersion);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion();});})();\n`;
 
-  if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) {
-    source += `\n;(() => {\n  /* DUIT_AUTO_VERSION_REFRESH */\n  let knownVersion = null; let reloading = false;\n  async function checkVersion(){\n    if (reloading) return;\n    try {\n      const r = await fetch('/api/app-version?t=' + Date.now(), { cache:'no-store' });\n      if (!r.ok) return; const data = await r.json(); if (!data?.version) return;\n      if (knownVersion === null) { knownVersion = data.version; return; }\n      if (data.version !== knownVersion) { reloading = true; location.reload(); }\n    } catch (_) {}\n  }\n  checkVersion(); setInterval(checkVersion, 10000); window.addEventListener('focus', checkVersion);\n  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });\n})();\n`;
-  }
+  const oldLoader="async function loadProspects(){ crmProspects = await api('/api/crm/prospects'); return crmProspects; }";
+  const newLoader=`async function loadProspects(){ const [prospects,statuses]=await Promise.all([api('/api/crm/prospects'),api('/api/crm/prospects/email-status')]); const sm=new Map((statuses||[]).map(s=>[Number(s.user_id),s])); crmProspects=(prospects||[]).map(p=>({...p,...(sm.get(Number(p.id))||{})})).sort((a,b)=>{const ad=a.email_sent_at?new Date(String(a.email_sent_at).replace(' ','T')+'Z').getTime():0;const bd=b.email_sent_at?new Date(String(b.email_sent_at).replace(' ','T')+'Z').getTime():0;if(ad!==bd)return bd-ad;return Number(b.id||0)-Number(a.id||0);});return crmProspects;}`;
+  if(source.includes(oldLoader))source=source.replace(oldLoader,newLoader);
+  const oldFiltered="function filteredProspects(){ const q=crmFilter.q.trim().toLowerCase(); return crmProspects.filter(p=>{ if(crmFilter.status!=='all'&&p.lead_status!==crmFilter.status)return false;if(crmFilter.priority!=='all'&&p.priority!==crmFilter.priority)return false;if(!q)return true;return [p.company,p.name,p.email,p.phone,p.sector,p.location,p.opportunity,p.idea].filter(Boolean).join(' ').toLowerCase().includes(q); }); }";
+  const newFiltered=`function filteredProspects(){const q=crmFilter.q.trim().toLowerCase();return crmProspects.filter(p=>{if(crmFilter.status!=='all'){if(crmFilter.status==='sem_resposta'){if(!(p.email_sent_at&&!p.outreach_response))return false;}else if(crmFilter.status==='respondeu'){if(!p.outreach_response)return false;}else if(p.lead_status!==crmFilter.status)return false;}if(crmFilter.priority!=='all'&&p.priority!==crmFilter.priority)return false;if(!q)return true;return[p.company,p.name,p.email,p.phone,p.sector,p.location,p.opportunity,p.idea].filter(Boolean).join(' ').toLowerCase().includes(q);});}`;
+  if(source.includes(oldFiltered))source=source.replace(oldFiltered,newFiltered);
+  source=source.replace('<th>Follow-up</th><th></th>','<th>Último envio</th><th>Follow-up</th><th></th>');
+  source=source.replace("<td>${p.follow_up_at?fmtDate(p.follow_up_at):'—'}</td><td><div class=\"crm-actions\">","<td>${p.email_sent_at?fmtDateTime(p.email_sent_at):'—'}</td><td>${p.follow_up_at?fmtDate(p.follow_up_at):'—'}</td><td><div class=\"crm-actions\">");
+  fs.writeFileSync(crmJs,source,'utf8');
+} catch(e){console.warn('[crm] não foi possível ligar ações de Prospects:',e.message);}
 
-  source = source.replace(/\n;\(\(\) => \{\n  if \(document\.querySelector\('script\[data-duit-prospect-pagination\]'\)\)[\s\S]*?\n\}\)\(\);\n?/g, '\n');
-  const oldLoader = "async function loadProspects(){ crmProspects = await api('/api/crm/prospects'); return crmProspects; }";
-  const newLoader = `async function loadProspects(){
-    const [prospects,statuses] = await Promise.all([api('/api/crm/prospects'),api('/api/crm/prospects/email-status')]);
-    const sm = new Map((statuses||[]).map(s=>[Number(s.user_id),s]));
-    crmProspects = (prospects||[]).map(p=>({...p,...(sm.get(Number(p.id))||{})})).sort((a,b)=>{
-      const ad = a.email_sent_at ? new Date(String(a.email_sent_at).replace(' ','T')+'Z').getTime() : 0;
-      const bd = b.email_sent_at ? new Date(String(b.email_sent_at).replace(' ','T')+'Z').getTime() : 0;
-      if (ad !== bd) return bd - ad; return Number(b.id||0) - Number(a.id||0);
-    }); return crmProspects;
-  }`;
-  if (source.includes(oldLoader)) source = source.replace(oldLoader, newLoader);
-
-  const oldFiltered = "function filteredProspects(){ const q=crmFilter.q.trim().toLowerCase(); return crmProspects.filter(p=>{ if(crmFilter.status!=='all'&&p.lead_status!==crmFilter.status)return false;if(crmFilter.priority!=='all'&&p.priority!==crmFilter.priority)return false;if(!q)return true;return [p.company,p.name,p.email,p.phone,p.sector,p.location,p.opportunity,p.idea].filter(Boolean).join(' ').toLowerCase().includes(q); }); }";
-  const newFiltered = `function filteredProspects(){
-    const q=crmFilter.q.trim().toLowerCase(); return crmProspects.filter(p=>{
-      if(crmFilter.status!=='all'){
-        if(crmFilter.status==='sem_resposta'){ if(!(p.email_sent_at && !p.outreach_response)) return false; }
-        else if(crmFilter.status==='respondeu'){ if(!p.outreach_response) return false; }
-        else if(p.lead_status!==crmFilter.status) return false;
-      }
-      if(crmFilter.priority!=='all'&&p.priority!==crmFilter.priority)return false;
-      if(!q)return true; return [p.company,p.name,p.email,p.phone,p.sector,p.location,p.opportunity,p.idea].filter(Boolean).join(' ').toLowerCase().includes(q);
-    });
-  }`;
-  if (source.includes(oldFiltered)) source = source.replace(oldFiltered, newFiltered);
-
-  source = source.replace('<th>Follow-up</th><th></th>', '<th>Último envio</th><th>Follow-up</th><th></th>');
-  source = source.replace("<td>${p.follow_up_at?fmtDate(p.follow_up_at):'—'}</td><td><div class=\"crm-actions\">", "<td>${p.email_sent_at?fmtDateTime(p.email_sent_at):'—'}</td><td>${p.follow_up_at?fmtDate(p.follow_up_at):'—'}</td><td><div class=\"crm-actions\">");
-  source = source.replace('.crm-toolbar input,.crm-toolbar select{min-height:40px}.crm-toolbar .crm-search{flex:1;min-width:220px}', '.crm-toolbar input,.crm-toolbar select{min-height:40px}.crm-toolbar .crm-search{flex:1 1 320px;min-width:220px}.crm-toolbar select{width:auto;flex:0 0 auto;min-width:190px}@media(max-width:760px){.crm-toolbar .crm-search,.crm-toolbar select{width:100%;flex:1 1 100%;min-width:0}}');
-  source = source.replace('<option value="all">Todas as prioridades</option><option value="atacar">🔥 Atacar</option><option value="possivel">🟡 Possível</option><option value="nao_prioritario">Não prioritário</option>', '<option value="all"${crmFilter.priority===\'all\'?\' selected\':\'\'}>Todas as prioridades</option><option value="atacar"${crmFilter.priority===\'atacar\'?\' selected\':\'\'}>🔥 Atacar</option><option value="possivel"${crmFilter.priority===\'possivel\'?\' selected\':\'\'}>🟡 Possível</option><option value="nao_prioritario"${crmFilter.priority===\'nao_prioritario\'?\' selected\':\'\'}>Não prioritário</option>');
-  source = source.replace('<option value="all">Todos os estados</option>${Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join(\'\')}', '<option value="all"${crmFilter.status===\'all\'?\' selected\':\'\'}>Todos os estados</option>${Object.entries(STATUS).map(([k,v])=>`<option value="${k}"${crmFilter.status===k?\' selected\':\'\'}>${v[0]}</option>`).join(\'\')}');
-
-  if (!source.includes('DUIT_CRM_NATIVE_PAGINATION')) {
-    const paginationPatch = `\n  /* DUIT_CRM_NATIVE_PAGINATION */\n  let crmCurrentPage = 1; const CRM_PAGE_SIZE = 15; const crmRenderTableBase = renderCrmTable;\n  function crmApplyNativePagination(main) {\n    const table = main?.querySelector('.table-card table.table'); main?.querySelector('#crm-pagination-native')?.remove(); if (!table) return;\n    const rows = Array.from(table.querySelectorAll('tbody > tr')); const total = rows.length; const pages = Math.max(1, Math.ceil(total / CRM_PAGE_SIZE));\n    crmCurrentPage = Math.max(1, Math.min(crmCurrentPage, pages)); const start = (crmCurrentPage - 1) * CRM_PAGE_SIZE; const end = Math.min(start + CRM_PAGE_SIZE, total);\n    rows.forEach((row, index) => { row.style.display = index >= start && index < end ? '' : 'none'; });\n    const pager = document.createElement('div'); pager.id = 'crm-pagination-native'; pager.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 2px 0;font-size:13px;color:var(--muted)';\n    if (total <= CRM_PAGE_SIZE) pager.innerHTML = '<span>' + total + ' prospect' + (total === 1 ? '' : 's') + '</span>';\n    else { const nums = Array.from({length:pages}, (_,i)=>i+1).map(n => '<button type="button" class="btn ' + (n===crmCurrentPage?'btn-yellow':'btn-ghost') + ' btn-sm" style="min-width:36px" onclick="crmGoPage(' + n + ')">' + n + '</button>').join(''); pager.innerHTML = '<span>A mostrar ' + (start + 1) + '–' + end + ' de ' + total + '</span><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><button type="button" class="btn btn-ghost btn-sm" onclick="crmGoPage(' + (crmCurrentPage - 1) + ')" ' + (crmCurrentPage===1?'disabled':'') + '>‹ Anterior</button>' + nums + '<button type="button" class="btn btn-ghost btn-sm" onclick="crmGoPage(' + (crmCurrentPage + 1) + ')" ' + (crmCurrentPage===pages?'disabled':'') + '>Seguinte ›</button></div>'; }\n    table.closest('.table-card')?.insertAdjacentElement('afterend', pager);\n  }\n  renderCrmTable = function(main) { crmRenderTableBase(main); crmApplyNativePagination(main); };\n  window.crmGoPage = function(page) { const total = filteredProspects().length; const pages = Math.max(1, Math.ceil(total / CRM_PAGE_SIZE)); crmCurrentPage = Math.max(1, Math.min(Number(page) || 1, pages)); renderCrmTable(document.getElementById('main')); document.querySelector('#main .table-card')?.scrollIntoView({behavior:'smooth', block:'start'}); };\n  const crmSetFilterBase = window.crmSetFilter; if (typeof crmSetFilterBase === 'function') { window.crmSetFilter = function(key, value) { crmCurrentPage = 1; return crmSetFilterBase(key, value); }; }\n`;
-    source = source.replace('\n  window.viewProspects=async function(main){', paginationPatch + '\n  window.viewProspects=async function(main){');
-  }
-  fs.writeFileSync(crmJs, source, 'utf8');
-} catch (e) { console.warn('[crm] não foi possível ligar ações/paginação de Prospects:', e.message); }
-
-try {
-  const adminHtml = path.join(__dirname, '..', 'public', 'admin.html'); let adminSource = fs.readFileSync(adminHtml, 'utf8');
-  adminSource = adminSource.replace('<div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>','<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>');
-  adminSource = adminSource.replace(/<div class="brand"><img src="\/logo-branco\.png" alt="DUIT" style="[^"]*max-width:\d+px;[^"]*"><\/div>/,'<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>'); fs.writeFileSync(adminHtml, adminSource, 'utf8');
-} catch (e) { console.warn('[admin] não foi possível aplicar o logo branco:', e.message); }
-
-try {
-  const adminJs = path.join(__dirname, '..', 'public', 'js', 'admin.js'); let adminJsSource = fs.readFileSync(adminJs, 'utf8');
-  adminJsSource = adminJsSource.replace("const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';","const queryView = new URLSearchParams(window.location.search).get('view');\n    const hashView = decodeURIComponent((window.location.hash || '').replace(/^#/, ''));\n    const initial = hashView || queryView || 'home';");
-  adminJsSource = adminJsSource.replace("try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}","try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(initial)); } catch (e) {}");
-  if (!adminJsSource.includes("window.location.pathname + '#' + encodeURIComponent(view)")) adminJsSource = adminJsSource.replace("async function go(view) {\n  state.view = view;","async function go(view) {\n  state.view = view;\n  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}");
-  fs.writeFileSync(adminJs, adminJsSource, 'utf8');
-} catch (e) { console.warn('[admin] não foi possível manter a página após refresh:', e.message); }
+try { const adminHtml=path.join(__dirname,'..','public','admin.html'); let s=fs.readFileSync(adminHtml,'utf8'); s=s.replace('<div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>','<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>'); fs.writeFileSync(adminHtml,s,'utf8'); } catch(e){}
+try { const adminJs=path.join(__dirname,'..','public','js','admin.js'); let s=fs.readFileSync(adminJs,'utf8'); s=s.replace("const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';","const queryView=new URLSearchParams(window.location.search).get('view'); const hashView=decodeURIComponent((window.location.hash||'').replace(/^#/,'')); const initial=hashView||queryView||'home';"); if(!s.includes("window.location.pathname + '#' + encodeURIComponent(view)")) s=s.replace("async function go(view) {\n  state.view = view;","async function go(view) {\n  state.view = view;\n  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}"); fs.writeFileSync(adminJs,s,'utf8'); } catch(e){}
 
 require('./crm-server');
 require('./prospect-seed');
