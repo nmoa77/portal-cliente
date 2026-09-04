@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const db = require('./db');
 const { requireAdmin } = require('./auth');
 const { deliver } = require('./email');
@@ -87,6 +88,39 @@ module.exports = function installEbookLeads(app) {
   const pageById=id=>db.prepare(`SELECT * FROM ebook_pages WHERE id=?`).get(Number(id));
   const pageBySlug=slug=>db.prepare(`SELECT * FROM ebook_pages WHERE slug=?`).get(clean(slug,100));
 
+  function createProspectFromEbookLead({name,email,company,page,source,campaign}) {
+    // Regra DUIT: se o contacto já existir em Prospects (ou como cliente), não criar nem associar outro registo.
+    const existing=db.prepare(`SELECT id,is_prospect FROM users WHERE lower(email)=lower(?) LIMIT 1`).get(email);
+    if(existing) return {created:false,user_id:Number(existing.id),already_exists:true};
+
+    const prospectCompany=clean(company,180) || clean(name,180) || 'Lead Ebook';
+    const prospectName=clean(name,180) || prospectCompany;
+    const origin=[
+      'Origem: Ebook LP',
+      `Ebook: ${clean(page?.title,220) || 'Ebook DUIT'}`,
+      `Canal: ${clean(source,120) || 'direto'}`,
+      campaign ? `Campanha: ${clean(campaign,120)}` : null
+    ].filter(Boolean).join('\n');
+    const passwordHash=bcrypt.hashSync(crypto.randomBytes(18).toString('base64url'),10);
+
+    const tx=db.transaction(()=>{
+      const u=db.prepare(`INSERT INTO users(name,email,password_hash,role,company,phone,is_prospect,is_active) VALUES(?,?,?,?,?,?,1,0)`)
+        .run(prospectName,email,passwordHash,'client',prospectCompany,null);
+      db.prepare(`INSERT INTO prospect_crm(user_id,opportunity,lead_status,priority,notes,updated_at) VALUES(?,?,'por_contactar','possivel',?,datetime('now'))`)
+        .run(u.lastInsertRowid,'Lead captado através de ebook.',origin);
+      return Number(u.lastInsertRowid);
+    });
+    return {created:true,user_id:tx(),already_exists:false};
+  }
+
+  // Migra também leads de ebook já existentes, sem duplicar emails que já estejam no CRM/portal.
+  try {
+    const existingLeads=db.prepare(`SELECT l.name,l.email,l.company,l.source,l.campaign,p.id page_id,p.title FROM ebook_leads l LEFT JOIN ebook_pages p ON p.id=l.page_id ORDER BY l.id`).all();
+    for(const l of existingLeads){
+      if(validEmail(clean(l.email,180))) createProspectFromEbookLead({name:l.name,email:clean(l.email,180).toLowerCase(),company:l.company,page:{id:l.page_id,title:l.title},source:l.source,campaign:l.campaign});
+    }
+  } catch(e) { console.warn('[ebook] migração para prospects:',e.message); }
+
   app.get('/ebook/:slug',(req,res)=>res.sendFile(path.join(publicDir,'ebook.html')));
 
   app.get('/api/public/ebook-page/:slug',(req,res)=>{
@@ -122,13 +156,18 @@ module.exports = function installEbookLeads(app) {
         db.prepare(`INSERT INTO ebook_leads(page_id,name,email,company,source,campaign,marketing_consent,token) VALUES(?,?,?,?,?,?,?,?)`).run(page.id,name,email,company,source,campaign,marketingConsent,token);
       }
 
+      // Entra automaticamente em Prospects. Se o email já existir, não duplica nem associa.
+      let prospect={created:false,already_exists:false};
+      try { prospect=createProspectFromEbookLead({name,email,company,page,source,campaign}); }
+      catch(e){ console.warn('[ebook] criar prospect:',e.message); }
+
       const downloadUrl = `${portal}/api/public/ebook-download/${encodeURIComponent(token)}`;
       try {
         const body = `Olá ${name},\n\nO seu ebook gratuito da DUIT está pronto.\n\nDescarregar: ${downloadUrl}\n\nBoa leitura,\nDUIT`;
         const html = `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:Arial,sans-serif"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px"><tr><td align="center"><table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:18px 30px"><img src="${portal}/logo-branco.png" width="135" alt="DUIT" style="display:block;border:0"></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px"><h1 style="font-size:26px;margin:0 0 14px;color:#111">O seu ebook gratuito está pronto.</h1><p style="font-size:15px;line-height:1.6;color:#555;margin:0 0 22px">Obrigado, ${name}. Pode descarregar o ebook abaixo.</p><a href="${downloadUrl}" style="display:inline-block;background:#ffd60a;color:#111;text-decoration:none;font-weight:700;padding:13px 20px;border-radius:9px">Descarregar ebook gratuito</a></td></tr></table></td></tr></table></body></html>`;
         deliver(db,{to:email,subject:'O seu ebook gratuito DUIT',body,html,kind:'ebook_lead',force:true});
       } catch(e) { console.warn('[ebook] email:', e.message); }
-      res.json({ok:true,download_url:downloadUrl});
+      res.json({ok:true,download_url:downloadUrl,prospect_created:!!prospect.created,prospect_already_exists:!!prospect.already_exists});
     } catch(e) {
       console.warn('[ebook] lead:',e.message);
       res.status(500).json({error:'Não foi possível preparar o ebook. Tente novamente.'});
