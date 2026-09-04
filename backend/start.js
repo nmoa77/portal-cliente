@@ -7,7 +7,7 @@ try {
   let serverSource = fs.readFileSync(crmServer, 'utf8');
   const installLine = "require('./prospect-crm-actions')(capturedApp);";
   if (!serverSource.includes(installLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${installLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904e');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904f');
   if (!serverSource.includes("/api/app-version")) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => { res.set('Cache-Control','no-store, no-cache, must-revalidate'); res.json({version: DUIT_APP_VERSION}); });\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
   fs.writeFileSync(crmServer, serverSource, 'utf8');
 
@@ -15,8 +15,8 @@ try {
   let source = fs.readFileSync(crmJs, 'utf8');
   source = source.replace(/body:JSON\.stringify\(body\)/g, 'body');
   const marker='prospects-actions.js';
-  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260904e'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
-  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260904e');
+  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260904f'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260904f');
 
   if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) source += `\n;(() => { /* DUIT_AUTO_VERSION_REFRESH */ let knownVersion=null,reloading=false; async function checkVersion(){ if(reloading)return; try{const r=await fetch('/api/app-version?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const data=await r.json();if(!data?.version)return;if(knownVersion===null){knownVersion=data.version;return;}if(data.version!==knownVersion){reloading=true;location.reload();}}catch(_){}} checkVersion();setInterval(checkVersion,10000);window.addEventListener('focus',checkVersion);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion();});})();\n`;
 
@@ -68,41 +68,25 @@ try {
   }
 } catch (e) { console.warn('[prospects] limpeza:', e.message); }
 
-// Novo modelo de email DUIT para prospects ainda não contactados.
-// Não altera emails que já foram enviados, preservando o histórico real.
+// Modelo curto de primeiro contacto. Valores e detalhe ficam apenas na proposta.
 try {
   const db = require('./db');
   const rows = db.prepare(`
-    SELECT u.id,u.company,u.name,c.opportunity,c.recommended_plan,c.solution_text,
-           COALESCE(c.monthly_value,0) monthly_value,COALESCE(c.offer_value,0) offer_value,
-           c.email_sent_at
+    SELECT u.id,u.company,u.name,c.opportunity,c.email_sent_at
     FROM users u
     JOIN prospect_crm c ON c.user_id=u.id
     WHERE u.is_prospect=1 AND c.email_sent_at IS NULL
   `).all();
 
-  const planName = p => p === 'premium' ? 'Premium' : p === 'intermedio' ? 'Intermédio' : p === 'base' ? 'Base' : 'Personalizado';
-  const defaults = {
-    base: ['2 publicações por semana','Design + copy','Planeamento mensal','Agendamento e publicação','Adaptação Instagram/Facebook','Consultoria básica de perfil','Relatório mensal simples'],
-    intermedio: ['3 publicações por semana','Até 6 stories por semana','Planeamento e gestão de destaques','Design + copy','Agendamento e publicação','Análise mensal com sugestões'],
-    premium: ['4 a 5 publicações por semana','Stories de segunda a sexta — até 15/semana','Edição simples de reels','Criação de campanhas e promoções','Gestão de mensagens/comentários (a definir)','Análises quinzenais']
-  };
-
   const update = db.prepare(`UPDATE prospect_crm SET proposal_email=?,updated_at=datetime('now') WHERE user_id=? AND email_sent_at IS NULL`);
   const tx = db.transaction(() => {
     for (const p of rows) {
       const company = String(p.company || p.name || 'empresa').trim();
-      const items = String(p.solution_text || '').split(';').map(x=>x.trim()).filter(Boolean);
-      const features = (items.length ? items : (defaults[p.recommended_plan] || [])).map(x=>`✓ ${x}`).join('\n');
-      const opportunity = String(p.opportunity || 'há margem para tornar a presença nas redes sociais mais consistente, cuidada e orientada para gerar atenção e contacto').trim();
-      const monthly = Number(p.monthly_value || 0);
-      const offer = Number(p.offer_value || 0);
-      const priceBlock = monthly ? `\n\nInvestimento: ${monthly}€/mês.` : '';
-      const offerBlock = offer ? `\n\nPara começar, os primeiros 15 dias ficam por nossa conta — uma vantagem de ${offer}€ no arranque.` : '';
-      const email = `Assunto: ${company} — podemos ajudar a tirar mais das redes sociais\n\nOlá,\n\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para aproveitar melhor as redes sociais, com uma presença mais regular, cuidada e orientada para gerar atenção e contacto.\n\nNo vosso caso, vemos sobretudo esta oportunidade: ${opportunity}.\n\nNa DUIT tratamos do processo completo — planeamento, design, copy, agendamento/publicação e acompanhamento — para que a comunicação não dependa do tempo disponível internamente.\n\nPara a ${company}, a nossa recomendação é o plano ${planName(p.recommended_plan)}:\n\n${features}${priceBlock}${offerBlock}\n\nDeixamos também abaixo um pequeno guia DUIT com 6 curiosidades sobre design, imagem e comunicação. É uma leitura rápida e sem formulários ou registos.\n\nSe fizer sentido avançar, basta usar a opção “Ver proposta” no email e indicar a resposta.\n\nCumprimentos,`;
+      const opportunity = String(p.opportunity || 'há margem para tornar a presença nas redes sociais mais consistente e apelativa').trim();
+      const email = `Assunto: ${company} — preparámos algo para si\n\nOlá,\n\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\n\nNo vosso caso, vemos esta oportunidade: ${opportunity}.\n\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook DUIT com 6 curiosidades sobre design, imagem e comunicação.\n\nCumprimentos,`;
       update.run(email,p.id);
     }
   });
   tx();
-  if (rows.length) console.log(`[prospects] novo modelo de email aplicado a ${rows.length} prospects ainda não enviados.`);
-} catch (e) { console.warn('[prospects] atualização do modelo de email:', e.message); }
+  if (rows.length) console.log(`[prospects] modelo curto aplicado a ${rows.length} prospects ainda não enviados.`);
+} catch (e) { console.warn('[prospects] atualização do modelo curto:', e.message); }
