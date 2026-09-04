@@ -11,7 +11,7 @@ try {
   if (!serverSource.includes(ebookInstallLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${ebookInstallLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
   const ebookDeleteInstallLine = "require('./ebook-delete-actions')(capturedApp);";
   if (!serverSource.includes(ebookDeleteInstallLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${ebookDeleteInstallLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904o');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904p');
   if (!serverSource.includes("/api/app-version")) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => { res.set('Cache-Control','no-store, no-cache, must-revalidate'); res.json({version: DUIT_APP_VERSION}); });\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
   fs.writeFileSync(crmServer, serverSource, 'utf8');
 
@@ -20,8 +20,11 @@ try {
   source = source.replace(/body:JSON\.stringify\(body\)/g, 'body');
   source = source.replace(/receba também um ebook gratuito com 6 curiosidades\./g,'receba também um ebook gratuito.');
   const marker='prospects-actions.js';
-  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260904o'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
-  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260904o');
+  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260904p'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260904p');
+  const uiFixMarker='prospects-ui-fix.js';
+  if (!source.includes(uiFixMarker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-ui-fix]')) return; const s=document.createElement('script'); s.src='/js/prospects-ui-fix.js?v=20260904p'; s.dataset.duitProspectUiFix='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-ui-fix\.js\?v=[^'\"]+/g,'prospects-ui-fix.js?v=20260904p');
   if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) source += `\n;(() => { /* DUIT_AUTO_VERSION_REFRESH */ let knownVersion=null,reloading=false; async function checkVersion(){ if(reloading)return; try{const r=await fetch('/api/app-version?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const data=await r.json();if(!data?.version)return;if(knownVersion===null){knownVersion=data.version;return;}if(data.version!==knownVersion){reloading=true;location.reload();}}catch(_){}} checkVersion();setInterval(checkVersion,10000);window.addEventListener('focus',checkVersion);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion();});})();\n`;
   fs.writeFileSync(crmJs,source,'utf8');
 } catch(e){console.warn('[crm] não foi possível ligar ações de Prospects:',e.message);}
