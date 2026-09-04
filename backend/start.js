@@ -7,15 +7,23 @@ try {
   let serverSource = fs.readFileSync(crmServer, 'utf8');
   const installLine = "require('./prospect-crm-actions')(capturedApp);";
   if (!serverSource.includes(installLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${installLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904b');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904c');
   fs.writeFileSync(crmServer, serverSource, 'utf8');
 } catch (e) { console.warn('[crm] patch:', e.message); }
 
-// Regra DUIT: só permanecem prospects com email real. Remove vazios e placeholders.
+require('./crm-server');
+require('./prospect-seed');
+require('./prospect-seed-20');
+require('./prospect-seed-10-email');
+require('./prospect-seed-2026-08-29');
+require('./prospect-seed-2026-08-31');
+
+// Regra DUIT: só permanecem prospects com email real.
+// IMPORTANTE: corre DEPOIS dos seeds para não voltarem a aparecer placeholders.
 try {
   const db = require('./db');
   const invalid = db.prepare(`
-    SELECT id FROM users
+    SELECT id, email FROM users
     WHERE is_prospect=1 AND (
       email IS NULL OR TRIM(email)='' OR email NOT LIKE '%@%'
       OR LOWER(TRIM(email)) LIKE '%@prospect.local'
@@ -25,6 +33,7 @@ try {
       OR LOWER(TRIM(email)) LIKE '%@test.%'
     )
   `).all();
+
   if (invalid.length) {
     const tx = db.transaction(() => {
       for (const row of invalid) {
@@ -33,13 +42,6 @@ try {
       }
     });
     tx();
-    console.log(`[prospects] removidos ${invalid.length} prospects sem email real/placeholder.`);
+    console.log(`[prospects] removidos DEFINITIVAMENTE ${invalid.length} prospects com email inválido/placeholder.`);
   }
 } catch (e) { console.warn('[prospects] limpeza:', e.message); }
-
-require('./crm-server');
-require('./prospect-seed');
-require('./prospect-seed-20');
-require('./prospect-seed-10-email');
-require('./prospect-seed-2026-08-29');
-require('./prospect-seed-2026-08-31');
