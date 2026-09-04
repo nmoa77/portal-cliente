@@ -1,12 +1,41 @@
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const express = require('express');
 const db = require('./db');
 const { requireAdmin } = require('./auth');
 const { deliver } = require('./email');
 
 module.exports = function installEbookLeads(app) {
+  const publicDir = path.join(__dirname,'..','public');
+  const assetDir = process.env.DATABASE_PATH
+    ? path.join(path.dirname(process.env.DATABASE_PATH),'ebook-assets')
+    : path.join(__dirname,'ebook-assets');
+  try { fs.mkdirSync(assetDir,{recursive:true}); } catch(_) {}
+
   db.exec(`
+    CREATE TABLE IF NOT EXISTS ebook_pages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      image_path TEXT,
+      pdf_path TEXT,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS ebook_page_visits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      page_id INTEGER NOT NULL,
+      source TEXT,
+      campaign TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(page_id) REFERENCES ebook_pages(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_ebook_visits_page ON ebook_page_visits(page_id);
     CREATE TABLE IF NOT EXISTS ebook_leads (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      page_id INTEGER,
       name TEXT NOT NULL,
       email TEXT NOT NULL,
       company TEXT,
@@ -17,18 +46,63 @@ module.exports = function installEbookLeads(app) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       first_downloaded_at TEXT,
       last_downloaded_at TEXT,
-      download_count INTEGER NOT NULL DEFAULT 0
+      download_count INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY(page_id) REFERENCES ebook_pages(id) ON DELETE SET NULL
     );
     CREATE INDEX IF NOT EXISTS idx_ebook_leads_email ON ebook_leads(lower(email));
+    CREATE INDEX IF NOT EXISTS idx_ebook_leads_page ON ebook_leads(page_id);
     CREATE INDEX IF NOT EXISTS idx_ebook_leads_created ON ebook_leads(created_at);
   `);
+
+  const cols = db.prepare(`PRAGMA table_info(ebook_leads)`).all().map(c=>c.name);
+  if (!cols.includes('page_id')) db.exec(`ALTER TABLE ebook_leads ADD COLUMN page_id INTEGER`);
+
+  let defaultPage = db.prepare(`SELECT * FROM ebook_pages ORDER BY id LIMIT 1`).get();
+  if (!defaultPage) {
+    const r=db.prepare(`INSERT INTO ebook_pages(slug,title,image_path,pdf_path,active) VALUES(?,?,?,?,1)`).run('6-curiosidades','6 curiosidades para olhar de outra forma.','/capa.webp','/ebook-duit.pdf');
+    defaultPage=db.prepare(`SELECT * FROM ebook_pages WHERE id=?`).get(r.lastInsertRowid);
+  }
+  db.prepare(`UPDATE ebook_leads SET page_id=? WHERE page_id IS NULL`).run(defaultPage.id);
+
+  // Integra a área no painel sem obrigar a alterar manualmente o admin principal.
+  try {
+    const adminHtml=path.join(publicDir,'admin.html');
+    let h=fs.readFileSync(adminHtml,'utf8');
+    if(!h.includes('/js/ebook-manager.js')) h=h.replace('</body>','<script src="/js/ebook-manager.js?v=20260904a"></script>\n</body>');
+    fs.writeFileSync(adminHtml,h,'utf8');
+  } catch(_) {}
+  try {
+    const adminJs=path.join(publicDir,'js','admin.js');
+    let s=fs.readFileSync(adminJs,'utf8');
+    if(!s.includes("id: 'ebooks'")) s=s.replace("{ id: 'prospects', icon: 'sparkle', label: 'Prospects',","{ id: 'ebooks',    icon: 'file',    label: 'Ebook LPs' },\n    { id: 'prospects', icon: 'sparkle', label: 'Prospects',");
+    if(!s.includes("view === 'ebooks'")) s=s.replace("else if (view === 'prospects')await viewProspects(main);","else if (view === 'prospects')await viewProspects(main);\n    else if (view === 'ebooks')   await viewEbookPages(main);");
+    fs.writeFileSync(adminJs,s,'utf8');
+  } catch(e) { console.warn('[ebook] integração admin:',e.message); }
 
   const portal = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
   const clean = (v, max=500) => String(v ?? '').trim().slice(0,max);
   const validEmail = email => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const slugify = v => clean(v,160).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80) || 'ebook';
+  function uniqueSlug(base,excludeId=0){let s=slugify(base),n=2;while(db.prepare(`SELECT 1 FROM ebook_pages WHERE slug=? AND id<>?`).get(s,excludeId)){s=`${slugify(base)}-${n++}`;}return s;}
+  const pageById=id=>db.prepare(`SELECT * FROM ebook_pages WHERE id=?`).get(Number(id));
+  const pageBySlug=slug=>db.prepare(`SELECT * FROM ebook_pages WHERE slug=?`).get(clean(slug,100));
+
+  app.get('/ebook/:slug',(req,res)=>res.sendFile(path.join(publicDir,'ebook.html')));
+
+  app.get('/api/public/ebook-page/:slug',(req,res)=>{
+    const page=pageBySlug(req.params.slug);
+    if(!page || !page.active) return res.status(404).json({error:'Landing page não disponível.'});
+    const source=clean(req.query.src||req.query.source,120)||'direto';
+    const campaign=clean(req.query.campaign||req.query.utm_campaign,120);
+    db.prepare(`INSERT INTO ebook_page_visits(page_id,source,campaign) VALUES(?,?,?)`).run(page.id,source,campaign);
+    res.set('Cache-Control','no-store');
+    res.json({id:page.id,slug:page.slug,title:page.title,image_path:page.image_path||'/capa.webp'});
+  });
 
   app.post('/api/public/ebook-leads', (req,res) => {
     try {
+      const page = pageById(req.body?.page_id) || pageBySlug(req.body?.slug) || defaultPage;
+      if(!page || !page.active) return res.status(404).json({error:'Landing page não disponível.'});
       const name = clean(req.body?.name,120);
       const email = clean(req.body?.email,180).toLowerCase();
       const company = clean(req.body?.company,180);
@@ -38,25 +112,22 @@ module.exports = function installEbookLeads(app) {
       if (!name) return res.status(400).json({error:'Indique o seu nome.'});
       if (!validEmail(email)) return res.status(400).json({error:'Indique um email válido.'});
 
-      let lead = db.prepare(`SELECT * FROM ebook_leads WHERE lower(email)=lower(?) ORDER BY id DESC LIMIT 1`).get(email);
+      let lead = db.prepare(`SELECT * FROM ebook_leads WHERE page_id=? AND lower(email)=lower(?) ORDER BY id DESC LIMIT 1`).get(page.id,email);
       let token;
       if (lead) {
         token = lead.token || crypto.randomBytes(24).toString('hex');
-        db.prepare(`UPDATE ebook_leads SET name=?,company=?,source=?,campaign=?,marketing_consent=?,token=? WHERE id=?`)
-          .run(name,company,source,campaign,marketingConsent,token,lead.id);
+        db.prepare(`UPDATE ebook_leads SET name=?,company=?,source=?,campaign=?,marketing_consent=?,token=? WHERE id=?`).run(name,company,source,campaign,marketingConsent,token,lead.id);
       } else {
         token = crypto.randomBytes(24).toString('hex');
-        db.prepare(`INSERT INTO ebook_leads(name,email,company,source,campaign,marketing_consent,token) VALUES(?,?,?,?,?,?,?)`)
-          .run(name,email,company,source,campaign,marketingConsent,token);
+        db.prepare(`INSERT INTO ebook_leads(page_id,name,email,company,source,campaign,marketing_consent,token) VALUES(?,?,?,?,?,?,?,?)`).run(page.id,name,email,company,source,campaign,marketingConsent,token);
       }
 
       const downloadUrl = `${portal}/api/public/ebook-download/${encodeURIComponent(token)}`;
       try {
         const body = `Olá ${name},\n\nO seu ebook gratuito da DUIT está pronto.\n\nDescarregar: ${downloadUrl}\n\nBoa leitura,\nDUIT`;
-        const html = `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:Arial,sans-serif"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px"><tr><td align="center"><table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:18px 30px"><img src="${portal}/logo-branco.png" width="135" alt="DUIT" style="display:block;border:0"></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px"><h1 style="font-size:26px;margin:0 0 14px;color:#111">O seu ebook gratuito está pronto.</h1><p style="font-size:15px;line-height:1.6;color:#555;margin:0 0 22px">Obrigado, ${name}. Esperamos que goste destas 6 curiosidades.</p><a href="${downloadUrl}" style="display:inline-block;background:#ffd60a;color:#111;text-decoration:none;font-weight:700;padding:13px 20px;border-radius:9px">Descarregar ebook gratuito</a></td></tr></table></td></tr></table></body></html>`;
+        const html = `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:Arial,sans-serif"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px"><tr><td align="center"><table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:18px 30px"><img src="${portal}/logo-branco.png" width="135" alt="DUIT" style="display:block;border:0"></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px"><h1 style="font-size:26px;margin:0 0 14px;color:#111">O seu ebook gratuito está pronto.</h1><p style="font-size:15px;line-height:1.6;color:#555;margin:0 0 22px">Obrigado, ${name}. Pode descarregar o ebook abaixo.</p><a href="${downloadUrl}" style="display:inline-block;background:#ffd60a;color:#111;text-decoration:none;font-weight:700;padding:13px 20px;border-radius:9px">Descarregar ebook gratuito</a></td></tr></table></td></tr></table></body></html>`;
         deliver(db,{to:email,subject:'O seu ebook gratuito DUIT',body,html,kind:'ebook_lead',force:true});
       } catch(e) { console.warn('[ebook] email:', e.message); }
-
       res.json({ok:true,download_url:downloadUrl});
     } catch(e) {
       console.warn('[ebook] lead:',e.message);
@@ -67,15 +138,85 @@ module.exports = function installEbookLeads(app) {
   app.get('/api/public/ebook-download/:token', (req,res) => {
     try {
       const token = clean(req.params.token,100);
-      const lead = db.prepare(`SELECT id FROM ebook_leads WHERE token=?`).get(token);
+      const lead = db.prepare(`SELECT l.id,l.page_id,p.pdf_path FROM ebook_leads l LEFT JOIN ebook_pages p ON p.id=l.page_id WHERE l.token=?`).get(token);
       if (!lead) return res.status(404).send('Ligação inválida ou expirada.');
       db.prepare(`UPDATE ebook_leads SET first_downloaded_at=COALESCE(first_downloaded_at,datetime('now')),last_downloaded_at=datetime('now'),download_count=download_count+1 WHERE id=?`).run(lead.id);
       res.set('Cache-Control','no-store');
-      res.redirect(302,'/ebook-duit.pdf');
+      res.redirect(302,lead.pdf_path||'/ebook-duit.pdf');
     } catch(e) { res.status(500).send('Não foi possível abrir o ebook.'); }
   });
 
+  app.get('/api/public/ebook-asset/:id/:kind',(req,res)=>{
+    const page=pageById(req.params.id);if(!page)return res.sendStatus(404);
+    const kind=req.params.kind==='pdf'?'pdf':'image';
+    const p=kind==='pdf'?page.pdf_path:page.image_path;
+    if(!p || !p.startsWith('/api/public/ebook-asset-file/')) return res.sendStatus(404);
+    const file=path.join(assetDir,path.basename(p));
+    if(!fs.existsSync(file)) return res.sendStatus(404);
+    res.sendFile(file);
+  });
+  app.get('/api/public/ebook-asset-file/:file',(req,res)=>{
+    const file=path.join(assetDir,path.basename(req.params.file));
+    if(!fs.existsSync(file)) return res.sendStatus(404);
+    res.sendFile(file);
+  });
+
+  app.get('/api/crm/ebook-pages', requireAdmin, (req,res) => {
+    const rows=db.prepare(`SELECT p.*,
+      (SELECT COUNT(*) FROM ebook_page_visits v WHERE v.page_id=p.id) views,
+      (SELECT COUNT(*) FROM ebook_leads l WHERE l.page_id=p.id) leads,
+      (SELECT COALESCE(SUM(download_count),0) FROM ebook_leads l WHERE l.page_id=p.id) downloads
+      FROM ebook_pages p ORDER BY datetime(p.updated_at) DESC,p.id DESC`).all();
+    res.json(rows);
+  });
+
+  app.post('/api/crm/ebook-pages', requireAdmin, (req,res) => {
+    const title=clean(req.body?.title,220);if(!title)return res.status(400).json({error:'Indique um título.'});
+    const slug=uniqueSlug(title);
+    const r=db.prepare(`INSERT INTO ebook_pages(slug,title,image_path,pdf_path,active) VALUES(?,?,?,?,1)`).run(slug,title,'/capa.webp','/ebook-duit.pdf');
+    res.json(pageById(r.lastInsertRowid));
+  });
+
+  app.patch('/api/crm/ebook-pages/:id', requireAdmin, (req,res) => {
+    const page=pageById(req.params.id);if(!page)return res.status(404).json({error:'Landing page não encontrada.'});
+    const title=req.body?.title!==undefined?clean(req.body.title,220):page.title;
+    const active=req.body?.active!==undefined?(req.body.active?1:0):page.active;
+    if(!title)return res.status(400).json({error:'Indique um título.'});
+    db.prepare(`UPDATE ebook_pages SET title=?,active=?,updated_at=datetime('now') WHERE id=?`).run(title,active,page.id);
+    res.json(pageById(page.id));
+  });
+
+  app.post('/api/crm/ebook-pages/:id/duplicate', requireAdmin, (req,res) => {
+    const p=pageById(req.params.id);if(!p)return res.status(404).json({error:'Landing page não encontrada.'});
+    const title=`${p.title} — cópia`;const slug=uniqueSlug(p.slug+'-copia');
+    const r=db.prepare(`INSERT INTO ebook_pages(slug,title,image_path,pdf_path,active) VALUES(?,?,?,?,1)`).run(slug,title,p.image_path,p.pdf_path);
+    res.json(pageById(r.lastInsertRowid));
+  });
+
+  const rawImage=express.raw({type:['image/png','image/jpeg','image/webp'],limit:'15mb'});
+  const rawPdf=express.raw({type:'application/pdf',limit:'40mb'});
+  app.post('/api/crm/ebook-pages/:id/upload/image',requireAdmin,rawImage,(req,res)=>{
+    const p=pageById(req.params.id);if(!p)return res.status(404).json({error:'Landing page não encontrada.'});
+    if(!Buffer.isBuffer(req.body)||!req.body.length)return res.status(400).json({error:'Imagem inválida.'});
+    const ext=req.headers['content-type']==='image/png'?'.png':req.headers['content-type']==='image/jpeg'?'.jpg':'.webp';
+    const file=`ebook-${p.id}-cover-${Date.now()}${ext}`;fs.writeFileSync(path.join(assetDir,file),req.body);
+    const url=`/api/public/ebook-asset-file/${file}`;db.prepare(`UPDATE ebook_pages SET image_path=?,updated_at=datetime('now') WHERE id=?`).run(url,p.id);res.json({ok:true,url});
+  });
+  app.post('/api/crm/ebook-pages/:id/upload/pdf',requireAdmin,rawPdf,(req,res)=>{
+    const p=pageById(req.params.id);if(!p)return res.status(404).json({error:'Landing page não encontrada.'});
+    if(!Buffer.isBuffer(req.body)||!req.body.length)return res.status(400).json({error:'PDF inválido.'});
+    const file=`ebook-${p.id}-${Date.now()}.pdf`;fs.writeFileSync(path.join(assetDir,file),req.body);
+    const url=`/api/public/ebook-asset-file/${file}`;db.prepare(`UPDATE ebook_pages SET pdf_path=?,updated_at=datetime('now') WHERE id=?`).run(url,p.id);res.json({ok:true,url});
+  });
+
   app.get('/api/crm/ebook-leads', requireAdmin, (req,res) => {
-    res.json(db.prepare(`SELECT id,name,email,company,source,campaign,marketing_consent,created_at,first_downloaded_at,last_downloaded_at,download_count FROM ebook_leads ORDER BY datetime(created_at) DESC,id DESC`).all());
+    const pageId=Number(req.query.page_id||0);
+    const sql=`SELECT l.id,l.page_id,p.title page_title,l.name,l.email,l.company,l.source,l.campaign,l.marketing_consent,l.created_at,l.first_downloaded_at,l.last_downloaded_at,l.download_count FROM ebook_leads l LEFT JOIN ebook_pages p ON p.id=l.page_id ${pageId?'WHERE l.page_id=?':''} ORDER BY datetime(l.created_at) DESC,l.id DESC`;
+    res.json(pageId?db.prepare(sql).all(pageId):db.prepare(sql).all());
+  });
+
+  app.get('/api/crm/ebook-pages/:id/sources', requireAdmin, (req,res) => {
+    const id=Number(req.params.id);
+    res.json(db.prepare(`SELECT source,campaign,COUNT(*) visits FROM ebook_page_visits WHERE page_id=? GROUP BY source,campaign ORDER BY visits DESC`).all(id));
   });
 };
