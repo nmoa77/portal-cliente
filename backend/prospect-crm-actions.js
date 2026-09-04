@@ -18,16 +18,31 @@ module.exports = function installProspectCrmActions(app) {
   add('outreach_response', 'TEXT');
   add('outreach_response_reason', 'TEXT');
   add('outreach_responded_at', 'TEXT');
+  add('ebook_page_id', 'INTEGER');
 
   const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const portal = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
   const guideTarget = process.env.DUIT_GUIDE_URL || `${portal}/ebook-duit.pdf`;
 
+  function favoritePage(){
+    try { return db.prepare(`SELECT * FROM ebook_pages WHERE active=1 ORDER BY is_favorite DESC,id ASC LIMIT 1`).get(); }
+    catch(_) { return null; }
+  }
+  function resolvedPage(explicitId){
+    try {
+      if(explicitId){const p=db.prepare(`SELECT * FROM ebook_pages WHERE id=? AND active=1`).get(Number(explicitId));if(p)return p;}
+      return favoritePage();
+    } catch(_) { return null; }
+  }
+
   function emailHtml(text, token) {
     let clean = String(text || '').replace(/^Assunto:.*?(\r?\n){1,2}/i, '').trim();
     clean = clean.replace(/Quer avançar\?\s*Responda a este email e tratamos do resto\.?/gi, '').trim();
-    const paragraphs = clean.split(/\n{2,}/).filter(Boolean).map(p => `<div style="margin:0 0 15px;color:#2a2a2a;font-size:15px;line-height:1.65;white-space:pre-line">${esc(p)}</div>`).join('');
+    const paragraphs = clean.split(/\n{2,}/).filter(Boolean).map(p => {
+      let html=esc(p).replace(/ebook gratuito/gi,'<strong>ebook gratuito</strong>');
+      return `<div style="margin:0 0 15px;color:#2a2a2a;font-size:15px;line-height:1.65;white-space:pre-line">${html}</div>`;
+    }).join('');
     const responseUrl = `${portal}/prospect-response.html?token=${encodeURIComponent(token)}`;
     const cacheKey = Date.now();
     return `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px;background:#f5f3ef"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:18px 34px"><img src="${portal}/logo-branco.png?v=${cacheKey}" width="135" alt="DUIT" style="display:block;width:135px;max-width:100%;height:auto;border:0"></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px">${paragraphs}<div style="margin:24px 0 10px"><a href="${responseUrl}" style="display:inline-block;background:#ffd60a;color:#0a0a0a;text-decoration:none;font-weight:700;font-size:15px;padding:13px 22px;border-radius:9px">Ver o que preparámos para si</a></div><div style="padding-top:12px;color:#2a2a2a;font-size:15px">Cumprimentos,</div><div style="padding-top:8px"><img src="${portal}/assinatura-email.png?v=${cacheKey}" width="400" alt="Nuno Alho — DUIT" style="display:block;width:100%;max-width:400px;height:auto;border:0"></div></td></tr></table><img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0"></td></tr></table></body></html>`;
@@ -44,14 +59,15 @@ module.exports = function installProspectCrmActions(app) {
 
   app.get('/api/public/prospect-guide/:token', (req,res) => {
     const token=String(req.params.token||'');
-    const p=db.prepare(`SELECT user_id FROM prospect_crm WHERE email_tracking_token=?`).get(token);
+    const p=db.prepare(`SELECT user_id,ebook_page_id FROM prospect_crm WHERE email_tracking_token=?`).get(token);
     if(!p) return res.status(404).send('Ligação inválida ou expirada.');
     db.prepare(`UPDATE prospect_crm SET guide_first_opened_at=COALESCE(guide_first_opened_at,datetime('now')),guide_last_opened_at=datetime('now'),guide_open_count=COALESCE(guide_open_count,0)+1,updated_at=datetime('now') WHERE email_tracking_token=?`).run(token);
-    res.set('Cache-Control','no-store'); res.redirect(302, guideTarget);
+    const page=resolvedPage(p.ebook_page_id);
+    res.set('Cache-Control','no-store'); res.redirect(302,page?.pdf_path||guideTarget);
   });
 
   app.get('/api/public/prospect-outreach/:token', (req,res) => {
-    const p=db.prepare(`SELECT u.name,u.company,c.recommended_plan,c.monthly_value,c.offer_value,c.outreach_response,c.outreach_response_reason,c.outreach_responded_at FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(String(req.params.token||''));
+    const p=db.prepare(`SELECT u.name,u.company,c.recommended_plan,c.monthly_value,c.offer_value,c.outreach_response,c.outreach_response_reason,c.outreach_responded_at,c.ebook_page_id,e.title ebook_title FROM prospect_crm c JOIN users u ON u.id=c.user_id LEFT JOIN ebook_pages e ON e.id=c.ebook_page_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(String(req.params.token||''));
     if(!p) return res.status(404).json({error:'Ligação inválida ou expirada.'}); res.json(p);
   });
 
@@ -64,12 +80,13 @@ module.exports = function installProspectCrmActions(app) {
   });
 
   app.post('/api/crm/prospects/:id/send-email', requireAdmin, (req,res) => {
-    const id=Number(req.params.id); const p=db.prepare(`SELECT u.id,u.name,u.email,u.company,c.proposal_email FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id WHERE u.id=? AND u.is_prospect=1`).get(id);
+    const id=Number(req.params.id); const p=db.prepare(`SELECT u.id,u.name,u.email,u.company,c.proposal_email,c.ebook_page_id FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id WHERE u.id=? AND u.is_prospect=1`).get(id);
     if(!p) return res.status(404).json({error:'Prospect não encontrado.'});
     const text=String(req.body?.text||p.proposal_email||'').trim(); if(!text) return res.status(400).json({error:'O email está vazio.'}); if(!p.email) return res.status(400).json({error:'Este prospect não tem email.'});
     const subjectMatch=text.match(/^Assunto:\s*(.+)$/mi); const subject=(subjectMatch?.[1]||`${p.company||p.name} — proposta DUIT`).trim(); const token=crypto.randomBytes(24).toString('hex');
-    db.prepare(`UPDATE prospect_crm SET proposal_email=?,email_tracking_token=?,email_sent_at=datetime('now'),email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,guide_first_opened_at=NULL,guide_last_opened_at=NULL,guide_open_count=0,outreach_response=NULL,outreach_response_reason=NULL,outreach_responded_at=NULL,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),updated_at=datetime('now') WHERE user_id=?`).run(text,token,id);
-    deliver(db,{to:p.email,subject,body:text,html:emailHtml(text,token),user_id:id,kind:'prospect_outreach',force:true}); res.json({ok:true});
+    const chosen=resolvedPage(req.body?.ebook_page_id||p.ebook_page_id);
+    db.prepare(`UPDATE prospect_crm SET proposal_email=?,ebook_page_id=?,email_tracking_token=?,email_sent_at=datetime('now'),email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,guide_first_opened_at=NULL,guide_last_opened_at=NULL,guide_open_count=0,outreach_response=NULL,outreach_response_reason=NULL,outreach_responded_at=NULL,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),updated_at=datetime('now') WHERE user_id=?`).run(text,chosen?.id||null,token,id);
+    deliver(db,{to:p.email,subject,body:text,html:emailHtml(text,token),user_id:id,kind:'prospect_outreach',force:true}); res.json({ok:true,ebook_page_id:chosen?.id||null});
   });
 
   app.post('/api/crm/prospects/:id/convert', requireAdmin, (req,res) => {
