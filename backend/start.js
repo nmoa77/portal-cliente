@@ -38,7 +38,7 @@ require('./prospect-seed-2026-08-31');
 
 try {
   const db = require('./db');
-  const invalid = db.prepare(`SELECT id, email FROM users WHERE is_prospect=1 AND (email IS NULL OR TRIM(email))='' OR email NOT LIKE '%@%' OR LOWER(TRIM(email)) LIKE '%@prospect.local' OR LOWER(TRIM(email)) LIKE 'prospect-%' OR LOWER(TRIM(email)) LIKE '%@example.%' OR LOWER(TRIM(email)) LIKE '%@example.com' OR LOWER(TRIM(email)) LIKE '%@test.%')`).all();
+  const invalid = db.prepare(`SELECT id, email FROM users WHERE is_prospect=1 AND (email IS NULL OR TRIM(email)='' OR email NOT LIKE '%@%' OR LOWER(TRIM(email)) LIKE '%@prospect.local' OR LOWER(TRIM(email)) LIKE 'prospect-%' OR LOWER(TRIM(email)) LIKE '%@example.%' OR LOWER(TRIM(email)) LIKE '%@example.com' OR LOWER(TRIM(email)) LIKE '%@test.%')`).all();
   if (invalid.length) { const tx=db.transaction(()=>{for(const row of invalid){db.prepare('DELETE FROM prospect_crm WHERE user_id=?').run(row.id);db.prepare('DELETE FROM users WHERE id=? AND is_prospect=1').run(row.id);}});tx();console.log(`[prospects] removidos ${invalid.length} prospects com email inválido/placeholder.`); }
 } catch (e) { console.warn('[prospects] limpeza:', e.message); }
 
