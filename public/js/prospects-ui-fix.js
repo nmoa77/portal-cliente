@@ -1,5 +1,13 @@
 /* DUIT — ajustes visuais persistentes dos Prospects */
 (() => {
+  /* Sem janelas nativas do browser no painel. As ações seguem diretamente
+     e o feedback continua a ser apresentado pelos toasts/modais da DUIT. */
+  window.confirm = () => true;
+  window.alert = (msg) => {
+    try { if (typeof toast === 'function') toast(String(msg || ''), 'cancel'); }
+    catch (_) {}
+  };
+
   const KEY_STATUS='duit_prospects_status_filter';
   const KEY_PRIORITY='duit_prospects_priority_filter';
   let restoring=false;
