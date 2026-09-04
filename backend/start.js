@@ -9,7 +9,7 @@ try {
   if (!serverSource.includes(installLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${installLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
   const ebookInstallLine = "require('./ebook-leads-actions')(capturedApp);";
   if (!serverSource.includes(ebookInstallLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${ebookInstallLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904j');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904m');
   if (!serverSource.includes("/api/app-version")) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => { res.set('Cache-Control','no-store, no-cache, must-revalidate'); res.json({version: DUIT_APP_VERSION}); });\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
   fs.writeFileSync(crmServer, serverSource, 'utf8');
 
@@ -17,35 +17,26 @@ try {
   let source = fs.readFileSync(crmJs, 'utf8');
   source = source.replace(/body:JSON\.stringify\(body\)/g, 'body');
 
-  // O primeiro email é deliberadamente genérico: não assume serviços/atividades do prospect.
-  source = source.replace("    const opp=(p.opportunity||'').trim();\n    const opportunity=opp?opp.replace(/[.]$/,''):'há margem para tornar a presença nas redes sociais mais consistente e apelativa';\n    return `Assunto: ${company} — preparámos algo para si\\n\\nOlá,\\n\\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\\n\\nNo vosso caso, vemos esta oportunidade: ${opportunity}.\\n\\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook gratuito com 6 curiosidades.\\n\\nCumprimentos,`;", "    return `Assunto: ${company} — preparámos algo para si\\n\\nOlá,\\n\\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\\n\\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook gratuito com 6 curiosidades.\\n\\nCumprimentos,`;");
+  // Compatibilidade com versões antigas do modelo de email.
+  source = source.replace("    const opp=(p.opportunity||'').trim();\n    const opportunity=opp?opp.replace(/[.]$/,''):'há margem para tornar a presença nas redes sociais mais consistente e apelativa';\n    return `Assunto: ${company} — preparámos algo para si\\n\\nOlá,\\n\\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\\n\\nNo vosso caso, vemos esta oportunidade: ${opportunity}.\\n\\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook gratuito com 6 curiosidades.\\n\\nCumprimentos,`;", "    return `Assunto: ${company} — preparámos algo para si\\n\\nOlá,\\n\\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\\n\\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook gratuito.\\n\\nCumprimentos,`;");
+  source = source.replace(/receba também um ebook gratuito com 6 curiosidades\./g,'receba também um ebook gratuito.');
 
   const marker='prospects-actions.js';
-  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260904j'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
-  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260904j');
+  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260904m'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260904m');
 
   if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) source += `\n;(() => { /* DUIT_AUTO_VERSION_REFRESH */ let knownVersion=null,reloading=false; async function checkVersion(){ if(reloading)return; try{const r=await fetch('/api/app-version?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const data=await r.json();if(!data?.version)return;if(knownVersion===null){knownVersion=data.version;return;}if(data.version!==knownVersion){reloading=true;location.reload();}}catch(_){}} checkVersion();setInterval(checkVersion,10000);window.addEventListener('focus',checkVersion);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion();});})();\n`;
 
-  // Carrega os dados base + tracking do email. Esta versão cobre o ficheiro compacto atual.
+  // Mantém compatibilidade com versões antigas que ainda não juntavam o tracking.
   const compactLoader="async function loadProspects(){crmProspects=await api('/api/crm/prospects');return crmProspects;}";
-  const mergedLoader="async function loadProspects(){const [prospects,statuses]=await Promise.all([api('/api/crm/prospects'),api('/api/crm/prospects/email-status')]);const sm=new Map((statuses||[]).map(s=>[Number(s.user_id),s]));crmProspects=(prospects||[]).map(p=>({...p,...(sm.get(Number(p.id))||{})})).sort((a,b)=>{const ad=a.email_sent_at?new Date(String(a.email_sent_at).replace(' ','T')+'Z').getTime():0;const bd=b.email_sent_at?new Date(String(b.email_sent_at).replace(' ','T')+'Z').getTime():0;if(ad!==bd)return bd-ad;return Number(b.id||0)-Number(a.id||0)});return crmProspects;}";
+  const mergedLoader="async function loadProspects(){const [prospects,statuses,ebooks]=await Promise.all([api('/api/crm/prospects'),api('/api/crm/prospects/email-status'),api('/api/crm/ebook-pages')]);crmEbookPages=ebooks||[];const sm=new Map((statuses||[]).map(s=>[Number(s.user_id),s]));crmProspects=(prospects||[]).map(p=>({...p,...(sm.get(Number(p.id))||{})})).sort((a,b)=>{const ad=a.email_sent_at?new Date(String(a.email_sent_at).replace(' ','T')+'Z').getTime():0;const bd=b.email_sent_at?new Date(String(b.email_sent_at).replace(' ','T')+'Z').getTime():0;if(ad!==bd)return bd-ad;return Number(b.id||0)-Number(a.id||0)});return crmProspects;}";
   if (source.includes(compactLoader)) source=source.replace(compactLoader, mergedLoader);
-
   const legacyLoader="async function loadProspects(){ crmProspects = await api('/api/crm/prospects'); return crmProspects; }";
   if (source.includes(legacyLoader)) source=source.replace(legacyLoader, mergedLoader);
-
-  // Filtros baseados no tracking real do email.
-  const compactFiltered="function filteredProspects(){const q=crmFilter.q.trim().toLowerCase();return crmProspects.filter(p=>{if(crmFilter.status!=='all'&&p.lead_status!==crmFilter.status)return false;if(crmFilter.priority!=='all'&&p.priority!==crmFilter.priority)return false;if(!q)return true;return[p.company,p.name,p.email,p.phone,p.sector,p.location,p.opportunity,p.idea].filter(Boolean).join(' ').toLowerCase().includes(q)})}";
-  const usefulFiltered="function filteredProspects(){const q=crmFilter.q.trim().toLowerCase();return crmProspects.filter(p=>{if(crmFilter.status!=='all'){if(crmFilter.status==='falta_contactar'&&p.email_sent_at)return false;if(crmFilter.status==='contactado'&&!p.email_sent_at)return false;if(crmFilter.status==='nao_abriu'&&(!p.email_sent_at||p.email_first_opened_at))return false;if(crmFilter.status==='nao_respondeu'&&(!p.email_sent_at||p.outreach_response))return false;}if(crmFilter.priority!=='all'&&p.priority!==crmFilter.priority)return false;if(!q)return true;return[p.company,p.name,p.email,p.phone,p.sector,p.location,p.opportunity,p.idea,p.notes].filter(Boolean).join(' ').toLowerCase().includes(q)})}";
-  if (source.includes(compactFiltered)) source=source.replace(compactFiltered,usefulFiltered);
-
-  // Se já existir uma versão anterior do filtro, substitui-a pelo correto.
-  source = source.replace(/function filteredProspects\(\)\{const q=crmFilter\.q\.trim\(\)\.toLowerCase\(\);return crmProspects\.filter\(p=>\{if\(crmFilter\.status!==['\"]all['\"]\)[\s\S]*?\}\)\}/, usefulFiltered);
 
   const oldStatusSelect=`<select onchange="crmSetFilter('status',this.value)"><option value="all">Todos os estados</option>${Object.entries(STATUS).map(([k,v])=>`<option value="${k}">${v[0]}</option>`).join('')}</select>`;
   const newStatusSelect=`<select onchange="crmSetFilter('status',this.value)"><option value="all">Todos</option><option value="falta_contactar">Falta contactar</option><option value="contactado">Contactados</option><option value="nao_abriu">Não abriu</option><option value="nao_respondeu">Não respondeu</option></select>`;
   if(source.includes(oldStatusSelect)) source=source.replace(oldStatusSelect,newStatusSelect);
-  source=source.replace(/<select onchange="crmSetFilter\('status',this\.value\)"><option value="all">Todos<\/option>[\s\S]*?<\/select>/,newStatusSelect);
 
   source=source.replace('<th>Follow-up</th><th></th>','<th>Último envio</th><th>Follow-up</th><th></th>');
   source=source.replace("<td>${p.follow_up_at?fmtDate(p.follow_up_at):'—'}</td><td><div class=\"crm-actions\">","<td>${p.email_sent_at?fmtDateTime(p.email_sent_at):'—'}</td><td>${p.follow_up_at?fmtDate(p.follow_up_at):'—'}</td><td><div class=\"crm-actions\">");
@@ -62,14 +53,13 @@ require('./prospect-seed-10-email');
 require('./prospect-seed-2026-08-29');
 require('./prospect-seed-2026-08-31');
 
-// Regra DUIT: só permanecem prospects com email real.
 try {
   const db = require('./db');
   const invalid = db.prepare(`SELECT id, email FROM users WHERE is_prospect=1 AND (email IS NULL OR TRIM(email)='' OR email NOT LIKE '%@%' OR LOWER(TRIM(email)) LIKE '%@prospect.local' OR LOWER(TRIM(email)) LIKE 'prospect-%' OR LOWER(TRIM(email)) LIKE '%@example.%' OR LOWER(TRIM(email)) LIKE '%@example.com' OR LOWER(TRIM(email)) LIKE '%@test.%')`).all();
   if (invalid.length) { const tx=db.transaction(()=>{for(const row of invalid){db.prepare('DELETE FROM prospect_crm WHERE user_id=?').run(row.id);db.prepare('DELETE FROM users WHERE id=? AND is_prospect=1').run(row.id);}});tx();console.log(`[prospects] removidos ${invalid.length} prospects com email inválido/placeholder.`); }
 } catch (e) { console.warn('[prospects] limpeza:', e.message); }
 
-// Modelo curto de primeiro contacto. Sem suposições sobre aquilo que a empresa faz.
+// Modelo curto de primeiro contacto. A LP/ebook é escolhida à parte no Prospect.
 try {
   const db = require('./db');
   const rows = db.prepare(`SELECT u.id,u.company,u.name,c.email_sent_at FROM users u JOIN prospect_crm c ON c.user_id=u.id WHERE u.is_prospect=1 AND c.email_sent_at IS NULL`).all();
@@ -77,7 +67,7 @@ try {
   const tx = db.transaction(() => {
     for (const p of rows) {
       const company = String(p.company || p.name || 'empresa').trim();
-      const email = `Assunto: ${company} — preparámos algo para si\n\nOlá,\n\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\n\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook gratuito com 6 curiosidades.\n\nCumprimentos,`;
+      const email = `Assunto: ${company} — preparámos algo para si\n\nOlá,\n\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\n\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook gratuito.\n\nCumprimentos,`;
       update.run(email,p.id);
     }
   });
