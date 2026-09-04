@@ -7,14 +7,24 @@ try {
   let serverSource = fs.readFileSync(crmServer, 'utf8');
   const installLine = "require('./prospect-crm-actions')(capturedApp);";
   if (!serverSource.includes(installLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${installLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904a');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904b');
   fs.writeFileSync(crmServer, serverSource, 'utf8');
 } catch (e) { console.warn('[crm] patch:', e.message); }
 
-// Regra DUIT: prospect sem email real não entra nem permanece no CRM.
+// Regra DUIT: só permanecem prospects com email real. Remove vazios e placeholders.
 try {
   const db = require('./db');
-  const invalid = db.prepare(`SELECT id FROM users WHERE is_prospect=1 AND (email IS NULL OR TRIM(email)='' OR email NOT LIKE '%@%')`).all();
+  const invalid = db.prepare(`
+    SELECT id FROM users
+    WHERE is_prospect=1 AND (
+      email IS NULL OR TRIM(email)='' OR email NOT LIKE '%@%'
+      OR LOWER(TRIM(email)) LIKE '%@prospect.local'
+      OR LOWER(TRIM(email)) LIKE 'prospect-%'
+      OR LOWER(TRIM(email)) LIKE '%@example.%'
+      OR LOWER(TRIM(email)) LIKE '%@example.com'
+      OR LOWER(TRIM(email)) LIKE '%@test.%'
+    )
+  `).all();
   if (invalid.length) {
     const tx = db.transaction(() => {
       for (const row of invalid) {
@@ -23,7 +33,7 @@ try {
       }
     });
     tx();
-    console.log(`[prospects] removidos ${invalid.length} prospects sem email.`);
+    console.log(`[prospects] removidos ${invalid.length} prospects sem email real/placeholder.`);
   }
 } catch (e) { console.warn('[prospects] limpeza:', e.message); }
 
