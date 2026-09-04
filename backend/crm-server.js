@@ -13,9 +13,6 @@ const { requireAdmin } = require('./auth');
  * - persistência de dados comerciais de prospects;
  * - API CRUD /api/crm/prospects;
  * - injeção do módulo frontend prospects-crm.js no painel admin.
- *
- * Esta abordagem permite evoluir a área comercial sem interferir com o fluxo
- * existente de orçamentos/prospects do portal.
  */
 
 const originalStatic = express.static;
@@ -23,7 +20,6 @@ const originalListen = express.application.listen;
 let capturedApp = null;
 let capturedListenArgs = null;
 
-// Injeta o módulo comercial depois do admin.js, sem duplicar o admin.html.
 express.static = function patchedStatic(root, options) {
   const middleware = originalStatic(root, options);
   const adminPath = path.join(root, 'admin.html');
@@ -33,7 +29,7 @@ express.static = function patchedStatic(root, options) {
 
     fs.readFile(adminPath, 'utf8', (err, html) => {
       if (err) return middleware(req, res, next);
-      const script = '<script src="/js/prospects-crm.js?v=20260825"></script>';
+      const script = '<script src="/js/prospects-crm.js?v=20260904m"></script>';
       const output = html.includes('/js/prospects-crm.js')
         ? html
         : html.replace('</body>', `  ${script}\n</body>`);
@@ -42,7 +38,6 @@ express.static = function patchedStatic(root, options) {
   };
 };
 
-// Adia o listen do server original para podermos registar as novas rotas antes.
 express.application.listen = function captureListen(...args) {
   capturedApp = this;
   capturedListenArgs = args;
@@ -58,9 +53,6 @@ if (!capturedApp || !capturedListenArgs) {
   throw new Error('Não foi possível inicializar o portal DUIT com a camada CRM.');
 }
 
-/* ================================================================
-   BD — dados comerciais do prospect
-   ================================================================ */
 db.exec(`
 CREATE TABLE IF NOT EXISTS prospect_crm (
   user_id INTEGER PRIMARY KEY,
@@ -80,12 +72,15 @@ CREATE TABLE IF NOT EXISTS prospect_crm (
   follow_up_at TEXT,
   notes TEXT,
   proposal_email TEXT,
+  ebook_page_id INTEGER,
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_prospect_crm_status ON prospect_crm(lead_status);
 CREATE INDEX IF NOT EXISTS idx_prospect_crm_priority ON prospect_crm(priority);
 `);
+const crmCols=db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c=>c.name);
+if(!crmCols.includes('ebook_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ebook_page_id INTEGER`);
 
 const allowedStatuses = new Set([
   'por_contactar', 'contactado', 'respondeu', 'interessado',
@@ -108,6 +103,11 @@ function randomPasswordHash() {
   return bcrypt.hashSync(crypto.randomBytes(18).toString('base64url'), 10);
 }
 
+function validEbookPageId(value){
+  const id=Number(value||0);if(!id)return null;
+  try{return db.prepare(`SELECT id FROM ebook_pages WHERE id=?`).get(id)?id:null}catch(_){return null}
+}
+
 function getCrmProspect(id) {
   return db.prepare(`
     SELECT u.id, u.name, u.email, u.company, u.phone, u.created_at,
@@ -118,7 +118,7 @@ function getCrmProspect(id) {
            COALESCE(c.lead_status,'por_contactar') lead_status,
            COALESCE(c.priority,'possivel') priority,
            c.first_contact_at, c.follow_up_at, c.notes, c.proposal_email,
-           c.updated_at,
+           c.ebook_page_id, c.updated_at,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id) quote_count,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status='accepted') accepted_count
       FROM users u
@@ -137,7 +137,7 @@ capturedApp.get('/api/crm/prospects', requireAdmin, (req, res) => {
            COALESCE(c.lead_status,'por_contactar') lead_status,
            COALESCE(c.priority,'possivel') priority,
            c.first_contact_at, c.follow_up_at, c.notes, c.proposal_email,
-           c.updated_at,
+           c.ebook_page_id, c.updated_at,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id) quote_count,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status='accepted') accepted_count
       FROM users u
@@ -181,6 +181,7 @@ capturedApp.post('/api/crm/prospects', requireAdmin, (req, res) => {
   const status = allowedStatuses.has(body.lead_status) ? body.lead_status : 'por_contactar';
   const priority = allowedPriorities.has(body.priority) ? body.priority : 'possivel';
   const plan = allowedPlans.has(body.recommended_plan || '') ? (body.recommended_plan || '') : '';
+  const ebookPageId=validEbookPageId(body.ebook_page_id);
 
   const tx = db.transaction(() => {
     const u = db.prepare(`
@@ -192,14 +193,14 @@ capturedApp.post('/api/crm/prospects', requireAdmin, (req, res) => {
       INSERT INTO prospect_crm (
         user_id,sector,location,website,instagram,opportunity,idea,
         recommended_plan,solution_text,monthly_value,offer_value,
-        lead_status,priority,first_contact_at,follow_up_at,notes,proposal_email,updated_at
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+        lead_status,priority,first_contact_at,follow_up_at,notes,proposal_email,ebook_page_id,updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
     `).run(
       u.lastInsertRowid,
       clean(body.sector, 120), clean(body.location, 120), clean(body.website, 500), clean(body.instagram, 500),
       clean(body.opportunity), clean(body.idea), plan, clean(body.solution_text),
       asMoney(body.monthly_value), asMoney(body.offer_value), status, priority,
-      clean(body.first_contact_at, 30), clean(body.follow_up_at, 30), clean(body.notes), clean(body.proposal_email, 12000)
+      clean(body.first_contact_at, 30), clean(body.follow_up_at, 30), clean(body.notes), clean(body.proposal_email, 12000),ebookPageId
     );
     return Number(u.lastInsertRowid);
   });
@@ -229,6 +230,7 @@ capturedApp.patch('/api/crm/prospects/:id', requireAdmin, (req, res) => {
   const plan = body.recommended_plan === undefined
     ? (current.recommended_plan || '')
     : (allowedPlans.has(body.recommended_plan || '') ? (body.recommended_plan || '') : (current.recommended_plan || ''));
+  const ebookPageId=body.ebook_page_id===undefined?current.ebook_page_id:validEbookPageId(body.ebook_page_id);
 
   const tx = db.transaction(() => {
     db.prepare(`
@@ -254,7 +256,7 @@ capturedApp.patch('/api/crm/prospects/:id', requireAdmin, (req, res) => {
       UPDATE prospect_crm SET
         sector=?, location=?, website=?, instagram=?, opportunity=?, idea=?,
         recommended_plan=?, solution_text=?, monthly_value=?, offer_value=?,
-        lead_status=?, priority=?, first_contact_at=?, follow_up_at=?, notes=?, proposal_email=?,
+        lead_status=?, priority=?, first_contact_at=?, follow_up_at=?, notes=?, proposal_email=?,ebook_page_id=?,
         updated_at=datetime('now')
       WHERE user_id=?
     `).run(
@@ -272,7 +274,7 @@ capturedApp.patch('/api/crm/prospects/:id', requireAdmin, (req, res) => {
       body.first_contact_at === undefined ? current.first_contact_at : clean(body.first_contact_at, 30),
       body.follow_up_at === undefined ? current.follow_up_at : clean(body.follow_up_at, 30),
       body.notes === undefined ? current.notes : clean(body.notes),
-      body.proposal_email === undefined ? current.proposal_email : clean(body.proposal_email, 12000),
+      body.proposal_email === undefined ? current.proposal_email : clean(body.proposal_email, 12000),ebookPageId,
       id
     );
   });
