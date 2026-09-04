@@ -83,7 +83,7 @@ try {
     for (const p of rows) {
       const company = String(p.company || p.name || 'empresa').trim();
       const opportunity = String(p.opportunity || 'há margem para tornar a presença nas redes sociais mais consistente e apelativa').trim();
-      const email = `Assunto: ${company} — preparámos algo para si\n\nOlá,\n\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\n\nNo vosso caso, vemos esta oportunidade: ${opportunity}.\n\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook DUIT com 6 curiosidades sobre design, imagem e comunicação.\n\nCumprimentos,`;
+      const email = `Assunto: ${company} — preparámos algo para si\n\nOlá,\n\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\n\nNo vosso caso, vemos esta oportunidade: ${opportunity}.\n\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook gratuito com 6 curiosidades.\n\nCumprimentos,`;
       update.run(email,p.id);
     }
   });
