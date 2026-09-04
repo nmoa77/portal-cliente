@@ -7,7 +7,9 @@ try {
   let serverSource = fs.readFileSync(crmServer, 'utf8');
   const installLine = "require('./prospect-crm-actions')(capturedApp);";
   if (!serverSource.includes(installLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${installLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904g');
+  const ebookInstallLine = "require('./ebook-leads-actions')(capturedApp);";
+  if (!serverSource.includes(ebookInstallLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${ebookInstallLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260904h');
   if (!serverSource.includes("/api/app-version")) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => { res.set('Cache-Control','no-store, no-cache, must-revalidate'); res.json({version: DUIT_APP_VERSION}); });\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
   fs.writeFileSync(crmServer, serverSource, 'utf8');
 
@@ -17,8 +19,8 @@ try {
   // O primeiro email é deliberadamente genérico: não assume serviços/atividades do prospect.
   source = source.replace("    const opp=(p.opportunity||'').trim();\n    const opportunity=opp?opp.replace(/[.]$/,''):'há margem para tornar a presença nas redes sociais mais consistente e apelativa';\n    return `Assunto: ${company} — preparámos algo para si\\n\\nOlá,\\n\\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\\n\\nNo vosso caso, vemos esta oportunidade: ${opportunity}.\\n\\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook gratuito com 6 curiosidades.\\n\\nCumprimentos,`;", "    return `Assunto: ${company} — preparámos algo para si\\n\\nOlá,\\n\\nEstivemos a ver a comunicação da ${company} e acreditamos que há espaço para tirar mais partido das redes sociais.\\n\\nPreparámos uma proposta pensada para a ${company}. Veja o que preparámos para si e receba também um ebook gratuito com 6 curiosidades.\\n\\nCumprimentos,`;");
   const marker='prospects-actions.js';
-  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260904g'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
-  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260904g');
+  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260904h'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260904h');
 
   if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) source += `\n;(() => { /* DUIT_AUTO_VERSION_REFRESH */ let knownVersion=null,reloading=false; async function checkVersion(){ if(reloading)return; try{const r=await fetch('/api/app-version?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const data=await r.json();if(!data?.version)return;if(knownVersion===null){knownVersion=data.version;return;}if(data.version!==knownVersion){reloading=true;location.reload();}}catch(_){}} checkVersion();setInterval(checkVersion,10000);window.addEventListener('focus',checkVersion);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion();});})();\n`;
 
