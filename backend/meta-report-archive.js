@@ -1,4 +1,6 @@
 const db=require('./db');
+const fs=require('fs');
+const path=require('path');
 const {requireAuth,requireAdmin}=require('./auth');
 
 module.exports=function installMetaReportArchive(app){
@@ -7,30 +9,18 @@ module.exports=function installMetaReportArchive(app){
   if(!cols.includes('downloaded_at')) db.exec(`ALTER TABLE meta_monthly_reports ADD COLUMN downloaded_at TEXT`);
 
   app.get('/api/meta/reports/archive',requireAdmin,(req,res)=>{
-    const rows=db.prepare(`
-      SELECT r.id,r.user_id,r.ref_year,r.ref_month,r.status,r.summary_text,r.pdf_path,
-             r.generated_at,r.sent_at,r.viewed_at,r.downloaded_at,r.error_message,r.created_at,r.updated_at,
-             u.name,u.company,u.email
-        FROM meta_monthly_reports r
-        JOIN users u ON u.id=r.user_id
-       ORDER BY r.ref_year DESC,r.ref_month DESC,COALESCE(u.company,u.name) COLLATE NOCASE ASC
-    `).all();
+    const rows=db.prepare(`SELECT r.id,r.user_id,r.ref_year,r.ref_month,r.status,r.summary_text,r.pdf_path,r.generated_at,r.sent_at,r.viewed_at,r.downloaded_at,r.error_message,r.created_at,r.updated_at,u.name,u.company,u.email FROM meta_monthly_reports r JOIN users u ON u.id=r.user_id ORDER BY r.ref_year DESC,r.ref_month DESC,COALESCE(u.company,u.name) COLLATE NOCASE ASC`).all();
     res.json(rows);
   });
 
-  app.post('/api/meta/reports/:id/viewed',requireAuth,(req,res)=>{
-    const id=Number(req.params.id),r=db.prepare(`SELECT id,user_id FROM meta_monthly_reports WHERE id=?`).get(id);
+  app.delete('/api/meta/reports/:id',requireAdmin,(req,res)=>{
+    const id=Number(req.params.id),r=db.prepare(`SELECT id,pdf_path FROM meta_monthly_reports WHERE id=?`).get(id);
     if(!r)return res.status(404).json({error:'Relatório não encontrado.'});
-    if(req.user.role!=='admin'&&Number(req.user.id)!==Number(r.user_id))return res.status(403).json({error:'Sem permissão.'});
-    if(req.user.role!=='admin')db.prepare(`UPDATE meta_monthly_reports SET viewed_at=COALESCE(viewed_at,datetime('now')),updated_at=datetime('now') WHERE id=?`).run(id);
+    if(r.pdf_path){try{const p=path.resolve(r.pdf_path);if(fs.existsSync(p))fs.unlinkSync(p);}catch(e){console.warn('[meta-report] apagar PDF:',e.message);}}
+    db.prepare(`DELETE FROM meta_monthly_reports WHERE id=?`).run(id);
     res.json({ok:true});
   });
 
-  app.post('/api/meta/reports/:id/downloaded',requireAuth,(req,res)=>{
-    const id=Number(req.params.id),r=db.prepare(`SELECT id,user_id FROM meta_monthly_reports WHERE id=?`).get(id);
-    if(!r)return res.status(404).json({error:'Relatório não encontrado.'});
-    if(req.user.role!=='admin'&&Number(req.user.id)!==Number(r.user_id))return res.status(403).json({error:'Sem permissão.'});
-    if(req.user.role!=='admin')db.prepare(`UPDATE meta_monthly_reports SET downloaded_at=COALESCE(downloaded_at,datetime('now')),viewed_at=COALESCE(viewed_at,datetime('now')),updated_at=datetime('now') WHERE id=?`).run(id);
-    res.json({ok:true});
-  });
+  app.post('/api/meta/reports/:id/viewed',requireAuth,(req,res)=>{const id=Number(req.params.id),r=db.prepare(`SELECT id,user_id FROM meta_monthly_reports WHERE id=?`).get(id);if(!r)return res.status(404).json({error:'Relatório não encontrado.'});if(req.user.role!=='admin'&&Number(req.user.id)!==Number(r.user_id))return res.status(403).json({error:'Sem permissão.'});if(req.user.role!=='admin')db.prepare(`UPDATE meta_monthly_reports SET viewed_at=COALESCE(viewed_at,datetime('now')),updated_at=datetime('now') WHERE id=?`).run(id);res.json({ok:true});});
+  app.post('/api/meta/reports/:id/downloaded',requireAuth,(req,res)=>{const id=Number(req.params.id),r=db.prepare(`SELECT id,user_id FROM meta_monthly_reports WHERE id=?`).get(id);if(!r)return res.status(404).json({error:'Relatório não encontrado.'});if(req.user.role!=='admin'&&Number(req.user.id)!==Number(r.user_id))return res.status(403).json({error:'Sem permissão.'});if(req.user.role!=='admin')db.prepare(`UPDATE meta_monthly_reports SET downloaded_at=COALESCE(downloaded_at,datetime('now')),viewed_at=COALESCE(viewed_at,datetime('now')),updated_at=datetime('now') WHERE id=?`).run(id);res.json({ok:true});});
 };
