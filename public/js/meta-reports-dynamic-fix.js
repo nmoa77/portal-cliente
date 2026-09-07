@@ -1,8 +1,16 @@
-/* DUIT — cliente/período dinâmicos + capa profissional + métricas de Reels */
+/* DUIT — cliente/período dinâmicos + capa editorial + métricas de Reels */
 (() => {
-  let data=null;
+  let data=null, activeClient='';
   const months=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   const n=v=>Number(v||0).toLocaleString('pt-PT');
+
+  document.addEventListener('click',e=>{
+    const btn=e.target.closest?.('[data-collect]');
+    if(!btn)return;
+    const row=btn.closest('[style*="border-bottom"]')||btn.parentElement?.parentElement;
+    const name=row?.querySelector('strong')?.textContent?.trim();
+    if(name)activeClient=name;
+  },true);
 
   const prevFetch=window.fetch.bind(window);
   window.fetch=async(...args)=>{
@@ -10,59 +18,67 @@
     try{
       const url=String(args[0]?.url||args[0]||'');
       if(url.includes('/api/meta/collect-test/')){
-        res.clone().json().then(d=>{data=d;setTimeout(apply,60);setTimeout(apply,260);setTimeout(apply,650);}).catch(()=>{});
+        res.clone().json().then(d=>{data=d;setTimeout(apply,70);setTimeout(apply,280);setTimeout(apply,700);}).catch(()=>{});
       }
     }catch(_){ }
     return res;
   };
 
   function monthLabel(){
-    const y=Number(data?.period?.year||0),m=Number(data?.period?.month||0);
+    const y=Number(data?.period?.year||2026),m=Number(data?.period?.month||8);
     return y&&m>=1&&m<=12?`${months[m-1]} ${y}`:'';
   }
+  function clientName(){return String(data?.client?.company||data?.client?.name||activeClient||'Cliente').trim();}
+  function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
-  function ensureCoverStyle(){
-    if(document.getElementById('mr-cover-v2-style'))return;
-    const st=document.createElement('style');st.id='mr-cover-v2-style';
-    st.textContent=`.mr-cover-final{background:#111!important;color:#fff!important;min-height:1120px!important;padding:56px 60px!important;display:flex!important;flex-direction:column!important;box-sizing:border-box}.mr-cover-final .mr-cover-v2-top{display:flex;justify-content:space-between;align-items:center;padding-bottom:22px;border-bottom:1px solid #303030;font-size:11px;letter-spacing:.18em;color:#8d8d8d}.mr-cover-final .mr-cover-v2-main{margin:auto 0;max-width:880px}.mr-cover-final .mr-cover-v2-eyebrow{font-size:12px;letter-spacing:.22em;color:#8d8d8d;margin-bottom:26px;text-transform:uppercase}.mr-cover-final .mr-cover-v2-client{font-size:94px!important;line-height:.9!important;letter-spacing:-.065em!important;font-weight:700!important;color:#fff!important;margin:0 0 30px!important;max-width:900px;overflow-wrap:anywhere}.mr-cover-final .mr-cover-v2-line{width:72px;height:3px;background:#fff;margin:0 0 30px}.mr-cover-final .mr-cover-v2-sub{font-size:22px;line-height:1.4;color:#b7b7b7;margin:0;max-width:680px}.mr-cover-final .mr-cover-v2-bottom{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #303030;padding-top:26px}.mr-cover-final .mr-cover-v2-logo{width:150px;max-height:52px;object-fit:contain;object-position:left center}.mr-cover-final .mr-cover-v2-bottom-copy{text-align:right;font-size:10px;line-height:1.7;letter-spacing:.16em;color:#777}@media(max-width:800px){.mr-cover-final{min-height:760px!important;padding:36px 30px!important}.mr-cover-final .mr-cover-v2-client{font-size:58px!important}.mr-cover-final .mr-cover-v2-sub{font-size:17px}}`;
+  function ensureStyle(){
+    if(document.getElementById('mr-cover-v3-style'))return;
+    const st=document.createElement('style');st.id='mr-cover-v3-style';
+    st.textContent=`.mr-cover-final{background:#0d0d0d!important;color:#fff!important;min-height:1120px!important;padding:62px 66px!important;display:flex!important;flex-direction:column!important;box-sizing:border-box}.mr-cover-v3-top{display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:.22em;color:#8b8b87}.mr-cover-v3-rule{height:1px;background:#343434;margin-top:25px}.mr-cover-v3-main{margin:auto 0;max-width:900px}.mr-cover-v3-kicker{font-size:12px;letter-spacing:.24em;color:#8d8d89;margin-bottom:24px}.mr-cover-v3-title{font-size:82px!important;line-height:.92!important;letter-spacing:-.055em!important;font-weight:800!important;color:#fff!important;margin:0 0 30px!important;max-width:900px}.mr-cover-v3-month{font-size:25px;line-height:1.2;color:#d8d8d3;margin-bottom:18px}.mr-cover-v3-copy{font-size:17px;line-height:1.55;color:#8f8f8a;max-width:650px;margin:0}.mr-cover-v3-bottom{display:flex;justify-content:space-between;align-items:flex-end;border-top:1px solid #343434;padding-top:28px}.mr-cover-v3-logo{width:170px;max-height:62px;object-fit:contain;object-position:left center}.mr-cover-v3-meta{text-align:right;font-size:9px;line-height:1.8;letter-spacing:.18em;color:#73736f}@media(max-width:800px){.mr-cover-final{min-height:760px!important;padding:38px 30px!important}.mr-cover-v3-title{font-size:52px!important}.mr-cover-v3-copy{font-size:15px}}`;
     document.head.appendChild(st);
   }
 
-  function replaceClientAndPeriod(book){
-    if(!data)return;
-    ensureCoverStyle();
-    const client=String(data?.client?.name||'Cliente');
-    const month=monthLabel();
-    const monthUpper=month.toUpperCase();
-
-    let cover=[...book.querySelectorAll(':scope > .mr-page')].find(p=>p.classList.contains('mr-cover-final')||(!p.querySelector('.mr-network')&&!p.classList.contains('mr-divider')&&!p.classList.contains('mr-closing')&&/Relatório de redes sociais/i.test(p.textContent||'')));
-    if(!cover){cover=document.createElement('section');cover.className='mr-page mr-cover-final';book.insertBefore(cover,book.firstElementChild);}
-    cover.classList.add('mr-cover-final');
-    if(cover.dataset.coverV2!==`${client}|${month}`){
-      cover.dataset.coverV2=`${client}|${month}`;
-      cover.innerHTML=`<div class="mr-cover-v2-top"><span>RELATÓRIO DE REDES SOCIAIS</span><span>${monthUpper}</span></div><div class="mr-cover-v2-main"><div class="mr-cover-v2-eyebrow">FACEBOOK · INSTAGRAM</div><h1 class="mr-cover-v2-client">${client}</h1><div class="mr-cover-v2-line"></div><p class="mr-cover-v2-sub">Resultados, conteúdos e desempenho digital do mês.</p></div><div class="mr-cover-v2-bottom"><img class="mr-cover-v2-logo" src="/logo-branco.png" alt="DUIT"><div class="mr-cover-v2-bottom-copy">DESIGN · REDES SOCIAIS<br>DESIGN? WE DUIT.</div></div>`;
-    }
-
-    book.querySelectorAll('.mr-brand').forEach(el=>{const t=(el.textContent||'').trim();if(t==='Seven Fitness Club')el.textContent=client;if(/^Agosto 2026$/i.test(t)&&month)el.textContent=month;});
-    book.querySelectorAll('.mr-divider-top span:last-child,.mr-closing-top span:last-child').forEach(el=>{if(monthUpper)el.textContent=monthUpper;});
+  function replaceHardcodedClient(book,client,month){
+    const walker=document.createTreeWalker(book,NodeFilter.SHOW_TEXT);
+    const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+    nodes.forEach(node=>{
+      let t=node.nodeValue||'';
+      if(client&&client!=='Seven Fitness Club')t=t.replace(/Seven Fitness Club/g,client);
+      if(month&&month.toLowerCase()!=='agosto 2026')t=t.replace(/Agosto 2026/gi,month);
+      if(t!==node.nodeValue)node.nodeValue=t;
+    });
   }
 
-  function fixReelRows(book){
+  function buildCover(book){
     if(!data)return;
-    const media=(data.instagram?.media||[]).map(p=>({type:String(p.media_product_type||p.media_type||'').toUpperCase(),views:Number(p.metrics?.views||p.metrics?.plays||0),reach:Number(p.metrics?.reach||0),caption:p.caption||''})).sort((a,b)=>(b.views||b.reach)-(a.views||a.reach)).slice(0,5);
+    ensureStyle();
+    const client=clientName(),month=monthLabel(),monthUpper=month.toUpperCase();
+    let cover=[...book.querySelectorAll(':scope > .mr-page')].find(p=>p.classList.contains('mr-cover-final')||(!p.querySelector('.mr-network')&&!p.classList.contains('mr-divider')&&!p.classList.contains('mr-closing')&&/Relatório de redes sociais/i.test(p.textContent||'')));
+    if(!cover){cover=document.createElement('section');book.insertBefore(cover,book.firstElementChild);}
+    cover.className='mr-page mr-cover-final';
+    const key=`${client}|${month}`;
+    if(cover.dataset.coverV3!==key){
+      cover.dataset.coverV3=key;
+      cover.innerHTML=`<div class="mr-cover-v3-top"><span>RELATÓRIO DE REDES SOCIAIS</span><span>DUIT · SOCIAL MEDIA</span></div><div class="mr-cover-v3-rule"></div><div class="mr-cover-v3-main"><div class="mr-cover-v3-kicker">FACEBOOK + INSTAGRAM</div><h1 class="mr-cover-v3-title">${esc(client)}</h1><div class="mr-cover-v3-month">${esc(monthUpper)}</div><p class="mr-cover-v3-copy">Análise mensal de desempenho, interação e conteúdos com maior destaque nas redes sociais.</p></div><div class="mr-cover-v3-bottom"><img class="mr-cover-v3-logo" src="/logo-branco.png" alt="DUIT"><div class="mr-cover-v3-meta">RESULTADOS · ANÁLISE · CONTEÚDOS<br>DESIGN? WE DUIT.</div></div>`;
+    }
+    replaceHardcodedClient(book,client,month);
+    book.querySelectorAll('.mr-divider-top span:last-child,.mr-closing-top span:last-child').forEach(el=>{if(monthUpper&&el.textContent!==monthUpper)el.textContent=monthUpper;});
+  }
+
+  function fixReels(book){
+    if(!data)return;
+    const media=(data.instagram?.media||[]).map(p=>({type:String(p.media_product_type||p.media_type||'').toUpperCase(),views:Number(p.metrics?.views||p.metrics?.plays||0),reach:Number(p.metrics?.reach||0)})).sort((a,b)=>(b.views||b.reach)-(a.views||a.reach)).slice(0,5);
     const page=[...book.querySelectorAll('.mr-page')].find(p=>p.querySelector('.mr-network')?.textContent.includes('Instagram')&&p.querySelector('h2')?.textContent.trim()==='Visualizações');
     if(!page)return;
     page.querySelectorAll('.mr-top-row').forEach((row,i)=>{
       const item=media[i];if(!item)return;
       const isReel=item.type.includes('REEL');
-      const network=row.querySelector('.mr-top-copy span');if(network)network.textContent=isReel?'REEL':'INSTAGRAM';
-      const num=row.querySelector('.mr-top-number');if(num){const value=item.views||item.reach;num.innerHTML=`${n(value)}<small>visualizações</small>`;}
+      const label=row.querySelector('.mr-top-copy span');if(label)label.textContent=isReel?'REEL':'INSTAGRAM';
+      const value=item.views||item.reach;
+      const num=row.querySelector('.mr-top-number');if(num)num.innerHTML=`${n(value)}<small>${isReel?'visualizações do Reel':'visualizações'}</small>`;
     });
   }
 
-  function apply(){document.querySelectorAll('.mr-book').forEach(book=>{replaceClientAndPeriod(book);fixReelRows(book);});}
-  let queued=false;
-  const obs=new MutationObserver(()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;apply();},100);});
-  obs.observe(document.body,{childList:true,subtree:true});
-  apply();
+  function apply(){document.querySelectorAll('.mr-book').forEach(book=>{buildCover(book);fixReels(book);});}
+  let queued=false;const obs=new MutationObserver(()=>{if(queued)return;queued=true;setTimeout(()=>{queued=false;apply();},100);});obs.observe(document.body,{childList:true,subtree:true});apply();
 })();
