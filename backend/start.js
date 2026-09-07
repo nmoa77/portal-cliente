@@ -46,8 +46,8 @@ try {
   if(!s.includes(metaPolishMarker)) s += `\n;(() => { if (document.querySelector('script[data-duit-meta-polish]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-polish.js?v=20260907b'; sc.dataset.duitMetaPolish='1'; document.body.appendChild(sc); })();\n`;
   else s=s.replace(/meta-reports-polish\.js\?v=[^'\"]+/g,'meta-reports-polish.js?v=20260907b');
   const metaFixMarker='meta-reports-fix.js';
-  if(!s.includes(metaFixMarker)) s += `\n;(() => { if (document.querySelector('script[data-duit-meta-fix]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-fix.js?v=20260907a'; sc.dataset.duitMetaFix='1'; document.body.appendChild(sc); })();\n`;
-  else s=s.replace(/meta-reports-fix\.js\?v=[^'\"]+/g,'meta-reports-fix.js?v=20260907a');
+  if(!s.includes(metaFixMarker)) s += `\n;(() => { if (document.querySelector('script[data-duit-meta-fix]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-fix.js?v=20260907d'; sc.dataset.duitMetaFix='1'; document.body.appendChild(sc); })();\n`;
+  else s=s.replace(/meta-reports-fix\.js\?v=[^'\"]+/g,'meta-reports-fix.js?v=20260907d');
   fs.writeFileSync(adminJs,s,'utf8');
 } catch(e){console.warn('[meta] não foi possível ligar UI de relatórios:',e.message);}
 
