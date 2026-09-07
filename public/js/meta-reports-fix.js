@@ -27,20 +27,38 @@
   function fixBranding(book){
     book.querySelectorAll('.mr-network').forEach(net=>{
       if(net.textContent.toLowerCase().includes('instagram')){
-        let b=net.querySelector('b'); if(!b){b=document.createElement('b');net.prepend(b);} b.innerHTML=igSmall;
+        let b=net.querySelector('b'); if(!b){b=document.createElement('b');net.prepend(b);} if(!b.querySelector('svg')) b.innerHTML=igSmall;
       }
     });
     book.querySelectorAll('.mr-divider').forEach(page=>{
       const title=page.querySelector('h2')?.textContent.trim();
       const icon=page.querySelector('.mr-divider-icon');
-      if(title==='Instagram' && icon) icon.innerHTML=igBig;
-      if(title==='Facebook' && icon) icon.innerHTML='<span class="mr-fb-icon" aria-hidden="true">f</span>';
+      if(title==='Instagram' && icon && !icon.querySelector('svg')) icon.innerHTML=igBig;
+      if(title==='Facebook' && icon && !icon.querySelector('.mr-fb-icon')) icon.innerHTML='<span class="mr-fb-icon" aria-hidden="true">f</span>';
       const foot=page.querySelector('.mr-divider-foot');
       if(foot && !foot.querySelector('.mr-duit-logo-divider')){const strong=foot.querySelector('strong');if(strong)strong.outerHTML=logo('mr-duit-logo mr-duit-logo-divider');}
     });
     book.querySelectorAll('.mr-closing').forEach(page=>{
       const old=page.querySelector('.mr-closing-logo');
       if(old && !old.querySelector('.mr-duit-logo-closing')) old.innerHTML=logo('mr-duit-logo mr-duit-logo-closing');
+    });
+  }
+
+  function fixInstagramComposition(book){
+    const page=[...book.querySelectorAll('.mr-page')].find(p=>p.querySelector('.mr-network')?.textContent.includes('Instagram')&&p.querySelector('h2')?.textContent.trim()==='Interação');
+    if(!page) return;
+    const kpis={};
+    page.querySelectorAll('.mr-kpi').forEach(k=>{const label=k.querySelector('span')?.textContent.trim().toLowerCase();const value=Number((k.querySelector('strong')?.textContent||'0').replace(/\./g,'').replace(',','.'))||0;if(label)kpis[label]=value;});
+    const vals=[kpis['gostos']||0,kpis['comentários']||0,kpis['partilhas']||0,kpis['guardados']||0];
+    const max=Math.max(1,...vals);
+    page.querySelectorAll('.mr-activity-row').forEach((row,idx)=>{
+      const value=vals[idx]??0;
+      const strong=row.querySelector('.mr-activity-head strong');
+      const next=Number(value).toLocaleString('pt-PT');
+      if(strong&&strong.textContent!==next) strong.textContent=next;
+      const fill=row.querySelector('.mr-activity-fill');
+      const width=value?`${Math.max(4,(value/max)*100)}%`:'0%';
+      if(fill&&fill.style.width!==width) fill.style.width=width;
     });
   }
 
@@ -60,10 +78,7 @@
     document.head.appendChild(s);
   }
 
-  function apply(){
-    ensureStyle();
-    document.querySelectorAll('.mr-book').forEach(book=>{fixBranding(book);fixOldConclusion(book);});
-  }
+  function apply(){ensureStyle();document.querySelectorAll('.mr-book').forEach(book=>{fixBranding(book);fixInstagramComposition(book);fixOldConclusion(book);});}
   let scheduled=false;
   const obs=new MutationObserver(()=>{if(scheduled)return;scheduled=true;setTimeout(()=>{scheduled=false;apply();},60);});
   obs.observe(document.body,{childList:true,subtree:true});
