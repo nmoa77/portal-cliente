@@ -53,6 +53,17 @@
 
   const instagramSvg=`<svg viewBox="0 0 24 24" width="21" height="21" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.4" cy="6.7" r="1" fill="currentColor" stroke="none"/></svg>`;
 
+  function lineChart(points,label){
+    const clean=(points||[]).filter(p=>Number.isFinite(Number(p.value))).sort((a,b)=>new Date(a.date)-new Date(b.date));
+    if(!clean.length) return '<div class="mr-chart-empty">Sem dados suficientes para este gráfico.</div>';
+    const w=760,h=210,padL=42,padR=18,padT=20,padB=36,max=Math.max(1,...clean.map(p=>Number(p.value||0)));
+    const usableW=w-padL-padR,usableH=h-padT-padB,step=clean.length>1?usableW/(clean.length-1):0;
+    const pts=clean.map((p,i)=>({x:padL+i*step,y:padT+usableH-(Number(p.value||0)/max)*usableH,...p}));
+    const grid=[0,.25,.5,.75,1].map(q=>{const y=padT+usableH-(q*usableH);return `<line x1="${padL}" y1="${y}" x2="${w-padR}" y2="${y}" stroke="#ecece8" stroke-width="1"/><text x="${padL-8}" y="${y+4}" text-anchor="end" font-size="10" fill="#999">${n(Math.round(max*q))}</text>`;}).join('');
+    const poly=pts.map(p=>`${p.x},${p.y}`).join(' ');
+    return `<div class="mr-chart-box"><svg viewBox="0 0 ${w} ${h}" class="mr-line-svg" role="img" aria-label="${label}">${grid}<polyline points="${poly}" fill="none" stroke="#111" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4.5" fill="#fff" stroke="#111" stroke-width="2"><title>${p.label}: ${n(p.value)}</title></circle><text x="${p.x}" y="${h-12}" text-anchor="middle" font-size="10" fill="#999">${p.label}</text>`).join('')}</svg></div>`;
+  }
+
   function recommendationHtml(d){
     const i=d?.instagram?.totals||{}, f=d?.facebook?.totals||{};
     const media=(d?.instagram?.media||[]).map(p=>({caption:p.caption||'',views:Number(p.metrics?.views||0),reach:Number(p.metrics?.reach||0),inter:Number(p.metrics?.total_interactions||0)})).sort((a,b)=>(b.views||b.reach)-(a.views||a.reach));
@@ -68,6 +79,32 @@
     const fbInt=Number(f.reactions||0)+Number(f.comments||0)+Number(f.shares||0);
     if(Number(f.posts||0)>0 && fbInt/Number(f.posts||1)<2) rec.push(['Reforçar o Facebook','O Facebook apresentou pouca interação por publicação. Adaptar os conteúdos ao comportamento da rede, com textos mais diretos e perguntas no início, pode ajudar a recuperar participação.']);
     return rec.slice(0,5).map((r,idx)=>`<div class="mr-rec"><div class="mr-rec-n">0${idx+1}</div><div><h3>${r[0]}</h3><p>${r[1]}</p></div></div>`).join('');
+  }
+
+  function addCharts(pages,d){
+    const igMedia=d?.instagram?.media||[];
+    const fbPosts=d?.facebook?.posts||[];
+    const igViews=igMedia.map(p=>({date:p.timestamp,label:p.timestamp?new Date(p.timestamp).toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit'}):'',value:Number(p.metrics?.views||p.metrics?.reach||0)}));
+    const igInter=igMedia.map(p=>({date:p.timestamp,label:p.timestamp?new Date(p.timestamp).toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit'}):'',value:Number(p.metrics?.total_interactions||0)}));
+    const fbInter=fbPosts.map(p=>({date:p.created_time,label:p.created_time?new Date(p.created_time).toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit'}):'',value:Number(p.reactions_count||0)+Number(p.comments_count||0)+Number(p.shares_count||0)}));
+
+    const igViewsPage=pages.find(p=>p.querySelector('.mr-network')?.textContent.includes('Instagram') && p.querySelector('h2')?.textContent.trim()==='Visualizações');
+    if(igViewsPage && !igViewsPage.querySelector('.mr-real-chart')){
+      const section=igViewsPage.querySelector('.mr-section');
+      if(section){const chart=document.createElement('div');chart.className='mr-section mr-real-chart';chart.innerHTML=`<h3>Visualizações por conteúdo publicado</h3>${lineChart(igViews,'Visualizações por conteúdo')}<p class="mr-note">Cada ponto corresponde a um conteúdo publicado no mês. Não representa visualizações diárias da conta.</p>`;section.parentNode.insertBefore(chart,section);}
+    }
+
+    const igInteraction=pages.find(p=>p.querySelector('.mr-network')?.textContent.includes('Instagram') && p.querySelector('h2')?.textContent.trim()==='Interação');
+    if(igInteraction && !igInteraction.querySelector('.mr-real-chart')){
+      const section=igInteraction.querySelector('.mr-section');
+      if(section){const chart=document.createElement('div');chart.className='mr-section mr-real-chart';chart.innerHTML=`<h3>Interações por conteúdo publicado</h3>${lineChart(igInter,'Interações por conteúdo')}<p class="mr-note">Evolução do desempenho entre os conteúdos publicados ao longo do mês.</p>`;section.insertAdjacentElement('afterend',chart);}
+    }
+
+    const fbInteraction=pages.find(p=>p.querySelector('.mr-network')?.textContent.includes('Facebook') && p.querySelector('h2')?.textContent.trim()==='Interação');
+    if(fbInteraction && !fbInteraction.querySelector('.mr-real-chart')){
+      const section=fbInteraction.querySelector('.mr-section');
+      if(section){const chart=document.createElement('div');chart.className='mr-section mr-real-chart';chart.innerHTML=`<h3>Interações por conteúdo publicado</h3>${lineChart(fbInter,'Interações Facebook por conteúdo')}<p class="mr-note">Reações, comentários e partilhas agrupados por publicação.</p>`;section.parentNode.insertBefore(chart,section);}
+    }
   }
 
   function polishBook(book){
@@ -92,6 +129,8 @@
       }
     }
 
+    if(lastData) addCharts(pages,lastData);
+
     const conclusion=pages.find(p=>[...p.querySelectorAll('.mr-brand')].some(x=>x.textContent.trim()==='Conclusão'));
     if(conclusion && lastData){
       const h2=conclusion.querySelector('h2'); if(h2) h2.textContent='O que melhorar no próximo mês';
@@ -102,7 +141,7 @@
     }
 
     if(!document.getElementById('mr-polish-style')){
-      const st=document.createElement('style'); st.id='mr-polish-style'; st.textContent=`.mr-network b svg{display:block}.mr-activity-list{display:grid;gap:18px;margin-top:18px}.mr-activity-head{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:7px;font-size:14px}.mr-activity-head strong{font-size:20px}.mr-activity-track{height:10px;background:#efefec;border-radius:999px;overflow:hidden}.mr-activity-fill{height:100%;background:#111;border-radius:999px}.mr-recommendations{display:grid;gap:0;margin-top:8px}.mr-rec{display:grid;grid-template-columns:54px 1fr;gap:18px;padding:22px 0;border-bottom:1px solid #e7e7e2}.mr-rec-n{font-size:22px;color:#aaa}.mr-rec h3{font-size:22px!important;margin:0 0 8px!important}.mr-rec p{font-size:16px;line-height:1.55;color:#575752;margin:0;max-width:820px}`; document.head.appendChild(st);
+      const st=document.createElement('style'); st.id='mr-polish-style'; st.textContent=`.mr-network b svg{display:block}.mr-activity-list{display:grid;gap:18px;margin-top:18px}.mr-activity-head{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:7px;font-size:14px}.mr-activity-head strong{font-size:20px}.mr-activity-track{height:10px;background:#efefec;border-radius:999px;overflow:hidden}.mr-activity-fill{height:100%;background:#111;border-radius:999px}.mr-recommendations{display:grid;gap:0;margin-top:8px}.mr-rec{display:grid;grid-template-columns:54px 1fr;gap:18px;padding:22px 0;border-bottom:1px solid #e7e7e2}.mr-rec-n{font-size:22px;color:#aaa}.mr-rec h3{font-size:22px!important;margin:0 0 8px!important}.mr-rec p{font-size:16px;line-height:1.55;color:#575752;margin:0;max-width:820px}.mr-chart-box{width:100%;overflow:hidden;margin-top:10px}.mr-line-svg{width:100%;height:auto;display:block}.mr-chart-empty{padding:30px;background:#fafaf8;color:#999;font-size:13px;border-radius:8px}`; document.head.appendChild(st);
     }
     finishProgress();
   }
