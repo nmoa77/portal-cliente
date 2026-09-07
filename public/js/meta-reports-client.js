@@ -18,5 +18,5 @@
   if(typeof oldGo==='function'){
     window.go=async function(view){if(view!=='reports')return oldGo(view);state.view='reports';if(typeof setActive==='function')setActive();const main=document.getElementById('main');main.innerHTML='<div class="empty">A carregar…</div>';try{await viewReports(main);}catch(e){main.innerHTML=`<div class="empty">Erro: ${escapeHtml(e.message)}</div>`;}if(typeof refreshSummary==='function')await refreshSummary();window.renderShell();};
   }
-  setTimeout(()=>window.renderShell?.(),0);
+  setTimeout(()=>{if(window.state?.view==='reports')window.go?.('reports');else window.renderShell?.();},0);
 })();
