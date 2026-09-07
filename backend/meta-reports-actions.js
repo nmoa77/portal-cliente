@@ -8,15 +8,65 @@ module.exports = function installMetaReports(app) {
     CREATE TABLE IF NOT EXISTS meta_monthly_reports (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,ref_year INTEGER NOT NULL,ref_month INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','collecting','ready','sent','error')),totals_json TEXT,posts_json TEXT,summary_text TEXT,pdf_path TEXT,generated_at TEXT,sent_at TEXT,error_message TEXT,created_at TEXT DEFAULT (datetime('now')),updated_at TEXT DEFAULT (datetime('now')),UNIQUE(user_id,ref_year,ref_month),FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE);
     CREATE INDEX IF NOT EXISTS idx_meta_reports_user_month ON meta_monthly_reports(user_id,ref_year,ref_month);
   `);
-  const graphVersion=()=>process.env.META_GRAPH_VERSION||''; const graphBase=()=>`https://graph.facebook.com/${graphVersion()}`;
-  function centralToken(){if(process.env.META_ACCESS_TOKEN)return process.env.META_ACCESS_TOKEN;const r=db.prepare(`SELECT access_token FROM meta_business_connection WHERE id=1 AND is_active=1`).get();return r?.access_token||'';}
-  async function metaGet(pathname,params={},tokenOverride=''){const token=tokenOverride||centralToken();if(!token)throw new Error('A ligação central à Meta ainda não tem access token.');if(!graphVersion())throw new Error('META_GRAPH_VERSION não está configurada.');const url=new URL(`${graphBase()}/${String(pathname).replace(/^\//,'')}`);Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=='')url.searchParams.set(k,String(v));});url.searchParams.set('access_token',token);const response=await fetch(url,{headers:{Accept:'application/json'}});const data=await response.json().catch(()=>({}));if(!response.ok||data.error){const err=new Error(data?.error?.message||`Erro Meta HTTP ${response.status}`);err.meta=data?.error||null;throw err;}return data;}
+
+  const graphVersion=()=>process.env.META_GRAPH_VERSION||'';
+  const graphBase=()=>`https://graph.facebook.com/${graphVersion()}`;
+
+  function tokenConfig(){
+    if(process.env.META_SYSTEM_USER_TOKEN) return { token: process.env.META_SYSTEM_USER_TOKEN, source:'system_user' };
+    if(process.env.META_ACCESS_TOKEN) return { token: process.env.META_ACCESS_TOKEN, source:'legacy_env' };
+    const r=db.prepare(`SELECT access_token FROM meta_business_connection WHERE id=1 AND is_active=1`).get();
+    return { token:r?.access_token||'', source:r?.access_token?'database':'none' };
+  }
+  function centralToken(){ return tokenConfig().token; }
+
+  async function metaGet(pathname,params={},tokenOverride=''){
+    const token=tokenOverride||centralToken();
+    if(!token)throw new Error('A ligação central à Meta ainda não tem access token.');
+    if(!graphVersion())throw new Error('META_GRAPH_VERSION não está configurada.');
+    const url=new URL(`${graphBase()}/${String(pathname).replace(/^\//,'')}`);
+    Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=='')url.searchParams.set(k,String(v));});
+    url.searchParams.set('access_token',token);
+    const response=await fetch(url,{headers:{Accept:'application/json'}});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data.error){const err=new Error(data?.error?.message||`Erro Meta HTTP ${response.status}`);err.meta=data?.error||null;throw err;}
+    return data;
+  }
+
+  async function tokenHealth(){
+    const {token,source}=tokenConfig();
+    if(!token) return {ok:false,source,error:'Sem token configurado.'};
+    try{
+      const me=await metaGet('me',{fields:'id,name'},token);
+      return {ok:true,source,meta_user_id:me.id||null,meta_user_name:me.name||null};
+    }catch(e){
+      return {ok:false,source,error:e.message,meta:e.meta||null};
+    }
+  }
+
   async function getPageCredential(pageId){const data=await metaGet('me/accounts',{fields:'id,name,access_token,instagram_business_account{id,username},connected_instagram_account{id,username}',limit:200});const page=(data.data||[]).find(p=>String(p.id)===String(pageId));if(!page)throw new Error('A Página não foi devolvida por /me/accounts para esta credencial.');if(!page.access_token)throw new Error('A Meta não devolveu Page Access Token para esta Página.');const ig=page.instagram_business_account||page.connected_instagram_account||null;return{pageToken:page.access_token,pageName:page.name||null,instagram_account_id:ig?.id||null,instagram_username:ig?.username||null};}
   function clientAssetRow(userId){return db.prepare(`SELECT a.*,u.name client_name,u.company client_company,u.email client_email FROM meta_client_assets a JOIN users u ON u.id=a.user_id WHERE a.user_id=?`).get(userId);}
   function period(year,month){const y=Number(year),m=Number(month);if(y<2020||y>2100||m<1||m>12)throw new Error('Período inválido.');return{since:Math.floor(Date.UTC(y,m-1,1)/1000),until:Math.floor(Date.UTC(m===12?y+1:y,m===12?0:m,1)/1000)};}
   const insightValue=item=>{const v=item?.values?.[0]?.value??item?.value;return typeof v==='number'?v:(v&&typeof v==='object'?v:(Number(v)||0));};
   async function supportedInsights(objectId,metrics,token,extra={}){const out={},unsupported=[];for(const metric of metrics){try{const d=await metaGet(`${objectId}/insights`,{metric,...extra},token);const row=(d.data||[])[0];if(row)out[metric]=insightValue(row);}catch(e){unsupported.push({metric,error:e.message});}}return{values:out,unsupported};}
-  app.get('/api/meta/status',requireAdmin,(req,res)=>res.json({configured:!!(process.env.META_APP_ID&&process.env.META_APP_SECRET&&graphVersion()),token_present:!!centralToken(),app_id_present:!!process.env.META_APP_ID,app_secret_present:!!process.env.META_APP_SECRET,graph_version:graphVersion()||null,redirect_uri:process.env.META_REDIRECT_URI||null}));
+
+  app.get('/api/meta/status',requireAdmin,async(req,res)=>{
+    const cfg=tokenConfig();
+    const health=await tokenHealth();
+    res.json({
+      configured:!!(process.env.META_APP_ID&&process.env.META_APP_SECRET&&graphVersion()&&cfg.token),
+      token_present:!!cfg.token,
+      token_source:cfg.source,
+      token_ok:!!health.ok,
+      token_error:health.ok?null:health.error,
+      meta_user_id:health.meta_user_id||null,
+      meta_user_name:health.meta_user_name||null,
+      app_id_present:!!process.env.META_APP_ID,
+      app_secret_present:!!process.env.META_APP_SECRET,
+      graph_version:graphVersion()||null,
+      redirect_uri:process.env.META_REDIRECT_URI||null
+    });
+  });
   app.get('/api/meta/me',requireAdmin,async(req,res)=>{try{res.json(await metaGet('me',{fields:'id,name'}));}catch(e){res.status(502).json({error:e.message,meta:e.meta||null});}});
   app.get('/api/meta/assets',requireAdmin,async(req,res)=>{try{const data=await metaGet('me/accounts',{fields:'id,name,instagram_business_account{id,username},connected_instagram_account{id,username}',limit:200});res.json((data.data||[]).map(page=>{const ig=page.instagram_business_account||page.connected_instagram_account||null;return{page_id:page.id,page_name:page.name,instagram_account_id:ig?.id||null,instagram_username:ig?.username||null,instagram_source:page.instagram_business_account?'instagram_business_account':(page.connected_instagram_account?'connected_instagram_account':null)};}));}catch(e){res.status(502).json({error:e.message,meta:e.meta||null});}});
   app.get('/api/meta/instagram-test/:instagramId',requireAdmin,async(req,res)=>{try{const id=String(req.params.instagramId||'').trim();if(!/^\d+$/.test(id))return res.status(400).json({error:'Instagram ID inválido.'});const d=await metaGet(id,{fields:'id,username,name'});res.json({ok:true,id:d.id||id,username:d.username||null,name:d.name||null});}catch(e){res.status(502).json({ok:false,error:e.message,meta:e.meta||null});}});
