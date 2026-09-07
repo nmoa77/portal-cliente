@@ -1,27 +1,23 @@
 # Imagem leve, node 20 LTS
 FROM node:20-slim
 
-# Dependências nativas para compilar better-sqlite3
+# Dependências nativas + Chromium para gerar os PDFs dos relatórios Meta
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3 make g++ ca-certificates \
+      python3 make g++ ca-certificates chromium \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Instala deps de produção primeiro (cache layer)
 COPY package*.json ./
 RUN npm install --omit=dev
 
-# Copia o resto do código
 COPY . .
 
-# O Railway (e outros) injetam a variável PORT
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV CHROMIUM_PATH=/usr/bin/chromium
 EXPOSE 3000
 
-# Para que a BD SQLite viva num volume persistente, monta-o em /data
-# e define DATABASE_PATH=/data/portal.db nas variáveis do serviço.
-
-# Arranca pela camada CRM e carrega automaticamente todos os seeds diários de prospects
+# Para persistir BD e relatórios no Railway, usar DATABASE_PATH=/data/portal.db
+# e manter o volume montado em /data. Os PDFs ficam em /data/meta-reports.
 CMD ["node", "backend/run.js"]
