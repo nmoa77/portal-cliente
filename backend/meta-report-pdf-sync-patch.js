@@ -16,6 +16,20 @@ try{
     "body{margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111;-webkit-font-smoothing:antialiased}h1,h2,h3,.title,.cover h1,.divider h2{font-family:'Clash Display','Space Grotesk',sans-serif;font-weight:600;letter-spacing:-.02em}"
   );
 
+  // O bloco de métricas deve ter o mesmo arranjo do preview: sem caixas desenhadas.
+  // Usa apenas separadores finos entre células, criados pelo gap do grid.
+  if(!s.includes('/* mr-preview-kpis */')){
+    s=s.replace('</style></head>',`/* mr-preview-kpis */
+      .hero{grid-template-columns:1.15fr .85fr;gap:9mm;align-items:end}
+      .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:#dededb;border:0!important}
+      .kpi{background:#fff;padding:7mm 6mm;border:0!important;box-shadow:none!important}
+      .kpi strong{font-size:31px;line-height:1.05}
+      .kpi span{font-size:10px;letter-spacing:.08em}
+      .section{border-top:1px solid #dededb}
+      .toprow{border-top:1px solid #ecece8}
+    </style></head>`);
+  }
+
   // Capa igual à versão aprovada no portal.
   const oldCover='<section class="page black cover"><div class="eyebrow">RELATÓRIO DE REDES SOCIAIS · ${month.toUpperCase()}</div><div class="main"><div class="eyebrow">FACEBOOK · INSTAGRAM</div><h1>${esc(client)}</h1><p class="summary muted">Análise mensal de desempenho, interação e conteúdos com maior destaque nas redes sociais.</p></div><div class="bottom">${logo?`<img class="logo" src="${logo}">`:\'\'}<div class="eyebrow">RESULTADOS · ANÁLISE · CONTEÚDOS</div></div></section>';
   const newCover='<section class="page black cover"><div style="display:flex;justify-content:space-between" class="eyebrow"><span>RELATÓRIO DE REDES SOCIAIS</span><span>${month.toUpperCase()}</span></div><div class="main">${logo?`<img class="logo" src="${logo}" style="margin-bottom:16mm">`:\'\'}<div class="eyebrow">FACEBOOK + INSTAGRAM</div><h1>Resultados<br>do mês.</h1><p class="summary">${esc(client)}</p></div><div class="bottom"><span>${esc(client)}</span><div class="eyebrow">DESIGN · REDES SOCIAIS</div></div></section>';
