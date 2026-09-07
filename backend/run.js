@@ -1,7 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
-// Arranca a aplicação existente primeiro.
+// Liga primeiro o fluxo completo de relatórios Meta (backend + admin + cliente).
+require('./meta-report-start-patch');
+
+// Arranca a aplicação existente.
 require('./start');
 
 // Importa automaticamente todas as rondas diárias de prospects.
