@@ -32,7 +32,18 @@ try {
 } catch(e){console.warn('[crm] não foi possível ligar ações de Prospects:',e.message);}
 
 try { const adminHtml=path.join(__dirname,'..','public','admin.html'); let s=fs.readFileSync(adminHtml,'utf8'); s=s.replace('<div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>','<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>'); fs.writeFileSync(adminHtml,s,'utf8'); } catch(e){}
-try { const adminJs=path.join(__dirname,'..','public','js','admin.js'); let s=fs.readFileSync(adminJs,'utf8'); s=s.replace("const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';","const queryView=new URLSearchParams(window.location.search).get('view'); const hashView=decodeURIComponent((window.location.hash||'').replace(/^#/,'')); const initial=hashView||queryView||'home';"); if(!s.includes("window.location.pathname + '#' + encodeURIComponent(view)")) s=s.replace("async function go(view) {\n  state.view = view;","async function go(view) {\n  state.view = view;\n  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}"); fs.writeFileSync(adminJs,s,'utf8'); } catch(e){}
+try {
+  const adminJs=path.join(__dirname,'..','public','js','admin.js');
+  let s=fs.readFileSync(adminJs,'utf8');
+  s=s.replace("const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';","const queryView=new URLSearchParams(window.location.search).get('view'); const hashView=decodeURIComponent((window.location.hash||'').replace(/^#/,'')); const initial=hashView||queryView||'home';");
+  if(!s.includes("window.location.pathname + '#' + encodeURIComponent(view)")) s=s.replace("async function go(view) {\n  state.view = view;","async function go(view) {\n  state.view = view;\n  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}");
+  if(!s.includes("id: 'metareports'")) s=s.replace("{ id: 'metaads',   icon: 'quote',   label: 'Meta Ads' },","{ id: 'metaads',   icon: 'quote',   label: 'Meta Ads' },\n    { id: 'metareports', icon: 'cal', label: 'Relatórios Meta' },");
+  if(!s.includes("view === 'metareports'")) s=s.replace("else if (view === 'metaads')  await viewMetaAds(main);","else if (view === 'metaads')  await viewMetaAds(main);\n    else if (view === 'metareports') await viewMetaReports(main);");
+  const metaUiMarker='meta-reports-admin.js';
+  if(!s.includes(metaUiMarker)) s += `\n;(() => { if (document.querySelector('script[data-duit-meta-reports]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-admin.js?v=20260907a'; sc.dataset.duitMetaReports='1'; document.body.appendChild(sc); })();\n`;
+  else s=s.replace(/meta-reports-admin\.js\?v=[^'\"]+/g,'meta-reports-admin.js?v=20260907a');
+  fs.writeFileSync(adminJs,s,'utf8');
+} catch(e){console.warn('[meta] não foi possível ligar UI de relatórios:',e.message);}
 
 require('./crm-server');
 require('./prospect-seed');
