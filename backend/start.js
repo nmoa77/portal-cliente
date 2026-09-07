@@ -40,8 +40,11 @@ try {
   if(!s.includes("id: 'metareports'")) s=s.replace("{ id: 'metaads',   icon: 'quote',   label: 'Meta Ads' },","{ id: 'metaads',   icon: 'quote',   label: 'Meta Ads' },\n    { id: 'metareports', icon: 'cal', label: 'Relatórios Meta' },");
   if(!s.includes("view === 'metareports'")) s=s.replace("else if (view === 'metaads')  await viewMetaAds(main);","else if (view === 'metaads')  await viewMetaAds(main);\n    else if (view === 'metareports') await viewMetaReports(main);");
   const metaUiMarker='meta-reports-admin.js';
-  if(!s.includes(metaUiMarker)) s += `\n;(() => { if (document.querySelector('script[data-duit-meta-reports]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-admin.js?v=20260907b'; sc.dataset.duitMetaReports='1'; document.body.appendChild(sc); })();\n`;
-  else s=s.replace(/meta-reports-admin\.js\?v=[^'\"]+/g,'meta-reports-admin.js?v=20260907b');
+  if(!s.includes(metaUiMarker)) s += `\n;(() => { if (document.querySelector('script[data-duit-meta-reports]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-admin.js?v=20260907c'; sc.dataset.duitMetaReports='1'; document.body.appendChild(sc); })();\n`;
+  else s=s.replace(/meta-reports-admin\.js\?v=[^'\"]+/g,'meta-reports-admin.js?v=20260907c');
+  const metaPolishMarker='meta-reports-polish.js';
+  if(!s.includes(metaPolishMarker)) s += `\n;(() => { if (document.querySelector('script[data-duit-meta-polish]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-polish.js?v=20260907a'; sc.dataset.duitMetaPolish='1'; document.body.appendChild(sc); })();\n`;
+  else s=s.replace(/meta-reports-polish\.js\?v=[^'\"]+/g,'meta-reports-polish.js?v=20260907a');
   fs.writeFileSync(adminJs,s,'utf8');
 } catch(e){console.warn('[meta] não foi possível ligar UI de relatórios:',e.message);}
 
