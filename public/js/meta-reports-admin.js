@@ -51,7 +51,7 @@
       </div>
       <div class="card" style="margin-bottom:24px"><div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap"><div><h3 style="margin-bottom:6px">Ligação à Meta</h3><p class="lede" style="margin:0">O token nunca é mostrado no portal. O teste valida a credencial diretamente na Graph API.</p></div><div id="meta-identity">${identityHtml}</div></div></div>
       <div class="section-head"><h2>Contas disponíveis</h2><span class="pill accent">${metaAssets.length}</span></div>
-      <div class="card" id="meta-assets-card" style="margin-bottom:24px">${metaStatus.token_present ? (metaAssets.length ? `<div style="display:grid;gap:10px">${metaAssets.map(a=>`<div style="padding:12px 0;border-bottom:1px solid var(--line-2)"><div style="font-weight:600">${esc(a.page_name||a.page_id)}</div><div style="font-size:12px;color:var(--muted);margin-top:3px">Facebook ID ${esc(a.page_id)}${a.instagram_username?` · Instagram @${esc(a.instagram_username)}`:' · sem conta Instagram profissional associada'}</div></div>`).join('')}</div>` : `<div class="empty">Nenhuma Página devolvida pela Meta. Carregue em <b>Testar ligação</b> para ver o erro real, caso exista.</div>`) : `<div class="empty">Falta configurar o META_ACCESS_TOKEN no Railway.</div>`}</div>
+      <div class="card" id="meta-assets-card" style="margin-bottom:24px">${metaStatus.token_present ? (metaAssets.length ? `<div style="display:grid;gap:10px">${metaAssets.map(a=>`<div style="padding:12px 0;border-bottom:1px solid var(--line-2)"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><div style="font-weight:600">${esc(a.page_name||a.page_id)}</div><div style="font-size:12px;color:var(--muted);margin-top:3px">Facebook ID ${esc(a.page_id)}${a.instagram_username?` · Instagram @${esc(a.instagram_username)}`:' · sem conta Instagram profissional associada'}</div></div>${String(a.page_name||'').toLowerCase().includes('seven fitness club') ? `<button class="btn btn-ghost btn-sm" data-instagram-test="17841408521668373">Testar Instagram</button>` : ''}</div><div data-instagram-result="${esc(a.page_id)}" style="font-size:12px;margin-top:8px"></div></div>`).join('')}</div>` : `<div class="empty">Nenhuma Página devolvida pela Meta. Carregue em <b>Testar ligação</b> para ver o erro real, caso exista.</div>`) : `<div class="empty">Falta configurar o META_ACCESS_TOKEN no Railway.</div>`}</div>
       <div class="section-head"><h2>Associar clientes</h2></div><div class="card">${metaAssets.length?`<div style="display:grid;grid-template-columns:minmax(180px,1fr) minmax(260px,2fr) auto;gap:12px;align-items:end;margin-bottom:18px"><div class="field" style="margin:0"><label>Cliente</label><select id="meta-client-select"><option value="">Escolha um cliente</option>${clients.map(c=>`<option value="${c.id}">${esc(clientLabel(c))}${connectedIds.has(Number(c.id))?' · já associado':''}</option>`).join('')}</select></div><div class="field" style="margin:0"><label>Página / Instagram</label><select id="meta-asset-select"><option value="">Escolha uma conta Meta</option>${metaAssets.map((a,i)=>`<option value="${i}">${esc(assetLabel(a))}</option>`).join('')}</select></div><button class="btn btn-yellow" id="meta-save-map">Associar</button></div>`:''}<div id="meta-connections-list">${metaConnections.length?metaConnections.map(c=>`<div style="display:flex;justify-content:space-between;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line-2)"><div><div style="font-weight:600">${esc(c.client_company||c.client_name)}</div><div style="font-size:12px;color:var(--muted);margin-top:3px">${esc(c.page_name||c.page_id)}${c.instagram_username?` · @${esc(c.instagram_username)}`:''}</div></div><button class="btn btn-ghost btn-sm" data-meta-remove="${c.user_id}">Remover</button></div>`).join(''):`<div class="empty">Ainda não há clientes associados a contas Meta.</div>`}</div></div>`;
 
     document.getElementById('meta-test-btn')?.addEventListener('click', async (e) => {
@@ -60,6 +60,24 @@
       catch(err){ metaTestedOk=false; notice(`Meta: ${err.message}`,'cancel'); const box=document.getElementById('meta-identity'); if(box) box.innerHTML=`<span style="color:#c03030">${esc(err.message)}</span>`; }
       finally { btn.disabled=false; btn.textContent=old; }
     });
+
+    main.querySelectorAll('[data-instagram-test]').forEach(btn => btn.addEventListener('click', async () => {
+      const id = btn.dataset.instagramTest;
+      const row = btn.closest('div[style*="padding:12px 0"]');
+      const result = row?.querySelector('[data-instagram-result]');
+      const old = btn.textContent;
+      btn.disabled = true; btn.textContent = 'A testar…';
+      if (result) result.textContent = '';
+      try {
+        const data = await api(`/api/meta/instagram-test/${id}`);
+        if (result) result.innerHTML = `<span class="pill ok">Instagram OK</span> <strong>@${esc(data.username || data.id)}</strong>`;
+        notice(`Instagram OK${data.username ? ` — @${data.username}` : ''}.`, 'check');
+      } catch (err) {
+        if (result) result.innerHTML = `<span style="color:#c03030"><strong>Erro Instagram:</strong> ${esc(err.message)}</span>`;
+        notice(`Instagram: ${err.message}`, 'cancel');
+      } finally { btn.disabled = false; btn.textContent = old; }
+    }));
+
     document.getElementById('meta-save-map')?.addEventListener('click', async()=>{ const userId=Number(document.getElementById('meta-client-select')?.value||0); const index=Number(document.getElementById('meta-asset-select')?.value); const asset=Number.isInteger(index)?metaAssets[index]:null; if(!userId||!asset)return notice('Escolha o cliente e a conta Meta.','cancel'); try{await api(`/api/meta/connections/${userId}`,{method:'PUT',body:asset});notice('Conta Meta associada ao cliente.','check');await window.viewMetaReports(main);}catch(err){notice(err.message,'cancel');} });
     main.querySelectorAll('[data-meta-remove]').forEach(btn=>btn.addEventListener('click',async()=>{const userId=Number(btn.dataset.metaRemove);if(!confirm('Remover esta associação Meta do cliente?'))return;try{await api(`/api/meta/connections/${userId}`,{method:'DELETE'});notice('Associação removida.','check');await window.viewMetaReports(main);}catch(err){notice(err.message,'cancel');}}));
   };
