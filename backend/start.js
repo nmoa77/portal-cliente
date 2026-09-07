@@ -48,6 +48,9 @@ try {
   const metaFixMarker='meta-reports-fix.js';
   if(!s.includes(metaFixMarker)) s += `\n;(() => { if (document.querySelector('script[data-duit-meta-fix]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-fix.js?v=20260907d'; sc.dataset.duitMetaFix='1'; document.body.appendChild(sc); })();\n`;
   else s=s.replace(/meta-reports-fix\.js\?v=[^'\"]+/g,'meta-reports-fix.js?v=20260907d');
+  const metaDynamicFixMarker='meta-reports-dynamic-fix.js';
+  if(!s.includes(metaDynamicFixMarker)) s += `\n;(() => { if (document.querySelector('script[data-duit-meta-dynamic-fix]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-dynamic-fix.js?v=20260907a'; sc.dataset.duitMetaDynamicFix='1'; document.body.appendChild(sc); })();\n`;
+  else s=s.replace(/meta-reports-dynamic-fix\.js\?v=[^'\"]+/g,'meta-reports-dynamic-fix.js?v=20260907a');
   fs.writeFileSync(adminJs,s,'utf8');
 } catch(e){console.warn('[meta] não foi possível ligar UI de relatórios:',e.message);}
 
