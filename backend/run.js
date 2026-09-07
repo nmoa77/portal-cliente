@@ -1,7 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
-// Liga primeiro o fluxo completo de relatórios Meta (backend + admin + cliente).
+// Primeiro sincroniza o template PDF com o relatório aprovado no portal.
+// Este patch tem de correr ANTES de o módulo de automação Meta ser carregado.
+require('./meta-report-pdf-sync-patch');
+
+// Liga depois o fluxo completo de relatórios Meta (backend + admin + cliente).
 require('./meta-report-start-patch');
 
 // Arranca a aplicação existente.
