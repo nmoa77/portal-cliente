@@ -14,3 +14,6 @@ for (const file of fs.readdirSync(__dirname).filter(name => datedSeed.test(name)
     console.warn(`[crm] não foi possível importar ${file}:`, e.message);
   }
 }
+
+// Garante que propostas criadas pelo gerador antigo usam o texto comercial DUIT atual.
+require('./prospect-email-template');
