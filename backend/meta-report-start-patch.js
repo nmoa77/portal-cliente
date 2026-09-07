@@ -1,6 +1,9 @@
 const fs=require('fs');
 const path=require('path');
 
+// Sincroniza primeiro o template PDF com o relatório apresentado no portal.
+try{require('./meta-report-pdf-sync-patch');}catch(e){console.warn('[meta-report] pdf sync:',e.message);}
+
 try{
   const crm=path.join(__dirname,'crm-server.js');
   let s=fs.readFileSync(crm,'utf8');
