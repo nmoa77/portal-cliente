@@ -14,8 +14,8 @@ try{
   const admin=path.join(__dirname,'..','public','js','admin.js');
   let s=fs.readFileSync(admin,'utf8');
   const marker='meta-reports-workflow.js';
-  if(!s.includes(marker))s+=`\n;(() => { if (document.querySelector('script[data-duit-meta-workflow]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-workflow.js?v=20260907a'; sc.dataset.duitMetaWorkflow='1'; document.body.appendChild(sc); })();\n`;
-  else s=s.replace(/meta-reports-workflow\.js\?v=[^'\"]+/g,'meta-reports-workflow.js?v=20260907a');
+  if(!s.includes(marker))s+=`\n;(() => { if (document.querySelector('script[data-duit-meta-workflow]')) return; const sc=document.createElement('script'); sc.src='/js/meta-reports-workflow.js?v=20260907b'; sc.dataset.duitMetaWorkflow='1'; document.body.appendChild(sc); })();\n`;
+  else s=s.replace(/meta-reports-workflow\.js\?v=[^'\"]+/g,'meta-reports-workflow.js?v=20260907b');
   fs.writeFileSync(admin,s,'utf8');
 }catch(e){console.warn('[meta-report] bootstrap admin:',e.message);}
 
