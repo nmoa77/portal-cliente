@@ -1,23 +1,13 @@
 const fs=require('fs');
 const path=require('path');
 
-// Mantém o PDF visualmente alinhado com o relatório apresentado no portal.
 try{
   const file=path.join(__dirname,'meta-report-automation.js');
   let s=fs.readFileSync(file,'utf8');
 
-  // Mesmas famílias tipográficas do portal/relatório.
-  s=s.replace(
-    '<meta charset="utf-8"><style>@page',
-    '<meta charset="utf-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"><link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet"><style>@page'
-  );
-  s=s.replace(
-    'body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111}',
-    "body{margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111;-webkit-font-smoothing:antialiased}h1,h2,h3,.title,.cover h1,.divider h2{font-family:'Clash Display','Space Grotesk',sans-serif;font-weight:600;letter-spacing:-.02em}"
-  );
+  s=s.replace('<meta charset="utf-8"><style>@page','<meta charset="utf-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet"><link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet"><style>@page');
+  s=s.replace('body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111}',"body{margin:0;font-family:'Space Grotesk',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111;-webkit-font-smoothing:antialiased}h1,h2,h3,.title,.cover h1,.divider h2{font-family:'Clash Display','Space Grotesk',sans-serif;font-weight:600;letter-spacing:-.02em}");
 
-  // O bloco de métricas deve ter o mesmo arranjo do preview: sem caixas desenhadas.
-  // Usa apenas separadores finos entre células, criados pelo gap do grid.
   if(!s.includes('/* mr-preview-kpis */')){
     s=s.replace('</style></head>',`/* mr-preview-kpis */
       .hero{grid-template-columns:1.15fr .85fr;gap:9mm;align-items:end}
@@ -27,15 +17,16 @@ try{
       .kpi span{font-size:10px;letter-spacing:.08em}
       .section{border-top:1px solid #dededb}
       .toprow{border-top:1px solid #ecece8}
+      .cover .client-name{font-family:'Clash Display','Space Grotesk',sans-serif;font-size:34px;line-height:1.05;font-weight:600;letter-spacing:-.02em;margin-top:9mm;color:#fff}
     </style></head>`);
   }
 
-  // Capa igual à versão aprovada no portal.
-  const oldCover='<section class="page black cover"><div class="eyebrow">RELATÓRIO DE REDES SOCIAIS · ${month.toUpperCase()}</div><div class="main"><div class="eyebrow">FACEBOOK · INSTAGRAM</div><h1>${esc(client)}</h1><p class="summary muted">Análise mensal de desempenho, interação e conteúdos com maior destaque nas redes sociais.</p></div><div class="bottom">${logo?`<img class="logo" src="${logo}">`:\'\'}<div class="eyebrow">RESULTADOS · ANÁLISE · CONTEÚDOS</div></div></section>';
-  const newCover='<section class="page black cover"><div style="display:flex;justify-content:space-between" class="eyebrow"><span>RELATÓRIO DE REDES SOCIAIS</span><span>${month.toUpperCase()}</span></div><div class="main">${logo?`<img class="logo" src="${logo}" style="margin-bottom:16mm">`:\'\'}<div class="eyebrow">FACEBOOK + INSTAGRAM</div><h1>Resultados<br>do mês.</h1><p class="summary">${esc(client)}</p></div><div class="bottom"><span>${esc(client)}</span><div class="eyebrow">DESIGN · REDES SOCIAIS</div></div></section>';
-  if(s.includes(oldCover))s=s.replace(oldCover,newCover);
+  const originalCover='<section class="page black cover"><div class="eyebrow">RELATÓRIO DE REDES SOCIAIS · ${month.toUpperCase()}</div><div class="main"><div class="eyebrow">FACEBOOK · INSTAGRAM</div><h1>${esc(client)}</h1><p class="summary muted">Análise mensal de desempenho, interação e conteúdos com maior destaque nas redes sociais.</p></div><div class="bottom">${logo?`<img class="logo" src="${logo}">`:\'\'}<div class="eyebrow">RESULTADOS · ANÁLISE · CONTEÚDOS</div></div></section>';
+  const currentCover='<section class="page black cover"><div style="display:flex;justify-content:space-between" class="eyebrow"><span>RELATÓRIO DE REDES SOCIAIS</span><span>${month.toUpperCase()}</span></div><div class="main">${logo?`<img class="logo" src="${logo}" style="margin-bottom:16mm">`:\'\'}<div class="eyebrow">FACEBOOK + INSTAGRAM</div><h1>Resultados<br>do mês.</h1><p class="summary">${esc(client)}</p></div><div class="bottom"><span>${esc(client)}</span><div class="eyebrow">DESIGN · REDES SOCIAIS</div></div></section>';
+  const cleanCover='<section class="page black cover"><div style="display:flex;justify-content:space-between" class="eyebrow"><span>RELATÓRIO DE REDES SOCIAIS</span><span>${month.toUpperCase()}</span></div><div class="main"><div class="eyebrow">FACEBOOK + INSTAGRAM</div><h1>Resultados<br>do mês.</h1><div class="client-name">${esc(client)}</div></div><div class="bottom"><span>${esc(client)}</span><div class="eyebrow">DESIGN · REDES SOCIAIS</div></div></section>';
+  if(s.includes(currentCover))s=s.replace(currentCover,cleanCover);
+  else if(s.includes(originalCover))s=s.replace(originalCover,cleanCover);
 
-  // Injeta a função de recomendações sem template literals aninhados.
   if(!s.includes('function pdfRecommendations(')){
     const marker='  function html(d){';
     const helper=[
@@ -50,9 +41,7 @@ try{
       "    if(second&&rec.length<5)rec.push(['Construir séries de conteúdo','O segundo conteúdo com melhor desempenho foi “'+(second.caption||'conteúdo em destaque').slice(0,68)+((second.caption||'').length>68?'…':'')+'”. Transformar temas fortes em séries ajuda a criar consistência e reconhecimento.']);",
       "    const fbInt=Number(f.reactions||0)+Number(f.comments||0)+Number(f.shares||0);if(Number(f.posts||0)>0&&fbInt/Number(f.posts||1)<2)rec.push(['Reforçar o Facebook','O Facebook apresentou pouca interação por publicação. Adaptar os conteúdos ao comportamento da rede, com textos mais diretos e perguntas no início, pode ajudar a recuperar participação.']);",
       "    return rec.slice(0,5).map((r,idx)=>'<div style=\"display:grid;grid-template-columns:14mm 1fr;gap:5mm;padding:5mm 0;border-bottom:1px solid #e7e7e2\"><div style=\"font-size:18px;color:#aaa\">0'+(idx+1)+'</div><div><h3 style=\"font-size:20px;margin:0 0 2mm\">'+r[0]+'</h3><p style=\"font-size:13px;line-height:1.55;color:#575752;margin:0\">'+r[1]+'</p></div></div>').join('');",
-      '  }',
-      '',
-      ''
+      '  }','',''
     ].join('\n');
     s=s.replace(marker,helper+marker);
   }
