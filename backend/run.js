@@ -1,7 +1,22 @@
 const fs = require('fs');
 const path = require('path');
 
-// Arranca a aplicação existente primeiro.
+// Primeiro sincroniza o PDF, preview, email e deep links com os modelos aprovados.
+// Estes patches têm de correr ANTES de o módulo de automação Meta ser carregado.
+require('./meta-report-pdf-sync-patch');
+require('./meta-report-preview-sync-patch');
+require('./meta-report-email-sync-patch');
+require('./email-signature-patch');
+require('./client-deeplink-patch');
+require('./client-calendar-stats-patch');
+require('./client-social-lifetime-total-patch');
+require('./client-social-stats-total-patch');
+require('./meta-report-scheduling-sync-patch');
+
+// Liga depois o fluxo completo de relatórios Meta (backend + admin + cliente).
+require('./meta-report-start-patch');
+
+// Arranca a aplicação existente.
 require('./start');
 
 // Importa automaticamente todas as rondas diárias de prospects.
