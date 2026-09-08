@@ -8,6 +8,7 @@ require('./meta-report-preview-sync-patch');
 require('./meta-report-email-sync-patch');
 require('./email-signature-patch');
 require('./client-deeplink-patch');
+require('./client-calendar-stats-patch');
 
 // Liga depois o fluxo completo de relatórios Meta (backend + admin + cliente).
 require('./meta-report-start-patch');
