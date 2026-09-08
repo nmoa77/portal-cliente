@@ -18,179 +18,24 @@
   <link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
 </head>
 <body>
-
 <section class="login">
   <aside class="login-hero">
-    <div class="top">
-      <div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>
-    </div>
-    <div class="copy">
-      <span class="tag" style="display:inline-block; margin-bottom:24px; color:var(--yellow); border-color:#4a4200">Portal do cliente · 2026</span>
-      <h1>Design<br>com método.<sup>★</sup></h1>
-      <p class="lede">Identidade, websites, social e alojamento — geridos num só portal. O cliente foca-se no negócio, a DUIT trata do resto.</p>
-      <div class="tags">
-        <span class="tag">Branding</span>
-        <span class="tag">Web</span>
-        <span class="tag">Social</span>
-        <span class="tag">Alojamento</span>
-      </div>
-    </div>
-    <div class="foot">
-      <span>© 2026 DUIT · Lisboa</span>
-      <span>v2.0</span>
-    </div>
+    <div class="top"><div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div></div>
+    <div class="copy"><span class="tag" style="display:inline-block; margin-bottom:24px; color:var(--yellow); border-color:#4a4200">Portal do cliente · 2026</span><h1>Design<br>com método.<sup>★</sup></h1><p class="lede">Identidade, websites, social e alojamento — geridos num só portal. O cliente foca-se no negócio, a DUIT trata do resto.</p><div class="tags"><span class="tag">Branding</span><span class="tag">Web</span><span class="tag">Social</span><span class="tag">Alojamento</span></div></div>
+    <div class="foot"><span>© 2026 DUIT · Lisboa</span><span>v2.0</span></div>
   </aside>
-
   <div class="login-form-wrap">
-    <form class="login-form" id="loginForm">
-      <h2>Entrar</h2>
-      <p class="sub">Bem-vindo de volta.</p>
-
-      <div class="login-err" id="err"></div>
-
-      <div class="field">
-        <label for="email">Email</label>
-        <input type="email" id="email" required autocomplete="username" placeholder="nome@empresa.pt">
-      </div>
-      <div class="field">
-        <label for="password">Palavra-passe</label>
-        <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
-      </div>
-
-      <button class="btn btn-yellow btn-block" type="submit">
-        Entrar
-        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </button>
-
-      <div style="text-align:center; margin-top:18px;">
-        <a href="#" id="forgotLink" style="color:var(--muted); font-size:13px; text-decoration:none; border-bottom:1px solid var(--line);">Esqueci-me da palavra-passe</a>
-      </div>
-    </form>
-
-    <form class="login-form" id="forgotForm" style="display:none;">
-      <h2>Recuperar acesso</h2>
-      <p class="sub">Indique o email associado à sua conta. Enviaremos uma ligação para definir uma nova palavra-passe.</p>
-
-      <div class="login-err" id="forgotErr"></div>
-      <div class="login-ok"  id="forgotOk" style="display:none; padding:12px 14px; border-radius:10px; background:#fff8d6; border:1px solid #ecd96a; color:#5a4a00; font-size:13px; margin-bottom:14px;"></div>
-
-      <div class="field">
-        <label for="forgotEmail">Email</label>
-        <input type="email" id="forgotEmail" required autocomplete="email" placeholder="nome@empresa.pt">
-      </div>
-
-      <button class="btn btn-yellow btn-block" type="submit">
-        Enviar ligação de recuperação
-      </button>
-
-      <div style="text-align:center; margin-top:18px;">
-        <a href="#" id="backToLogin" style="color:var(--muted); font-size:13px; text-decoration:none; border-bottom:1px solid var(--line);">← Voltar ao login</a>
-      </div>
-    </form>
+    <form class="login-form" id="loginForm"><h2>Entrar</h2><p class="sub">Bem-vindo de volta.</p><div class="login-err" id="err"></div><div class="field"><label for="email">Email</label><input type="email" id="email" required autocomplete="username" placeholder="nome@empresa.pt"></div><div class="field"><label for="password">Palavra-passe</label><input type="password" id="password" required autocomplete="current-password" placeholder="••••••••"></div><button class="btn btn-yellow btn-block" type="submit">Entrar<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button><div style="text-align:center; margin-top:18px;"><a href="#" id="forgotLink" style="color:var(--muted); font-size:13px; text-decoration:none; border-bottom:1px solid var(--line);">Esqueci-me da palavra-passe</a></div></form>
+    <form class="login-form" id="forgotForm" style="display:none;"><h2>Recuperar acesso</h2><p class="sub">Indique o email associado à sua conta. Enviaremos uma ligação para definir uma nova palavra-passe.</p><div class="login-err" id="forgotErr"></div><div class="login-ok" id="forgotOk" style="display:none; padding:12px 14px; border-radius:10px; background:#fff8d6; border:1px solid #ecd96a; color:#5a4a00; font-size:13px; margin-bottom:14px;"></div><div class="field"><label for="forgotEmail">Email</label><input type="email" id="forgotEmail" required autocomplete="email" placeholder="nome@empresa.pt"></div><button class="btn btn-yellow btn-block" type="submit">Enviar ligação de recuperação</button><div style="text-align:center; margin-top:18px;"><a href="#" id="backToLogin" style="color:var(--muted); font-size:13px; text-decoration:none; border-bottom:1px solid var(--line);">← Voltar ao login</a></div></form>
   </div>
 </section>
-
 <script>
-  const loginForm  = document.getElementById('loginForm');
-  const forgotForm = document.getElementById('forgotForm');
-  const errBox     = document.getElementById('err');
-  const forgotErr  = document.getElementById('forgotErr');
-  const forgotOk   = document.getElementById('forgotOk');
-
-  // Aviso quando o utilizador foi deslogado por inatividade
-  try {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('reason') === 'idle') {
-      errBox.textContent = 'A sua sessão foi encerrada por inatividade. Volte a entrar para continuar.';
-      errBox.classList.add('show');
-      // Limpa o parâmetro da URL para o aviso desaparecer ao recarregar
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    }
-  } catch (e) { /* ignore */ }
-
-  document.getElementById('forgotLink').addEventListener('click', (e) => {
-    e.preventDefault();
-    loginForm.style.display = 'none';
-    forgotForm.style.display = 'block';
-    document.getElementById('forgotEmail').value = document.getElementById('email').value || '';
-    setTimeout(() => document.getElementById('forgotEmail').focus(), 50);
-  });
-
-  document.getElementById('backToLogin').addEventListener('click', (e) => {
-    e.preventDefault();
-    forgotForm.style.display = 'none';
-    loginForm.style.display = 'block';
-    forgotErr.classList.remove('show'); forgotErr.textContent = '';
-    forgotOk.style.display = 'none';
-  });
-
-  loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    errBox.classList.remove('show');
-    errBox.textContent = '';
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        errBox.textContent = data.error || 'Erro no login';
-        errBox.classList.add('show');
-        return;
-      }
-      // Restaurar vista anterior quando o logout foi por inatividade.
-      let dest = data.role === 'admin' ? '/admin.html' : '/cliente.html';
-      try {
-        const raw = sessionStorage.getItem('duit-idle-return');
-        if (raw) {
-          const info = JSON.parse(raw);
-          sessionStorage.removeItem('duit-idle-return');
-          // Aceita o restauro apenas se: tem menos de 60 min, e o path
-          // corresponde ao role do utilizador (admin → /admin.html, cliente → /cliente.html).
-          const fresh = info && (Date.now() - (info.when || 0)) < 60 * 60 * 1000;
-          const matchesRole = info && info.path === dest;
-          if (fresh && matchesRole && info.view) {
-            dest = `${info.path}?view=${encodeURIComponent(info.view)}`;
-          }
-        }
-      } catch (e) { /* ignore */ }
-      window.location.href = dest;
-    } catch (err) {
-      errBox.textContent = 'Erro de ligação. Verifique o servidor.';
-      errBox.classList.add('show');
-    }
-  });
-
-  forgotForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    forgotErr.classList.remove('show'); forgotErr.textContent = '';
-    forgotOk.style.display = 'none';
-    const email = document.getElementById('forgotEmail').value.trim();
-    try {
-      const res = await fetch('/api/auth/forgot-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        forgotErr.textContent = data.error || 'Não foi possível processar o pedido.';
-        forgotErr.classList.add('show');
-        return;
-      }
-      forgotOk.textContent = 'Se o email estiver registado no portal, receberá em instantes uma mensagem com a ligação para redefinir a palavra-passe. Verifique também a pasta de spam.';
-      forgotOk.style.display = 'block';
-      forgotForm.querySelector('button[type="submit"]').disabled = true;
-    } catch (err) {
-      forgotErr.textContent = 'Erro de ligação. Verifique o servidor.';
-      forgotErr.classList.add('show');
-    }
-  });
+  const loginForm=document.getElementById('loginForm'),forgotForm=document.getElementById('forgotForm'),errBox=document.getElementById('err'),forgotErr=document.getElementById('forgotErr'),forgotOk=document.getElementById('forgotOk');
+  function requestedDestination(){try{const p=new URLSearchParams(location.search),n=p.get('next');if(!n)return null;const decoded=decodeURIComponent(n);if(decoded.startsWith('/cliente.html')||decoded.startsWith('/admin.html'))return decoded;}catch(e){}return null;}
+  try{const params=new URLSearchParams(window.location.search);if(params.get('reason')==='idle'){errBox.textContent='A sua sessão foi encerrada por inatividade. Volte a entrar para continuar.';errBox.classList.add('show');}}catch(e){}
+  document.getElementById('forgotLink').addEventListener('click',e=>{e.preventDefault();loginForm.style.display='none';forgotForm.style.display='block';document.getElementById('forgotEmail').value=document.getElementById('email').value||'';setTimeout(()=>document.getElementById('forgotEmail').focus(),50);});
+  document.getElementById('backToLogin').addEventListener('click',e=>{e.preventDefault();forgotForm.style.display='none';loginForm.style.display='block';forgotErr.classList.remove('show');forgotErr.textContent='';forgotOk.style.display='none';});
+  loginForm.addEventListener('submit',async e=>{e.preventDefault();errBox.classList.remove('show');errBox.textContent='';const email=document.getElementById('email').value.trim(),password=document.getElementById('password').value;try{const res=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}),data=await res.json();if(!res.ok){errBox.textContent=data.error||'Erro no login';errBox.classList.add('show');return;}let dest=data.role==='admin'?'/admin.html':'/cliente.html';const requested=requestedDestination();if(requested&&((data.role==='admin'&&requested.startsWith('/admin.html'))||(data.role==='client'&&requested.startsWith('/cliente.html'))))dest=requested;try{const raw=sessionStorage.getItem('duit-idle-return');if(raw&&!requested){const info=JSON.parse(raw);sessionStorage.removeItem('duit-idle-return');const fresh=info&&(Date.now()-(info.when||0))<60*60*1000,matchesRole=info&&info.path===dest;if(fresh&&matchesRole&&info.view)dest=`${info.path}?view=${encodeURIComponent(info.view)}`;}}catch(e){}window.location.href=dest;}catch(err){errBox.textContent='Erro de ligação. Verifique o servidor.';errBox.classList.add('show');}});
+  forgotForm.addEventListener('submit',async e=>{e.preventDefault();forgotErr.classList.remove('show');forgotErr.textContent='';forgotOk.style.display='none';const email=document.getElementById('forgotEmail').value.trim();try{const res=await fetch('/api/auth/forgot-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});if(!res.ok){const data=await res.json().catch(()=>({}));forgotErr.textContent=data.error||'Não foi possível processar o pedido.';forgotErr.classList.add('show');return;}forgotOk.textContent='Se o email estiver registado no portal, receberá em instantes uma mensagem com a ligação para redefinir a palavra-passe. Verifique também a pasta de spam.';forgotOk.style.display='block';forgotForm.querySelector('button[type="submit"]').disabled=true;}catch(err){forgotErr.textContent='Erro de ligação. Verifique o servidor.';forgotErr.classList.add('show');}});
 </script>
-</body>
-</html>
+</body></html>
