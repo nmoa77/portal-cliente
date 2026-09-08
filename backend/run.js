@@ -1,9 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
-// Primeiro sincroniza o PDF, email e deep links com os modelos aprovados.
+// Primeiro sincroniza o PDF, preview, email e deep links com os modelos aprovados.
 // Estes patches têm de correr ANTES de o módulo de automação Meta ser carregado.
 require('./meta-report-pdf-sync-patch');
+require('./meta-report-preview-sync-patch');
 require('./meta-report-email-sync-patch');
 require('./email-signature-patch');
 require('./client-deeplink-patch');
