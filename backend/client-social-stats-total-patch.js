@@ -12,15 +12,8 @@ try{
       if(tbodyEnd!==-1){
         const totalRow=[
           "                ${(() => {",
-          "                  const totals=(s.socialPostStats || []).reduce((acc,m)=>{",
-          "                    acc.published+=Number(m.published||0);",
-          "                    acc.scheduled+=Number(m.scheduled||0);",
-          "                    acc.draft+=Number(m.draft||0);",
-          "                    acc.cancelled+=Number(m.cancelled||0);",
-          "                    acc.total+=Number(m.total||0);",
-          "                    return acc;",
-          "                  },{published:0,scheduled:0,draft:0,cancelled:0,total:0});",
-          "                  return `<tr style=\"background:var(--bg-2);border-top:2px solid var(--line)\"><td><strong>TOTAL GERAL · REDES SOCIAIS</strong></td><td style=\"text-align:right;color:#2a8a2a\"><strong>${totals.published}</strong></td><td style=\"text-align:right;color:#5a4a00\"><strong>${totals.scheduled}</strong></td><td style=\"text-align:right;color:var(--muted)\"><strong>${totals.draft}</strong></td><td style=\"text-align:right;color:#9a2828\"><strong>${totals.cancelled}</strong></td><td style=\"text-align:right\"><strong>${totals.total}</strong></td></tr>`;",
+          "                  const totals=s.socialPostTotals || {published:0,scheduled:0,draft:0,cancelled:0,total:0};",
+          "                  return `<tr style=\"background:var(--bg-2);border-top:2px solid var(--line)\"><td><strong>TOTAL GERAL · DESDE O INÍCIO</strong></td><td style=\"text-align:right;color:#2a8a2a\"><strong>${Number(totals.published||0)}</strong></td><td style=\"text-align:right;color:#5a4a00\"><strong>${Number(totals.scheduled||0)}</strong></td><td style=\"text-align:right;color:var(--muted)\"><strong>${Number(totals.draft||0)}</strong></td><td style=\"text-align:right;color:#9a2828\"><strong>${Number(totals.cancelled||0)}</strong></td><td style=\"text-align:right\"><strong>${Number(totals.total||0)}</strong></td></tr>`;",
           "                })()}\n"
         ].join('\n');
         s=s.slice(0,tbodyEnd)+totalRow+s.slice(tbodyEnd);
