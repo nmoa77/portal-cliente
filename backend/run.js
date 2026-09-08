@@ -5,6 +5,7 @@ const path = require('path');
 // Estes patches têm de correr ANTES de o módulo de automação Meta ser carregado.
 require('./meta-report-pdf-sync-patch');
 require('./meta-report-email-sync-patch');
+require('./email-signature-patch');
 
 // Liga depois o fluxo completo de relatórios Meta (backend + admin + cliente).
 require('./meta-report-start-patch');
