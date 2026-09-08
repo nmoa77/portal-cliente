@@ -11,6 +11,7 @@ require('./client-deeplink-patch');
 require('./client-calendar-stats-patch');
 require('./client-social-lifetime-total-patch');
 require('./client-social-stats-total-patch');
+require('./meta-report-scheduling-sync-patch');
 
 // Liga depois o fluxo completo de relatórios Meta (backend + admin + cliente).
 require('./meta-report-start-patch');
