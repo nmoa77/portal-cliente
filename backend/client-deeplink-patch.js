@@ -5,15 +5,19 @@ try{
   const file=path.join(process.cwd(),'public','js','cliente.js');
   let s=fs.readFileSync(file,'utf8');
 
-  // Se o cliente ainda não tem sessão, preserva a página/vista pedida para voltar lá após login.
+  // Se a API devolve null por não existir sessão, ir para login preservando a vista pedida.
+  const noSession="    if (!state.me) return;";
+  const noSessionReplacement="    if (!state.me) {\n      const next = window.location.pathname + window.location.search;\n      window.location.href = '/?next=' + encodeURIComponent(next);\n      return;\n    }";
+  if(s.includes(noSession))s=s.replace(noSession,noSessionReplacement);
+
+  // Se a chamada /me falhar, preservar igualmente a página/vista pedida.
   const oldRedirect="    window.location.href = '/';";
   const redirectReplacement="    const next = window.location.pathname + window.location.search;\n    window.location.href = '/?next=' + encodeURIComponent(next);";
-  if(s.includes(oldRedirect)&&!s.includes("encodeURIComponent(next)"))s=s.replace(oldRedirect,redirectReplacement);
+  if(s.includes(oldRedirect)&&!s.includes("window.location.href = '/?next=' + encodeURIComponent(next);"))s=s.replace(oldRedirect,redirectReplacement);
 
   // Não limpar ?view=... no arranque. A URL é o estado persistente da SPA e permite refresh na mesma página.
   const oldClean="    try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}\n    go(initial);";
-  const keepView="    go(initial);";
-  if(s.includes(oldClean))s=s.replace(oldClean,keepView);
+  if(s.includes(oldClean))s=s.replace(oldClean,"    go(initial);");
 
   // Sempre que muda de secção, grava a vista atual na URL sem recarregar a página.
   const goStart="async function go(view) {\n  state.view = view;\n  setActive();";
