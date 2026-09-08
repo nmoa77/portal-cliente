@@ -31,7 +31,7 @@
     document.querySelectorAll('[data-meta-client-id]').forEach(row=>{
       const uid=Number(row.dataset.metaClientId),s=scheduleFor(uid),btn=row.querySelector('[data-report-schedule-client]'),pill=row.querySelector('.meta-schedule-pill');
       if(btn){btn.classList.toggle('btn-yellow',!!s?.enabled);btn.classList.toggle('btn-ghost',!s?.enabled);btn.title=s?.enabled?'Editar agendamento mensal':'Agendar relatórios mensais';}
-      if(pill){pill.innerHTML=s?.enabled?`<span class="pill accent">Agendado · ${s.remaining_runs} ${Number(s.remaining_runs)===1?'mês':'meses'}</span>`:'';}
+      if(pill){const html=s?.enabled?`<span class="pill accent">Agendado · ${s.remaining_runs} ${Number(s.remaining_runs)===1?'mês':'meses'}</span>`:'';if(pill.innerHTML!==html)pill.innerHTML=html;}
     });
   }
   function closeSchedulePanels(){document.querySelectorAll('.meta-schedule-panel').forEach(x=>x.remove());}
@@ -69,5 +69,12 @@
     const f=e.target.closest?.('[data-report-filter]');if(f){archiveFilter=f.dataset.reportFilter;renderArchive();}
   },true);
 
-  new MutationObserver(enhance).observe(document.body,{childList:true,subtree:true});enhance();
+  let enhanceQueued=false;
+  const observer=new MutationObserver(()=>{
+    if(enhanceQueued)return;
+    enhanceQueued=true;
+    requestAnimationFrame(()=>{enhanceQueued=false;enhance();});
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
+  enhance();
 })();
