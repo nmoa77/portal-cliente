@@ -18,6 +18,11 @@ try{
       .section{border-top:1px solid #dededb}
       .toprow{border-top:1px solid #ecece8}
       .cover .client-name{font-family:'Clash Display','Space Grotesk',sans-serif;font-size:34px;line-height:1.05;font-weight:600;letter-spacing:-.02em;margin-top:9mm;color:#fff}
+      .interaction-page .hero{margin-top:10mm}
+      .interaction-page .section{margin-top:8mm;padding-top:5mm}
+      .interaction-page .section h3{margin-bottom:4mm}
+      .interaction-page .barrow{margin:3mm 0}
+      .interaction-page .track{height:3.2mm;margin-top:1.5mm}
     </style></head>`);
   }
 
@@ -26,6 +31,18 @@ try{
   const cleanCover='<section class="page black cover"><div style="display:flex;justify-content:space-between" class="eyebrow"><span>RELATÓRIO DE REDES SOCIAIS</span><span>${month.toUpperCase()}</span></div><div class="main"><div class="eyebrow">FACEBOOK + INSTAGRAM</div><h1>Resultados<br>do mês.</h1><div class="client-name">${esc(client)}</div></div><div class="bottom"><span>${esc(client)}</span><div class="eyebrow">DESIGN · REDES SOCIAIS</div></div></section>';
   if(s.includes(currentCover))s=s.replace(currentCover,cleanCover);
   else if(s.includes(originalCover))s=s.replace(originalCover,cleanCover);
+
+  // Evita corte do último gráfico/barra nas páginas de interação.
+  s=s.replace('<section class="page"><div class="head"><div><div class="network">Instagram</div><div class="title">Interação</div>', '<section class="page interaction-page"><div class="head"><div><div class="network">Instagram</div><div class="title">Interação</div>');
+
+  // Facebook passa a repetir a mesma estrutura editorial de 3 páginas do Instagram:
+  // Visualizações, Interação e Conteúdos em destaque. Só usa métricas reais devolvidas pela Meta.
+  const fbBlockRe=/<section class="page black divider"><div class="eyebrow">RESULTADOS · ANÁLISE · CONTEÚDOS<\/div><h2>Facebook<\/h2><p class="muted">Desempenho e conteúdos publicados no Facebook\.<\/p><\/section>\n<section class="page"><div class="head"><div><div class="network">Facebook<\/div><div class="title">Interação<\/div>[\s\S]*?<section class="page"><div class="head"><div><div class="network">Facebook<\/div><div class="title">Conteúdos em destaque<\/div>[\s\S]*?<\/section>/;
+  const fbBlock=`<section class="page black divider"><div class="eyebrow">RESULTADOS · ANÁLISE · CONTEÚDOS</div><h2>Facebook</h2><p class="muted">Desempenho e conteúdos publicados no Facebook.</p></section>
+<section class="page"><div class="head"><div><div class="network">Facebook</div><div class="title">Visualizações</div></div><div class="eyebrow">\${month}</div></div><div class="hero"><div><div class="eyebrow">VISUALIZAÇÕES DOS CONTEÚDOS</div><div class="big">\${n(Number(f.impressions||0)>0?f.impressions:f.video_views)}</div><p class="muted">Total confirmado pela Meta para os conteúdos publicados no período.</p></div><div class="kpis"><div class="kpi"><strong>\${n(f.reach)}</strong><span>Alcance</span></div><div class="kpi"><strong>\${n(f.posts)}</strong><span>Conteúdos</span></div><div class="kpi"><strong>\${n(f.reactions)}</strong><span>Reações</span></div><div class="kpi"><strong>\${n(f.shares)}</strong><span>Partilhas</span></div></div></div><div class="section"><h3>Visualizações por conteúdo publicado</h3>\${lineChart(d.facebook.posts,p=>Number(p.metrics?.post_impressions||0)>0?p.metrics.post_impressions:p.video_views,p=>p.created_time)}</div></section>
+<section class="page interaction-page"><div class="head"><div><div class="network">Facebook</div><div class="title">Interação</div></div><div class="eyebrow">\${month}</div></div><div class="hero"><div><div class="eyebrow">INTERAÇÕES</div><div class="big">\${n(Number(f.reactions||0)+Number(f.comments||0)+Number(f.shares||0))}</div></div><div class="kpis"><div class="kpi"><strong>\${n(f.reactions)}</strong><span>Reações</span></div><div class="kpi"><strong>\${n(f.comments)}</strong><span>Comentários</span></div><div class="kpi"><strong>\${n(f.shares)}</strong><span>Partilhas</span></div><div class="kpi"><strong>\${n(f.video_views)}</strong><span>Visualizações vídeo/Reels</span></div></div></div><div class="section"><h3>Composição da interação</h3>\${bars([['Reações',f.reactions],['Comentários',f.comments],['Partilhas',f.shares],['Vídeo / Reels',f.video_views]])}</div></section>
+<section class="page"><div class="head"><div><div class="network">Facebook</div><div class="title">Conteúdos em destaque</div></div><div class="eyebrow">\${month}</div></div><div class="section" style="margin-top:0;border-top:0">\${topRows(fb,'Facebook')}</div></section>`;
+  s=s.replace(fbBlockRe,fbBlock);
 
   if(!s.includes('function pdfRecommendations(')){
     const marker='  function html(d){';
