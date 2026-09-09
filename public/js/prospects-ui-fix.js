@@ -10,6 +10,7 @@
 
   const KEY_STATUS='duit_prospects_status_filter';
   const KEY_PRIORITY='duit_prospects_priority_filter';
+  const KEY_PROPOSAL='duit_prospects_proposal_filter';
   let restoring=false;
 
   function installCss(){
@@ -43,17 +44,47 @@
     document.head.appendChild(s);
   }
 
+  function ensureProposalFilter(){
+    const toolbar=document.querySelector('#main .crm-toolbar');
+    if(!toolbar) return null;
+    let proposal=toolbar.querySelector('[data-crm-proposal-filter]');
+    if(!proposal){
+      proposal=document.createElement('select');
+      proposal.dataset.crmProposalFilter='1';
+      proposal.innerHTML='<option value="all">Todas as propostas</option><option value="vista">👁 Proposta vista</option><option value="por_abrir">Proposta por abrir</option>';
+      toolbar.appendChild(proposal);
+    }
+    return proposal;
+  }
+
   function getFilterSelects(){
     const toolbar=document.querySelector('#main .crm-toolbar');
     if(!toolbar) return {};
-    const selects=[...toolbar.querySelectorAll('select')];
-    return {priority:selects[0]||null,status:selects[1]||null};
+    const proposal=ensureProposalFilter();
+    const selects=[...toolbar.querySelectorAll('select:not([data-crm-proposal-filter])')];
+    return {priority:selects[0]||null,status:selects[1]||null,proposal};
+  }
+
+  function applyProposalFilter(){
+    const proposal=ensureProposalFilter();
+    if(!proposal) return;
+    const value=proposal.value||'all';
+    document.querySelectorAll('#main .table-card table.table tbody tr').forEach(tr=>{
+      const contact=tr.querySelector('td:nth-child(5)');
+      const text=(contact?.textContent||'').toLowerCase();
+      let show=true;
+      if(value==='vista') show=text.includes('proposta vista');
+      if(value==='por_abrir') show=text.includes('proposta · por abrir')||text.includes('proposta por abrir');
+      tr.style.display=show?'':'none';
+    });
   }
 
   function syncFilterUi(){
-    const {priority,status}=getFilterSelects();
+    const {priority,status,proposal}=getFilterSelects();
     if(priority){const v=sessionStorage.getItem(KEY_PRIORITY)||'all';if([...priority.options].some(o=>o.value===v))priority.value=v;}
     if(status){const v=sessionStorage.getItem(KEY_STATUS)||'all';if([...status.options].some(o=>o.value===v))status.value=v;}
+    if(proposal){const v=sessionStorage.getItem(KEY_PROPOSAL)||'all';if([...proposal.options].some(o=>o.value===v))proposal.value=v;}
+    applyProposalFilter();
   }
 
   function decorate(){
@@ -67,9 +98,10 @@
   }
 
   document.addEventListener('change',e=>{
-    const {priority,status}=getFilterSelects();
+    const {priority,status,proposal}=getFilterSelects();
     if(e.target===priority) sessionStorage.setItem(KEY_PRIORITY,e.target.value);
     if(e.target===status) sessionStorage.setItem(KEY_STATUS,e.target.value);
+    if(e.target===proposal){sessionStorage.setItem(KEY_PROPOSAL,e.target.value);applyProposalFilter();}
     setTimeout(syncFilterUi,0);
   },true);
 
