@@ -7,6 +7,8 @@
     catch (_) {}
   };
 
+  let manualDateSort = false;
+
   function installCss(){
     if(document.getElementById('duit-prospects-fit-css')) return;
     const s=document.createElement('style');
@@ -38,14 +40,58 @@
     document.head.appendChild(s);
   }
 
+  function prospectIdFromRow(row){
+    const raw=row.getAttribute('onclick')||'';
+    const m=raw.match(/openCrmProspect\((\d+)\)/);
+    return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER;
+  }
+
+  function getStatusValue(){
+    const toolbar=document.querySelector('#main .crm-toolbar');
+    if(!toolbar) return null;
+    const selects=[...toolbar.querySelectorAll('select')];
+    return selects[1]?.value || null;
+  }
+
+  function enforceTodosOrder(table){
+    if(!table || getStatusValue()!=='all' || manualDateSort) return;
+    const tbody=table.tBodies?.[0];
+    if(!tbody) return;
+    const rows=[...tbody.rows];
+    rows.sort((a,b)=>prospectIdFromRow(a)-prospectIdFromRow(b));
+    rows.forEach(row=>tbody.appendChild(row));
+    const dateHead=[...table.querySelectorAll('thead th')].find(th=>/data\s+envio/i.test(th.textContent||''));
+    if(dateHead) dateHead.textContent='Data envio';
+  }
+
   function decorate(){
     installCss();
     const table=[...document.querySelectorAll('#main .table-card table.table')].find(t=>{
       const h=[...t.querySelectorAll('thead th')].map(x=>x.textContent.trim().toLowerCase());
       return h.includes('contacto')&&h.some(x=>x.includes('data')&&x.includes('envio'));
     });
-    if(table) table.closest('.table-card')?.classList.add('crm-prospects-fit');
+    if(table){
+      table.closest('.table-card')?.classList.add('crm-prospects-fit');
+      enforceTodosOrder(table);
+    }
   }
+
+  document.addEventListener('click',e=>{
+    if(e.target?.closest?.('#main th.crm-sort')){
+      manualDateSort=true;
+      requestAnimationFrame(decorate);
+    }
+  });
+
+  document.addEventListener('change',e=>{
+    const toolbar=e.target?.closest?.('#main .crm-toolbar');
+    if(!toolbar || e.target.tagName!=='SELECT') return;
+    const selects=[...toolbar.querySelectorAll('select')];
+    if(e.target===selects[1] && e.target.value==='all'){
+      manualDateSort=false;
+      requestAnimationFrame(decorate);
+    }
+  });
 
   const main=document.getElementById('main');
   if(main)new MutationObserver(()=>requestAnimationFrame(decorate)).observe(main,{childList:true,subtree:true});
