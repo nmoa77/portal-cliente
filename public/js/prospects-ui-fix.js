@@ -11,7 +11,9 @@
   const KEY_STATUS='duit_prospects_status_filter';
   const KEY_PRIORITY='duit_prospects_priority_filter';
   const KEY_PROPOSAL='duit_prospects_proposal_filter';
+  const KEY_SORT='duit_prospects_date_sort';
   let restoring=false;
+  let dateSort=sessionStorage.getItem(KEY_SORT)||'desc';
 
   function installCss(){
     if(document.getElementById('duit-prospects-fit-css')) return;
@@ -34,6 +36,8 @@
       #main .crm-prospects-fit td:nth-child(5)>div{min-width:0!important}
       #main .crm-prospects-fit .pill{max-width:100%;white-space:normal;line-height:1.2}
       #main .crm-prospects-fit .crm-actions{gap:3px;justify-content:center}
+      #main .crm-prospects-fit th[data-date-sort]{cursor:pointer;user-select:none;white-space:nowrap}
+      #main .crm-prospects-fit th[data-date-sort]:hover{color:var(--ink)}
       @media(max-width:1250px){
         #main .crm-prospects-fit th,#main .crm-prospects-fit td{font-size:12px;padding-left:7px;padding-right:7px}
         #main .crm-prospects-fit th:nth-child(9),#main .crm-prospects-fit td:nth-child(9){display:none}
@@ -79,6 +83,45 @@
     });
   }
 
+  function dateValue(text){
+    const s=String(text||'').trim();
+    if(!s||s==='—') return 0;
+    const m=s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[^\d]+(\d{1,2}):(\d{2}))?/);
+    if(!m) return 0;
+    return new Date(Number(m[3]),Number(m[2])-1,Number(m[1]),Number(m[4]||0),Number(m[5]||0)).getTime();
+  }
+
+  function applyDateSort(table){
+    if(!table) return;
+    const tbody=table.tBodies?.[0];
+    if(!tbody) return;
+    const rows=[...tbody.rows];
+    const sorted=[...rows].sort((a,b)=>{
+      const av=dateValue(a.cells?.[7]?.textContent),bv=dateValue(b.cells?.[7]?.textContent);
+      if(av===bv) return 0;
+      if(!av) return 1;
+      if(!bv) return -1;
+      return dateSort==='asc'?av-bv:bv-av;
+    });
+    const changed=sorted.some((row,i)=>row!==rows[i]);
+    if(changed) sorted.forEach(row=>tbody.appendChild(row));
+    const th=table.querySelector('thead th:nth-child(8)');
+    if(th){
+      th.dataset.dateSort='1';
+      th.title='Ordenar por data de envio';
+      th.textContent=`Data envio ${dateSort==='asc'?'↑':'↓'}`;
+      if(!th.dataset.dateSortBound){
+        th.dataset.dateSortBound='1';
+        th.addEventListener('click',e=>{
+          e.stopPropagation();
+          dateSort=dateSort==='desc'?'asc':'desc';
+          sessionStorage.setItem(KEY_SORT,dateSort);
+          applyDateSort(table);
+        });
+      }
+    }
+  }
+
   function syncFilterUi(){
     const {priority,status,proposal}=getFilterSelects();
     if(priority){const v=sessionStorage.getItem(KEY_PRIORITY)||'all';if([...priority.options].some(o=>o.value===v))priority.value=v;}
@@ -93,14 +136,32 @@
       const h=[...t.querySelectorAll('thead th')].map(x=>x.textContent.trim().toLowerCase());
       return h.includes('contacto')&&h.some(x=>x.includes('data')&&x.includes('envio'));
     });
-    if(table) table.closest('.table-card')?.classList.add('crm-prospects-fit');
+    if(table){
+      table.closest('.table-card')?.classList.add('crm-prospects-fit');
+      applyDateSort(table);
+    }
     syncFilterUi();
   }
 
   document.addEventListener('change',e=>{
     const {priority,status,proposal}=getFilterSelects();
     if(e.target===priority) sessionStorage.setItem(KEY_PRIORITY,e.target.value);
-    if(e.target===status) sessionStorage.setItem(KEY_STATUS,e.target.value);
+    if(e.target===status){
+      sessionStorage.setItem(KEY_STATUS,e.target.value);
+      if(e.target.value==='all'){
+        /* “Todos” deve mesmo mostrar todos: limpa os restantes filtros de seleção. */
+        sessionStorage.setItem(KEY_PRIORITY,'all');
+        sessionStorage.setItem(KEY_PROPOSAL,'all');
+        setTimeout(()=>{
+          const f=getFilterSelects();
+          if(f.priority) f.priority.value='all';
+          if(f.proposal) f.proposal.value='all';
+          if(typeof window.crmSetFilter==='function') window.crmSetFilter('priority','all');
+          applyProposalFilter();
+          decorate();
+        },0);
+      }
+    }
     if(e.target===proposal){sessionStorage.setItem(KEY_PROPOSAL,e.target.value);applyProposalFilter();}
     setTimeout(syncFilterUi,0);
   },true);
