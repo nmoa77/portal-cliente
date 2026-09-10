@@ -10,6 +10,13 @@
     return document.querySelector('#main .table-card table.table');
   }
 
+  function getStatusFilterValue() {
+    const toolbar = document.querySelector('#main .crm-toolbar');
+    if (!toolbar) return 'all';
+    const selects = [...toolbar.querySelectorAll('select')];
+    return selects[1]?.value || 'all';
+  }
+
   function renderPagination() {
     if (rendering) return;
     const table = getTable();
@@ -22,11 +29,7 @@
     try {
       const rows = Array.from(table.querySelectorAll('tbody > tr'));
       const total = rows.length;
-      const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-      currentPage = Math.max(1, Math.min(currentPage, pages));
-      const start = (currentPage - 1) * PAGE_SIZE;
-      const end = start + PAGE_SIZE;
-      rows.forEach((row, i) => { row.style.display = i >= start && i < end ? '' : 'none'; });
+      const statusValue = getStatusFilterValue();
 
       let pager = document.getElementById('crm-pagination');
       if (!pager) {
@@ -35,6 +38,22 @@
         pager.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 2px 0;font-size:13px;color:var(--muted)';
         table.closest('.table-card')?.insertAdjacentElement('afterend', pager);
       }
+
+      // Quando o filtro de estado está em “Todos”, mostrar MESMO todos os prospects.
+      // A paginação não pode esconder os restantes estados e dar a ideia de que
+      // “Todos” equivale a “Contactados”.
+      if (statusValue === 'all') {
+        rows.forEach(row => { row.style.display = ''; });
+        currentPage = 1;
+        pager.innerHTML = `<span>A mostrar todos os ${total} prospects</span>`;
+        return;
+      }
+
+      const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      currentPage = Math.max(1, Math.min(currentPage, pages));
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const end = start + PAGE_SIZE;
+      rows.forEach((row, i) => { row.style.display = i >= start && i < end ? '' : 'none'; });
 
       if (total <= PAGE_SIZE) {
         pager.innerHTML = `<span>${total} prospect${total === 1 ? '' : 's'}</span>`;
@@ -48,7 +67,6 @@
     }
   }
 
-  // Delegação: os botões são recriados a cada render, por isso o clique fica no document.
   document.addEventListener('click', e => {
     const btn = e.target.closest?.('[data-crm-page]');
     if (!btn || !document.getElementById('crm-pagination')?.contains(btn) || btn.disabled) return;
@@ -74,7 +92,6 @@
 
   const main=document.getElementById('main');
   if(main) new MutationObserver(mutations=>{
-    // Ignora alterações provocadas pelo próprio pager fora de #main e mudanças de style nas linhas.
     const structural=mutations.some(m=>m.type==='childList' && (m.addedNodes.length||m.removedNodes.length));
     if(structural) queue(false);
   }).observe(main,{childList:true,subtree:true});
