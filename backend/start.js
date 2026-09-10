@@ -11,7 +11,15 @@ try {
   if (!serverSource.includes(ebookInstallLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${ebookInstallLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
   const ebookDeleteInstallLine = "require('./ebook-delete-actions')(capturedApp);";
   if (!serverSource.includes(ebookDeleteInstallLine)) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `${ebookDeleteInstallLine}\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260910d');
+
+  // A API de Prospects devolve todos os prospects pela ordem real de inserção na BD.
+  // O mais recente aparece primeiro. Estado/contacto nunca interfere nesta ordem base.
+  serverSource = serverSource.replace(
+    /ORDER BY\s+CASE COALESCE\(c\.priority,'possivel'\)\s+WHEN 'atacar' THEN 0 WHEN 'possivel' THEN 1 ELSE 2 END,\s+COALESCE\(c\.updated_at, u\.created_at\) DESC/g,
+    'ORDER BY u.id DESC'
+  );
+
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260910e');
   if (!serverSource.includes("/api/app-version")) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => { res.set('Cache-Control','no-store, no-cache, must-revalidate'); res.json({version: DUIT_APP_VERSION}); });\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
   fs.writeFileSync(crmServer, serverSource, 'utf8');
 
@@ -20,20 +28,20 @@ try {
   source = source.replace(/body:JSON\.stringify\(body\)/g, 'body');
   source = source.replace(/receba também um ebook gratuito com 6 curiosidades\./g,'receba também um ebook gratuito.');
 
-  // Em “Todos”, a ordem base é a ordem de inserção na BD (ID crescente).
-  // A ordenação por data de envio só fica ativa depois de clicar no respetivo cabeçalho.
+  // “Todos” significa todos os prospects. Sem ordenação por envio por defeito.
+  // A ordem normal é a ordem de inserção na BD, com os mais recentes primeiro.
   source = source.replace("crmDateSort='desc'", "crmDateSort='none'");
-  source = source.replace("}).sort((a,b)=>{const av=", "}).sort((a,b)=>{if(crmDateSort==='none')return Number(a.id)-Number(b.id);const av=");
-  source = source.replace("if(crmDateSort==='none')return Number(b.id)-Number(a.id);", "if(crmDateSort==='none')return Number(a.id)-Number(b.id);");
+  source = source.replace("if(crmDateSort==='none')return list.sort((a,b)=>Number(a.id)-Number(b.id));", "if(crmDateSort==='none')return list.sort((a,b)=>Number(b.id)-Number(a.id));");
+  source = source.replace("if(crmDateSort==='none')return Number(a.id)-Number(b.id);", "if(crmDateSort==='none')return Number(b.id)-Number(a.id);");
   source = source.replace("if(key==='status'&&value==='all'){crmFilter={q:'',status:'all',priority:'all',proposal:'all'}}", "if(key==='status'&&value==='all'){crmFilter={q:'',status:'all',priority:'all',proposal:'all'};crmDateSort='none'}");
   source = source.replace("Data envio ${crmDateSort==='asc'?'↑':'↓'}", "Data envio ${crmDateSort==='none'?'':(crmDateSort==='asc'?'↑':'↓')}");
 
   const marker='prospects-actions.js';
-  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260910d'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
-  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260910d');
+  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260910e'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260910e');
   const uiFixMarker='prospects-ui-fix.js';
-  if (!source.includes(uiFixMarker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-ui-fix]')) return; const s=document.createElement('script'); s.src='/js/prospects-ui-fix.js?v=20260910d'; s.dataset.duitProspectUiFix='1'; document.body.appendChild(s); })();\n`;
-  else source=source.replace(/prospects-ui-fix\.js\?v=[^'\"]+/g,'prospects-ui-fix.js?v=20260910d');
+  if (!source.includes(uiFixMarker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-ui-fix]')) return; const s=document.createElement('script'); s.src='/js/prospects-ui-fix.js?v=20260910e'; s.dataset.duitProspectUiFix='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-ui-fix\.js\?v=[^'\"]+/g,'prospects-ui-fix.js?v=20260910e');
   if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) source += `\n;(() => { /* DUIT_AUTO_VERSION_REFRESH */ let knownVersion=null,reloading=false; async function checkVersion(){ if(reloading)return; try{const r=await fetch('/api/app-version?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const data=await r.json();if(!data?.version)return;if(knownVersion===null){knownVersion=data.version;return;}if(data.version!==knownVersion){reloading=true;location.reload();}}catch(_){}} checkVersion();setInterval(checkVersion,10000);window.addEventListener('focus',checkVersion);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion();});})();\n`;
   fs.writeFileSync(crmJs,source,'utf8');
 } catch(e){console.warn('[crm] não foi possível ligar ações de Prospects:',e.message);}
