@@ -24,6 +24,25 @@
   const planLabel = (p) => ({ base:'Base', intermedio:'Intermédio', premium:'Premium', personalizado:'Personalizado' }[p] || p || 'Sem plano');
   const norm = (v) => String(v == null ? '' : v).trim().toLocaleLowerCase('pt-PT');
 
+  function sectorGroup(value){
+    const raw=String(value||'').trim();
+    if(!raw) return 'Outros';
+    const n=norm(raw);
+    if(/restaura|restaurante|pastelaria|catering|gastronomia|marisqueira|bar\b|fine dining/.test(n)) return 'Restauração';
+    if(/medicina estética|estética|cirurgia plástica|beleza/.test(n)) return 'Estética / Beleza';
+    if(/saúde|clínica|fisioterapia|pilates|bem-estar|bem estar/.test(n)) return 'Saúde / Bem-estar';
+    if(/turismo|alojamento|hotel|experiências|experiencias/.test(n)) return 'Turismo / Alojamento';
+    if(/imobili|mediação imobiliária|mediacao imobiliaria/.test(n)) return 'Imobiliário';
+    if(/construção|construcao|arquitetura|interiores|decoração|decoracao/.test(n)) return 'Construção / Arquitetura';
+    if(/automóvel|automovel|oficina|stand/.test(n)) return 'Automóvel';
+    if(/desporto|fitness|ginásio|ginasio/.test(n)) return 'Desporto / Fitness';
+    if(/educação|educacao|formação|formacao|escola|academia/.test(n)) return 'Educação / Formação';
+    if(/eventos/.test(n)) return 'Eventos';
+    if(/veterin/.test(n)) return 'Veterinária';
+    const first=raw.split('/')[0].trim();
+    return first || 'Outros';
+  }
+
   function installCss(){
     if(document.getElementById('duit-prospects-fit-css')) return;
     const s=document.createElement('style');
@@ -104,7 +123,7 @@
         const ts = parseAnalyticsDate(raw);
         if(!Number.isFinite(ts) || now - ts > days * 86400000) return false;
       }
-      if(analyticsState.filters.sector !== 'all' && norm(p.sector) !== norm(analyticsState.filters.sector)) return false;
+      if(analyticsState.filters.sector !== 'all' && norm(sectorGroup(p.sector)) !== norm(analyticsState.filters.sector)) return false;
       if(analyticsState.filters.plan !== 'all' && norm(p.recommended_plan || planFromMonthly(p.monthly_value)) !== norm(analyticsState.filters.plan)) return false;
       return true;
     });
@@ -145,7 +164,7 @@
     const repliedNoProgress = respondedRows.filter(p => p.outreach_response !== 'accepted' && !['interessado','proposta'].includes(p.lead_status)).length;
     const proposalNoWin = Math.max(0, proposals - accepted);
 
-    const sectors = [...new Set(analyticsState.rows.map(p => String(p.sector || '').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
+    const sectors = [...new Set(analyticsState.rows.map(p => sectorGroup(p.sector)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
     const plans = [...new Set(analyticsState.rows.map(p => String(p.recommended_plan || planFromMonthly(p.monthly_value) || '').trim()).filter(Boolean))].sort();
     const sectorOptions = sectors.map(v => `<option value="${safeText(v)}" ${norm(analyticsState.filters.sector)===norm(v)?'selected':''}>${safeText(v)}</option>`).join('');
     const planOptions = plans.map(v => `<option value="${safeText(v)}" ${norm(analyticsState.filters.plan)===norm(v)?'selected':''}>${safeText(planLabel(v))}</option>`).join('');
