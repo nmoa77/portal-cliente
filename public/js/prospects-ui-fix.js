@@ -22,6 +22,7 @@
   const money = (n) => Number(n || 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
   const pct = (a, b) => b > 0 ? `${((a / b) * 100).toFixed(1).replace('.', ',')}%` : '0,0%';
   const planLabel = (p) => ({ base:'Base', intermedio:'Intermédio', premium:'Premium', personalizado:'Personalizado' }[p] || p || 'Sem plano');
+  const norm = (v) => String(v == null ? '' : v).trim().toLocaleLowerCase('pt-PT');
 
   function installCss(){
     if(document.getElementById('duit-prospects-fit-css')) return;
@@ -48,7 +49,7 @@
       #main .crm-kpis{display:none!important}
       #main .duit-analytics{margin:2px 0 18px}
       #main .duit-analytics-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-      #main .duit-analytics-toolbar select{min-height:38px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+      #main .duit-analytics-toolbar select{flex:0 1 230px;width:auto!important;min-width:180px;min-height:38px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
       #main .duit-analytics-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
       #main .duit-analytics-card{padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card);min-width:0}
       #main .duit-analytics-card .k-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
@@ -79,11 +80,19 @@
         #main .duit-analytics-sections{grid-template-columns:1fr}
       }
       @media(max-width:620px){
+        #main .duit-analytics-toolbar select{flex:1 1 100%;width:100%!important}
         #main .duit-analytics-grid{grid-template-columns:1fr}
         #main .funnel-row{grid-template-columns:100px 1fr 50px}
       }
     `;
     document.head.appendChild(s);
+  }
+
+  function parseAnalyticsDate(raw){
+    if(!raw) return NaN;
+    const txt=String(raw).trim();
+    const normalized=/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(txt) ? txt.replace(' ','T')+'Z' : txt;
+    return new Date(normalized).getTime();
   }
 
   function currentAnalyticsRows(){
@@ -92,14 +101,21 @@
     return analyticsState.rows.filter(p => {
       if(days){
         const raw = p.email_sent_at || p.first_contact_at || p.created_at || p.updated_at;
-        if(!raw) return false;
-        const ts = new Date(String(raw).replace(' ', 'T') + (String(raw).includes('T') ? '' : 'Z')).getTime();
+        const ts = parseAnalyticsDate(raw);
         if(!Number.isFinite(ts) || now - ts > days * 86400000) return false;
       }
-      if(analyticsState.filters.sector !== 'all' && String(p.sector || '') !== analyticsState.filters.sector) return false;
-      if(analyticsState.filters.plan !== 'all' && String(p.recommended_plan || '') !== analyticsState.filters.plan) return false;
+      if(analyticsState.filters.sector !== 'all' && norm(p.sector) !== norm(analyticsState.filters.sector)) return false;
+      if(analyticsState.filters.plan !== 'all' && norm(p.recommended_plan || planFromMonthly(p.monthly_value)) !== norm(analyticsState.filters.plan)) return false;
       return true;
     });
+  }
+
+  function planFromMonthly(n){
+    const v=Number(n||0);
+    if(v===150) return 'base';
+    if(v===200) return 'intermedio';
+    if(v===280) return 'premium';
+    return '';
   }
 
   function buildAnalyticsHtml(){
@@ -130,9 +146,9 @@
     const proposalNoWin = Math.max(0, proposals - accepted);
 
     const sectors = [...new Set(analyticsState.rows.map(p => String(p.sector || '').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
-    const plans = [...new Set(analyticsState.rows.map(p => String(p.recommended_plan || '').trim()).filter(Boolean))].sort();
-    const sectorOptions = sectors.map(v => `<option value="${safeText(v)}" ${analyticsState.filters.sector===v?'selected':''}>${safeText(v)}</option>`).join('');
-    const planOptions = plans.map(v => `<option value="${safeText(v)}" ${analyticsState.filters.plan===v?'selected':''}>${safeText(planLabel(v))}</option>`).join('');
+    const plans = [...new Set(analyticsState.rows.map(p => String(p.recommended_plan || planFromMonthly(p.monthly_value) || '').trim()).filter(Boolean))].sort();
+    const sectorOptions = sectors.map(v => `<option value="${safeText(v)}" ${norm(analyticsState.filters.sector)===norm(v)?'selected':''}>${safeText(v)}</option>`).join('');
+    const planOptions = plans.map(v => `<option value="${safeText(v)}" ${norm(analyticsState.filters.plan)===norm(v)?'selected':''}>${safeText(planLabel(v))}</option>`).join('');
 
     const funnel = [
       ['Enviados', sent, sent],
@@ -148,14 +164,14 @@
 
     return `
       <div class="duit-analytics-toolbar">
-        <select onchange="duitAnalyticsSet('period',this.value)" aria-label="Período">
+        <select data-analytics-filter="period" aria-label="Período">
           <option value="all" ${analyticsState.filters.period==='all'?'selected':''}>Todo o período</option>
           <option value="30" ${analyticsState.filters.period==='30'?'selected':''}>Últimos 30 dias</option>
           <option value="90" ${analyticsState.filters.period==='90'?'selected':''}>Últimos 90 dias</option>
           <option value="365" ${analyticsState.filters.period==='365'?'selected':''}>Últimos 12 meses</option>
         </select>
-        <select onchange="duitAnalyticsSet('sector',this.value)" aria-label="Setor"><option value="all">Todos os setores</option>${sectorOptions}</select>
-        <select onchange="duitAnalyticsSet('plan',this.value)" aria-label="Serviço"><option value="all">Todos os serviços</option>${planOptions}</select>
+        <select data-analytics-filter="sector" aria-label="Setor"><option value="all" ${analyticsState.filters.sector==='all'?'selected':''}>Todos os setores</option>${sectorOptions}</select>
+        <select data-analytics-filter="plan" aria-label="Serviço"><option value="all" ${analyticsState.filters.plan==='all'?'selected':''}>Todos os serviços</option>${planOptions}</select>
       </div>
 
       <div class="duit-analytics-grid">
@@ -194,9 +210,22 @@
     `;
   }
 
+  function bindAnalyticsFilters(root){
+    root.querySelectorAll('[data-analytics-filter]').forEach(select=>{
+      select.addEventListener('change',()=>{
+        const key=select.dataset.analyticsFilter;
+        if(!key) return;
+        analyticsState.filters[key]=select.value;
+        renderAnalytics();
+      });
+    });
+  }
+
   function renderAnalytics(){
     const root=document.getElementById('duit-prospect-analytics');
-    if(root) root.innerHTML=buildAnalyticsHtml();
+    if(!root) return;
+    root.innerHTML=buildAnalyticsHtml();
+    bindAnalyticsFilters(root);
   }
 
   window.duitAnalyticsSet=(key,value)=>{
@@ -220,7 +249,10 @@
       oldKpis.parentNode.insertBefore(root,oldKpis);
     }
 
-    if(analyticsState.loaded){ renderAnalytics(); return; }
+    if(analyticsState.loaded){
+      if(!root.dataset.rendered){ renderAnalytics(); root.dataset.rendered='1'; }
+      return;
+    }
     if(analyticsState.loading) return;
     analyticsState.loading=true;
     root.innerHTML='<div class="card"><div class="empty" style="padding:20px 0">A calcular métricas comerciais…</div></div>';
@@ -233,6 +265,7 @@
       analyticsState.rows=(prospects||[]).map(p=>({...p,...(map.get(Number(p.id))||{})}));
       analyticsState.loaded=true;
       renderAnalytics();
+      root.dataset.rendered='1';
     }catch(e){
       root.innerHTML=`<div class="card"><div class="empty" style="padding:20px 0">Não foi possível calcular as métricas: ${safeText(e.message)}</div></div>`;
     }finally{ analyticsState.loading=false; }
