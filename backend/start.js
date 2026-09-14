@@ -42,6 +42,9 @@ try {
   const uiFixMarker='prospects-ui-fix.js';
   if (!source.includes(uiFixMarker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-ui-fix]')) return; const s=document.createElement('script'); s.src='/js/prospects-ui-fix.js?v=20260910e'; s.dataset.duitProspectUiFix='1'; document.body.appendChild(s); })();\n`;
   else source=source.replace(/prospects-ui-fix\.js\?v=[^'\"]+/g,'prospects-ui-fix.js?v=20260910e');
+  const sectorChartMarker='prospects-sector-chart.js';
+  if (!source.includes(sectorChartMarker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-sector-chart]')) return; const s=document.createElement('script'); s.src='/js/prospects-sector-chart.js?v=20260914a'; s.dataset.duitProspectSectorChart='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-sector-chart\.js\?v=[^'\"]+/g,'prospects-sector-chart.js?v=20260914a');
   if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) source += `\n;(() => { /* DUIT_AUTO_VERSION_REFRESH */ let knownVersion=null,reloading=false; async function checkVersion(){ if(reloading)return; try{const r=await fetch('/api/app-version?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const data=await r.json();if(!data?.version)return;if(knownVersion===null){knownVersion=data.version;return;}if(data.version!==knownVersion){reloading=true;location.reload();}}catch(_){}} checkVersion();setInterval(checkVersion,10000);window.addEventListener('focus',checkVersion);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion();});})();\n`;
   fs.writeFileSync(crmJs,source,'utf8');
 } catch(e){console.warn('[crm] não foi possível ligar ações de Prospects:',e.message);}
