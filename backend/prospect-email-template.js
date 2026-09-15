@@ -1,7 +1,7 @@
 const db = require('./db');
 
 function proposal(company) {
-  return `Assunto: ${company} — as redes ficaram para depois?\n\nOlá,\n\nJá publicou com frequência, depois parou… ou vai publicando quando consegue?\n\nNão se desgaste com mais uma tarefa que precisa de acompanhamento diário para dar resultados.\n\nA DUIT ajuda a aliviar essa tarefa e trata das suas redes sociais por si.\n\nVeja como podemos tornar isto mais simples para si. 🙂\n\nCumprimentos,\nNuno`;
+  return `Assunto: ${company} — as redes ficaram para depois?\n\nOlá,\n\nJá publicou com frequência, depois parou… ou vai publicando quando consegue?\n\nNão se desgaste com mais uma tarefa que precisa de acompanhamento diário para dar resultados.\n\nA DUIT ajuda a aliviar essa tarefa e trata das suas redes sociais por si.\n\nVeja como podemos tornar isto mais simples para si. 🙂`;
 }
 
 try {
