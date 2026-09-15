@@ -1,5 +1,5 @@
 /* DUIT Portal — Service Worker */
-const VERSION = 'duit-v8';
+const VERSION = 'duit-v9';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -8,6 +8,7 @@ const PRECACHE_URLS = [
   '/css/styles.css', '/js/common.js', '/js/cliente.js', '/js/admin.js',
   '/js/prospects-crm.js', '/js/prospects-actions.js', '/js/prospects-legacy-bridge.js',
   '/js/prospects-ui-fix.js', '/js/prospects-pagination.js', '/js/prospects-sector-chart.js',
+  '/js/prospects-table-fit.js',
   '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'
 ];
 
@@ -17,7 +18,8 @@ const ADMIN_SCRIPTS = [
   '/js/prospects-legacy-bridge.js',
   '/js/prospects-ui-fix.js',
   '/js/prospects-pagination.js',
-  '/js/prospects-sector-chart.js'
+  '/js/prospects-sector-chart.js',
+  '/js/prospects-table-fit.js'
 ];
 
 function injectAdminScripts(html) {
