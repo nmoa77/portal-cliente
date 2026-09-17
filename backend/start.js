@@ -19,7 +19,7 @@ try {
     'ORDER BY u.id DESC'
   );
 
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260910e');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260917a');
   if (!serverSource.includes("/api/app-version")) serverSource = serverSource.replace('// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.', `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => { res.set('Cache-Control','no-store, no-cache, must-revalidate'); res.json({version: DUIT_APP_VERSION}); });\n\n// Arranca finalmente o servidor original, agora já com as rotas CRM registadas.`);
   fs.writeFileSync(crmServer, serverSource, 'utf8');
 
@@ -37,16 +37,31 @@ try {
   source = source.replace("Data envio ${crmDateSort==='asc'?'↑':'↓'}", "Data envio ${crmDateSort==='none'?'':(crmDateSort==='asc'?'↑':'↓')}");
 
   const marker='prospects-actions.js';
-  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260910e'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
-  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260910e');
+  if (!source.includes(marker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-actions]')) return; const s=document.createElement('script'); s.src='/js/prospects-actions.js?v=20260917a'; s.dataset.duitProspectActions='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-actions\.js\?v=[^'\"]+/g,'prospects-actions.js?v=20260917a');
   const uiFixMarker='prospects-ui-fix.js';
-  if (!source.includes(uiFixMarker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-ui-fix]')) return; const s=document.createElement('script'); s.src='/js/prospects-ui-fix.js?v=20260910e'; s.dataset.duitProspectUiFix='1'; document.body.appendChild(s); })();\n`;
-  else source=source.replace(/prospects-ui-fix\.js\?v=[^'\"]+/g,'prospects-ui-fix.js?v=20260910e');
+  if (!source.includes(uiFixMarker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-ui-fix]')) return; const s=document.createElement('script'); s.src='/js/prospects-ui-fix.js?v=20260917a'; s.dataset.duitProspectUiFix='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-ui-fix\.js\?v=[^'\"]+/g,'prospects-ui-fix.js?v=20260917a');
   const sectorChartMarker='prospects-sector-chart.js';
-  if (!source.includes(sectorChartMarker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-sector-chart]')) return; const s=document.createElement('script'); s.src='/js/prospects-sector-chart.js?v=20260914a'; s.dataset.duitProspectSectorChart='1'; document.body.appendChild(s); })();\n`;
-  else source=source.replace(/prospects-sector-chart\.js\?v=[^'\"]+/g,'prospects-sector-chart.js?v=20260914a');
+  if (!source.includes(sectorChartMarker)) source += `\n;(() => { if (document.querySelector('script[data-duit-prospect-sector-chart]')) return; const s=document.createElement('script'); s.src='/js/prospects-sector-chart.js?v=20260917a'; s.dataset.duitProspectSectorChart='1'; document.body.appendChild(s); })();\n`;
+  else source=source.replace(/prospects-sector-chart\.js\?v=[^'\"]+/g,'prospects-sector-chart.js?v=20260917a');
   if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) source += `\n;(() => { /* DUIT_AUTO_VERSION_REFRESH */ let knownVersion=null,reloading=false; async function checkVersion(){ if(reloading)return; try{const r=await fetch('/api/app-version?t='+Date.now(),{cache:'no-store'});if(!r.ok)return;const data=await r.json();if(!data?.version)return;if(knownVersion===null){knownVersion=data.version;return;}if(data.version!==knownVersion){reloading=true;location.reload();}}catch(_){}} checkVersion();setInterval(checkVersion,10000);window.addEventListener('focus',checkVersion);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkVersion();});})();\n`;
   fs.writeFileSync(crmJs,source,'utf8');
+
+  // Analytics: KPI de ebooks no topo e ícone de abertura compatível em todos os browsers.
+  try {
+    const uiFixJs = path.join(__dirname, '..', 'public', 'js', 'prospects-ui-fix.js');
+    let ui = fs.readFileSync(uiFixJs, 'utf8');
+    ui = ui.replace("grid-template-columns:repeat(5,minmax(0,1fr))", "grid-template-columns:repeat(6,minmax(0,1fr))");
+    ui = ui.replace('<div class="k-label">👁️ Abertos</div>', '<div class="k-label"><span aria-hidden="true">◉</span> Abertos</div>');
+    if (!ui.includes('<div class="k-label">Ebooks lidos</div>')) {
+      ui = ui.replace(
+        '<div class="duit-analytics-card"><div class="k-label">Leituras totais</div><div class="k-value">${reads}</div><div class="k-sub">inclui reaberturas do email</div></div>',
+        '<div class="duit-analytics-card"><div class="k-label">Leituras totais</div><div class="k-value">${reads}</div><div class="k-sub">inclui reaberturas do email</div></div>\n        <div class="duit-analytics-card"><div class="k-label">Ebooks lidos</div><div class="k-value">${ebookOpened}</div><div class="k-sub">${pct(ebookOpened,sent)} dos enviados abriram o ebook</div></div>'
+      );
+    }
+    fs.writeFileSync(uiFixJs, ui, 'utf8');
+  } catch (e) { console.warn('[prospects] analytics ebook/icon:', e.message); }
 } catch(e){console.warn('[crm] não foi possível ligar ações de Prospects:',e.message);}
 
 try { const adminHtml=path.join(__dirname,'..','public','admin.html'); let s=fs.readFileSync(adminHtml,'utf8'); s=s.replace('<div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>','<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>'); fs.writeFileSync(adminHtml,s,'utf8'); } catch(e){}
