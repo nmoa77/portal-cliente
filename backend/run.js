@@ -5,8 +5,8 @@ const path = require('path');
 // Assim, qualquer eliminação feita no CRM fica guardada na BD persistente.
 const { cleanupDeletedProspects } = require('./prospect-deleted-guard');
 
-// Arranca a aplicação existente primeiro.
-require('./start');
+// Arranca a aplicação com a camada de templates de proposta instalada.
+require('./start-proposal-templates');
 
 // Importa automaticamente todas as rondas diárias de prospects.
 // Depois de cada seed remove imediatamente qualquer contacto que já tenha sido apagado no CRM.
