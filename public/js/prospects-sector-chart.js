@@ -3,6 +3,14 @@
   if (window.__DUIT_SECTOR_CHART__) return;
   window.__DUIT_SECTOR_CHART__ = true;
 
+  // Carrega correções complementares dos KPIs diretamente a partir de um script já ativo no BO.
+  if(!document.querySelector('script[data-duit-prospect-kpi-patch]')){
+    const patch=document.createElement('script');
+    patch.src='/js/prospects-kpi-patch.js?v=20260917b';
+    patch.dataset.duitProspectKpiPatch='1';
+    document.body.appendChild(patch);
+  }
+
   const state = { rows: [], loading: false, loaded: false };
   const norm = v => String(v == null ? '' : v).trim().toLocaleLowerCase('pt-PT');
   const esc = v => {
