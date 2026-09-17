@@ -1,0 +1,2 @@
+DUIT deploy trigger — 2026-09-17
+Força um novo commit no main para acionar o deploy automático do Railway.
