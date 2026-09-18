@@ -481,15 +481,28 @@ app.post('/api/clients', requireAdmin, (req, res) => {
   if (db.prepare('SELECT id FROM users WHERE email=?').get(email)) {
     return res.status(409).json({ error: 'Já existe um utilizador com este email' });
   }
-  // O cliente é criado como INATIVO. Não recebe email nem credenciais —
-  // o admin pode associar serviços e subscrições e só depois ativa a conta,
-  // o que dispara a geração de password e o envio do email de boas-vindas.
-  const placeholderHash = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
+
+  // Um cliente tem acesso ao portal independentemente de ter uma subscrição.
+  // Ao criar a conta, gera logo credenciais, ativa-a e envia as boas-vindas.
+  const tempPassword = crypto.randomBytes(8).toString('base64url').slice(0, 12);
+  const hash = bcrypt.hashSync(tempPassword, 10);
   const info = db.prepare(
     `INSERT INTO users (name, email, password_hash, role, company, phone, is_active)
-     VALUES (?, ?, ?, 'client', ?, ?, 0)`
-  ).run(name, email, placeholderHash, company || '', phone || '');
-  res.status(201).json({ id: info.lastInsertRowid, is_active: 0 });
+     VALUES (?, ?, ?, 'client', ?, ?, 1)`
+  ).run(name, email, hash, company || '', phone || '');
+
+  const userId = Number(info.lastInsertRowid);
+  try {
+    const tpl = T.welcome(name, email, tempPassword);
+    deliver(db, {
+      to: email, subject: tpl.subject, body: tpl.body, html: tpl.html,
+      user_id: userId, kind: 'welcome', force: true,
+    });
+  } catch (e) {
+    console.warn('welcome on create client:', e.message);
+  }
+
+  res.status(201).json({ id: userId, is_active: 1, welcome_sent: true });
 });
 
 // Ativa um cliente: gera password aleatória, marca conta como ativa e envia
