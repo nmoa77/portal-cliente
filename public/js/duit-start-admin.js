@@ -1,5 +1,5 @@
 (()=>{
-const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const payLabel=s=>({mbway:'MB WAY',multibanco:'Multibanco'})[s]||'—';
 function setRoute(v){try{history.replaceState({},document.title,location.pathname+'#'+encodeURIComponent(v))}catch(_){}}
 const statusInfo=s=>({awaiting_payment:['Aguarda pagamento','Pagamento pendente','#fff5cc','#7a5a00'],production:['Em produção','A preparar apresentação','#e8f0ff','#2456a6'],ready:['Pronto','Apresentação disponível','#e5f7ec','#176b3a'],converted:['Convertido','Cliente mensal','#e9e7ff','#5142a6']})[s]||[s,s,'#f1f1f1','#555'];
