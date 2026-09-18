@@ -38,6 +38,15 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
 // Healthcheck simples para o Railway
 app.get('/healthz', (req, res) => res.json({ ok: true, time: new Date().toISOString() }));
 
+// Rota pública da proposta. /proposta não é um ficheiro estático: tem de
+// encaminhar explicitamente o DUIT Start para a proposta de prospeção.
+app.get('/proposta', (req, res) => {
+  if (String(req.query.duit_start || '') === '1') {
+    return res.sendFile(path.join(__dirname, '..', 'public', 'prospect-response.html'));
+  }
+  return res.sendFile(path.join(__dirname, '..', 'public', 'ebook.html'));
+});
+
 const stageLabels = {
   new: 'Novo', analysis: 'Em análise', production: 'Em produção',
   final_review: 'Revisão final', done: 'Concluído', cancelled: 'Cancelado',
