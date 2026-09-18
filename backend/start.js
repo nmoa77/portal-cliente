@@ -86,8 +86,9 @@ try {
 try {
   const adminJs=path.join(__dirname,'..','public','js','admin.js');
   let s=fs.readFileSync(adminJs,'utf8');
-  s=s.replace("const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';","const queryView=new URLSearchParams(window.location.search).get('view'); const hashView=decodeURIComponent((window.location.hash||'').replace(/^#/,'')); const initial=hashView||queryView||'home';");
-  if(!s.includes("window.location.pathname + '#' + encodeURIComponent(view)")) s=s.replace("async function go(view) {\n  state.view = view;","async function go(view) {\n  state.view = view;\n  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}");
+  s=s.replace(/const initial = \(new URLSearchParams\(window\.location\.search\)\.get\('view'\)\) \|\| 'home';/,"const queryView=new URLSearchParams(window.location.search).get('view'); const hashView=decodeURIComponent((window.location.hash||'').replace(/^#/,'')); const initial=hashView||queryView||'home';");
+  s=s.replace("try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}","try { if(!window.location.hash) window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}");
+  if(!s.includes("DUIT_ROUTE_PERSIST_V2")) s=s.replace("async function go(view) {\n  state.view = view;","async function go(view) {\n  /* DUIT_ROUTE_PERSIST_V2 */\n  state.view = view;\n  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}");
   fs.writeFileSync(adminJs,s,'utf8');
 } catch(e){}
 
