@@ -93,6 +93,7 @@ try {
   fs.writeFileSync(adminJs,s,'utf8');
 } catch(e){}
 
+require('./start-proposal-templates');
 require('./crm-server');
 require('./prospect-seed');
 require('./prospect-seed-20');
