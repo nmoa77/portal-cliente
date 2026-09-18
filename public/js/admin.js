@@ -25,7 +25,7 @@ const state = {
     await Promise.all([refreshStats(), refreshClients()]);
     renderShell();
     // Se vier ?view=xxx (vinda do restauro pós-logout por inatividade), navega para lá.
-    const queryView=new URLSearchParams(window.location.search).get('view'); const hashView=decodeURIComponent((window.location.hash||'').replace(/^#/,'')); const customViews=['duit-start','proposal-templates']; const initial=customViews.includes(hashView)?'home':(hashView||queryView||'home');
+    const queryView=new URLSearchParams(window.location.search).get('view'); const hashView=decodeURIComponent((window.location.hash||'').replace(/^#/,'')); const initial=hashView||queryView||'home';
     // Limpa a query da URL para não ficar marcada
     try { if(!window.location.hash) window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}
     go(initial);
@@ -67,6 +67,8 @@ function renderShell() {
         alert: s.unreadClientNotes,    alertTitle: `${s.unreadClientNotes || 0} nota(s) novas de cliente` },
     { id: 'calendar',  icon: 'cal',     label: 'Calendário',   alert: s.todayDrafts,            alertTitle: `${s.todayDrafts || 0} post(s) por tratar hoje` },
     { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   alert: s.unseenQuoteResponses,   alertTitle: `${s.unseenQuoteResponses || 0} resposta(s) de cliente por ver` },
+    { id: 'proposal-templates', icon: 'quote', label: 'Templates proposta' },
+    { id: 'duit-start', icon: 'sparkle', label: 'DUIT Start' },
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',alert: s.pendingCancels,         alertTitle: `${s.pendingCancels || 0} cancelamento(s) pendente(s)` },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      alert: s.unreadAdminTickets,     alertTitle: `${s.unreadAdminTickets || 0} ticket(s) com nova resposta de cliente` },
     { id: 'metaads',   icon: 'quote',   label: 'Meta Ads' },
@@ -124,6 +126,8 @@ async function go(view) {
     else if (view === 'projects') await viewProjects(main);
     else if (view === 'calendar') await viewCalendar(main);
     else if (view === 'quotes')   await viewQuotes(main);
+    else if (view === 'proposal-templates') { if(typeof window.duitViewProposalTemplates!=='function') throw new Error('Módulo Templates proposta não carregado.'); await window.duitViewProposalTemplates(); }
+    else if (view === 'duit-start') { if(typeof window.duitViewStart!=='function') throw new Error('Módulo DUIT Start não carregado.'); await window.duitViewStart(); }
     else if (view === 'invoices') await viewInvoices(main);
     else if (view === 'cancels')  await viewCancels(main);
     else if (view === 'support')  await viewSupport(main);
