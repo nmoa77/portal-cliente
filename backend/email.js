@@ -580,7 +580,8 @@ Cumprimentos,`;
       ctaUrl: PORTAL_URL,
     });
     return { subject, body, html };
-  },,
+  },
+
   duitStartProposal: (name, url) => {
     const subject = 'DUIT Start — veja o que preparámos para si';
     const body = `Olá ${name || ''},
