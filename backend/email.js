@@ -4,8 +4,8 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'DUIT <no-reply@duit.pt>';
 const PORTAL_URL = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
-const LOGO_URL = `${PORTAL_URL}/logo-email.png`;
-const SIGNATURE_URL = `${PORTAL_URL}/assinatura_duit.png`;
+const LOGO_URL = `${PORTAL_URL}/logo-branco.png`;
+const SIGNATURE_URL = `${PORTAL_URL}/assinatura-email.png`;
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => (
@@ -51,8 +51,8 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
 
         <!-- Header preto com logo (HTML/CSS para funcionar em qualquer cliente de email) -->
         <tr><td style="background:#0a0a0a; padding:28px 40px;" align="left">
-          <a href="${PORTAL_URL}" style="text-decoration:none; display:inline-block; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;">
-            <span style="font-size:30px; font-weight:900; letter-spacing:-0.04em; color:#ffffff; line-height:1;">DUIT</span><span style="display:inline-block; width:12px; height:12px; background:#ffd60a; margin-left:4px; vertical-align:baseline;">&nbsp;</span>
+          <a href="${PORTAL_URL}" style="text-decoration:none; display:inline-block;">
+            <img src="${LOGO_URL}" alt="DUIT" width="135" style="display:block;width:135px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">
           </a>
         </td></tr>
 
@@ -583,24 +583,35 @@ Cumprimentos,`;
   },
 
   duitStartProposal: (name, url) => {
-    const subject = 'DUIT Start — veja o que preparámos para si';
-    const body = `Olá ${name || ''},
+    const subject = 'SmartGlobe — as redes ficaram para depois?';
+    const body = `Olá,
 
-Preparámos uma proposta DUIT Start para si.
+Já publicou com frequência, depois parou… ou vai publicando quando consegue?
 
-Veja a proposta aqui: ${url}
+Não se desgaste com mais uma tarefa que precisa de acompanhamento diário para dar resultados.
+
+A DUIT ajuda a aliviar essa tarefa e trata das suas redes sociais por si.
+
+Veja como podemos tornar isto mais simples para si. 🙂
+
+${url}
 
 Cumprimentos,`;
     const html = layout({
-      eyebrow: 'DUIT Start',
-      title: 'Veja o que preparámos para si.',
-      greeting: `Olá ${name || ''},`,
-      paragraphs: ['Preparámos uma proposta DUIT Start para si.'],
-      ctaLabel: 'Ver o que preparámos para si →',
+      eyebrow: '',
+      title: 'As redes ficaram para depois?',
+      greeting: 'Olá,',
+      paragraphs: [
+        'Já publicou com frequência, depois parou… ou vai publicando quando consegue?',
+        'Não se desgaste com mais uma tarefa que precisa de acompanhamento diário para dar resultados.',
+        'A DUIT ajuda a aliviar essa tarefa e trata das suas redes sociais por si.',
+        'Veja como podemos tornar isto mais simples para si. 🙂',
+      ],
+      ctaLabel: 'Ver proposta →',
       ctaUrl: url,
     });
     return { subject, body, html };
-  },
+
 };
 
 module.exports = { deliver, T };
