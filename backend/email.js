@@ -580,6 +580,25 @@ Cumprimentos,`;
       ctaUrl: PORTAL_URL,
     });
     return { subject, body, html };
+  },,
+  duitStartProposal: (name, url) => {
+    const subject = 'DUIT Start — veja o que preparámos para si';
+    const body = `Olá ${name || ''},
+
+Preparámos uma proposta DUIT Start para si.
+
+Veja a proposta aqui: ${url}
+
+Cumprimentos,`;
+    const html = layout({
+      eyebrow: 'DUIT Start',
+      title: 'Veja o que preparámos para si.',
+      greeting: `Olá ${name || ''},`,
+      paragraphs: ['Preparámos uma proposta DUIT Start para si.'],
+      ctaLabel: 'Ver o que preparámos para si →',
+      ctaUrl: url,
+    });
+    return { subject, body, html };
   },
 };
 
