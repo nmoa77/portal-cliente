@@ -25,9 +25,9 @@ const state = {
     await Promise.all([refreshStats(), refreshClients()]);
     renderShell();
     // Se vier ?view=xxx (vinda do restauro pós-logout por inatividade), navega para lá.
-    const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';
+    const queryView=new URLSearchParams(window.location.search).get('view'); const hashView=decodeURIComponent((window.location.hash||'').replace(/^#/,'')); const customViews=['duit-start','proposal-templates']; const initial=customViews.includes(hashView)?'home':(hashView||queryView||'home');
     // Limpa a query da URL para não ficar marcada
-    try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}
+    try { if(!window.location.hash) window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}
     go(initial);
   } catch (e) {
     console.error(e);
@@ -109,7 +109,9 @@ function setActive() {
 }
 
 async function go(view) {
+  /* DUIT_ROUTE_PERSIST_V3 */
   state.view = view;
+  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}
   setActive();
   const main = document.getElementById('main');
   main.innerHTML = `<div class="empty">A carregar…</div>`;
