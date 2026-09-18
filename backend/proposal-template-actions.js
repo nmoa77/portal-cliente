@@ -20,7 +20,7 @@ function ensureSchema(){
       quote_id INTEGER NOT NULL UNIQUE,
       user_id INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'briefing',
-      price REAL NOT NULL DEFAULT 30,
+      price REAL NOT NULL DEFAULT 19.99,
       content_count INTEGER NOT NULL DEFAULT 3,
       business_description TEXT,
       communication_goal TEXT,
@@ -51,9 +51,10 @@ function ensureSchema(){
   if(!cols.some(c=>c.name==='template_id')) db.exec(`ALTER TABLE quotes ADD COLUMN template_id INTEGER`);
 
   const standardConfig=JSON.stringify({showStart:false});
-  const startConfig=JSON.stringify({showStart:true,startPrice:30,contentCount:3,discountOnFirstMonth:30});
+  const startConfig=JSON.stringify({showStart:true,startPrice:19.99,contentCount:3,discountOnFirstMonth:19.99});
   db.prepare(`INSERT OR IGNORE INTO proposal_templates (key,name,description,type,is_active,is_default,config) VALUES ('standard','Proposta Standard','Modelo atual da proposta DUIT.','standard',1,1,?)`).run(standardConfig);
-  db.prepare(`INSERT OR IGNORE INTO proposal_templates (key,name,description,type,is_active,is_default,config) VALUES ('duit-start','DUIT Start — 30 €','Planos mensais + experiência DUIT Start com 3 conteúdos.','duit_start',1,0,?)`).run(startConfig);
+  db.prepare(`INSERT OR IGNORE INTO proposal_templates (key,name,description,type,is_active,is_default,config) VALUES ('duit-start','DUIT Start — 19,99 €','Planos mensais + experiência DUIT Start com 3 conteúdos.','duit_start',1,0,?)`).run(startConfig);
+  db.prepare(`UPDATE proposal_templates SET name='DUIT Start — 19,99 €',config=? WHERE key='duit-start'`).run(startConfig);
   const standard=db.prepare(`SELECT id FROM proposal_templates WHERE key='standard'`).get();
   db.prepare(`UPDATE quotes SET template_id=? WHERE template_id IS NULL`).run(standard.id);
 
@@ -124,7 +125,7 @@ module.exports=function install(app){
       db.prepare(`UPDATE duit_start_orders SET business_description=?,communication_goal=?,audience=?,links=?,materials=?,exclusions=?,payment_method=?,status='awaiting_payment',updated_at=datetime('now') WHERE id=?`).run(b.business_description||'',b.communication_goal||'',b.audience||'',b.links||'',b.materials||'',b.exclusions||'',b.payment_method||'',existing.id);
       return res.json({ok:true,id:existing.id,status:'awaiting_payment'});
     }
-    const info=db.prepare(`INSERT INTO duit_start_orders (quote_id,user_id,status,price,content_count,business_description,communication_goal,audience,links,materials,exclusions,payment_method) VALUES (?,?, 'awaiting_payment',?,?,?,?,?,?,?,?,?)`).run(q.id,q.user_id,Number(cfg.startPrice||30),Number(cfg.contentCount||3),b.business_description||'',b.communication_goal||'',b.audience||'',b.links||'',b.materials||'',b.exclusions||'',b.payment_method||'');
+    const info=db.prepare(`INSERT INTO duit_start_orders (quote_id,user_id,status,price,content_count,business_description,communication_goal,audience,links,materials,exclusions,payment_method) VALUES (?,?, 'awaiting_payment',?,?,?,?,?,?,?,?,?)`).run(q.id,q.user_id,Number(cfg.startPrice||19.99),Number(cfg.contentCount||3),b.business_description||'',b.communication_goal||'',b.audience||'',b.links||'',b.materials||'',b.exclusions||'',b.payment_method||'');
     res.status(201).json({ok:true,id:info.lastInsertRowid,status:'awaiting_payment'});
   });
 
