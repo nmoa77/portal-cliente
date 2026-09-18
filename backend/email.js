@@ -611,7 +611,7 @@ Cumprimentos,`;
       ctaUrl: url,
     });
     return { subject, body, html };
-
+  },
 };
 
 module.exports = { deliver, T };
