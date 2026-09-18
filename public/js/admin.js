@@ -3063,10 +3063,9 @@ document.addEventListener('submit', async (e) => {
         await api(`/api/clients/${id}`, { method: 'PATCH', body });
         toast('Cliente atualizado.', 'check');
       } else {
-        // Criação: a conta nasce inativa, sem password. O admin associa
-        // serviços/subscrições e depois ativa para enviar o email de boas-vindas.
+        // Criação: a conta fica ativa de imediato e o cliente recebe o acesso ao portal.
         await api('/api/clients', { method: 'POST', body });
-        toast('Cliente criado (inativo). Associe serviços e ative quando estiver pronto.', 'check');
+        toast('Cliente criado. Email de acesso enviado.', 'check');
       }
       closeModal('modal-client'); e.target.reset();
       document.getElementById('cl-id').value = '';
