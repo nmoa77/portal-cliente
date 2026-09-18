@@ -49,10 +49,8 @@ async function pay(){
   out.innerHTML=method==='multibanco'
    ? '<div class="paybox"><strong>Referência Multibanco criada</strong><div style="margin-top:12px">Entidade<br><b>'+d.entity+'</b></div><div style="margin-top:9px">Referência<br><b>'+d.reference+'</b></div><div style="margin-top:9px">Valor<br><b>'+money(d.amount)+'</b></div></div>'
    : '<div class="paybox"><strong>Pedido MB WAY enviado.</strong><p>Confirme o pagamento na aplicação MB WAY.</p></div>';
-  document.querySelector('.methods').style.display='none'; document.getElementById('mobile').style.display='none'; btn.style.display='none';
-  if(d.payment_status==='paid'){showFinal();return;}
-  out.insertAdjacentHTML('beforeend','<div class="finalmsg"><strong>Adesão registada.</strong><span>'+(method==='multibanco'?'Guarde estes dados para pagamento. Assim que recebermos a confirmação, concluímos automaticamente a sua adesão.':'Assim que o pagamento for confirmado, concluímos automaticamente a sua adesão.')+'</span></div><div class="statusline">Pode manter esta página aberta. O estado será atualizado automaticamente.</div>');
-  startPaymentWatch();
+  const thanks='/duit-start-adesao-obrigado.html?token='+encodeURIComponent(token)+'&method='+encodeURIComponent(method);
+  location.href=thanks;
  }catch(e){
   out.innerHTML='<p style="color:#b42318">'+e.message+'</p>';
   btn.disabled=false; btn.textContent='Continuar para pagamento';
@@ -82,17 +80,9 @@ async function init(){
    const mr=await fetch('/api/public/prospect-duit-start/'+encodeURIComponent(token)+'/monthly-payment',{cache:'no-store'});
    if(mr.ok){
     const md=await mr.json();
-    if(md.payment_status==='paid'){showFinal();return;}
-    if(md.payment_status==='pending'&&(md.entity||md.request_id)){
-      const out=document.getElementById('result');
-      if(md.payment_method==='multibanco'&&md.entity&&md.reference){
-       out.innerHTML='<div class="paybox"><strong>Referência Multibanco criada</strong><div style="margin-top:12px">Entidade<br><b>'+md.entity+'</b></div><div style="margin-top:9px">Referência<br><b>'+md.reference+'</b></div><div style="margin-top:9px">Valor<br><b>'+money(md.amount)+'</b></div></div>';
-      }else if(md.payment_method==='mbway'){
-       out.innerHTML='<div class="paybox"><strong>Pedido MB WAY enviado.</strong><p>Confirme o pagamento na aplicação MB WAY.</p></div>';
-      }
-      document.querySelector('.methods').style.display='none';document.getElementById('mobile').style.display='none';document.getElementById('pay').style.display='none';
-      out.insertAdjacentHTML('beforeend','<div class="finalmsg"><strong>Adesão registada.</strong><span>Assim que o pagamento for confirmado, concluímos automaticamente a sua adesão.</span></div><div class="statusline">Pode manter esta página aberta. O estado será atualizado automaticamente.</div>');
-      startPaymentWatch();
+    if(md.payment_status==='paid'||(md.payment_status==='pending'&&(md.entity||md.request_id))){
+      location.href='/duit-start-adesao-obrigado.html?token='+encodeURIComponent(token)+'&method='+encodeURIComponent(md.payment_method||method);
+      return;
     }
    }
   }catch(_){};
