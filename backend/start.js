@@ -61,8 +61,8 @@ try {
   const adminHtml = path.join(__dirname, '..', 'public', 'admin.html');
   let ah = fs.readFileSync(adminHtml, 'utf8');
   ah = ah.replace('<div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>','<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>');
-  if (!ah.includes('/js/proposal-templates-admin.js')) ah = ah.replace('</body>', '<script src="/js/proposal-templates-admin.js?v=20260918a"></script>\n<script src="/js/duit-start-admin.js?v=20260918a"></script>\n</body>');
-  else ah = ah.replace(/proposal-templates-admin\.js\?v=[^'\"]+/g,'proposal-templates-admin.js?v=20260918a').replace(/duit-start-admin\.js\?v=[^'\"]+/g,'duit-start-admin.js?v=20260918a');
+  if (!ah.includes('/js/proposal-templates-admin.js')) ah = ah.replace('</body>', '<script src="/js/proposal-templates-admin.js?v=20260918n"></script>\n<script src="/js/duit-start-admin.js?v=20260918n"></script>\n</body>');
+  else ah = ah.replace(/proposal-templates-admin\.js\?v=[^'\"]+/g,'proposal-templates-admin.js?v=20260918n').replace(/duit-start-admin\.js\?v=[^'\"]+/g,'duit-start-admin.js?v=20260918n');
   fs.writeFileSync(adminHtml, ah, 'utf8');
 
   // Proposta pública de prospeção: aplica o template selecionado/predefinido.
@@ -86,9 +86,8 @@ try {
 try {
   const adminJs=path.join(__dirname,'..','public','js','admin.js');
   let s=fs.readFileSync(adminJs,'utf8');
-  // Compatibilidade para instalações antigas. As rotas novas são restauradas pelos respetivos módulos,
-  // por isso o router central nunca tenta renderizá-las como vistas nativas.
-  s=s.replace("const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';","const queryView=new URLSearchParams(window.location.search).get('view'); const hashView=decodeURIComponent((window.location.hash||'').replace(/^#/,'')); const customViews=['duit-start','proposal-templates']; const initial=customViews.includes(hashView)?'home':(hashView||queryView||'home');");
+  // As páginas novas usam o mesmo router nativo das restantes páginas do Admin.
+  s=s.replace("const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';","const queryView=new URLSearchParams(window.location.search).get('view'); const hashView=decodeURIComponent((window.location.hash||'').replace(/^#/,'')); const initial=hashView||queryView||'home';");
   s=s.replace("try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}","try { if(!window.location.hash) window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}");
   if(!s.includes("DUIT_ROUTE_PERSIST_V3")) s=s.replace("async function go(view) {\n  state.view = view;","async function go(view) {\n  /* DUIT_ROUTE_PERSIST_V3 */\n  state.view = view;\n  try { window.history.replaceState({}, document.title, window.location.pathname + '#' + encodeURIComponent(view)); } catch (e) {}");
   fs.writeFileSync(adminJs,s,'utf8');
