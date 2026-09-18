@@ -601,6 +601,28 @@ Cumprimentos,`;
       'Assim que o pagamento for confirmado, começamos a preparar a sua apresentação.'
     ]}); return {subject,body,html};
   },
+  duitStartMonthlyMultibanco: (name, planName, entity, reference, amount) => {
+    const subject='DUIT — dados de pagamento da primeira mensalidade';
+    const body=`Olá ${name||''},
+
+A sua adesão ao Plano ${planName} ficou registada.
+
+Para concluir a primeira mensalidade, utilize os seguintes dados Multibanco:
+
+Entidade: ${entity}
+Referência: ${reference}
+Valor: ${amount} €
+
+Assim que o pagamento for confirmado, a adesão fica concluída e receberá os dados de acesso ao Portal DUIT.
+
+Cumprimentos,`;
+    const html=layout({eyebrow:'Adesão mensal · Pagamento',title:'Dados para pagamento',greeting:`Olá ${name||''},`,paragraphs:[
+      `A sua adesão ao <strong>Plano ${escapeHtml(planName)}</strong> ficou registada. Para concluir a primeira mensalidade, utilize os seguintes dados Multibanco:`,
+      `<div style="background:#fafaf8;border:1px solid #ece9e2;border-radius:10px;padding:16px 18px;line-height:1.8"><span style="color:#8b8680;font-size:11px">ENTIDADE</span><br><strong style="font-size:19px">${escapeHtml(entity)}</strong><br><span style="color:#8b8680;font-size:11px">REFERÊNCIA</span><br><strong style="font-size:19px">${escapeHtml(reference)}</strong><br><span style="color:#8b8680;font-size:11px">VALOR</span><br><strong style="font-size:19px">${escapeHtml(amount)} €</strong></div>`,
+      'Assim que o pagamento for confirmado, a adesão fica concluída e receberá os dados de acesso ao Portal DUIT.'
+    ]}); return {subject,body,html};
+  },
+
   duitStartPaid: (name, amount) => {
     const subject='DUIT Start — pagamento confirmado';
     const body=`Olá ${name||''},
