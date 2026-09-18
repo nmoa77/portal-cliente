@@ -582,6 +582,57 @@ Cumprimentos,`;
     return { subject, body, html };
   },
 
+  duitStartMultibanco: (name, entity, reference, amount) => {
+    const subject='DUIT Start — dados para pagamento';
+    const body=`Olá ${name||''},
+
+Recebemos o seu briefing DUIT Start. Para concluir, efetue o pagamento por Multibanco:
+
+Entidade: ${entity}
+Referência: ${reference}
+Valor: ${amount} €
+
+Assim que o pagamento for confirmado, começamos a preparar a sua apresentação.
+
+Cumprimentos,`;
+    const html=layout({eyebrow:'DUIT Start · Pagamento',title:'Dados para pagamento',greeting:`Olá ${name||''},`,paragraphs:[
+      'Recebemos o seu briefing DUIT Start. Para concluir, efetue o pagamento através dos seguintes dados:',
+      `<div style="background:#fafaf8;border:1px solid #ece9e2;border-radius:10px;padding:16px 18px;line-height:1.8"><span style="color:#8b8680;font-size:11px">ENTIDADE</span><br><strong style="font-size:19px">${escapeHtml(entity)}</strong><br><span style="color:#8b8680;font-size:11px">REFERÊNCIA</span><br><strong style="font-size:19px">${escapeHtml(reference)}</strong><br><span style="color:#8b8680;font-size:11px">VALOR</span><br><strong style="font-size:19px">${escapeHtml(amount)} €</strong></div>`,
+      'Assim que o pagamento for confirmado, começamos a preparar a sua apresentação.'
+    ]}); return {subject,body,html};
+  },
+  duitStartPaid: (name, amount) => {
+    const subject='DUIT Start — pagamento confirmado';
+    const body=`Olá ${name||''},
+
+O pagamento de ${amount} € do seu DUIT Start foi confirmado.
+
+Já temos o seu briefing e está tudo pronto para começarmos. A partir daqui, é connosco.
+
+Assim que a sua apresentação estiver pronta, receberá um novo email.
+
+Cumprimentos,`;
+    const html=layout({eyebrow:'DUIT Start',title:'Pagamento confirmado ✓',greeting:`Olá ${name||''},`,paragraphs:[
+      `O pagamento de <strong>${escapeHtml(amount)} €</strong> do seu DUIT Start foi confirmado.`,
+      'Já temos o seu briefing e está tudo pronto para começarmos. <strong>A partir daqui, é connosco.</strong>',
+      'Assim que a sua apresentação estiver pronta, receberá um novo email.'
+    ]}); return {subject,body,html};
+  },
+  duitStartReady: (name, url) => {
+    const subject='O seu DUIT Start está pronto';
+    const body=`Olá ${name||''},
+
+A sua apresentação DUIT Start está pronta.
+
+Pode vê-la aqui: ${url}
+
+Cumprimentos,`;
+    const html=layout({eyebrow:'DUIT Start',title:'A sua apresentação está pronta.',greeting:`Olá ${name||''},`,paragraphs:[
+      'A sua apresentação <strong>DUIT Start está pronta.</strong>',
+      'Preparámos os três conteúdos com design e texto pensados para a sua empresa. Pode agora consultar a apresentação final.'
+    ],ctaLabel:'Ver apresentação →',ctaUrl:url}); return {subject,body,html};
+  },
+
   duitStartProposal: (name, url) => {
     const subject = 'SmartGlobe — as redes ficaram para depois?';
     const body = `Olá,
