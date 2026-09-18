@@ -127,7 +127,31 @@ async function go(view) {
     else if (view === 'calendar') await viewCalendar(main);
     else if (view === 'quotes')   await viewQuotes(main);
     else if (view === 'proposal-templates') { if(typeof window.duitViewProposalTemplates!=='function') throw new Error('Módulo Templates proposta não carregado.'); await window.duitViewProposalTemplates(); }
-    else if (view === 'duit-start') { if(typeof window.duitViewStart!=='function') throw new Error('Módulo DUIT Start não carregado.'); await window.duitViewStart(); }
+    else if (view === 'duit-start') {
+      if(typeof window.duitViewStart!=='function'){
+        const diag={
+          route:location.href,
+          duitViewStart:typeof window.duitViewStart,
+          scripts:[...document.scripts].map(x=>x.src).filter(Boolean),
+          time:new Date().toISOString()
+        };
+        let detail='';
+        try{
+          const rr=await fetch('/js/duit-start-admin.js?diag='+Date.now(),{cache:'no-store'});
+          const txt=await rr.text();
+          diag.moduleHttp=rr.status;
+          diag.moduleBytes=txt.length;
+          diag.moduleStart=txt.slice(0,120);
+          if(rr.ok){
+            try{new Function(txt);diag.parse='OK'}catch(pe){diag.parse='ERRO: '+pe.message}
+          }
+        }catch(fe){diag.fetch='ERRO: '+fe.message}
+        detail=JSON.stringify(diag,null,2);
+        console.error('DUIT Start diagnóstico',diag);
+        throw new Error('Módulo DUIT Start não carregado. DIAGNÓSTICO:\n'+detail);
+      }
+      await window.duitViewStart();
+    }
     else if (view === 'invoices') await viewInvoices(main);
     else if (view === 'cancels')  await viewCancels(main);
     else if (view === 'support')  await viewSupport(main);
