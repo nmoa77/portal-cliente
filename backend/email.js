@@ -607,7 +607,7 @@ Cumprimentos,`;
         'A DUIT ajuda a aliviar essa tarefa e trata das suas redes sociais por si.',
         'Veja como podemos tornar isto mais simples para si. 🙂',
       ],
-      ctaLabel: 'Ver proposta →',
+      ctaLabel: 'Ver o que preparámos →',
       ctaUrl: url,
     });
     return { subject, body, html };
