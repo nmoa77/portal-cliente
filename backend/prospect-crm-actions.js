@@ -13,7 +13,7 @@ module.exports = function installProspectCrmActions(app) {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
   const portal = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
   const guideTarget = process.env.DUIT_GUIDE_URL || `${portal}/ebook-duit.pdf`;
-  const LIMIT_30M=6, LIMIT_60M=10, DAILY_LIMIT=25;
+  const LIMIT_30M=6, LIMIT_60M=10, DAILY_LIMIT=100;
 
   function favoritePage(){ try{return db.prepare(`SELECT * FROM ebook_pages WHERE active=1 ORDER BY is_favorite DESC,id ASC LIMIT 1`).get();}catch(_){return null;} }
   function resolvedPage(explicitId){ try{if(explicitId){const p=db.prepare(`SELECT * FROM ebook_pages WHERE id=? AND active=1`).get(Number(explicitId));if(p)return p;}return favoritePage();}catch(_){return null;} }
