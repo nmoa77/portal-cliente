@@ -64,10 +64,10 @@ async function init(){
   const r=await fetch(ep+encodeURIComponent(token),{cache:'no-store'});
   const d=await r.json();
   if(!r.ok)throw new Error(d.error||'Ligação inválida.');
-  const credit=Number(d.price||19.99),first=Math.max(0,p.price-credit);
+  const startPrice=Number(d.price||9.99),credit=startPrice<=10.01?10:startPrice,first=Math.max(0,p.price-credit);
   root.innerHTML=`<section class="card">
    <div class="ey">Continuar com a DUIT</div><h1>Plano ${p.name}</h1>
-   <p class="intro">Confirme o plano escolhido. O valor pago no DUIT Start é descontado integralmente na primeira mensalidade.</p>
+   <p class="intro">Confirme o plano escolhido. O DUIT Start dá-lhe 10,00 € de crédito na primeira mensalidade.</p>
    <div class="summary"><div class="row"><span>Plano ${p.name}</span><strong>${money(p.price)}/mês</strong></div>
    <div class="row credit"><span>Crédito DUIT Start</span><strong>− ${money(credit)}</strong></div>
    <div class="row total"><span>Primeira mensalidade</span><span>${money(first)}</span></div></div>
