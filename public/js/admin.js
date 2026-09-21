@@ -68,7 +68,7 @@ function renderShell() {
     { id: 'calendar',  icon: 'cal',     label: 'Calendário',   alert: s.todayDrafts,            alertTitle: `${s.todayDrafts || 0} post(s) por tratar hoje` },
     { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',   alert: s.unseenQuoteResponses,   alertTitle: `${s.unseenQuoteResponses || 0} resposta(s) de cliente por ver` },
     { id: 'proposal-templates', icon: 'quote', label: 'Templates proposta' },
-    { id: 'duit-start', icon: 'sparkle', label: 'DUIT Start' },
+    { id: 'duit-start', icon: 'sparkle', label: 'DUIT Start', alert: s.unreadDuitStart, alertTitle: `${s.unreadDuitStart || 0} pedido(s) DUIT Start por ler` },
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',alert: s.pendingCancels,         alertTitle: `${s.pendingCancels || 0} cancelamento(s) pendente(s)` },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      alert: s.unreadAdminTickets,     alertTitle: `${s.unreadAdminTickets || 0} ticket(s) com nova resposta de cliente` },
     { id: 'metaads',   icon: 'quote',   label: 'Meta Ads' },
