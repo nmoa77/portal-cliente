@@ -230,6 +230,13 @@ app.get('/api/stats', requireAdmin, (req, res) => {
   const unseenQuoteResponses = db.prepare(
     `SELECT COUNT(*) c FROM quotes WHERE responded_at IS NOT NULL AND seen_by_admin_at IS NULL`
   ).get().c;
+  // Pedidos DUIT Start ainda não abertos pelo admin
+  let unreadDuitStart = 0;
+  try {
+    unreadDuitStart = db.prepare(
+      `SELECT COUNT(*) c FROM duit_start_prospect_orders WHERE admin_viewed_at IS NULL`
+    ).get().c;
+  } catch (_) { unreadDuitStart = 0; }
   // Tickets abertos com mensagens de cliente ainda não lidas pelo admin
   const unreadAdminTickets = db.prepare(
     `SELECT COUNT(DISTINCT t.id) c FROM tickets t
@@ -276,7 +283,7 @@ app.get('/api/stats', requireAdmin, (req, res) => {
     // alertas
     pendingCancels, pendingQuotes, pendingSubs,
     unreadClientNotes, unseenQuoteResponses,
-    unreadAdminTickets, pendingPostSuggestions, todayDrafts,
+    unreadAdminTickets, unreadDuitStart, pendingPostSuggestions, todayDrafts,
     totalProspects, pendingProspectActions, activeAnnouncements,
   });
 });
