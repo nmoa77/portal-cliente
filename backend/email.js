@@ -686,7 +686,7 @@ Cumprimentos,`;
 <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:640px;background:#fff;border-radius:18px;overflow:hidden;">
   <tr>
     <td style="background:#0a0a0a;padding:24px 30px;border-bottom:4px solid #ffd60a;">
-      <div style="font-size:30px;font-weight:900;letter-spacing:-2px;color:#fff;line-height:1;">DU<span style="color:#ffd60a">!</span>T</div>
+      <img src="${LOGO_URL}" alt="DUIT" width="138" style="display:block;width:138px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">
     </td>
   </tr>
   <tr>
