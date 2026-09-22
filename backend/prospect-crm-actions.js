@@ -43,7 +43,7 @@ module.exports = function installProspectCrmActions(app) {
             </table>
           </td>
         </tr>
-        <tr><td style="padding:0 6px 22px;color:#2a2a2a;font-size:15px;line-height:1.7">
+        <tr><td style="padding:10px 34px 28px;color:#2a2a2a;font-size:15px;line-height:1.7">
           ${clean?clean.replace(/\n{2,}/g,'</p><p style="margin:0 0 14px">').replace(/^/,'<p style="margin:0 0 14px">').replace(/$/,'</p>'):''}
         </td></tr>
         <tr><td>
