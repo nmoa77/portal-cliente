@@ -11,7 +11,8 @@ try {
     "require('./prospect-template-actions')(capturedApp);",
     "require('./prospect-crm-actions')(capturedApp);",
     "require('./ebook-leads-actions')(capturedApp);",
-    "require('./ebook-delete-actions')(capturedApp);"
+    "require('./ebook-delete-actions')(capturedApp);",
+    "require('./landing-pages-actions')(capturedApp);"
   ];
   for (const line of installs) {
     if (!serverSource.includes(line)) serverSource = serverSource.replace(marker, `${line}\n\n${marker}`);
@@ -61,8 +62,8 @@ try {
   const adminHtml = path.join(__dirname, '..', 'public', 'admin.html');
   let ah = fs.readFileSync(adminHtml, 'utf8');
   ah = ah.replace('<div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>','<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>');
-  if (!ah.includes('/js/proposal-templates-admin.js')) ah = ah.replace('</body>', '<script src="/js/proposal-templates-admin.js?v=20260918n"></script>\n<script src="/js/duit-start-admin.js?v=20260921e"></script>\n</body>');
-  else ah = ah.replace(/proposal-templates-admin\.js\?v=[^'\"]+/g,'proposal-templates-admin.js?v=20260918n').replace(/duit-start-admin\.js\?v=[^'\"]+/g,'duit-start-admin.js?v=20260921e');
+  if (!ah.includes('/js/proposal-templates-admin.js')) ah = ah.replace('</body>', '<script src="/js/proposal-templates-admin.js?v=20260918n"></script>\n<script src="/js/duit-start-admin.js?v=20260921e"></script>\n<script src="/js/landing-pages-admin.js?v=20260922a"></script>\n</body>');
+  else { ah = ah.replace(/proposal-templates-admin\.js\?v=[^'\"]+/g,'proposal-templates-admin.js?v=20260918n').replace(/duit-start-admin\.js\?v=[^'\"]+/g,'duit-start-admin.js?v=20260921e'); if(!ah.includes('/js/landing-pages-admin.js')) ah=ah.replace('</body>','<script src="/js/landing-pages-admin.js?v=20260922a"></script>\n</body>'); else ah=ah.replace(/landing-pages-admin\.js\?v=[^'\"]+/g,'landing-pages-admin.js?v=20260922a'); }
   fs.writeFileSync(adminHtml, ah, 'utf8');
 
   // Proposta pública de prospeção: aplica o template selecionado/predefinido.
