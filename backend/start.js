@@ -20,7 +20,7 @@ try {
     /ORDER BY\s+CASE COALESCE\(c\.priority,'possivel'\)\s+WHEN 'atacar' THEN 0 WHEN 'possivel' THEN 1 ELSE 2 END,\s+COALESCE\(c\.updated_at, u\.created_at\) DESC/g,
     'ORDER BY u.id DESC'
   );
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260922b');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260922c');
   if (!serverSource.includes('/api/app-version')) {
     serverSource = serverSource.replace(marker, `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => { res.set('Cache-Control','no-store, no-cache, must-revalidate'); res.json({version: DUIT_APP_VERSION}); });\n\n${marker}`);
   }
