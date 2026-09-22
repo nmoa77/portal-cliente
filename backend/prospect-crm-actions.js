@@ -40,6 +40,9 @@ module.exports = function installProspectCrmActions(app) {
             </table>
           </td>
         </tr>
+        <tr><td style="padding:0 6px 22px;color:#2a2a2a;font-size:15px;line-height:1.7">
+          ${clean?clean.replace(/\n{2,}/g,'</p><p style="margin:0 0 14px">').replace(/^/,'<p style="margin:0 0 14px">').replace(/$/,'</p>'):''}
+        </td></tr>
         <tr><td>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #ffd60a;border-radius:0 0 18px 18px;overflow:hidden">
             <tr><td style="padding:34px 34px 10px">
@@ -99,9 +102,8 @@ module.exports = function installProspectCrmActions(app) {
             </td></tr>
           </table>
         </td></tr>
-        <tr><td style="padding:18px 6px 0;color:#7f7f7f;font-size:12px;line-height:1.6">
-          ${clean?clean.replace(/\n+/g,'<br>'):''}
-          <div style="padding-top:16px"><img src="${portal}/assinatura-email.png?v=${cacheKey}" width="360" alt="Nuno Alho — DUIT" style="display:block;width:100%;max-width:360px;height:auto;border:0"></div>
+        <tr><td style="padding:18px 6px 0">
+          <div style="padding-top:4px"><img src="${portal}/assinatura-email.png?v=${cacheKey}" width="360" alt="Nuno Alho — DUIT" style="display:block;width:100%;max-width:360px;height:auto;border:0"></div>
         </td></tr>
       </table>
       <img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="">
