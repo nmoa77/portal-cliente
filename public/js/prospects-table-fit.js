@@ -1,8 +1,8 @@
 /* DUIT — mantém a listagem de Prospects dentro da largura do painel, incluindo após filtros. */
 (() => {
   function install(){
-    if(document.getElementById('duit-prospects-table-fit-v3')) return;
-    document.getElementById('duit-prospects-table-fit-v2')?.remove();
+    if(document.getElementById('duit-prospects-table-fit-v4')) return;
+    document.getElementById('duit-prospects-table-fit-v2')?.remove();document.getElementById('duit-prospects-table-fit-v3')?.remove();
     const s=document.createElement('style');
     s.id='duit-prospects-table-fit-v3';
     s.textContent=`
@@ -10,16 +10,17 @@
       #main .crm-prospects-fit{width:100%!important;max-width:100%!important;min-width:0!important;overflow:hidden!important}
       #main .crm-prospects-fit table.table{width:100%!important;max-width:100%!important;min-width:0!important;table-layout:fixed!important}
       #main .crm-prospects-fit th,#main .crm-prospects-fit td{box-sizing:border-box;min-width:0!important;max-width:none!important;overflow:hidden!important;overflow-wrap:anywhere;word-break:normal;padding-left:9px;padding-right:9px}
-      #main .crm-prospects-fit th:nth-child(1),#main .crm-prospects-fit td:nth-child(1){width:18%!important}
-      #main .crm-prospects-fit th:nth-child(2),#main .crm-prospects-fit td:nth-child(2){width:12%!important}
+      #main .crm-prospects-fit th:nth-child(1),#main .crm-prospects-fit td:nth-child(1){width:19%!important}
+      #main .crm-prospects-fit th:nth-child(2),#main .crm-prospects-fit td:nth-child(2){width:11%!important}
       #main .crm-prospects-fit th:nth-child(3),#main .crm-prospects-fit td:nth-child(3){width:8%!important}
       #main .crm-prospects-fit th:nth-child(4),#main .crm-prospects-fit td:nth-child(4){width:9%!important}
-      #main .crm-prospects-fit th:nth-child(5),#main .crm-prospects-fit td:nth-child(5){width:17%!important}
+      #main .crm-prospects-fit th:nth-child(5),#main .crm-prospects-fit td:nth-child(5){width:18%!important}
       #main .crm-prospects-fit th:nth-child(6),#main .crm-prospects-fit td:nth-child(6){width:8%!important}
-      #main .crm-prospects-fit th:nth-child(7),#main .crm-prospects-fit td:nth-child(7){width:8%!important}
-      #main .crm-prospects-fit th:nth-child(8),#main .crm-prospects-fit td:nth-child(8){width:8%!important}
-      #main .crm-prospects-fit th:nth-child(9),#main .crm-prospects-fit td:nth-child(9){width:6%!important}
-      #main .crm-prospects-fit th:nth-child(10),#main .crm-prospects-fit td:nth-child(10){width:6%!important}
+      #main .crm-prospects-fit th:nth-child(7),#main .crm-prospects-fit td:nth-child(7){width:7%!important}
+      #main .crm-prospects-fit th:nth-child(8),#main .crm-prospects-fit td:nth-child(8){width:8%!important;white-space:nowrap!important}
+      #main .crm-prospects-fit th:nth-child(9),#main .crm-prospects-fit td:nth-child(9){width:8%!important;white-space:nowrap!important}
+      #main .crm-prospects-fit th:nth-child(10),#main .crm-prospects-fit td:nth-child(10){width:7%!important;white-space:nowrap!important}
+      #main .crm-prospects-fit th:nth-child(11),#main .crm-prospects-fit td:nth-child(11){width:5%!important}
       #main .crm-prospects-fit .pill{max-width:100%!important;white-space:normal!important;line-height:1.2}
       #main .crm-prospects-fit .crm-actions{display:flex!important;align-items:center!important;justify-content:center!important;gap:3px!important;flex-wrap:wrap!important;min-width:0!important;max-width:100%!important}
       #main .crm-prospects-fit .crm-actions .btn{min-width:0!important;max-width:100%!important;padding-left:6px!important;padding-right:6px!important;font-size:11px!important}
@@ -27,10 +28,12 @@
       #main .crm-prospects-fit td a,#main .crm-prospects-fit td strong,#main .crm-prospects-fit td span,#main .crm-prospects-fit td div{max-width:100%}
       @media(max-width:1250px){
         #main .crm-prospects-fit th,#main .crm-prospects-fit td{font-size:12px;padding-left:6px;padding-right:6px}
-        #main .crm-prospects-fit th:nth-child(9),#main .crm-prospects-fit td:nth-child(9){display:none!important}
-        #main .crm-prospects-fit th:nth-child(1),#main .crm-prospects-fit td:nth-child(1){width:20%!important}
-        #main .crm-prospects-fit th:nth-child(5),#main .crm-prospects-fit td:nth-child(5){width:20%!important}
-        #main .crm-prospects-fit th:nth-child(10),#main .crm-prospects-fit td:nth-child(10){width:8%!important}
+        #main .crm-prospects-fit th:nth-child(1),#main .crm-prospects-fit td:nth-child(1){width:19%!important}
+        #main .crm-prospects-fit th:nth-child(5),#main .crm-prospects-fit td:nth-child(5){width:18%!important}
+        #main .crm-prospects-fit th:nth-child(8),#main .crm-prospects-fit td:nth-child(8),
+        #main .crm-prospects-fit th:nth-child(9),#main .crm-prospects-fit td:nth-child(9){width:9%!important;display:table-cell!important}
+        #main .crm-prospects-fit th:nth-child(10),#main .crm-prospects-fit td:nth-child(10){width:7%!important}
+        #main .crm-prospects-fit th:nth-child(11),#main .crm-prospects-fit td:nth-child(11){width:5%!important}
       }
     `;
     document.head.appendChild(s);
