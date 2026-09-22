@@ -683,7 +683,7 @@ Cumprimentos,`;
 <body style="margin:0;padding:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f3ef;padding:28px 14px;">
 <tr><td align="center">
-<table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:640px;background:#fff;border-radius:18px;overflow:hidden;">
+<table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:640px;background-color:#ffffff;border-radius:18px;overflow:hidden;">
   <tr>
     <td style="background:#0a0a0a;padding:24px 30px;border-bottom:4px solid #ffd60a;">
       <img src="${LOGO_URL}" alt="DUIT" width="138" style="display:block;width:138px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">
@@ -714,14 +714,14 @@ Cumprimentos,`;
             <tr>
               <td width="50%" valign="top" style="padding:7px;">
                 <div style="border:1px solid #333;border-radius:12px;padding:16px;min-height:108px;">
-                  <div style="color:#ffd60a;font-size:18px;margin-bottom:8px;">▦</div>
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px;"><tr><td align="center" valign="middle" width="40" height="40" bgcolor="#ffd60a" style="width:40px;height:40px;background:#ffd60a;border-radius:9px;color:#111;font-size:21px;font-weight:800;line-height:40px;">▦</td></tr></table>
                   <div style="color:#fff;font-weight:700;font-size:15px;margin-bottom:5px;">3 conteúdos completos</div>
                   <div style="color:#969696;font-size:12px;line-height:1.5;">Três peças pensadas para mostrar como a sua marca pode comunicar.</div>
                 </div>
               </td>
               <td width="50%" valign="top" style="padding:7px;">
                 <div style="border:1px solid #333;border-radius:12px;padding:16px;min-height:108px;">
-                  <div style="color:#ffd60a;font-size:18px;margin-bottom:8px;">✎</div>
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px;"><tr><td align="center" valign="middle" width="40" height="40" bgcolor="#ffd60a" style="width:40px;height:40px;background:#ffd60a;border-radius:9px;color:#111;font-size:21px;font-weight:800;line-height:40px;">✎</td></tr></table>
                   <div style="color:#fff;font-weight:700;font-size:15px;margin-bottom:5px;">Design + texto</div>
                   <div style="color:#969696;font-size:12px;line-height:1.5;">Visual e mensagem trabalhados em conjunto, prontos para comunicar.</div>
                 </div>
@@ -730,14 +730,14 @@ Cumprimentos,`;
             <tr>
               <td width="50%" valign="top" style="padding:7px;">
                 <div style="border:1px solid #333;border-radius:12px;padding:16px;min-height:108px;">
-                  <div style="color:#ffd60a;font-size:18px;margin-bottom:8px;">⌂</div>
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px;"><tr><td align="center" valign="middle" width="40" height="40" bgcolor="#ffd60a" style="width:40px;height:40px;background:#ffd60a;border-radius:9px;color:#111;font-size:21px;font-weight:800;line-height:40px;">⌂</td></tr></table>
                   <div style="color:#fff;font-weight:700;font-size:15px;margin-bottom:5px;">Feito para a sua empresa</div>
                   <div style="color:#969696;font-size:12px;line-height:1.5;">Nada de modelos genéricos: criamos a partir do seu negócio e objetivos.</div>
                 </div>
               </td>
               <td width="50%" valign="top" style="padding:7px;">
                 <div style="border:1px solid #333;border-radius:12px;padding:16px;min-height:108px;">
-                  <div style="color:#ffd60a;font-size:18px;margin-bottom:8px;">↻</div>
+                  <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px;"><tr><td align="center" valign="middle" width="40" height="40" bgcolor="#ffd60a" style="width:40px;height:40px;background:#ffd60a;border-radius:9px;color:#111;font-size:21px;font-weight:800;line-height:40px;">↻</td></tr></table>
                   <div style="color:#fff;font-weight:700;font-size:15px;margin-bottom:5px;">Sem fidelização</div>
                   <div style="color:#969696;font-size:12px;line-height:1.5;">Experimente por 9,99 €. Depois decide se quer continuar connosco.</div>
                 </div>
