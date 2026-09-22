@@ -656,7 +656,7 @@ Cumprimentos,`;
   },
 
   duitStartProposal: (name, url) => {
-    const subject = 'SmartGlobe — as redes ficaram para depois?';
+    const subject = 'As redes ficaram para depois?';
     const body = `Olá,
 
 Já publicou com frequência, depois parou… ou vai publicando quando consegue?
@@ -665,26 +665,117 @@ Não se desgaste com mais uma tarefa que precisa de acompanhamento diário para 
 
 A DUIT ajuda a aliviar essa tarefa e trata das suas redes sociais por si.
 
+Por isso criámos o DUIT Start: uma forma simples de experimentar primeiro e perceber como podemos trabalhar a comunicação da sua empresa.
+
 Veja como podemos tornar isto mais simples para si. 🙂
+
+3 conteúdos completos · Design + texto · Feito para a sua empresa · Sem fidelização
+DUIT Start: 9,99 € — pagamento único
+Se depois avançar para um plano mensal, recebe 10 € de crédito na primeira mensalidade.
 
 ${url}
 
 Cumprimentos,`;
-    const html = layout({
-      eyebrow: '',
-      title: 'As redes ficaram para depois?',
-      greeting: 'Olá,',
-      paragraphs: [
-        'Já publicou com frequência, depois parou… ou vai publicando quando consegue?',
-        'Não se desgaste com mais uma tarefa que precisa de acompanhamento diário para dar resultados.',
-        'A DUIT ajuda a aliviar essa tarefa e trata das suas redes sociais por si.',
-        'Veja como podemos tornar isto mais simples para si. 🙂',
-      ],
-      ctaLabel: 'Ver o que preparámos →',
-      ctaUrl: url,
-    });
+
+    const html = `<!doctype html>
+<html lang="pt">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f5f3ef;padding:28px 14px;">
+<tr><td align="center">
+<table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:640px;background:#fff;border-radius:18px;overflow:hidden;">
+  <tr>
+    <td style="background:#0a0a0a;padding:24px 30px;border-bottom:4px solid #ffd60a;">
+      <div style="font-size:30px;font-weight:900;letter-spacing:-2px;color:#fff;line-height:1;">DU<span style="color:#ffd60a">!</span>T</div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:34px 34px 18px;">
+      <div style="font-size:28px;font-weight:800;line-height:1.2;margin-bottom:24px;">As redes ficaram para depois?</div>
+      <div style="font-size:15px;line-height:1.72;color:#2a2a2a;">
+        <p style="margin:0 0 16px;">Olá,</p>
+        <p style="margin:0 0 16px;">Já publicou com frequência, depois parou… ou vai publicando quando consegue?</p>
+        <p style="margin:0 0 16px;">Não se desgaste com mais uma tarefa que precisa de acompanhamento diário para dar resultados.</p>
+        <p style="margin:0 0 16px;">A DUIT ajuda a aliviar essa tarefa e trata das suas redes sociais por si.</p>
+        <p style="margin:0 0 4px;">Por isso criámos o <strong>DUIT Start</strong>: uma forma simples de experimentar primeiro e perceber como podemos trabalhar a comunicação da sua empresa.</p>
+      </div>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:8px 24px 26px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0f0f0f;border:1px solid #ffd60a;border-radius:18px;">
+        <tr><td style="padding:30px 30px 18px;">
+          <div style="font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#ffd60a;margin-bottom:8px;">A forma mais simples de começar</div>
+          <div style="font-size:30px;font-weight:800;color:#fff;line-height:1.15;margin-bottom:10px;">Experimente primeiro.</div>
+          <div style="font-size:14px;line-height:1.6;color:#bdbdbd;">Antes de assumir uma mensalidade, veja como a DUIT pode trabalhar a comunicação da sua empresa.</div>
+        </td></tr>
+        <tr><td style="padding:0 22px 10px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td width="50%" valign="top" style="padding:7px;">
+                <div style="border:1px solid #333;border-radius:12px;padding:16px;min-height:108px;">
+                  <div style="color:#ffd60a;font-size:18px;margin-bottom:8px;">▦</div>
+                  <div style="color:#fff;font-weight:700;font-size:15px;margin-bottom:5px;">3 conteúdos completos</div>
+                  <div style="color:#969696;font-size:12px;line-height:1.5;">Três peças pensadas para mostrar como a sua marca pode comunicar.</div>
+                </div>
+              </td>
+              <td width="50%" valign="top" style="padding:7px;">
+                <div style="border:1px solid #333;border-radius:12px;padding:16px;min-height:108px;">
+                  <div style="color:#ffd60a;font-size:18px;margin-bottom:8px;">✎</div>
+                  <div style="color:#fff;font-weight:700;font-size:15px;margin-bottom:5px;">Design + texto</div>
+                  <div style="color:#969696;font-size:12px;line-height:1.5;">Visual e mensagem trabalhados em conjunto, prontos para comunicar.</div>
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td width="50%" valign="top" style="padding:7px;">
+                <div style="border:1px solid #333;border-radius:12px;padding:16px;min-height:108px;">
+                  <div style="color:#ffd60a;font-size:18px;margin-bottom:8px;">⌂</div>
+                  <div style="color:#fff;font-weight:700;font-size:15px;margin-bottom:5px;">Feito para a sua empresa</div>
+                  <div style="color:#969696;font-size:12px;line-height:1.5;">Nada de modelos genéricos: criamos a partir do seu negócio e objetivos.</div>
+                </div>
+              </td>
+              <td width="50%" valign="top" style="padding:7px;">
+                <div style="border:1px solid #333;border-radius:12px;padding:16px;min-height:108px;">
+                  <div style="color:#ffd60a;font-size:18px;margin-bottom:8px;">↻</div>
+                  <div style="color:#fff;font-weight:700;font-size:15px;margin-bottom:5px;">Sem fidelização</div>
+                  <div style="color:#969696;font-size:12px;line-height:1.5;">Experimente por 9,99 €. Depois decide se quer continuar connosco.</div>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:18px 30px 30px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td valign="middle">
+                <div style="font-size:39px;font-weight:900;color:#fff;line-height:1;">9,99 €</div>
+                <div style="font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:#8d8d8d;margin-top:5px;">Pagamento único</div>
+              </td>
+              <td align="right" valign="middle">
+                <a href="${url}" style="display:inline-block;background:#ffd60a;color:#111;text-decoration:none;font-weight:800;font-size:15px;padding:15px 22px;border-radius:10px;">Quero experimentar →</a>
+              </td>
+            </tr>
+          </table>
+          <div style="font-size:11px;color:#8f8f8f;line-height:1.5;margin-top:15px;">Se depois avançar para um plano mensal, recebe 10 € de crédito na primeira mensalidade.</div>
+        </td></tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:0 34px 30px;font-size:15px;line-height:1.65;color:#2a2a2a;">
+      <p style="margin:0 0 18px;">Veja como podemos tornar isto mais simples para si. 🙂</p>
+      <p style="margin:0 0 10px;">Cumprimentos,</p>
+      <img src="${SIGNATURE_URL}" alt="Nuno Alho — DUIT" width="360" style="display:block;width:100%;max-width:360px;height:auto;border:0;">
+    </td>
+  </tr>
+  <tr><td style="background:#fafaf8;padding:18px 34px;border-top:1px solid #ece9e2;font-size:12px;color:#8b8680;line-height:1.6;"><strong style="color:#111;">DUIT</strong> — Design com método<br>cliente.duit.pt · info@duit.pt</td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
     return { subject, body, html };
-  },
+  }
 };
 
 module.exports = { deliver, T };
