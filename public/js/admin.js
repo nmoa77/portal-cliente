@@ -57,6 +57,7 @@ function renderShell() {
   const items = [
     { id: 'home',      icon: 'home',    label: 'Visão geral' },
     { id: 'clients',   icon: 'users',   label: 'Clientes' },
+    { id: 'landing-pages', icon: 'sparkle', label: 'Landing Pages' },
     { id: 'prospects', icon: 'sparkle', label: 'Prospects',
         count: s.totalProspects,         countTitle: `${s.totalProspects || 0} prospect(s) por converter`,
         alert: s.pendingProspectActions, alertTitle: `${s.pendingProspectActions || 0} prospect(s) já respondeu(eram) — pronto a converter` },
@@ -120,6 +121,7 @@ async function go(view) {
   try {
     if (view === 'home')          await viewHome(main);
     else if (view === 'clients')  await viewClients(main);
+    else if (view === 'landing-pages') { if(typeof window.duitViewLandingPages!=='function') throw new Error('Módulo Landing Pages não carregado.'); await window.duitViewLandingPages(); }
     else if (view === 'prospects')await viewProspects(main);
     else if (view === 'subs')     await viewSubs(main);
     else if (view === 'plans')    await viewPlans(main);
