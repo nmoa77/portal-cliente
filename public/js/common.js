@@ -42,9 +42,17 @@ function fmtDate(s, long = false) {
 
 function fmtDateTime(s) {
   if (!s) return '—';
-  const d = new Date(s.includes('T') ? s : s.replace(' ', 'T'));
+  // Datas SQLite em "YYYY-MM-DD HH:mm:ss" são UTC. Sem o Z o browser
+  // interpreta-as como hora local e, no horário de verão, mostra -1h.
+  const raw = String(s);
+  const iso = raw.includes('T') ? raw : raw.replace(' ', 'T');
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso);
+  const d = new Date(hasZone ? iso : iso + 'Z');
   if (isNaN(d)) return s;
-  return d.toLocaleString('pt-PT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString('pt-PT', {
+    timeZone: 'Europe/Lisbon',
+    day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
+  });
 }
 
 function initials(name) {
