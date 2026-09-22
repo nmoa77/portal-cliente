@@ -29,7 +29,7 @@ module.exports = function installProspectCrmActions(app) {
 <body style="margin:0;background:#f3f1ed;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px;background:#f3f1ed">
     <tr><td align="center">
-      <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px">
+      <table role="presentation" width="640" cellpadding="0" cellspacing="0" bgcolor="#ffffff" style="width:100%;max-width:640px;background-color:#ffffff;border-radius:16px;overflow:hidden">
         <tr>
           <td style="padding:0 0 18px">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#111;border-radius:16px 16px 0 0;border-bottom:3px solid #ffd60a">
@@ -55,14 +55,14 @@ module.exports = function installProspectCrmActions(app) {
                 <tr>
                   <td width="50%" valign="top" style="padding:8px 8px 8px 0">
                     <div style="border:1px solid #333;border-radius:14px;padding:18px">
-                      <div style="font-size:24px;margin-bottom:8px">◫</div>
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px"><tr><td align="center" valign="middle" width="40" height="40" bgcolor="#ffd60a" style="width:40px;height:40px;background:#ffd60a;border-radius:9px;color:#111;font-size:21px;font-weight:800;line-height:40px">▦</td></tr></table>
                       <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:6px">3 conteúdos completos</div>
                       <div style="color:#9e9e9e;font-size:13px;line-height:1.5">Três peças pensadas para mostrar como a sua marca pode comunicar.</div>
                     </div>
                   </td>
                   <td width="50%" valign="top" style="padding:8px 0 8px 8px">
                     <div style="border:1px solid #333;border-radius:14px;padding:18px">
-                      <div style="font-size:24px;margin-bottom:8px">✎</div>
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px"><tr><td align="center" valign="middle" width="40" height="40" bgcolor="#ffd60a" style="width:40px;height:40px;background:#ffd60a;border-radius:9px;color:#111;font-size:21px;font-weight:800;line-height:40px">✎</td></tr></table>
                       <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:6px">Design + texto</div>
                       <div style="color:#9e9e9e;font-size:13px;line-height:1.5">Visual e mensagem trabalhados em conjunto, prontos para comunicar.</div>
                     </div>
@@ -71,14 +71,14 @@ module.exports = function installProspectCrmActions(app) {
                 <tr>
                   <td width="50%" valign="top" style="padding:8px 8px 8px 0">
                     <div style="border:1px solid #333;border-radius:14px;padding:18px">
-                      <div style="font-size:24px;margin-bottom:8px">⌂</div>
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px"><tr><td align="center" valign="middle" width="40" height="40" bgcolor="#ffd60a" style="width:40px;height:40px;background:#ffd60a;border-radius:9px;color:#111;font-size:21px;font-weight:800;line-height:40px">⌂</td></tr></table>
                       <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:6px">Feito para a sua empresa</div>
                       <div style="color:#9e9e9e;font-size:13px;line-height:1.5">Nada de modelos genéricos: criamos a partir do seu negócio e objetivos.</div>
                     </div>
                   </td>
                   <td width="50%" valign="top" style="padding:8px 0 8px 8px">
                     <div style="border:1px solid #333;border-radius:14px;padding:18px">
-                      <div style="font-size:24px;margin-bottom:8px">↻</div>
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 12px"><tr><td align="center" valign="middle" width="40" height="40" bgcolor="#ffd60a" style="width:40px;height:40px;background:#ffd60a;border-radius:9px;color:#111;font-size:21px;font-weight:800;line-height:40px">↻</td></tr></table>
                       <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:6px">Sem fidelização</div>
                       <div style="color:#9e9e9e;font-size:13px;line-height:1.5">Experimente por 9,99 €. Depois decide se quer continuar connosco.</div>
                     </div>
