@@ -655,6 +655,33 @@ Cumprimentos,`;
     ],ctaLabel:'Ver apresentação →',ctaUrl:url}); return {subject,body,html};
   },
 
+  duitStartLeadConfirmation: (name, url) => {
+    const first=(name||'').split(' ')[0]||'';
+    const subject='Recebemos o seu pedido — DUIT Start';
+    const body=`Olá ${first},
+
+Recebemos o seu pedido DUIT Start.
+
+O próximo passo é indicar-nos o essencial sobre a comunicação da sua empresa para podermos começar.
+
+Continuar: ${url}
+
+Até já,
+DUIT`;
+    const html=layout({
+      eyebrow:'DUIT Start',
+      title:'Pedido recebido.',
+      greeting:`Olá ${first},`,
+      paragraphs:[
+        'Recebemos o seu pedido <strong>DUIT Start</strong>.',
+        'O próximo passo é indicar-nos o essencial sobre a comunicação da sua empresa para podermos começar.'
+      ],
+      ctaLabel:'Continuar DUIT Start →',
+      ctaUrl:url
+    });
+    return {subject,body,html};
+  },
+
   duitStartProposal: (name, url) => {
     const subject = 'As redes ficaram para depois?';
     const body = `Olá,
