@@ -62,8 +62,8 @@ try {
   const adminHtml = path.join(__dirname, '..', 'public', 'admin.html');
   let ah = fs.readFileSync(adminHtml, 'utf8');
   ah = ah.replace('<div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>','<div class="brand"><img src="/logo-branco.png" alt="DUIT" style="display:block;width:100%;max-width:135px;height:auto;object-fit:contain"></div>');
-  if (!ah.includes('/js/proposal-templates-admin.js')) ah = ah.replace('</body>', '<script src="/js/proposal-templates-admin.js?v=20260918n"></script>\n<script src="/js/duit-start-admin.js?v=20260921e"></script>\n<script src="/js/landing-pages-admin.js?v=20260922b"></script>\n</body>');
-  else { ah = ah.replace(/proposal-templates-admin\.js\?v=[^'\"]+/g,'proposal-templates-admin.js?v=20260918n').replace(/duit-start-admin\.js\?v=[^'\"]+/g,'duit-start-admin.js?v=20260921e'); if(!ah.includes('/js/landing-pages-admin.js')) ah=ah.replace('</body>','<script src="/js/landing-pages-admin.js?v=20260922b"></script>\n</body>'); else ah=ah.replace(/landing-pages-admin\.js\?v=[^'\"]+/g,'landing-pages-admin.js?v=20260922b'); }
+  if (!ah.includes('/js/proposal-templates-admin.js')) ah = ah.replace('</body>', '<script src="/js/proposal-templates-admin.js?v=20260918n"></script>\n<script src="/js/duit-start-admin.js?v=20260921e"></script>\n<script src="/js/landing-pages-admin.js?v=20260922c"></script>\n</body>');
+  else { ah = ah.replace(/proposal-templates-admin\.js\?v=[^'\"]+/g,'proposal-templates-admin.js?v=20260918n').replace(/duit-start-admin\.js\?v=[^'\"]+/g,'duit-start-admin.js?v=20260921e'); if(!ah.includes('/js/landing-pages-admin.js')) ah=ah.replace('</body>','<script src="/js/landing-pages-admin.js?v=20260922c"></script>\n</body>'); else ah=ah.replace(/landing-pages-admin\.js\?v=[^'\"]+/g,'landing-pages-admin.js?v=20260922c'); }
   fs.writeFileSync(adminHtml, ah, 'utf8');
 
   // Proposta pública de prospeção: aplica o template selecionado/predefinido.
