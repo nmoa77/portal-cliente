@@ -20,7 +20,96 @@ module.exports = function installProspectCrmActions(app) {
   const sentSince = mins => db.prepare(`SELECT email_sent_at FROM prospect_crm WHERE email_sent_at IS NOT NULL AND datetime(email_sent_at) > datetime('now', ?) ORDER BY datetime(email_sent_at) ASC`).all(`-${mins} minutes`);
   function sendingState(){const today=Number(db.prepare(`SELECT COUNT(*) n FROM prospect_crm WHERE email_sent_at IS NOT NULL AND date(email_sent_at,'localtime')=date('now','localtime')`).get().n||0);const m30=sentSince(10),m60=sentSince(60);let nextAt=0,reason='';if(today>=DAILY_LIMIT){const d=new Date();d.setDate(d.getDate()+1);d.setHours(0,0,0,0);nextAt=d.getTime();reason='daily';}else if(m30.length>=LIMIT_30M){nextAt=new Date(String(m30[0].email_sent_at).replace(' ','T')+'Z').getTime()+10*60000;reason='10m';}else if(m60.length>=LIMIT_60M){nextAt=new Date(String(m60[0].email_sent_at).replace(' ','T')+'Z').getTime()+60*60000;reason='60m';}return {allowed:!nextAt,reason,next_at:nextAt?new Date(nextAt).toISOString():null,today,daily_limit:DAILY_LIMIT,sent_10m:m30.length,limit_10m:LIMIT_30M,sent_60m:m60.length,limit_60m:LIMIT_60M};}
 
-  function emailHtml(text, token) {let clean=String(text||'').replace(/^Assunto:.*?(\r?\n){1,2}/i,'').trim();clean=clean.replace(/Quer avançar\?\s*Responda a este email e tratamos do resto\.?/gi,'').trim();clean=clean.replace(/(?:\r?\n){1,2}Cumprimentos,\s*(?:\r?\n)Nuno\.?\s*$/i,'').trim();const paragraphs=clean.split(/\n{2,}/).filter(Boolean).map(p=>`<div style="margin:0 0 15px;color:#2a2a2a;font-size:15px;line-height:1.65;white-space:pre-line">${esc(p).replace(/ebook gratuito/gi,'<strong>ebook gratuito</strong>')}</div>`).join('');const responseUrl=`${portal}/proposta?token=${encodeURIComponent(token)}`,cacheKey=Date.now();return `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px;background:#f5f3ef"><tr><td align="center"><table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:18px 34px"><img src="${portal}/logo-branco.png?v=${cacheKey}" width="135" alt="DUIT"></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px">${paragraphs}<div style="margin:24px 0 10px"><a href="${responseUrl}" style="display:inline-block;background:#ffd60a;color:#0a0a0a;text-decoration:none;font-weight:700;font-size:15px;padding:13px 22px;border-radius:9px">Ver o que preparámos para si</a></div><div style="padding-top:8px"><img src="${portal}/assinatura-email.png?v=${cacheKey}" width="400" alt="Nuno Alho — DUIT" style="display:block;width:100%;max-width:400px;height:auto;border:0"></div></td></tr></table><img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt=""></td></tr></table></body></html>`;}
+  function emailHtml(text, token) {
+    const clean=String(text||'').replace(/^Assunto:.*?(\r?\n){1,2}/i,'').trim();
+    const responseUrl=`${portal}/proposta?token=${encodeURIComponent(token)}`;
+    const cacheKey=Date.now();
+    return `<!doctype html>
+<html>
+<body style="margin:0;background:#f3f1ed;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px;background:#f3f1ed">
+    <tr><td align="center">
+      <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px">
+        <tr>
+          <td style="padding:0 0 18px">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#111;border-radius:16px 16px 0 0;border-bottom:3px solid #ffd60a">
+              <tr>
+                <td style="padding:20px 26px"><img src="${portal}/logo-branco.png?v=${cacheKey}" width="138" alt="DUIT" style="display:block;border:0"></td>
+                <td align="right" style="padding:20px 26px;color:#b9b9b9;font-size:11px;letter-spacing:.12em;text-transform:uppercase">DUIT START</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr><td>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#111;border:1px solid #ffd60a;border-radius:0 0 18px 18px;overflow:hidden">
+            <tr><td style="padding:34px 34px 10px">
+              <div style="color:#ffd60a;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-bottom:10px">A forma mais simples de começar</div>
+              <div style="font-size:36px;line-height:1.05;font-weight:800;color:#fff;margin-bottom:16px">Experimente primeiro.</div>
+              <div style="font-size:16px;line-height:1.6;color:#cfcfcf">Antes de assumir uma mensalidade, veja como a DUIT pode trabalhar a comunicação da sua empresa.</div>
+            </td></tr>
+            <tr><td style="padding:14px 34px 10px">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td width="50%" valign="top" style="padding:8px 8px 8px 0">
+                    <div style="border:1px solid #333;border-radius:14px;padding:18px">
+                      <div style="font-size:24px;margin-bottom:8px">◫</div>
+                      <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:6px">3 conteúdos completos</div>
+                      <div style="color:#9e9e9e;font-size:13px;line-height:1.5">Três peças pensadas para mostrar como a sua marca pode comunicar.</div>
+                    </div>
+                  </td>
+                  <td width="50%" valign="top" style="padding:8px 0 8px 8px">
+                    <div style="border:1px solid #333;border-radius:14px;padding:18px">
+                      <div style="font-size:24px;margin-bottom:8px">✎</div>
+                      <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:6px">Design + texto</div>
+                      <div style="color:#9e9e9e;font-size:13px;line-height:1.5">Visual e mensagem trabalhados em conjunto, prontos para comunicar.</div>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td width="50%" valign="top" style="padding:8px 8px 8px 0">
+                    <div style="border:1px solid #333;border-radius:14px;padding:18px">
+                      <div style="font-size:24px;margin-bottom:8px">⌂</div>
+                      <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:6px">Feito para a sua empresa</div>
+                      <div style="color:#9e9e9e;font-size:13px;line-height:1.5">Nada de modelos genéricos: criamos a partir do seu negócio e objetivos.</div>
+                    </div>
+                  </td>
+                  <td width="50%" valign="top" style="padding:8px 0 8px 8px">
+                    <div style="border:1px solid #333;border-radius:14px;padding:18px">
+                      <div style="font-size:24px;margin-bottom:8px">↻</div>
+                      <div style="color:#fff;font-size:16px;font-weight:700;margin-bottom:6px">Sem fidelização</div>
+                      <div style="color:#9e9e9e;font-size:13px;line-height:1.5">Experimente por 9,99 €. Depois decide se quer continuar connosco.</div>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td></tr>
+            <tr><td style="padding:22px 34px 30px">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td valign="middle">
+                    <div style="color:#fff;font-size:42px;font-weight:800;line-height:1">9,99 €</div>
+                    <div style="color:#9d9d9d;font-size:10px;letter-spacing:.13em;text-transform:uppercase;margin-top:6px">Pagamento único</div>
+                  </td>
+                  <td align="right" valign="middle">
+                    <a href="${responseUrl}" style="display:inline-block;background:#ffd60a;color:#111;text-decoration:none;font-weight:800;font-size:15px;padding:15px 24px;border-radius:10px">Quero experimentar →</a>
+                  </td>
+                </tr>
+              </table>
+              <div style="margin-top:16px;color:#9e9e9e;font-size:12px;line-height:1.5">Se depois avançar para um plano mensal, recebe 10 € de crédito na primeira mensalidade.</div>
+            </td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:18px 6px 0;color:#7f7f7f;font-size:12px;line-height:1.6">
+          ${clean?clean.replace(/\n+/g,'<br>'):''}
+          <div style="padding-top:16px"><img src="${portal}/assinatura-email.png?v=${cacheKey}" width="360" alt="Nuno Alho — DUIT" style="display:block;width:100%;max-width:360px;height:auto;border:0"></div>
+        </td></tr>
+      </table>
+      <img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="">
+    </td></tr>
+  </table>
+</body>
+</html>`;
+  }
 
   app.get('/proposta', (req,res)=>res.sendFile(require('path').join(__dirname,'..','public','prospect-response.html')));
   app.get('/api/crm/prospects/email-status',requireAdmin,(req,res)=>res.json(db.prepare(`SELECT user_id,email_sent_at,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,proposal_first_viewed_at,proposal_last_viewed_at,COALESCE(proposal_view_count,0) proposal_view_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at,outreach_question,outreach_question_at FROM prospect_crm`).all()));
