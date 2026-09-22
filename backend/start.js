@@ -69,8 +69,8 @@ try {
   // Proposta pública de prospeção: aplica o template selecionado/predefinido.
   const prospectPage = path.join(__dirname, '..', 'public', 'prospect-response.html');
   let ph = fs.readFileSync(prospectPage, 'utf8');
-  if (!ph.includes('/js/prospect-template-public.js')) ph = ph.replace('</body>', '<script src="/js/prospect-template-public.js?v=20260922lp2"></script>\n</body>');
-  else ph = ph.replace(/prospect-template-public\.js\?v=[^'\"]+/g,'prospect-template-public.js?v=20260922lp2');
+  if (!ph.includes('/js/prospect-template-public.js')) ph = ph.replace('</body>', '<script src="/js/prospect-template-public.js?v=20260922lp3"></script>\n</body>');
+  else ph = ph.replace(/prospect-template-public\.js\?v=[^'\"]+/g,'prospect-template-public.js?v=20260922lp3');
   fs.writeFileSync(prospectPage, ph, 'utf8');
 
   // Analytics: mantém 6 KPIs no topo.
