@@ -11,7 +11,7 @@
     document.body.appendChild(patch);
   }
 
-  const state = { rows: [], loading: false, loaded: false };
+  const state = { rows: [], loading: false, loaded: false, expanded: false };
   const norm = v => String(v == null ? '' : v).trim().toLocaleLowerCase('pt-PT');
   const esc = v => {
     const el = document.createElement('div');
@@ -82,7 +82,7 @@
     s.id='duit-sector-chart-css';
     s.textContent=`
       #main .duit-sector-panel{margin-top:12px;padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
-      #main .duit-sector-panel h3{margin:0;font-family:'Clash Display';font-size:17px}
+      #main .duit-sector-panel h3{margin:0;font-family:'Clash Display';font-size:17px}#main .duit-sector-toggle{border:1px solid var(--line);background:var(--bg-2);color:var(--ink);border-radius:9px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer}#main .duit-sector-toggle:hover{border-color:var(--yellow)}#main .duit-sector-collapsed{padding:2px 0 0;font-size:12px;color:var(--muted)}
       #main .duit-sector-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:14px;flex-wrap:wrap}
       #main .duit-sector-sub{font-size:11px;color:var(--muted);margin-top:4px}
       #main .duit-sector-list{display:grid;gap:9px}
@@ -125,15 +125,16 @@
 
     panel.innerHTML=`
       <div class="duit-sector-head">
-        <div><h3>Prospects por setor</h3><div class="duit-sector-sub">Peso de cada setor no universo filtrado por período e serviço.</div></div>
-        <div class="duit-sector-sub"><strong>${total}</strong> prospects analisados</div>
+        <div><h3>Prospects por setor</h3><div class="duit-sector-sub">${state.expanded?'Peso de cada setor no universo filtrado por período e serviço.':'Distribuição por setor minimizada.'}</div></div>
+        <div style="display:flex;align-items:center;gap:10px"><div class="duit-sector-sub"><strong>${total}</strong> prospects analisados</div><button type="button" class="duit-sector-toggle" id="duit-sector-toggle">${state.expanded?'Minimizar':'Ver gráfico'}</button></div>
       </div>
-      ${!data.length?'<div class="empty" style="padding:18px 0">Sem dados para este filtro.</div>':`<div class="duit-sector-list">${data.map(item=>{
+      ${state.expanded?(!data.length?'<div class="empty" style="padding:18px 0">Sem dados para este filtro.</div>':`<div class="duit-sector-list">${data.map(item=>{
         const width=Math.max(2,Math.round(item.pct));
         const active=selected!=='all'&&norm(selected)===norm(item.sector);
         return `<div class="duit-sector-row ${active?'duit-sector-selected':''}"><div class="duit-sector-name" title="${esc(item.sector)}">${esc(item.sector)}</div><div class="duit-sector-track"><div class="duit-sector-fill" style="width:${width}%"></div></div><div class="duit-sector-value"><strong>${item.pct.toFixed(1).replace('.',',')}%</strong> · ${item.count}</div></div>`;
-      }).join('')}</div>`}
+      }).join('')}</div>`):''}
     `;
+    panel.querySelector('#duit-sector-toggle')?.addEventListener('click',()=>{state.expanded=!state.expanded;render()});
   }
 
   async function load(){
