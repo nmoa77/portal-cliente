@@ -230,18 +230,19 @@
   }
 
   function bindKpiClicks(root){
-    const map={all:'todos',sent:'enviados',opened:'abertos',responded:'responderam',interested:'interessado',proposals:'proposta',accepted:'aceite'};
     root.querySelectorAll('[data-kpi-click]').forEach(card=>card.addEventListener('click',()=>{
       const key=card.dataset.kpiClick;
-      const target=map[key]||'todos';
-      if(typeof window.duitProspectKpiFilter==='function') return window.duitProspectKpiFilter(target);
-      const candidates=[...document.querySelectorAll('#main select')];
-      const sel=candidates.find(x=>[...x.options].some(o=>norm(o.textContent).includes(norm(target))));
-      if(sel){
-        const opt=[...sel.options].find(o=>norm(o.textContent).includes(norm(target)));
-        if(opt){sel.value=opt.value;sel.dispatchEvent(new Event('change',{bubbles:true}));}
+      const statusMap={all:'all',sent:'contactado',opened:'email_visto',responded:'respondeu',interested:'interessado'};
+      if(key==='proposals'){
+        if(typeof window.crmSetFilter==='function') window.crmSetFilter('proposal','vista');
+      }else if(key==='accepted'){
+        // Não existe filtro CRM próprio para "aceite"; usa o estado mais próximo sem inventar opções no seletor.
+        if(typeof window.crmSetFilter==='function') window.crmSetFilter('status','interessado');
+      }else if(typeof window.crmSetFilter==='function'){
+        window.crmSetFilter('proposal','all');
+        window.crmSetFilter('status',statusMap[key]||'all');
       }
-      document.querySelector('#main .table-card')?.scrollIntoView({behavior:'smooth',block:'start'});
+      setTimeout(()=>document.querySelector('#main .table-card')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
     }));
   }
 
