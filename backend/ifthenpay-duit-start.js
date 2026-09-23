@@ -44,7 +44,7 @@ function sendMonthlyMb(o){
 }
 function convertMonthlyProspect(o){const u=db.prepare(`SELECT * FROM users WHERE id=?`).get(o.user_id);if(!u||Number(u.is_prospect||0)!==1)return;const tempPassword=crypto.randomBytes(8).toString('base64url').slice(0,12),hash=bcrypt.hashSync(tempPassword,10);const test=db.prepare(`SELECT COALESCE(is_test,0) is_test FROM prospect_crm WHERE user_id=?`).get(u.id);db.prepare(`UPDATE users SET password_hash=?,is_prospect=0,is_active=1,role='client' WHERE id=?`).run(hash,u.id);try{const tpl=T.welcome(u.name,u.email,tempPassword);deliver(db,{to:u.email,subject:tpl.subject,body:tpl.body,html:tpl.html,user_id:u.id,kind:'welcome_after_conversion',force:true})}catch(e){console.warn('[duit-start] welcome conversion:',e.message)}if(Number(test?.is_test||0)===1)db.prepare(`UPDATE prospect_crm SET lead_status='cliente_teste',updated_at=datetime('now') WHERE user_id=?`).run(u.id)}
 function markMonthlyPaid(o,payment){if(!o||o.payment_status==='paid')return o;db.prepare(`UPDATE duit_start_monthly_orders SET payment_status='paid',paid_at=COALESCE(?,datetime('now')),updated_at=datetime('now') WHERE id=?`).run(payment?.paymentDate||null,o.id);const fresh=db.prepare(`SELECT * FROM duit_start_monthly_orders WHERE id=?`).get(o.id);convertMonthlyProspect(fresh);return fresh}
-async function reconcileMonthly(o){if(!o||o.payment_status==='paid'||!o.payment_order_id||!BO_KEY)return o;try{const d=await postJson(PAYMENTS_URL,{boKey:BO_KEY,orderId:o.payment_order_id,reference:o.payment_method==='multibanco'?(o.payment_reference||null):null,requestId:o.payment_request_id||null});const ps=Array.isArray(d.payments)?d.payments:[],hit=ps.find(p=>same(p.orderId,o.payment_order_id)&&(!o.payment_request_id||!p.requestId||same(p.requestId,o.payment_request_id)));return hit?markMonthlyPaid(o,hit):o}catch(e){console.warn('[ifthenpay] reconciliação mensal:',o.id,e.message);return o}}
+async function reconcileMonthly(o){if(!o||o.payment_status==='paid'||!o.payment_order_id||!BO_KEY)return o;try{const d=await postJson(PAYMENTS_URL,{boKey:BO_KEY,orderId:o.payment_order_id,reference:o.payment_method==='multibanco'?(o.payment_reference||null):null,requestId:o.payment_request_id||null});const ps=Array.isArray(d.payments)?d.payments:[],hit=ps.find(p=>same(p.orderId,o.payment_order_id)&&(!o.payment_request_id||!p.requestId||same(p.requestId,o.payment_request_id)));return hit?markMonthlyPaid(o,hit):o}catch(e){noteReconcileError('mensal',o.id,e);return o}}
 async function reconcile(o){
  if(!o||o.payment_status==='paid'||!o.payment_order_id||!BO_KEY)return o;
  try{
@@ -52,10 +52,19 @@ async function reconcile(o){
   const payments=Array.isArray(d.payments)?d.payments:[];
   const hit=payments.find(p=>same(p.orderId,o.payment_order_id)&&(!o.payment_request_id||!p.requestId||same(p.requestId,o.payment_request_id))&&(!o.payment_reference||!p.reference||same(String(p.reference).replace(/\s/g,''),String(o.payment_reference).replace(/\s/g,''))));
   return hit?markPaid(o,hit):o;
- }catch(e){console.warn('[ifthenpay] reconciliação:',o.id,e.message);return o}
+ }catch(e){noteReconcileError('',o.id,e);return o}
 }
-let reconciling=false;
-async function reconcilePending(){if(reconciling||!BO_KEY)return;reconciling=true;try{const rows=db.prepare(`SELECT * FROM duit_start_prospect_orders WHERE payment_status!='paid' AND payment_order_id IS NOT NULL AND payment_created_at>=datetime('now','-14 days') ORDER BY id DESC LIMIT 100`).all();for(const o of rows)await reconcile(o);const monthly=db.prepare(`SELECT * FROM duit_start_monthly_orders WHERE payment_status!='paid' AND payment_order_id IS NOT NULL AND payment_created_at>=datetime('now','-14 days') ORDER BY id DESC LIMIT 100`).all();for(const o of monthly)await reconcileMonthly(o)}finally{reconciling=false}}
+let reconciling=false,authBlockedUntil=0,authWarned=false;
+function isAuthError(e){return /request not authorized|unauthori[sz]ed|forbidden|invalid.*(?:bo.?key|token)|http\s*(?:401|403)/i.test(String(e?.message||e||''))}
+function noteReconcileError(scope,id,e){
+ if(isAuthError(e)){
+  authBlockedUntil=Date.now()+6*60*60*1000;
+  if(!authWarned){console.error('[ifthenpay] reconciliação suspensa por 6h: Backoffice Key sem autorização. Pagamentos continuam pendentes e nenhum é marcado como pago.');authWarned=true}
+  return;
+ }
+ console.warn('[ifthenpay] reconciliação'+(scope?' '+scope:'' )+':',id,e.message);
+}
+async function reconcilePending(){if(reconciling||!BO_KEY||Date.now()<authBlockedUntil)return;reconciling=true;try{const rows=db.prepare(`SELECT * FROM duit_start_prospect_orders WHERE payment_status!='paid' AND payment_order_id IS NOT NULL AND payment_created_at>=datetime('now','-14 days') ORDER BY id DESC LIMIT 100`).all();for(const o of rows){await reconcile(o);if(Date.now()<authBlockedUntil)break}if(Date.now()<authBlockedUntil)return;const monthly=db.prepare(`SELECT * FROM duit_start_monthly_orders WHERE payment_status!='paid' AND payment_order_id IS NOT NULL AND payment_created_at>=datetime('now','-14 days') ORDER BY id DESC LIMIT 100`).all();for(const o of monthly){await reconcileMonthly(o);if(Date.now()<authBlockedUntil)break}}finally{reconciling=false}}
 
 module.exports=function(app){setup();
  app.post('/api/public/prospect-duit-start/:token/payment',async(req,res)=>{try{let o=byToken(req.params.token);if(!o)return res.status(404).json({error:'Pedido DUIT Start não encontrado.'});if(o.payment_status==='paid')return res.json({ok:true,...paymentPublic(o)});const testRow=db.prepare(`SELECT COALESCE(is_test,0) is_test FROM prospect_crm WHERE user_id=?`).get(o.user_id);const isTest=Number(testRow?.is_test||0)===1;const method=String(o.payment_method||'').toLowerCase();const orderId=`DS${o.id}`;const amount=Number(o.price||9.99).toFixed(2);
@@ -79,6 +88,6 @@ module.exports=function(app){setup();
   res.json({ok:true,payment_status:paid.payment_status,plan:paid.plan_name});
  }catch(e){res.status(500).json({error:e.message})}});
  app.post('/api/duit-start-prospects/:id/send-ready-email',require('./auth').requireAdmin,(req,res)=>{const o=db.prepare(`SELECT * FROM duit_start_prospect_orders WHERE id=?`).get(req.params.id);if(!o)return res.status(404).json({error:'Pedido não encontrado.'});if(!o.preview_image_url)return res.status(400).json({error:'A apresentação ainda não foi definida.'});sendReady(o);res.json({ok:true})});
- setTimeout(()=>reconcilePending().catch(()=>{}),5000);const timer=setInterval(()=>reconcilePending().catch(()=>{}),60000);if(timer.unref)timer.unref();
+ setTimeout(()=>reconcilePending().catch(()=>{}),5000);const timer=setInterval(()=>reconcilePending().catch(()=>{}),5*60*1000);if(timer.unref)timer.unref();
 };
 module.exports.sendReady=sendReady;
