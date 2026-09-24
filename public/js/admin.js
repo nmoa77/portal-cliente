@@ -189,7 +189,8 @@ async function viewHome(main) {
   const activeProjects=Number(s.openProjects||0);
   const interested=crm.filter(p=>['respondeu','interessado','proposta'].includes(p.lead_status));
   const viewedNoReply=crm.filter(p=>Number(p.proposal_view_count||0)>0&&!p.outreach_response&&!['sem_interesse','convertido'].includes(p.lead_status));
-  const potential=crm.filter(p=>!['sem_interesse','convertido'].includes(p.lead_status)).reduce((a,p)=>a+Number(p.monthly_value||0),0);
+  const pipeline=crm.filter(p=>Number(p.email_open_count||0)>0&&!['sem_interesse','convertido'].includes(p.lead_status));
+  const potential=pipeline.reduce((a,p)=>a+Number(p.monthly_value||0),0);
   const sent=crm.filter(p=>p.email_sent_at).length, opened=crm.filter(p=>Number(p.email_open_count||0)>0).length;
   const ds=(duitStart||[]), dsProduction=ds.filter(o=>o.payment_status==='paid'&&!['ready','completed','cancelled'].includes(o.status)&&o.lead_status!=='sem_interesse');
   const dsPending=ds.filter(o=>o.payment_status!=='paid'&&!['cancelled'].includes(o.status));
@@ -204,7 +205,7 @@ async function viewHome(main) {
 
     <div class="grid g-4">
       <div class="card stat y"><div class="eyebrow">Receita recorrente</div><div class="value">${fmtMoney(s.monthlyRevenue||0)}</div><div class="delta">avenças mensais ativas</div></div>
-      <div class="card stat dark" style="cursor:pointer" onclick="go('prospects')"><div class="eyebrow">Pipeline comercial</div><div class="value">${fmtMoney(potential)}</div><div class="delta">${interested.length} em conversa · ${crm.length} prospects</div></div>
+      <div class="card stat dark" style="cursor:pointer" onclick="go('prospects')"><div class="eyebrow">Pipeline comercial</div><div class="value">${fmtMoney(potential)}</div><div class="delta">${pipeline.length} abriram o email · trabalhar estes contactos</div></div>
       <div class="card stat" style="cursor:pointer" onclick="go('duit-start')"><div class="eyebrow">DUIT Start em produção</div><div class="value">${dsProduction.length}</div><div class="delta">${dsPending.length} pagamento(s) pendente(s)</div></div>
       <div class="card stat"><div class="eyebrow">A precisar de atenção</div><div class="value">${attention}</div><div class="delta">ações que merecem acompanhamento</div></div>
     </div>
