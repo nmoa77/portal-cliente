@@ -174,102 +174,69 @@ async function go(view) {
    HOME — visão geral
    ========================================================================= */
 async function viewHome(main) {
-  const [cancels, tickets, mockups, posts, clientNotes] = await Promise.all([
-    api('/api/cancellations'),
-    api('/api/tickets'),
-    api('/api/mockups'),
-    api('/api/social-posts'),
-    api('/api/admin/recent-client-notes').catch(() => []),
+  const safeApi=async(url,fallback=[])=>{try{return await api(url)}catch(_){return fallback}};
+  const [cancels,tickets,posts,clientNotes,prospects,prospectEmail,duitStart] = await Promise.all([
+    safeApi('/api/cancellations'), safeApi('/api/tickets'), safeApi('/api/social-posts'),
+    safeApi('/api/admin/recent-client-notes'), safeApi('/api/crm/prospects'),
+    safeApi('/api/crm/prospects/email-status'), safeApi('/api/duit-start-prospects')
   ]);
-  const s = state.stats || {};
-  const pendingCancels = cancels.filter(c => c.status === 'pending');
-  const draftPosts = posts.filter(p => p.status === 'draft');
-  const openTickets = tickets.filter(t => t.status !== 'closed').slice(0, 4);
-  const unreadNotes = clientNotes.filter(n => !n.read_by_admin_at);
+  const s=state.stats||{}, now=new Date(), today=now.toISOString().slice(0,10);
+  const month=today.slice(0,7), statusMap=new Map((prospectEmail||[]).map(x=>[Number(x.user_id),x]));
+  const crm=(prospects||[]).map(p=>({...p,...(statusMap.get(Number(p.id))||{})}));
+  const pendingCancels=(cancels||[]).filter(c=>c.status==='pending');
+  const openTickets=(tickets||[]).filter(t=>t.status!=='closed');
+  const unreadNotes=(clientNotes||[]).filter(n=>!n.read_by_admin_at);
+  const activeProjects=Number(s.openProjects||0);
+  const interested=crm.filter(p=>['respondeu','interessado','proposta'].includes(p.lead_status));
+  const viewedNoReply=crm.filter(p=>Number(p.proposal_view_count||0)>0&&!p.outreach_response&&!['sem_interesse','convertido'].includes(p.lead_status));
+  const potential=crm.filter(p=>!['sem_interesse','convertido'].includes(p.lead_status)).reduce((a,p)=>a+Number(p.monthly_value||0),0);
+  const sent=crm.filter(p=>p.email_sent_at).length, opened=crm.filter(p=>Number(p.email_open_count||0)>0).length;
+  const ds=(duitStart||[]), dsProduction=ds.filter(o=>o.payment_status==='paid'&&!['ready','completed','cancelled'].includes(o.status)&&o.lead_status!=='sem_interesse');
+  const dsPending=ds.filter(o=>o.payment_status!=='paid'&&!['cancelled'].includes(o.status));
+  const dsViewed=ds.filter(o=>o.presentation_viewed_at).length;
+  const weekEnd=new Date(now);weekEnd.setDate(now.getDate()+7);
+  const weekPosts=(posts||[]).filter(p=>{if(!p.date||p.status==='published'||p.status==='cancelled')return false;const d=new Date(p.date+'T12:00:00');return d>=new Date(today+'T00:00:00')&&d<=weekEnd});
+  const attention=dsProduction.length+viewedNoReply.length+dsPending.length+openTickets.length+pendingCancels.length+unreadNotes.length;
+  const actionRow=(label,count,sub,view,tone='')=>`<button class="home-action-row" onclick="go('${view}')" style="width:100%;border:0;border-bottom:1px solid var(--line-2);background:transparent;padding:14px 2px;display:flex;align-items:center;gap:14px;text-align:left;cursor:pointer"><span class="pill ${tone}">${count}</span><span style="flex:1"><b style="display:block">${label}</b><small style="color:var(--muted)">${sub}</small></span><span>→</span></button>`;
 
-  main.innerHTML = `
-    <div class="page-head">
-      <div>
-        <div class="eyebrow">Painel DUIT</div>
-        <h1>Olá, ${escapeHtml((state.me.name || '').split(' ')[0])}.</h1>
-        <p class="lede">O estado do estúdio hoje, ${fmtDate(new Date().toISOString(), true)}.</p>
-      </div>
-      <div class="page-head-actions">
-        <button class="btn btn-ghost" onclick="openNewClient()">${svg('plus')} Novo cliente</button>
-        <button class="btn btn-yellow" onclick="openNewQuote()">${svg('quote')} Novo orçamento</button>
-      </div>
-    </div>
+  main.innerHTML=`
+    <div class="page-head"><div><div class="eyebrow">Painel DUIT</div><h1>Olá, ${escapeHtml((state.me.name||'').split(' ')[0])}.</h1><p class="lede">Negócio, comercial e produção num só lugar · ${fmtDate(new Date().toISOString(),true)}.</p></div><div class="page-head-actions"><button class="btn btn-ghost" onclick="openNewClient()">${svg('plus')} Novo cliente</button><button class="btn btn-yellow" onclick="openNewQuote()">${svg('quote')} Novo orçamento</button></div></div>
 
     <div class="grid g-4">
-      <div class="card stat y">
-        <div class="eyebrow">Receita recorrente</div>
-        <div class="value">${fmtMoney(s.monthlyRevenue || 0)}</div>
-        <div class="delta">avenças mensais de redes sociais</div>
-      </div>
-      <div class="card stat dark">
-        <div class="eyebrow">Clientes</div>
-        <div class="value">${s.clients || 0}</div>
-        <div class="delta">+ portfolio DUIT</div>
-      </div>
-      <div class="card stat">
-        <div class="eyebrow">Projetos em curso</div>
-        <div class="value">${s.openProjects || 0}</div>
-        <div class="delta">a trabalhar</div>
-      </div>
-      <div class="card stat">
-        <div class="eyebrow">A precisar de ti</div>
-        <div class="value">${(s.openTickets||0) + (s.pendingCancels||0) + (s.pendingQuotes||0)}</div>
-        <div class="delta">tickets + cancelamentos + orçamentos</div>
-      </div>
+      <div class="card stat y"><div class="eyebrow">Receita recorrente</div><div class="value">${fmtMoney(s.monthlyRevenue||0)}</div><div class="delta">avenças mensais ativas</div></div>
+      <div class="card stat dark" style="cursor:pointer" onclick="go('prospects')"><div class="eyebrow">Pipeline comercial</div><div class="value">${fmtMoney(potential)}</div><div class="delta">${interested.length} em conversa · ${crm.length} prospects</div></div>
+      <div class="card stat" style="cursor:pointer" onclick="go('duit-start')"><div class="eyebrow">DUIT Start em produção</div><div class="value">${dsProduction.length}</div><div class="delta">${dsPending.length} pagamento(s) pendente(s)</div></div>
+      <div class="card stat"><div class="eyebrow">A precisar de atenção</div><div class="value">${attention}</div><div class="delta">ações que merecem acompanhamento</div></div>
     </div>
 
-    <div class="section-head"><h2>A precisar de atenção</h2></div>
-    <div class="grid g-3">
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <h3>Cancelamentos</h3>
-          <span class="pill err">${pendingCancels.length}</span>
-        </div>
-        ${pendingCancels.length === 0 ? `<div class="empty">Nenhum.</div>` : pendingCancels.slice(0,3).map(c => `
-          <div style="padding:10px 0; border-bottom:1px solid var(--line-2);">
-            <div style="font-weight:500;">${escapeHtml(c.client_name)}</div>
-            <div style="font-size:12px; color:var(--muted); margin-top:2px;">${escapeHtml(c.service_name)} · ${escapeHtml(c.reason)}</div>
-          </div>
-        `).join('')}
-        ${pendingCancels.length > 0 ? `<button class="link" onclick="go('cancels')" style="margin-top:10px;">Ver todos ${svg('arrow')}</button>` : ''}
-      </div>
+    <div class="section-head"><h2>A precisar de atenção</h2><span style="color:var(--muted);font-size:12px">${attention?'Prioridades do momento':'Tudo em dia'}</span></div>
+    <div class="card" style="padding:4px 18px">
+      ${actionRow('DUIT Start por produzir',dsProduction.length,'Pagos e ainda sem apresentação enviada','duit-start','warn')}
+      ${actionRow('Propostas vistas sem resposta',viewedNoReply.length,'Prospects que já viram a proposta','prospects','accent')}
+      ${actionRow('Pagamentos pendentes',dsPending.length,'Pedidos DUIT Start ainda por confirmar','duit-start','warn')}
+      ${actionRow('Tickets abertos',openTickets.length,'Pedidos de apoio por tratar','support','accent')}
+      ${actionRow('Cancelamentos solicitados',pendingCancels.length,'Pedidos de cancelamento pendentes','cancels','err')}
+      ${actionRow('Notas novas de clientes',unreadNotes.length,'Atualizações que ainda não foram lidas','projects','accent')}
+    </div>
 
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <h3>Posts em rascunho</h3>
-          <span class="pill warn">${draftPosts.length}</span>
+    <div class="grid g-2" style="margin-top:18px">
+      <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">Comercial</div><h3 style="margin-top:4px">Funil de prospects</h3></div><button class="link" onclick="go('prospects')">Abrir prospects →</button></div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:18px">
+          ${[['Prospects',crm.length],['Contactados',sent],['Email visto',opened],['Interessados',interested.length],['DUIT Start',ds.length]].map(([l,v])=>`<div style="padding:14px 10px;background:#f7f6f2;border-radius:10px"><b style="font-size:22px">${v}</b><div style="font-size:11px;color:var(--muted);margin-top:4px">${l}</div></div>`).join('')}
         </div>
-        ${draftPosts.length === 0 ? `<div class="empty">Sem rascunhos pendentes.</div>` : draftPosts.slice(0,3).map(p => `
-          <div style="padding:10px 0; border-bottom:1px solid var(--line-2);">
-            <div style="font-weight:500;">${escapeHtml(p.client_name)}</div>
-            <div style="font-size:12px; color:var(--muted); margin-top:2px;">${netLabel(p.network)} · ${fmtDate(p.date)} · ${escapeHtml((p.text || '(sem texto)').slice(0,40))}</div>
-          </div>
-        `).join('')}
-        ${draftPosts.length > 0 ? `<button class="link" onclick="go('calendar')" style="margin-top:10px;">Abrir calendário ${svg('arrow')}</button>` : ''}
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2);display:flex;justify-content:space-between;gap:15px"><span><small style="color:var(--muted)">Valor potencial / mês</small><b style="display:block;font-size:20px">${fmtMoney(potential)}</b></span><span style="text-align:right"><small style="color:var(--muted)">Apresentações DUIT Start vistas</small><b style="display:block;font-size:20px">${dsViewed}</b></span></div>
       </div>
-
-      <div class="card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <h3>Tickets abertos</h3>
-          <span class="pill accent">${openTickets.length}</span>
+      <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">Produção</div><h3 style="margin-top:4px">Trabalho em curso</h3></div></div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:18px">
+          <button class="home-prod" onclick="go('projects')" style="border:1px solid var(--line-2);background:#fff;border-radius:12px;padding:18px;text-align:left;cursor:pointer"><b style="font-size:25px">${activeProjects}</b><span style="display:block;color:var(--muted);margin-top:5px">Projetos ativos</span></button>
+          <button class="home-prod" onclick="go('duit-start')" style="border:1px solid var(--line-2);background:#fff;border-radius:12px;padding:18px;text-align:left;cursor:pointer"><b style="font-size:25px">${dsProduction.length}</b><span style="display:block;color:var(--muted);margin-top:5px">DUIT Start por produzir</span></button>
+          <button class="home-prod" onclick="go('calendar')" style="border:1px solid var(--line-2);background:#fff;border-radius:12px;padding:18px;text-align:left;cursor:pointer"><b style="font-size:25px">${weekPosts.length}</b><span style="display:block;color:var(--muted);margin-top:5px">Conteúdos próximos 7 dias</span></button>
+          <button class="home-prod" onclick="go('support')" style="border:1px solid var(--line-2);background:#fff;border-radius:12px;padding:18px;text-align:left;cursor:pointer"><b style="font-size:25px">${openTickets.length}</b><span style="display:block;color:var(--muted);margin-top:5px">Tickets abertos</span></button>
         </div>
-        ${openTickets.length === 0 ? `<div class="empty">Caixa limpa.</div>` : openTickets.map(t => `
-          <div style="padding:10px 0; border-bottom:1px solid var(--line-2);">
-            <div style="font-weight:500;">${escapeHtml(t.subject)}</div>
-            <div style="font-size:12px; color:var(--muted); margin-top:2px;">${escapeHtml(t.client_name)} · ${priorityPill(t.priority)}</div>
-          </div>
-        `).join('')}
-        ${openTickets.length > 0 ? `<button class="link" onclick="go('support')" style="margin-top:10px;">Abrir suporte ${svg('arrow')}</button>` : ''}
       </div>
     </div>
   `;
 }
-
 /* =========================================================================
    CLIENTES
    ========================================================================= */
