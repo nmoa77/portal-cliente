@@ -18,13 +18,27 @@ function setup(){
  const cols=db.prepare(`PRAGMA table_info(duit_start_prospect_orders)`).all().map(x=>x.name);
  const add=(n,t)=>{if(!cols.includes(n))db.exec(`ALTER TABLE duit_start_prospect_orders ADD COLUMN ${n} ${t}`)};
  db.exec(`CREATE TABLE IF NOT EXISTS duit_start_monthly_orders (id INTEGER PRIMARY KEY AUTOINCREMENT,start_order_id INTEGER NOT NULL,user_id INTEGER NOT NULL,plan_key TEXT NOT NULL,plan_name TEXT NOT NULL,monthly_price REAL NOT NULL,credit REAL NOT NULL,first_amount REAL NOT NULL,payment_method TEXT,payment_status TEXT NOT NULL DEFAULT 'pending',payment_order_id TEXT,payment_request_id TEXT,payment_entity TEXT,payment_reference TEXT,payment_mobile TEXT,payment_created_at TEXT,paid_at TEXT,payment_email_sent_at TEXT,created_at TEXT NOT NULL DEFAULT (datetime('now')),updated_at TEXT NOT NULL DEFAULT (datetime('now')))`);
- add('payment_order_id','TEXT');add('payment_request_id','TEXT');add('payment_entity','TEXT');add('payment_reference','TEXT');add('payment_mobile','TEXT');add('payment_created_at','TEXT');add('paid_at','TEXT');add('payment_email_sent_at','TEXT');add('paid_email_sent_at','TEXT');add('ready_email_sent_at','TEXT');
+ add('payment_order_id','TEXT');add('payment_request_id','TEXT');add('payment_entity','TEXT');add('payment_reference','TEXT');add('payment_mobile','TEXT');add('payment_created_at','TEXT');add('paid_at','TEXT');add('payment_email_sent_at','TEXT');add('paid_email_sent_at','TEXT');add('ready_email_sent_at','TEXT');add('payment_reminder_sent_at','TEXT');
  const mcols=db.prepare(`PRAGMA table_info(duit_start_monthly_orders)`).all().map(x=>x.name);if(!mcols.includes('payment_email_sent_at'))db.exec(`ALTER TABLE duit_start_monthly_orders ADD COLUMN payment_email_sent_at TEXT`);
 }
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function emailHtml(title,name,content,cta){return `<!doctype html><html><body style="margin:0;background:#f5f3ef;font-family:Arial,sans-serif"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px"><tr><td align="center"><table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:14px;overflow:hidden"><tr><td style="background:#0a0a0a;padding:22px 34px;color:#fff;font-size:27px;font-weight:800">DUIT<span style="color:#ffd60a">.</span></td></tr><tr><td style="height:4px;background:#ffd60a"></td></tr><tr><td style="padding:34px;color:#292929;font-size:15px;line-height:1.65"><h2 style="margin:0 0 18px;color:#111;font-size:25px">${esc(title)}</h2><p>Olá ${esc(name||'')},</p>${content}${cta?`<p style="margin-top:24px"><a href="${esc(cta)}" style="display:inline-block;background:#ffd60a;color:#111;text-decoration:none;font-weight:700;padding:12px 20px;border-radius:9px">Ver apresentação →</a></p>`:''}<p style="margin-top:28px">Cumprimentos,<br><strong>DUIT</strong><br><small>Want it done? We DUIT.</small></p></td></tr></table></td></tr></table></body></html>`}
 function person(order){return db.prepare(`SELECT u.id,u.name,u.company,u.email,c.email_tracking_token FROM duit_start_prospect_orders o JOIN users u ON u.id=o.user_id LEFT JOIN prospect_crm c ON c.user_id=u.id WHERE o.id=?`).get(order.id)}
 function sendMb(order){const p=person(order);if(!p?.email||order.payment_email_sent_at)return;const amount=Number(order.price).toFixed(2).replace('.',',');const tpl=T.duitStartMultibanco(p.name,order.payment_entity,order.payment_reference,amount);deliver(db,{to:p.email,subject:tpl.subject,body:tpl.body,html:tpl.html,user_id:p.id,kind:'duit_start_multibanco',force:true});db.prepare(`UPDATE duit_start_prospect_orders SET payment_email_sent_at=datetime('now') WHERE id=?`).run(order.id)}
+function sendPaymentReminder(order){
+ const p=person(order);
+ if(!p?.email)throw new Error('O cliente não tem email.');
+ if(order.payment_status==='paid')throw new Error('Este pagamento já foi recebido.');
+ if(!p.email_tracking_token)throw new Error('Não foi possível obter a ligação de pagamento.');
+ const url=`${PORTAL}/duit-start.html?prospect=1&token=${encodeURIComponent(p.email_tracking_token)}`;
+ const amount=Number(order.price||9.99).toFixed(2).replace('.',',');
+ const subject='O seu DUIT First está quase a começar';
+ const body=`Olá ${p.name||''},\n\nRecebemos o seu pedido para o DUIT First, mas o pagamento de ${amount} € ainda se encontra pendente.\n\nAssim que o pagamento estiver concluído, avançamos com a criação da sua primeira proposta.\n\nConcluir pagamento: ${url}\n\nCumprimentos,\nDUIT\nWant it done? We DUIT.`;
+ const html=emailHtml('O seu DUIT First está quase a começar',p.name,`<p>Recebemos o seu pedido para o DUIT First, mas o pagamento de <strong>${esc(amount)} €</strong> ainda se encontra pendente.</p><p>Assim que o pagamento estiver concluído, avançamos com a criação da sua primeira proposta.</p>`,url).replace('Ver apresentação →','Concluir pagamento →');
+ deliver(db,{to:p.email,subject,body,html,user_id:p.id,kind:'duit_first_payment_reminder',force:true});
+ db.prepare(`UPDATE duit_start_prospect_orders SET payment_reminder_sent_at=datetime('now'),updated_at=datetime('now') WHERE id=?`).run(order.id);
+ return db.prepare(`SELECT payment_reminder_sent_at FROM duit_start_prospect_orders WHERE id=?`).get(order.id)?.payment_reminder_sent_at||null;
+}
 function sendPaid(order){const p=person(order);if(!p?.email||order.paid_email_sent_at)return;const amount=Number(order.price).toFixed(2).replace('.',',');const tpl=T.duitStartPaid(p.name,amount);deliver(db,{to:p.email,subject:tpl.subject,body:tpl.body,html:tpl.html,user_id:p.id,kind:'duit_start_paid',force:true});db.prepare(`UPDATE duit_start_prospect_orders SET paid_email_sent_at=datetime('now') WHERE id=?`).run(order.id)}
 function sendReady(order){const p=person(order);if(!p?.email||order.ready_email_sent_at||!p.email_tracking_token)return;const url=`${PORTAL}/duit-start.html?prospect=1&token=${encodeURIComponent(p.email_tracking_token)}`;const tpl=T.duitStartReady(p.name,url);deliver(db,{to:p.email,subject:tpl.subject,body:tpl.body,html:tpl.html,user_id:p.id,kind:'duit_start_ready',force:true});db.prepare(`UPDATE duit_start_prospect_orders SET ready_email_sent_at=datetime('now') WHERE id=?`).run(order.id)}
 async function postJson(url,payload){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const text=await r.text();let d={};try{d=JSON.parse(text)}catch(_){throw new Error('Resposta inválida da Ifthenpay.')}if(!r.ok)throw new Error(d.Message||d.message||`Ifthenpay HTTP ${r.status}`);return d}
@@ -87,6 +101,13 @@ module.exports=function(app){setup();
   const paid=markMonthlyPaid(monthly,{paymentDate:null});
   res.json({ok:true,payment_status:paid.payment_status,plan:paid.plan_name});
  }catch(e){res.status(500).json({error:e.message})}});
+ app.post('/api/duit-start-prospects/:id/send-payment-reminder',require('./auth').requireAdmin,(req,res)=>{try{
+  const o=db.prepare(`SELECT * FROM duit_start_prospect_orders WHERE id=?`).get(req.params.id);
+  if(!o)return res.status(404).json({error:'Pedido não encontrado.'});
+  if(o.payment_status==='paid')return res.status(400).json({error:'Este pagamento já foi recebido.'});
+  const sentAt=sendPaymentReminder(o);
+  res.json({ok:true,payment_reminder_sent_at:sentAt});
+ }catch(e){console.error('[duit-first] reenviar pagamento:',e);res.status(500).json({error:e.message||'Não foi possível reenviar o aviso de pagamento.'})}});
  app.post('/api/duit-start-prospects/:id/send-ready-email',require('./auth').requireAdmin,(req,res)=>{const o=db.prepare(`SELECT * FROM duit_start_prospect_orders WHERE id=?`).get(req.params.id);if(!o)return res.status(404).json({error:'Pedido não encontrado.'});if(!o.preview_image_url)return res.status(400).json({error:'A apresentação ainda não foi definida.'});sendReady(o);res.json({ok:true})});
  setTimeout(()=>reconcilePending().catch(()=>{}),5000);const timer=setInterval(()=>reconcilePending().catch(()=>{}),5*60*1000);if(timer.unref)timer.unref();
 };
