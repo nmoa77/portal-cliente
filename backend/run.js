@@ -8,9 +8,9 @@ const { cleanupDeletedProspects } = require('./prospect-deleted-guard');
 // Arranca a aplicação com a camada de templates de proposta instalada.
 require('./start-proposal-templates');
 
-// Importa automaticamente todas as rondas diárias de prospects.
+// Importa automaticamente todas as rondas diárias de prospects, incluindo lotes adicionais do mesmo dia (ex.: -b, -c).
 // Depois de cada seed remove imediatamente qualquer contacto que já tenha sido apagado no CRM.
-const datedSeed = /^prospect-seed-\d{4}-\d{2}-\d{2}\.js$/;
+const datedSeed = /^prospect-seed-\d{4}-\d{2}-\d{2}(?:-[a-z0-9]+)?\.js$/i;
 for (const file of fs.readdirSync(__dirname).filter(name => datedSeed.test(name)).sort()) {
   try {
     require(path.join(__dirname, file));
