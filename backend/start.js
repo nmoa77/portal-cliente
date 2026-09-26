@@ -12,7 +12,8 @@ try {
     "require('./prospect-crm-actions')(capturedApp);",
     "require('./ebook-leads-actions')(capturedApp);",
     "require('./ebook-delete-actions')(capturedApp);",
-    "require('./landing-pages-actions')(capturedApp);"
+    "require('./landing-pages-actions')(capturedApp);
+    "require('./prospect-area-actions')(capturedApp);","
   ];
   for (const line of installs) {
     if (!serverSource.includes(line)) serverSource = serverSource.replace(marker, `${line}\n\n${marker}`);
