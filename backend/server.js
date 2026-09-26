@@ -61,7 +61,7 @@ app.post('/api/auth/login', (req, res) => {
   }
   // Prospects (orçamentos sem conta ativa) não podem fazer login no portal —
   // só acedem ao orçamento via link público com token.
-  if (user.is_prospect === 1) {
+  if (user.is_prospect === 1 && Number(user.prospect_portal_active || 0) !== 1) {
     return res.status(403).json({ error: 'Esta conta ainda não está ativa. Aguardamos a sua resposta ao orçamento.' });
   }
   // Clientes ainda não ativados pelo admin também não podem entrar.
@@ -84,7 +84,8 @@ app.post('/api/auth/login', (req, res) => {
     } catch (e) { console.warn('client_login log:', e.message); }
   }
 
-  res.json({ id: user.id, name: user.name, email: user.email, role: user.role });
+  if(user.is_prospect===1&&Number(user.prospect_portal_active||0)===1){try{db.prepare("UPDATE users SET prospect_portal_last_login_at=datetime('now') WHERE id=?").run(user.id)}catch(_){}}
+  res.json({ id: user.id, name: user.name, email: user.email, role: user.role, is_prospect:Number(user.is_prospect||0), prospect_portal_active:Number(user.prospect_portal_active||0) });
 });
 
 app.post('/api/auth/logout', (req, res) => {
@@ -94,7 +95,7 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
   const user = db.prepare(
-    'SELECT id, name, email, role, company, phone, avatar_url, notifications_enabled FROM users WHERE id = ?'
+    'SELECT id, name, email, role, company, phone, avatar_url, notifications_enabled, is_prospect, prospect_portal_active FROM users WHERE id = ?'
   ).get(req.user.id);
   res.json(user);
 });
