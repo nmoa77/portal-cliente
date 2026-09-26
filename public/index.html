@@ -144,7 +144,7 @@
         return;
       }
       // Restaurar vista anterior quando o logout foi por inatividade.
-      let dest = data.role === 'admin' ? '/admin.html' : '/cliente.html';
+      let dest = data.role === 'admin' ? '/admin.html' : (Number(data.is_prospect||0)===1 && Number(data.prospect_portal_active||0)===1 ? '/prospect.html' : '/cliente.html');
       try {
         const raw = sessionStorage.getItem('duit-idle-return');
         if (raw) {
