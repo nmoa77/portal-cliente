@@ -83,7 +83,7 @@ const crmCols=db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c=>c.name)
 if(!crmCols.includes('ebook_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ebook_page_id INTEGER`);if(!crmCols.includes('landing_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN landing_page_id INTEGER`);
 try{
   const legacyLp=db.prepare("SELECT id FROM landing_pages WHERE slug='duit-start' LIMIT 1").get();
-  if(legacyLp) db.prepare("UPDATE prospect_crm SET landing_page_id=? WHERE landing_page_id IS NULL").run(legacyLp.id);
+  if(legacyLp) db.prepare("UPDATE prospect_crm SET landing_page_id=? WHERE landing_page_id IS NULL AND (email_sent_at IS NOT NULL OR email_first_sent_at IS NOT NULL OR COALESCE(email_send_count,0)>0)").run(legacyLp.id);
 }catch(e){ console.warn('[crm] legacy LP association:',e.message); }
 
 const allowedStatuses = new Set([
