@@ -26,18 +26,18 @@ module.exports=function(app){
                   WHEN COALESCE(c.outreach_response,'')<>'' THEN 'resposta'
                   ELSE 'contacto' END lead_type
       FROM users u
-      JOIN prospect_crm c ON c.user_id=u.id
-      LEFT JOIN landing_page_leads ll ON ll.id=(SELECT x.id FROM landing_page_leads x WHERE x.user_id=u.id ORDER BY datetime(x.created_at) DESC,x.id DESC LIMIT 1)
+      LEFT JOIN prospect_crm c ON c.user_id=u.id
+      LEFT JOIN landing_page_leads ll ON ll.id=(SELECT x.id FROM landing_page_leads x JOIN landing_pages xp ON xp.id=x.landing_page_id WHERE x.user_id=u.id AND COALESCE(xp.slug,'')<>'duit-start' ORDER BY datetime(x.created_at) DESC,x.id DESC LIMIT 1)
       LEFT JOIN landing_pages lp ON lp.id=COALESCE(ll.landing_page_id,c.landing_page_id)
       LEFT JOIN crm_lead_state ls ON ls.user_id=u.id
-      WHERE u.role='client' AND u.is_prospect=1
-        AND (ll.id IS NOT NULL OR COALESCE(c.outreach_question,'')<>'' OR COALESCE(c.outreach_response,'')<>'')
-        AND NOT EXISTS (
-          SELECT 1
-          FROM duit_start_prospect_orders dso
-          WHERE dso.user_id=u.id
+      WHERE (
+        ll.id IS NOT NULL
+        OR (
+          u.role='client' AND u.is_prospect=1
+          AND (COALESCE(c.outreach_question,'')<>'' OR COALESCE(c.outreach_response,'')<>'')
+          AND COALESCE(lp.slug,'')<>'duit-start'
         )
-        AND COALESCE(lp.slug,'')<>'duit-start'
+      )
       ORDER BY datetime(COALESCE(ll.created_at,c.outreach_question_at,c.outreach_responded_at,c.updated_at)) DESC,u.id DESC
     `).all();
     res.json(rows);
