@@ -13,7 +13,7 @@ module.exports=function(app){
     const rows=db.prepare(`
       SELECT u.id user_id,u.name,u.company,u.email,u.phone,
              lp.title landing_page,lp.slug landing_page_slug,
-             ll.created_at lead_at,ll.utm_source,ll.utm_medium,ll.utm_campaign,ll.source_type,
+             ll.created_at lead_at,ll.utm_source,ll.utm_medium,ll.utm_campaign,ll.source_type,ll.message lead_message,ll.plan lead_plan,
              c.recommended_plan,c.monthly_value,c.notes,c.landing_page_id,
              c.email_first_sent_at,c.email_sent_at,c.email_first_opened_at,c.email_last_opened_at,
              COALESCE(c.email_open_count,0) email_open_count,
