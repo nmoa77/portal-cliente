@@ -58,9 +58,10 @@ function renderShell() {
     { id: 'home',      icon: 'home',    label: 'Visão geral' },
     { id: 'clients',   icon: 'users',   label: 'Clientes' },
     { id: 'landing-pages', icon: 'sparkle', label: 'Landing Pages' },
-    { id: 'prospects', icon: 'sparkle', label: 'Prospects',
+    { id: 'prospects', icon: 'sparkle', label: 'Prospecção',
         count: s.totalProspects,         countTitle: `${s.totalProspects || 0} prospect(s) por converter`,
         alert: s.pendingProspectActions, alertTitle: `${s.pendingProspectActions || 0} prospect(s) já respondeu(eram) — pronto a converter` },
+    { id: 'leads',     icon: 'chat',    label: 'Leads' },
     { id: 'subs',      icon: 'box',     label: 'Subscrições',  alert: s.pendingSubs,            alertTitle: `${s.pendingSubs || 0} subscrição(ões) por confirmar` },
     { id: 'plans',     icon: 'sparkle', label: 'Serviços' },
     { id: 'projects',  icon: 'folder',  label: 'Projetos',
@@ -122,6 +123,7 @@ async function go(view) {
     else if (view === 'clients')  await viewClients(main);
     else if (view === 'landing-pages') { if(typeof window.duitViewLandingPages!=='function') throw new Error('Módulo Landing Pages não carregado.'); await window.duitViewLandingPages(); }
     else if (view === 'prospects')await viewProspects(main);
+    else if (view === 'leads')     await viewLeads(main);
     else if (view === 'subs')     await viewSubs(main);
     else if (view === 'plans')    await viewPlans(main);
     else if (view === 'projects') await viewProjects(main);
