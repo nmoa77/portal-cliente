@@ -29,7 +29,7 @@ express.static = function patchedStatic(root, options) {
 
     fs.readFile(adminPath, 'utf8', (err, html) => {
       if (err) return middleware(req, res, next);
-      const script = '<script src="/js/prospects-crm.js?v=20260928leads"></script><script src="/js/leads-admin.js?v=20260928c"></script>';
+      const script = '<script src="/js/prospects-crm.js?v=20260928leads"></script><script src="/js/leads-admin.js?v=20260928d"></script>';
       const output = html.includes('/js/leads-admin.js')
         ? html
         : html.replace('</body>', `  ${script}\n</body>`);
