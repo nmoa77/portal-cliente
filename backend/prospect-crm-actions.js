@@ -12,6 +12,17 @@ module.exports = function installProspectCrmActions(app) {
   db.prepare(`UPDATE prospect_crm SET email_first_sent_at=email_sent_at WHERE email_first_sent_at IS NULL AND email_sent_at IS NOT NULL`).run();
   db.prepare(`UPDATE prospect_crm SET email_send_count=1 WHERE email_sent_at IS NOT NULL AND COALESCE(email_send_count,0)=0`).run(); add('email_last_opened_at', 'TEXT'); add('email_open_count', 'INTEGER DEFAULT 0'); add('proposal_first_viewed_at', 'TEXT'); add('proposal_last_viewed_at', 'TEXT'); add('proposal_view_count', 'INTEGER DEFAULT 0'); add('guide_first_opened_at', 'TEXT'); add('guide_last_opened_at', 'TEXT'); add('guide_open_count', 'INTEGER DEFAULT 0'); add('outreach_response', 'TEXT'); add('outreach_response_reason', 'TEXT'); add('outreach_responded_at', 'TEXT'); add('ebook_page_id', 'INTEGER'); add('outreach_question', 'TEXT'); add('outreach_question_at', 'TEXT'); add('landing_page_id', 'INTEGER');
 
+  // A LP só deve ficar associada depois de existir um envio real.
+  // Corrige também associações antigas criadas pela migração inicial.
+  try {
+    db.prepare(`UPDATE prospect_crm
+      SET landing_page_id=NULL
+      WHERE landing_page_id IS NOT NULL
+        AND email_sent_at IS NULL
+        AND email_first_sent_at IS NULL
+        AND COALESCE(email_send_count,0)=0`).run();
+  } catch (e) { console.warn('[crm] cleanup landing_page_id sem envio:', e.message); }
+
   const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
   const portal = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
