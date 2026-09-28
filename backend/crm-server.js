@@ -29,8 +29,8 @@ express.static = function patchedStatic(root, options) {
 
     fs.readFile(adminPath, 'utf8', (err, html) => {
       if (err) return middleware(req, res, next);
-      const script = '<script src="/js/prospects-crm.js?v=20260904m"></script>';
-      const output = html.includes('/js/prospects-crm.js')
+      const script = '<script src="/js/prospects-crm.js?v=20260928leads"></script><script src="/js/leads-admin.js?v=20260928a"></script>';
+      const output = html.includes('/js/leads-admin.js')
         ? html
         : html.replace('</body>', `  ${script}\n</body>`);
       res.type('html').send(output);
@@ -128,6 +128,8 @@ function getCrmProspect(id) {
       FROM users u
       LEFT JOIN prospect_crm c ON c.user_id=u.id
      WHERE u.id=? AND u.role='client' AND u.is_prospect=1
+       AND NOT EXISTS (SELECT 1 FROM landing_page_leads ll WHERE ll.user_id=u.id)
+       AND COALESCE(c.outreach_response,'')='' AND COALESCE(c.outreach_question,'')=''
   `).get(id);
 }
 
@@ -147,6 +149,8 @@ capturedApp.get('/api/crm/prospects', requireAdmin, (req, res) => {
       FROM users u
       LEFT JOIN prospect_crm c ON c.user_id=u.id
      WHERE u.role='client' AND u.is_prospect=1
+       AND NOT EXISTS (SELECT 1 FROM landing_page_leads ll WHERE ll.user_id=u.id)
+       AND COALESCE(c.outreach_response,'')='' AND COALESCE(c.outreach_question,'')=''
      ORDER BY
        CASE COALESCE(c.priority,'possivel')
          WHEN 'atacar' THEN 0 WHEN 'possivel' THEN 1 ELSE 2 END,
@@ -312,6 +316,8 @@ capturedApp.delete('/api/crm/prospects/:id', requireAdmin, (req, res) => {
   if (!info.changes) return res.status(404).json({ error: 'Prospect não encontrado.' });
   res.json({ ok: true });
 });
+
+require('./leads-actions')(capturedApp);
 
 // Arranca finalmente o servidor original, agora já com as rotas CRM registadas.
 originalListen.apply(capturedApp, capturedListenArgs);
