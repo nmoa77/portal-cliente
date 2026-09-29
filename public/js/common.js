@@ -265,6 +265,91 @@ function applyTableLabels(root) {
   document.addEventListener('DOMContentLoaded', () => applyTableLabels(document));
 })();
 
+
+/* ---- Responsive shell / mobile navigation ---- */
+(function setupResponsiveShell() {
+  const app = document.querySelector('.app');
+  const sidebar = app && app.querySelector('.sidebar');
+  if (!app || !sidebar) return;
+
+  document.body.classList.add('duit-mobile-shell');
+
+  let bar = document.querySelector('.mobile-topbar');
+  let backdrop = document.querySelector('.mobile-nav-backdrop');
+
+  if (!bar) {
+    bar = document.createElement('header');
+    bar.className = 'mobile-topbar';
+
+    const sourceBrand = sidebar.querySelector('.brand');
+    const brandHtml = sourceBrand ? sourceBrand.innerHTML : '<span class="d">DUIT</span><span class="dot">.</span>';
+
+    bar.innerHTML = `
+      <button type="button" class="mobile-menu-btn" aria-label="Abrir menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 7h16M4 12h16M4 17h16"/>
+        </svg>
+      </button>
+      <div class="mobile-brand">${brandHtml}</div>
+      <div class="mobile-view-title" aria-live="polite"></div>
+    `;
+    document.body.insertBefore(bar, document.body.firstChild);
+  }
+
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.className = 'mobile-nav-backdrop';
+    backdrop.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(backdrop);
+  }
+
+  const btn = bar.querySelector('.mobile-menu-btn');
+  const title = bar.querySelector('.mobile-view-title');
+
+  function syncTitle() {
+    const active = sidebar.querySelector('.nav-item.active');
+    const heading = document.querySelector('#main .page-head h1, #main h1');
+    const value = ((active && active.textContent) || (heading && heading.textContent) || '').trim();
+    if (title) title.textContent = value.replace(/\s+/g, ' ');
+  }
+
+  function setOpen(open) {
+    document.body.classList.toggle('duit-nav-open', !!open);
+    if (btn) {
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+    }
+  }
+
+  if (btn) btn.addEventListener('click', () => setOpen(!document.body.classList.contains('duit-nav-open')));
+  backdrop.addEventListener('click', () => setOpen(false));
+
+  sidebar.addEventListener('click', (e) => {
+    if (e.target.closest('.nav-item')) {
+      setOpen(false);
+      setTimeout(syncTitle, 0);
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('duit-nav-open')) setOpen(false);
+  });
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 900) setOpen(false);
+  }, { passive: true });
+
+  const main = document.getElementById('main');
+  if (main && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(syncTitle).observe(main, { childList: true, subtree: true });
+  }
+  if (typeof MutationObserver !== 'undefined') {
+    new MutationObserver(syncTitle).observe(sidebar, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+  }
+
+  syncTitle();
+})();
+
 /* ---- Registo do Service Worker (PWA) ----------------------------------
    Quando há uma nova versão do SW (= mudámos VERSION em sw.js, ou novos
    ficheiros pré-cache), aparece um pequeno cartão a oferecer "Atualizar".
