@@ -1197,3 +1197,84 @@ label {
   .login-form-wrap { padding: 28px 18px 36px; }
   .login-form h2 { font-size: 32px; }
 }
+
+
+/* ===== DUIT responsive hardening v3 =====
+   Proteções globais para conteúdo dinâmico e novos módulos do portal. */
+img, video, canvas { max-width: 100%; height: auto; }
+input, select, textarea { min-width: 0; }
+a, code, .file-name, .project-title { overflow-wrap: anywhere; }
+
+@media (max-width: 900px) {
+  body.duit-mobile-shell .mobile-topbar {
+    padding-left: max(14px, env(safe-area-inset-left));
+    padding-right: max(14px, env(safe-area-inset-right));
+    padding-top: env(safe-area-inset-top);
+    height: calc(64px + env(safe-area-inset-top));
+  }
+  body.duit-mobile-shell {
+    padding-top: calc(64px + env(safe-area-inset-top));
+  }
+  body.duit-mobile-shell .sidebar {
+    padding-top: max(24px, env(safe-area-inset-top));
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 720px) {
+  body.duit-mobile-shell .main [style*="min-width:"] { min-width: 0 !important; }
+  body.duit-mobile-shell .main [style*="white-space:nowrap"],
+  body.duit-mobile-shell .main [style*="white-space: nowrap"] { white-space: normal !important; }
+
+  .table td > * { min-width: 0; max-width: 100%; }
+  .table td .btn,
+  .table td button { max-width: 100%; white-space: normal; }
+
+  .thread .bubble,
+  .bubble { max-width: 86% !important; }
+
+  .quote-item,
+  .quote-total { flex-wrap: wrap; }
+
+  .cal-head {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 14px;
+  }
+  .cal-head > * { min-width: 0; }
+  .seg {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .stage-labels { font-size: 9px; }
+  .project-stages, .stage-labels { min-width: 0; }
+}
+
+@media (max-width: 480px) {
+  body.duit-mobile-shell .mobile-topbar {
+    height: calc(60px + env(safe-area-inset-top));
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+  }
+  body.duit-mobile-shell { padding-top: calc(60px + env(safe-area-inset-top)); }
+
+  input, select, textarea { font-size: 16px; }
+  .btn { min-height: 42px; }
+  .btn-sm { min-height: 38px; }
+
+  .page-head { gap: 12px; }
+  .section-head { align-items: flex-start; }
+  .section-head .link { white-space: normal; }
+
+  .project-row { padding: 14px; }
+  .stage-labels { display: none; }
+
+  .thread .bubble,
+  .bubble { max-width: 92% !important; }
+
+  .file-row {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
