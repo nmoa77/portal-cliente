@@ -1,10 +1,10 @@
 /* DUIT — mantém a listagem de Prospects dentro da largura do painel, incluindo após filtros. */
 (() => {
   function install(){
-    if(document.getElementById('duit-prospects-table-fit-v4')) return;
+    if(document.getElementById('duit-prospects-table-fit-v5')) return;
     document.getElementById('duit-prospects-table-fit-v2')?.remove();document.getElementById('duit-prospects-table-fit-v3')?.remove();
     const s=document.createElement('style');
-    s.id='duit-prospects-table-fit-v3';
+    s.id='duit-prospects-table-fit-v5';
     s.textContent=`
       #main{min-width:0!important;max-width:100%!important}
       #main .crm-prospects-fit{width:100%!important;max-width:100%!important;min-width:0!important;overflow:hidden!important}
@@ -35,6 +35,16 @@
         #main .crm-prospects-fit th:nth-child(10),#main .crm-prospects-fit td:nth-child(10){width:7%!important}
         #main .crm-prospects-fit th:nth-child(11),#main .crm-prospects-fit td:nth-child(11){width:5%!important}
       }
+      @media(max-width:720px){
+        #main .crm-prospects-fit{overflow:visible!important}
+        #main .crm-prospects-fit table.table{display:block!important;width:100%!important;min-width:0!important;max-width:100%!important;table-layout:auto!important}
+        #main .crm-prospects-fit table.table thead{display:none!important}
+        #main .crm-prospects-fit table.table tbody,
+        #main .crm-prospects-fit table.table tr{display:block!important;width:100%!important}
+        #main .crm-prospects-fit table.table td,
+        #main .crm-prospects-fit table.table td:nth-child(n){display:flex!important;width:100%!important;min-width:0!important;max-width:100%!important;overflow:visible!important;white-space:normal!important}
+        #main .crm-prospects-fit .crm-actions{width:100%!important;justify-content:flex-start!important}
+      }
     `;
     document.head.appendChild(s);
   }
@@ -46,16 +56,24 @@
     const table=document.querySelector('#main .table-card table.table');
     if(!table) return;
     const card=table.closest('.table-card');
+    const mobile=window.matchMedia('(max-width:720px)').matches;
     if(card){
       card.classList.add('crm-prospects-fit');
-      card.style.setProperty('overflow-x','hidden','important');
-      card.style.setProperty('max-width','100%','important');
-      card.style.setProperty('min-width','0','important');
+      if(mobile){
+        card.style.removeProperty('overflow-x');
+        card.style.setProperty('max-width','100%','important');
+        card.style.setProperty('min-width','0','important');
+      }else{
+        card.style.setProperty('overflow-x','hidden','important');
+        card.style.setProperty('max-width','100%','important');
+        card.style.setProperty('min-width','0','important');
+      }
     }
     table.style.setProperty('width','100%','important');
     table.style.setProperty('max-width','100%','important');
     table.style.setProperty('min-width','0','important');
-    table.style.setProperty('table-layout','fixed','important');
+    if(mobile) table.style.removeProperty('table-layout');
+    else table.style.setProperty('table-layout','fixed','important');
   }
 
   let timer=null;
@@ -66,4 +84,5 @@
   document.addEventListener('input',e=>{if(e.target?.id==='crm-search')queue()});
   document.addEventListener('change',e=>{if(e.target?.closest?.('.crm-toolbar')||e.target?.dataset?.aFilter||e.target?.dataset?.analyticsFilter)queue()});
   document.addEventListener('click',e=>{if(e.target?.closest?.('[data-kpi-list-filter],[data-clear-kpi-filter]'))queue()});
+  window.addEventListener('resize',queue,{passive:true});
 })();
