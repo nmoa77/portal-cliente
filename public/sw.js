@@ -1,5 +1,5 @@
 /* DUIT Portal — Service Worker */
-const VERSION = 'duit-v9';
+const VERSION = 'duit-v10';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
