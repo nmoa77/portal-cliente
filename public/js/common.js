@@ -319,6 +319,7 @@ function applyTableLabels(root) {
       btn.setAttribute('aria-expanded', open ? 'true' : 'false');
       btn.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
     }
+    if (backdrop) backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
   }
 
   if (btn) btn.addEventListener('click', () => setOpen(!document.body.classList.contains('duit-nav-open')));
