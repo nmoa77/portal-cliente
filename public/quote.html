@@ -54,6 +54,23 @@
     .pq-reject-modal p { font-size: 13px; color: #6b6862; margin: 0 0 14px 0; line-height: 1.5; }
     .pq-reject-modal textarea { width: 100%; min-height: 90px; padding: 10px 12px; border: 1px solid var(--line, #ece9e2); border-radius: 10px; font-family: inherit; font-size: 14px; resize: vertical; box-sizing: border-box; }
     .pq-reject-modal .pq-modal-actions { margin-top: 14px; display: flex; gap: 8px; justify-content: flex-end; }
+  
+    /* responsive-quote-v2 */
+    @media (max-width: 600px) {
+      .pq-wrap { padding: 20px 12px 36px; }
+      .pq-card { padding: 22px 18px; border-radius: 14px; }
+      .pq-title { font-size: 25px; }
+      .pq-item { flex-direction: column; gap: 5px; }
+      .pq-item .amt { align-self: flex-start; }
+      .pq-totals-row, .pq-totals-final { gap: 14px; }
+      .pq-totals-final strong { font-size: 22px; text-align: right; }
+      .pq-actions { display: grid; grid-template-columns: 1fr; }
+      .pq-actions .btn { width: 100%; white-space: normal; }
+      .pq-reject-modal { padding: 12px; }
+      .pq-reject-modal .pq-modal-inner { padding: 22px 18px; }
+      .pq-reject-modal .pq-modal-actions { flex-direction: column-reverse; align-items: stretch; }
+      .pq-reject-modal .pq-modal-actions .btn { width: 100%; }
+    }
   </style>
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#0a0a0a">
