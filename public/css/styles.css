@@ -871,3 +871,329 @@ label {
   .btn { padding: 10px 14px; font-size: 13px; }
   .btn-sm { padding: 8px 10px; font-size: 12px; }
 }
+
+
+/* ===== DUIT responsive shell v2 =====
+   Camada central de adaptação do portal. Mantém desktop intacto e evita
+   que tabelas, grids e navegação obriguem a layouts específicos por página. */
+.app {
+  grid-template-columns: 248px minmax(0, 1fr);
+  width: 100%;
+  max-width: 100%;
+}
+.main {
+  min-width: 0;
+  max-width: min(1280px, 100%);
+}
+.main > *, .grid > *, .page-head > *, .section-head > * { min-width: 0; }
+.card { min-width: 0; }
+.card.table-card {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.table { max-width: 100%; }
+.mobile-topbar, .mobile-nav-backdrop { display: none; }
+
+@media (max-width: 900px) {
+  body.duit-mobile-shell {
+    padding-top: 64px;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+  body.duit-mobile-shell.duit-nav-open { overflow: hidden; }
+
+  body.duit-mobile-shell .app {
+    display: block;
+    min-height: calc(100dvh - 64px);
+    width: 100%;
+    overflow: visible;
+  }
+
+  body.duit-mobile-shell .mobile-topbar {
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 1001;
+    height: 64px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #0a0a0a;
+    color: #fff;
+    border-bottom: 1px solid #222;
+    box-shadow: 0 3px 18px rgba(0,0,0,.12);
+  }
+  .mobile-topbar .mobile-menu-btn {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border: 1px solid #2b2b2b;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: #161616;
+  }
+  .mobile-topbar .mobile-menu-btn svg { width: 20px; height: 20px; }
+  .mobile-topbar .mobile-brand {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 150px;
+    color: #fff;
+    font-family: 'Clash Display', 'Space Grotesk', sans-serif;
+    font-size: 23px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .mobile-topbar .mobile-brand img {
+    display: block;
+    width: auto;
+    max-width: 126px;
+    max-height: 30px;
+    object-fit: contain;
+  }
+  .mobile-topbar .mobile-view-title {
+    margin-left: auto;
+    min-width: 0;
+    max-width: 44vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #aaa;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  body.duit-mobile-shell .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 1003;
+    width: min(84vw, 300px);
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 24px 16px 18px;
+    transform: translateX(-105%);
+    transition: transform .24s cubic-bezier(.2,.7,.2,1);
+    box-shadow: 18px 0 44px rgba(0,0,0,.25);
+    overflow: hidden;
+  }
+  body.duit-mobile-shell.duit-nav-open .sidebar { transform: translateX(0); }
+
+  body.duit-mobile-shell .sidebar .nav {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 2px;
+  }
+
+  body.duit-mobile-shell .mobile-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1002;
+    display: block;
+    background: rgba(0,0,0,.48);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .2s ease, visibility .2s ease;
+  }
+  body.duit-mobile-shell.duit-nav-open .mobile-nav-backdrop {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  body.duit-mobile-shell .main {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 22px 18px 40px;
+    overflow-x: clip;
+  }
+
+  .project-row { gap: 14px; }
+  .project-row > [style*="min-width"] { min-width: 0 !important; max-width: none !important; }
+
+  .card.table-card {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .login {
+    min-height: 100dvh;
+    grid-template-columns: 1fr;
+  }
+  .login-hero {
+    min-height: 300px;
+    padding: 28px 26px;
+  }
+  .login-hero::before { font-size: 250px; top: 24%; }
+  .login-hero h1 { font-size: 44px; }
+  .login-form-wrap { padding: 34px 22px 44px; }
+}
+
+@media (max-width: 720px) {
+  body.duit-mobile-shell .main [style*="grid-template-columns"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  body.duit-mobile-shell .main [style*="flex-wrap:nowrap"] {
+    flex-wrap: wrap !important;
+    white-space: normal !important;
+  }
+  body.duit-mobile-shell .main [style*="display:flex"][style*="justify-content:space-between"] {
+    flex-wrap: wrap !important;
+  }
+  body.duit-mobile-shell .main [style*="flex:"][style*="min-width:"] {
+    min-width: 0 !important;
+  }
+
+  .page-head {
+    align-items: flex-start;
+    margin-bottom: 24px;
+    padding-bottom: 18px;
+  }
+  .page-head-actions { align-items: stretch; }
+  .page-head-actions .btn { white-space: normal; }
+
+  .card.table-card {
+    padding: 8px;
+    overflow: visible !important;
+  }
+  .table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+  }
+  .table thead { display: none !important; }
+  .table tbody, .table tr {
+    display: block !important;
+    width: 100% !important;
+  }
+  .table td {
+    display: flex !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere;
+    white-space: normal !important;
+  }
+
+  /* A listagem de Prospecção tinha regras desktop com !important.
+     Estas regras têm maior especificidade para garantir cartões reais em mobile. */
+  body.duit-mobile-shell #main .crm-prospects-fit {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+  }
+  body.duit-mobile-shell #main .crm-prospects-fit table.table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+  }
+  body.duit-mobile-shell #main .crm-prospects-fit table.table thead { display: none !important; }
+  body.duit-mobile-shell #main .crm-prospects-fit table.table tbody,
+  body.duit-mobile-shell #main .crm-prospects-fit table.table tr {
+    display: block !important;
+    width: 100% !important;
+  }
+  body.duit-mobile-shell #main .crm-prospects-fit table.table td,
+  body.duit-mobile-shell #main .crm-prospects-fit table.table td:nth-child(n) {
+    display: flex !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    white-space: normal !important;
+  }
+  body.duit-mobile-shell #main .crm-prospects-fit .crm-actions {
+    width: 100% !important;
+    justify-content: flex-start !important;
+  }
+
+  .cal { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .cal-grid { min-width: 700px; }
+  .cal-day { min-height: 92px; }
+
+  .day-post .dp-left { min-width: 0; width: 100%; }
+  .reply-box { flex-direction: column; }
+  .reply-box .btn { width: 100%; }
+  .photo-upload { align-items: flex-start; flex-wrap: wrap; }
+
+  .file-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px 10px;
+  }
+  .file-row > :nth-child(n+3) { grid-column: 2; }
+
+  .modal {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    padding: 22px 18px;
+    border-radius: 14px;
+  }
+  .modal.wide {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+  }
+  .modal-actions { align-items: stretch; }
+  .modal-actions .btn {
+    flex: 1 1 140px;
+    white-space: normal;
+  }
+
+  .toast-wrap {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+  }
+  .toast { width: 100%; max-width: none; }
+}
+
+@media (max-width: 480px) {
+  body.duit-mobile-shell { padding-top: 60px; }
+  body.duit-mobile-shell .mobile-topbar { height: 60px; padding: 0 10px; }
+  body.duit-mobile-shell .app { min-height: calc(100dvh - 60px); }
+  body.duit-mobile-shell .main { padding: 16px 12px 34px; }
+
+  .mobile-topbar .mobile-view-title { display: none; }
+  .page-head h1 { font-size: 27px; }
+  .page-head .lede { font-size: 14px; }
+  .page-head-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+  .page-head-actions .btn { width: 100%; }
+
+  .card { padding: 14px; }
+  .card.table-card { padding: 6px; }
+  .table tr { padding: 10px 11px; }
+  .table td {
+    gap: 9px;
+    font-size: 13px;
+  }
+  .table td::before {
+    min-width: 74px;
+    max-width: 92px;
+  }
+
+  .login-hero {
+    min-height: 250px;
+    padding: 22px 20px;
+  }
+  .login-hero h1 { font-size: 38px; }
+  .login-hero .tags { display: none; }
+  .login-form-wrap { padding: 28px 18px 36px; }
+  .login-form h2 { font-size: 32px; }
+}
