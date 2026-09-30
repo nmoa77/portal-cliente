@@ -265,7 +265,7 @@ capturedApp.patch('/api/crm/prospects/:id', requireAdmin, (req, res) => {
       UPDATE prospect_crm SET
         sector=?, location=?, website=?, instagram=?, opportunity=?, idea=?,
         recommended_plan=?, solution_text=?, monthly_value=?, offer_value=?,
-        lead_status=?, priority=?, first_contact_at=?, follow_up_at=?, notes=?, proposal_email=?,ebook_page_id=?,landing_page_id=?,
+        lead_status=?, priority=?, first_contact_at=?, follow_up_at=?, notes=?, proposal_email=?,email_observation=?,ebook_page_id=?,landing_page_id=?,
         updated_at=datetime('now')
       WHERE user_id=?
     `).run(
@@ -283,7 +283,7 @@ capturedApp.patch('/api/crm/prospects/:id', requireAdmin, (req, res) => {
       body.first_contact_at === undefined ? current.first_contact_at : clean(body.first_contact_at, 30),
       body.follow_up_at === undefined ? current.follow_up_at : clean(body.follow_up_at, 30),
       body.notes === undefined ? current.notes : clean(body.notes),
-      body.proposal_email === undefined ? current.proposal_email : clean(body.proposal_email, 12000),ebookPageId,landingPageId,
+      body.proposal_email === undefined ? current.proposal_email : clean(body.proposal_email, 12000),body.email_observation === undefined ? current.email_observation : clean(body.email_observation, 1200),ebookPageId,landingPageId,
       id
     );
   });
