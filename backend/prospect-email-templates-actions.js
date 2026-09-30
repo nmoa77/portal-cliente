@@ -25,7 +25,7 @@ module.exports=function(app){
   app.patch('/api/admin/prospect-email-templates/:id',requireAdmin,(req,res)=>{
     const id=Number(req.params.id),cur=db.prepare('SELECT * FROM prospect_email_templates WHERE id=?').get(id);
     if(!cur)return res.status(404).json({error:'Modelo não encontrado.'});
-    const b=req.body||{},name=b.name===undefined?cur.name:String(b.name||'').trim(),subject=b.subject===undefined?cur.subject:String(b.subject||'').trim(),body=b.body===undefined?cur.body:String(b.body||'').trim(),active=b.is_active===undefined?Number(cur.is_active):Number(Boolean(b.is_active)),makeDefault=b.is_default===undefined?Number(cur.is_default):Number(Boolean(b.is_default));
+    const b=req.body||{},name=b.name===undefined?cur.name:String(b.name||'').trim(),subject=b.subject===undefined?cur.subject:String(b.subject||'').trim(),body=b.body===undefined?cur.body:String(b.body||'').trim(),makeDefault=b.is_default===undefined?Number(cur.is_default):Number(Boolean(b.is_default));let active=b.is_active===undefined?Number(cur.is_active):Number(Boolean(b.is_active));
     if(!name||!subject||!body)return res.status(400).json({error:'Nome, assunto e texto são obrigatórios.'});
     const tx=db.transaction(()=>{
       if(makeDefault){db.prepare('UPDATE prospect_email_templates SET is_default=0').run();active=1;}
