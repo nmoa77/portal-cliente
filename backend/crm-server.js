@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS prospect_crm (
   follow_up_at TEXT,
   notes TEXT,
   proposal_email TEXT,
+  email_observation TEXT,
   ebook_page_id INTEGER,
   updated_at TEXT DEFAULT (datetime('now')),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -80,7 +81,7 @@ CREATE INDEX IF NOT EXISTS idx_prospect_crm_status ON prospect_crm(lead_status);
 CREATE INDEX IF NOT EXISTS idx_prospect_crm_priority ON prospect_crm(priority);
 `);
 const crmCols=db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c=>c.name);
-if(!crmCols.includes('ebook_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ebook_page_id INTEGER`);if(!crmCols.includes('landing_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN landing_page_id INTEGER`);
+if(!crmCols.includes('email_observation')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_observation TEXT`);if(!crmCols.includes('ebook_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ebook_page_id INTEGER`);if(!crmCols.includes('landing_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN landing_page_id INTEGER`);
 try{
   const legacyLp=db.prepare("SELECT id FROM landing_pages WHERE slug='duit-start' LIMIT 1").get();
   if(legacyLp) db.prepare("UPDATE prospect_crm SET landing_page_id=? WHERE landing_page_id IS NULL AND (email_sent_at IS NOT NULL OR email_first_sent_at IS NOT NULL OR COALESCE(email_send_count,0)>0)").run(legacyLp.id);
