@@ -122,7 +122,7 @@ function getCrmProspect(id) {
            COALESCE(c.offer_value,0) offer_value,
            COALESCE(c.lead_status,'por_contactar') lead_status,
            COALESCE(c.priority,'possivel') priority,
-           c.first_contact_at, c.follow_up_at, c.notes, c.proposal_email,
+           c.first_contact_at, c.follow_up_at, c.notes, c.proposal_email, c.email_observation,
            c.ebook_page_id, c.landing_page_id, c.updated_at,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id) quote_count,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status='accepted') accepted_count
@@ -143,7 +143,7 @@ capturedApp.get('/api/crm/prospects', requireAdmin, (req, res) => {
            COALESCE(c.offer_value,0) offer_value,
            COALESCE(c.lead_status,'por_contactar') lead_status,
            COALESCE(c.priority,'possivel') priority,
-           c.first_contact_at, c.follow_up_at, c.notes, c.proposal_email,
+           c.first_contact_at, c.follow_up_at, c.notes, c.proposal_email, c.email_observation,
            c.ebook_page_id, c.landing_page_id, c.updated_at,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id) quote_count,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status='accepted') accepted_count
@@ -202,14 +202,14 @@ capturedApp.post('/api/crm/prospects', requireAdmin, (req, res) => {
       INSERT INTO prospect_crm (
         user_id,sector,location,website,instagram,opportunity,idea,
         recommended_plan,solution_text,monthly_value,offer_value,
-        lead_status,priority,first_contact_at,follow_up_at,notes,proposal_email,ebook_page_id,landing_page_id,updated_at
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+        lead_status,priority,first_contact_at,follow_up_at,notes,proposal_email,email_observation,ebook_page_id,landing_page_id,updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
     `).run(
       u.lastInsertRowid,
       clean(body.sector, 120), clean(body.location, 120), clean(body.website, 500), clean(body.instagram, 500),
       clean(body.opportunity), clean(body.idea), plan, clean(body.solution_text),
       asMoney(body.monthly_value), asMoney(body.offer_value), status, priority,
-      clean(body.first_contact_at, 30), clean(body.follow_up_at, 30), clean(body.notes), clean(body.proposal_email, 12000),ebookPageId,landingPageId
+      clean(body.first_contact_at, 30), clean(body.follow_up_at, 30), clean(body.notes), clean(body.proposal_email, 12000),clean(body.email_observation,1200),ebookPageId,landingPageId
     );
     return Number(u.lastInsertRowid);
   });
