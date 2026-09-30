@@ -19,10 +19,19 @@ function ensureTable(){
       VALUES(?,?,?,?,1)`).run(
         'Prospecção pessoal DUIT',
         '{empresa} — reparei numa coisa',
-        'Olá,\n\nSou o Nuno, da DUIT.\n\nEstive a ver a presença digital da {empresa} e notei {observacao}.\n\nAcho que há aqui uma oportunidade simples de melhorar este ponto.\n\nSe fizer sentido para si, basta responder a este email e digo-lhe qual seria a primeira alteração que eu faria.\n\nNuno\nDUIT',
+        'Olá,\n\nSou o Nuno, da DUIT.\n\nEstive a ver a presença digital da {empresa} e notei {observacao}.\n\nAcho que há aqui uma oportunidade simples de melhorar este ponto.\n\nSe fizer sentido para si, basta responder a este email e digo-lhe qual seria a primeira alteração que eu faria.',
         1
       );
   }
+  /* DUIT_REMOVE_DUPLICATE_TEXT_SIGNATURE */
+  try{
+    const rows=db.prepare('SELECT id,body FROM prospect_email_templates').all();
+    const upd=db.prepare("UPDATE prospect_email_templates SET body=?,updated_at=datetime('now') WHERE id=?");
+    for(const row of rows){
+      const clean=String(row.body||'').replace(/\n\s*Nuno\s*\n\s*DUIT\s*$/i,'').trimEnd();
+      if(clean!==String(row.body||''))upd.run(clean,row.id);
+    }
+  }catch(_){}
   const def=db.prepare('SELECT id FROM prospect_email_templates WHERE is_default=1 AND is_active=1 ORDER BY id LIMIT 1').get();
   if(!def){
     const first=db.prepare('SELECT id FROM prospect_email_templates WHERE is_active=1 ORDER BY id LIMIT 1').get();
