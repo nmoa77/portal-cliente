@@ -39,10 +39,17 @@
     fbq('track',event,params||{});
   }
 
+  function trackCustom(event,params){
+    if(localStorage.getItem('duitCookieConsent')!=='all') return;
+    init();
+    fbq('trackCustom',event,params||{});
+  }
+
   window.duitMetaPixel={
     id:PIXEL_ID,
     setConsent,
     track,
+    trackCustom,
     pageView
   };
 
