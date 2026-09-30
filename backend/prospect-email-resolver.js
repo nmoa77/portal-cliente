@@ -103,7 +103,7 @@ function humanizeObservation(raw){
 function fill(text,p){
   const company=String(p.company||p.name||'').trim();
   const name=String(p.name||'').trim();
-  const rawObservation=String(p.opportunity||p.idea||'').trim();
+  const rawObservation=String(p.email_observation||'').trim();
   const observation=humanizeObservation(rawObservation);
   return String(text||'')
     .replace(/\{empresa\}/gi,company)
@@ -114,7 +114,7 @@ function fill(text,p){
 
 function resolveProspectEmail(userId,landingPageId){
   ensureTable();
-  const p=db.prepare(`SELECT u.id,u.name,u.email,u.company,c.opportunity,c.idea,c.landing_page_id
+  const p=db.prepare(`SELECT u.id,u.name,u.email,u.company,c.email_observation,c.opportunity,c.idea,c.landing_page_id
     FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id
     WHERE u.id=? AND u.is_prospect=1`).get(Number(userId));
   if(!p) return null;
