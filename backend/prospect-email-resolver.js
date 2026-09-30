@@ -38,10 +38,21 @@ function humanizeObservation(raw){
 
   if(/^comunica[cç][aã]o digital regular\s+para\s+/i.test(text)){
     const rest=text.replace(/^comunica[cç][aã]o digital regular\s+para\s+/i,'').trim();
+    const restLower=rest.toLocaleLowerCase('pt-PT');
+    const nouns=[];
+    if(/servi[cç]os/i.test(restLower)) nouns.push('os serviços');
+    if(/projetos/i.test(restLower)) nouns.push('os projetos');
+    if(/equipa/i.test(restLower)) nouns.push('a equipa');
+    if(/diferencia[cç][aã]o/i.test(restLower)) nouns.push('o que diferencia a marca');
+    if(/prova de trabalho/i.test(restLower)) nouns.push('a prova de trabalho');
+    if(nouns.length){
+      const phrase=nouns.length>1?nouns.slice(0,-1).join(', ')+' e '+nouns[nouns.length-1]:nouns[0];
+      return 'que há espaço para mostrar melhor '+phrase;
+    }
     const cleaned=rest
+      .replace(/^(apresentar|mostrar|comunicar|destacar)\s+/i,'')
       .replace(/\s+a potenciais clientes$/i,'')
       .replace(/\s+para potenciais clientes$/i,'')
-      .replace(/\s+e prova de trabalho/i,', prova de trabalho')
       .trim();
     return 'que há espaço para mostrar melhor '+cleaned;
   }
