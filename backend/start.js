@@ -10,6 +10,7 @@ try {
     "require('./proposal-template-actions')(capturedApp);",
     "require('./prospect-template-actions')(capturedApp);",
     "require('./prospect-crm-actions')(capturedApp);",
+    "require('./prospect-email-templates-actions')(capturedApp);",
     "require('./ebook-leads-actions')(capturedApp);",
     "require('./ebook-delete-actions')(capturedApp);",
     "require('./landing-pages-actions')(capturedApp);",
@@ -22,7 +23,7 @@ try {
     /ORDER BY\s+CASE COALESCE\(c\.priority,'possivel'\)\s+WHEN 'atacar' THEN 0 WHEN 'possivel' THEN 1 ELSE 2 END,\s+COALESCE\(c\.updated_at, u\.created_at\) DESC/g,
     'ORDER BY u.id DESC'
   );
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260923a');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20260930emailtpl');
   if (!serverSource.includes('/api/app-version')) {
     serverSource = serverSource.replace(marker, `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => { res.set('Cache-Control','no-store, no-cache, must-revalidate'); res.json({version: DUIT_APP_VERSION}); });\n\n${marker}`);
   }
@@ -49,6 +50,7 @@ try {
   source = source.replace("if(crmDateSort==='none')return Number(a.id)-Number(b.id);", "if(crmDateSort==='none')return Number(b.id)-Number(a.id);");
   const modules = [
     ['prospects-actions.js','duitProspectActions'],
+    ['prospect-email-templates.js','duitProspectEmailTemplates'],
     ['prospects-ui-fix.js','duitProspectUiFix'],
     ['prospects-sector-chart.js','duitProspectSectorChart']
   ];
