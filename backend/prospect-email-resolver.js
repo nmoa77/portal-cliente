@@ -30,10 +30,61 @@ function ensureTable(){
   }
 }
 
+function humanizeObservation(raw){
+  let text=String(raw||'').trim().replace(/[.。!！?？]+$/,'').trim();
+  if(!text) return 'que há espaço para tornar a comunicação mais clara e eficaz';
+
+  const lower=text.toLocaleLowerCase('pt-PT');
+
+  if(/^comunica[cç][aã]o digital regular\s+para\s+/i.test(text)){
+    const rest=text.replace(/^comunica[cç][aã]o digital regular\s+para\s+/i,'').trim();
+    const cleaned=rest
+      .replace(/\s+a potenciais clientes$/i,'')
+      .replace(/\s+para potenciais clientes$/i,'')
+      .replace(/\s+e prova de trabalho/i,', prova de trabalho')
+      .trim();
+    return 'que há espaço para mostrar melhor '+cleaned;
+  }
+
+  if(/instagram.*identidade visual.*pouco consistente/i.test(lower) || /identidade visual.*pouco consistente/i.test(lower))
+    return 'que a comunicação visual pode ganhar mais consistência';
+
+  if(/website.*(desatualizado|antigo|datado)/i.test(lower))
+    return 'que o website pode transmitir uma imagem mais atual';
+
+  if(/boa presen[cç]a digital.*comunica[cç][aã]o pouco clara/i.test(lower) || /comunica[cç][aã]o pouco clara/i.test(lower))
+    return 'que a comunicação pode ficar mais clara e direta';
+
+  if(/publica[cç][aã]o irregular|publica[cç][oõ]es irregulares|pouca regularidade/i.test(lower))
+    return 'que há margem para dar mais consistência à frequência das publicações';
+
+  if(/servi[cç]o forte.*apresenta[cç][aã]o visual fraca|apresenta[cç][aã]o visual fraca/i.test(lower))
+    return 'que a apresentação visual pode valorizar melhor a qualidade dos serviços';
+
+  if(/redes sociais.*(paradas|inativas|sem publica[cç][aã]o|pouco ativas)/i.test(lower))
+    return 'que as redes sociais podem ter uma presença mais consistente';
+
+  if(/(servi[cç]os|projetos|equipa|diferencia[cç][aã]o|prova de trabalho)/i.test(lower) && /apresentar|mostrar|comunicar|destacar/i.test(lower)){
+    const nouns=[];
+    if(/servi[cç]os/i.test(lower)) nouns.push('os serviços');
+    if(/projetos/i.test(lower)) nouns.push('os projetos');
+    if(/equipa/i.test(lower)) nouns.push('a equipa');
+    if(/diferencia[cç][aã]o/i.test(lower)) nouns.push('o que diferencia a marca');
+    if(/prova de trabalho/i.test(lower)) nouns.push('a prova de trabalho');
+    const phrase=nouns.length>1?nouns.slice(0,-1).join(', ')+' e '+nouns[nouns.length-1]:(nouns[0]||'a comunicação');
+    return 'que há espaço para mostrar melhor '+phrase;
+  }
+
+  if(/^que\s+/i.test(text)) return text.charAt(0).toLocaleLowerCase('pt-PT')+text.slice(1);
+
+  return 'que há espaço para tornar a comunicação mais clara e eficaz';
+}
+
 function fill(text,p){
   const company=String(p.company||p.name||'').trim();
   const name=String(p.name||'').trim();
-  const observation=String(p.opportunity||p.idea||'').trim() || 'a comunicação atual da empresa';
+  const rawObservation=String(p.opportunity||p.idea||'').trim();
+  const observation=humanizeObservation(rawObservation);
   return String(text||'')
     .replace(/\{empresa\}/gi,company)
     .replace(/\{nome\}/gi,name)
