@@ -21,14 +21,18 @@ require('./start');
 
 // Importa automaticamente todas as rondas diárias de prospects.
 // Cada seed valida empresa/email antes de inserir, por isso é seguro repetir no arranque.
-const datedSeed = /^prospect-seed-\d{4}-\d{2}-\d{2}\.js$/;
+const { cleanupDeletedProspects } = require('./prospect-deleted-guard');
+const datedSeed = /^prospect-seed-\d{4}-\d{2}-\d{2}(?:-[a-z0-9]+)?\.js$/i;
 for (const file of fs.readdirSync(__dirname).filter(name => datedSeed.test(name)).sort()) {
   try {
     require(path.join(__dirname, file));
+    cleanupDeletedProspects();
   } catch (e) {
     console.warn(`[crm] não foi possível importar ${file}:`, e.message);
   }
 }
+
+cleanupDeletedProspects();
 
 // Garante que propostas criadas pelo gerador antigo usam o texto comercial DUIT atual.
 require('./prospect-email-template');
