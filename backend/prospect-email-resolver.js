@@ -69,7 +69,7 @@ function fill(text,p){
     .replace(/\{oportunidade\}/gi,observation);
 }
 
-function resolveProspectEmail(userId,landingPageId){
+function resolveProspectEmail(userId,landingPageId,emailTemplateId){
   ensureTable();
   const p=db.prepare(`SELECT u.id,u.name,u.email,u.company,c.email_observation,c.opportunity,c.idea,c.landing_page_id
     FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id
@@ -84,9 +84,12 @@ function resolveProspectEmail(userId,landingPageId){
     if(!body.trim()) return {error:'Esta Landing Page ainda não tem texto de email configurado.'};
     return {prospect:p,source_type:'landing_page',source_name:lp.title,landing_page:lp,template:null,subject,body};
   }
-  const tpl=db.prepare('SELECT * FROM prospect_email_templates WHERE is_active=1 ORDER BY is_default DESC,id ASC LIMIT 1').get();
-  if(!tpl) return {error:'Não existe nenhum modelo de email ativo.'};
-  return {prospect:p,source_type:'default_template',source_name:tpl.name,landing_page:null,template:tpl,subject:fill(tpl.subject,p),body:fill(tpl.body,p)};
+  const tplId=Number(emailTemplateId||0);
+  const tpl=tplId
+    ?db.prepare('SELECT * FROM prospect_email_templates WHERE id=? AND is_active=1').get(tplId)
+    :db.prepare('SELECT * FROM prospect_email_templates WHERE is_active=1 ORDER BY is_default DESC,id ASC LIMIT 1').get();
+  if(!tpl) return {error:tplId?'O modelo de email selecionado não existe ou está inativo.':'Não existe nenhum modelo de email ativo.'};
+  return {prospect:p,source_type:tplId?'selected_template':'default_template',source_name:tpl.name,landing_page:null,template:tpl,subject:fill(tpl.subject,p),body:fill(tpl.body,p)};
 }
 
 module.exports={ensureTable,fill,resolveProspectEmail};
