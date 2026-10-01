@@ -29,7 +29,7 @@ express.static = function patchedStatic(root, options) {
 
     fs.readFile(adminPath, 'utf8', (err, html) => {
       if (err) return middleware(req, res, next);
-      const script = '<script src="/js/prospects-crm.js?v=20260928leads"></script><script src="/js/leads-admin.js?v=20260928d"></script>';
+      const script = '<script src="/js/prospects-crm.js?v=20261001preview"></script><script src="/js/leads-admin.js?v=20260928d"></script>';
       const output = html.includes('/js/leads-admin.js')
         ? html
         : html.replace('</body>', `  ${script}\n</body>`);
@@ -190,7 +190,7 @@ capturedApp.post('/api/crm/prospects', requireAdmin, (req, res) => {
   const status = allowedStatuses.has(body.lead_status) ? body.lead_status : 'por_contactar';
   const priority = allowedPriorities.has(body.priority) ? body.priority : 'possivel';
   const plan = allowedPlans.has(body.recommended_plan || '') ? (body.recommended_plan || '') : '';
-  const ebookPageId=validEbookPageId(body.ebook_page_id);const landingPageId=Number(body.landing_page_id||0)||null;
+  const ebookPageId=validEbookPageId(body.ebook_page_id);const landingPageId=Number(body.landing_page_id||0)||null;const emailTemplateId=Number(body.email_template_id||0)||null;
 
   const tx = db.transaction(() => {
     const u = db.prepare(`
@@ -202,14 +202,14 @@ capturedApp.post('/api/crm/prospects', requireAdmin, (req, res) => {
       INSERT INTO prospect_crm (
         user_id,sector,location,website,instagram,opportunity,idea,
         recommended_plan,solution_text,monthly_value,offer_value,
-        lead_status,priority,first_contact_at,follow_up_at,notes,proposal_email,email_observation,ebook_page_id,landing_page_id,updated_at
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+        lead_status,priority,first_contact_at,follow_up_at,notes,proposal_email,email_observation,ebook_page_id,landing_page_id,email_template_id,updated_at
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
     `).run(
       u.lastInsertRowid,
       clean(body.sector, 120), clean(body.location, 120), clean(body.website, 500), clean(body.instagram, 500),
       clean(body.opportunity), clean(body.idea), plan, clean(body.solution_text),
       asMoney(body.monthly_value), asMoney(body.offer_value), status, priority,
-      clean(body.first_contact_at, 30), clean(body.follow_up_at, 30), clean(body.notes), clean(body.proposal_email, 12000),clean(body.email_observation,1200),ebookPageId,landingPageId
+      clean(body.first_contact_at, 30), clean(body.follow_up_at, 30), clean(body.notes), clean(body.proposal_email, 12000),clean(body.email_observation,1200),ebookPageId,landingPageId,emailTemplateId
     );
     return Number(u.lastInsertRowid);
   });
