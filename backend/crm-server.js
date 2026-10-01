@@ -123,7 +123,7 @@ function getCrmProspect(id) {
            COALESCE(c.lead_status,'por_contactar') lead_status,
            COALESCE(c.priority,'possivel') priority,
            c.first_contact_at, c.follow_up_at, c.notes, c.proposal_email, c.email_observation,
-           c.ebook_page_id, c.landing_page_id, c.updated_at,
+           c.ebook_page_id, c.landing_page_id, c.email_template_id, c.updated_at,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id) quote_count,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status='accepted') accepted_count
       FROM users u
@@ -144,7 +144,7 @@ capturedApp.get('/api/crm/prospects', requireAdmin, (req, res) => {
            COALESCE(c.lead_status,'por_contactar') lead_status,
            COALESCE(c.priority,'possivel') priority,
            c.first_contact_at, c.follow_up_at, c.notes, c.proposal_email, c.email_observation,
-           c.ebook_page_id, c.landing_page_id, c.updated_at,
+           c.ebook_page_id, c.landing_page_id, c.email_template_id, c.updated_at,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id) quote_count,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status='accepted') accepted_count
       FROM users u
@@ -239,7 +239,7 @@ capturedApp.patch('/api/crm/prospects/:id', requireAdmin, (req, res) => {
   const plan = body.recommended_plan === undefined
     ? (current.recommended_plan || '')
     : (allowedPlans.has(body.recommended_plan || '') ? (body.recommended_plan || '') : (current.recommended_plan || ''));
-  const ebookPageId=body.ebook_page_id===undefined?current.ebook_page_id:validEbookPageId(body.ebook_page_id);const landingPageId=body.landing_page_id===undefined?current.landing_page_id:(Number(body.landing_page_id||0)||null);
+  const ebookPageId=body.ebook_page_id===undefined?current.ebook_page_id:validEbookPageId(body.ebook_page_id);const landingPageId=body.landing_page_id===undefined?current.landing_page_id:(Number(body.landing_page_id||0)||null);const emailTemplateId=body.email_template_id===undefined?current.email_template_id:(Number(body.email_template_id||0)||null);
 
   const tx = db.transaction(() => {
     db.prepare(`
