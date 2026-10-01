@@ -46,7 +46,7 @@ module.exports=function(app){
   });
 
   app.get('/api/crm/prospects/:id/email-preview',requireAdmin,(req,res)=>{
-    const resolved=resolveProspectEmail(Number(req.params.id),Number(req.query.landing_page_id||0));
+    const resolved=resolveProspectEmail(Number(req.params.id),Number(req.query.landing_page_id||0),Number(req.query.email_template_id||0));
     if(!resolved)return res.status(404).json({error:'Prospect não encontrado.'});
     if(resolved.error)return res.status(400).json({error:resolved.error});
     const portal=(process.env.PORTAL_URL||'https://cliente.duit.pt').replace(/\/+$/,'');
