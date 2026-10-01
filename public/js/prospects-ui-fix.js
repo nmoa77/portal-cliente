@@ -294,12 +294,12 @@
     analyticsState.loading=true;
     root.innerHTML='<div class="card"><div class="empty" style="padding:20px 0">A calcular métricas comerciais…</div></div>';
     try{
-      const [prospects,statuses]=await Promise.all([
-        api('/api/crm/prospects'),
-        api('/api/crm/prospects/email-status')
-      ]);
-      const map=new Map((statuses||[]).map(s=>[Number(s.user_id),s]));
-      analyticsState.rows=(prospects||[]).map(p=>({...p,...(map.get(Number(p.id))||{})}));
+      if(Array.isArray(window.duitCrmProspectsCache)) analyticsState.rows=window.duitCrmProspectsCache.slice();
+      else {
+        const [prospects,statuses]=await Promise.all([api('/api/crm/prospects'),api('/api/crm/prospects/email-status')]);
+        const map=new Map((statuses||[]).map(s=>[Number(s.user_id),s]));
+        analyticsState.rows=(prospects||[]).map(p=>({...p,...(map.get(Number(p.id))||{})}));
+      }
       analyticsState.loaded=true;
       renderAnalytics();
       root.dataset.rendered='1';
