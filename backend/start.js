@@ -23,7 +23,7 @@ try {
     /ORDER BY\s+CASE COALESCE\(c\.priority,'possivel'\)\s+WHEN 'atacar' THEN 0 WHEN 'possivel' THEN 1 ELSE 2 END,\s+COALESCE\(c\.updated_at, u\.created_at\) DESC/g,
     'ORDER BY u.id DESC'
   );
-  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20261001preview2');
+  serverSource = serverSource.replace(/prospects-crm\.js\?v=[^'\"]+/g, 'prospects-crm.js?v=20261001stable1');
   if (!serverSource.includes('/api/app-version')) {
     serverSource = serverSource.replace(marker, `const DUIT_APP_VERSION = Date.now().toString();\ncapturedApp.get('/api/app-version', (req,res) => { res.set('Cache-Control','no-store, no-cache, must-revalidate'); res.json({version: DUIT_APP_VERSION}); });\n\n${marker}`);
   }
@@ -56,7 +56,7 @@ try {
   ];
   for (const [file,key] of modules) {
     if (!source.includes(file)) source += `\n;(()=>{if(document.querySelector('script[data-${key}]'))return;const s=document.createElement('script');s.src='/js/${file}?v=20261001perf2';s.dataset.${key}='1';document.body.appendChild(s)})();\n`;
-    else source = source.replace(new RegExp(file.replace('.','\\.')+'\\?v=[^\'\"]+','g'), file+'?v=20261001perf2');
+    else source = source.replace(new RegExp(file.replace('.','\\.')+'\\?v=[^\'\"]+','g'), file+'?v=20261001stable1');
   }
   if (!source.includes('DUIT_AUTO_VERSION_REFRESH')) source += `\n;(()=>{/* DUIT_AUTO_VERSION_REFRESH */let v=null,b=false;async function c(){if(b)return;try{const r=await fetch('/api/app-version?t='+Date.now(),{cache:'no-store'}),d=await r.json();if(!d?.version)return;if(v===null){v=d.version;return}if(d.version!==v){b=true;location.reload()}}catch(_){}}c();setInterval(c,10000);window.addEventListener('focus',c)})();\n`;
   fs.writeFileSync(crmJs, source, 'utf8');
