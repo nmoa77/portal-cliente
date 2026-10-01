@@ -130,7 +130,7 @@ module.exports = function installProspectCrmActions(app) {
 
   app.get('/proposta', (req,res)=>res.sendFile(require('path').join(__dirname,'..','public','prospect-response.html')));
   app.get('/api/crm/prospects/email-status',requireAdmin,(req,res)=>{
-    const rows=db.prepare(`SELECT user_id,email_sent_at,email_first_sent_at,COALESCE(email_send_count,0) email_send_count,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,proposal_first_viewed_at,proposal_last_viewed_at,COALESCE(proposal_view_count,0) proposal_view_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at,outreach_question,outreach_question_at FROM prospect_crm`).all();
+    const rows=db.prepare(`SELECT user_id,email_template_id,email_sent_at,email_first_sent_at,COALESCE(email_send_count,0) email_send_count,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,proposal_first_viewed_at,proposal_last_viewed_at,COALESCE(proposal_view_count,0) proposal_view_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at,outreach_question,outreach_question_at FROM prospect_crm`).all();
     let history=new Map();
     try{
       const sent=db.prepare(`SELECT user_id,MIN(created_at) first_sent_at,MAX(created_at) last_sent_at,COUNT(*) send_count FROM notifications WHERE kind='prospect_outreach' AND user_id IS NOT NULL GROUP BY user_id`).all();
