@@ -25,11 +25,12 @@ function proposal(l){return `Assunto: ${l.company} â€” reparei numa coisa\n\nOlÃ
 
 function valid(l){
  const e=l.email.trim().toLowerCase();
- if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e))return false;
- const [local,domain]=e.split('@');
- if(blocked.has(domain)||/^(no-?reply|noreply)/i.test(local))return false;
- try{const host=new URL(l.website).hostname.replace(/^www\\./,'').toLowerCase();if(!(domain===host||domain.endsWith('.'+host)||host.endsWith('.'+domain)))return false}catch(_){return false}
- return /^https?:\\/\\//i.test(l.source)&&Boolean(l.email_observation)&&Boolean(l.opportunity);
+ const parts=e.split('@');
+ if(parts.length!==2||!parts[0]||!parts[1]||!parts[1].includes('.'))return false;
+ const local=parts[0],domain=parts[1];
+ if(blocked.has(domain)||local.toLowerCase().startsWith('noreply')||local.toLowerCase().startsWith('no-reply'))return false;
+ try{const host=new URL(l.website).hostname.toLowerCase().replace('www.','');if(!(domain===host||domain.endsWith('.'+host)||host.endsWith('.'+domain)))return false}catch(_){return false}
+ return (l.source.startsWith('https://')||l.source.startsWith('http://'))&&Boolean(l.email_observation)&&Boolean(l.opportunity);
 }
 
 function seed(){
