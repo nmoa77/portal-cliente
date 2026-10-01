@@ -142,7 +142,7 @@
     if(state.loaded){render();return;}
     state.loading=true;
     try{
-      state.rows=await api('/api/crm/prospects')||[];
+      state.rows=Array.isArray(window.duitCrmProspectsCache)?window.duitCrmProspectsCache:(await api('/api/crm/prospects')||[]);
       state.loaded=true;
       render();
     }catch(e){
@@ -163,6 +163,6 @@
   });
 
   const main=document.getElementById('main');
-  if(main)new MutationObserver(()=>requestAnimationFrame(sync)).observe(main,{childList:true,subtree:true});
+  if(main)new MutationObserver(()=>requestAnimationFrame(sync)).observe(main,{childList:true});
   sync();
 })();
