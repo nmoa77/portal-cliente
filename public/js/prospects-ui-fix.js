@@ -324,6 +324,6 @@
     clearTimeout(timer);
     timer=setTimeout(()=>requestAnimationFrame(decorate),80);
     if(!document.getElementById('duit-prospect-analytics')) analyticsState.loaded=false;
-  }).observe(main,{childList:true,subtree:true});
+  }).observe(main,{childList:true});
   decorate();
 })();
