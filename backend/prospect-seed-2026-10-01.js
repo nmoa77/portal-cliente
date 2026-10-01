@@ -23,7 +23,7 @@ const planItems={intermedio:['3 publicações por semana','Até 6 stories por se
 
 function proposal(l){return `Assunto: ${l.company} — reparei numa coisa\n\nOlá,\n\nSou o Nuno, da DUIT.\n\nEstive a conhecer melhor a ${l.company} e reparei que ${l.email_observation}.\n\nAcho que há aqui uma oportunidade simples de melhorar este ponto.\n\nSe fizer sentido para si, basta responder a este email e digo-lhe qual seria a primeira alteração que eu faria.`}
 
-function valid(l){const e=l.email.trim().toLowerCase();if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e))return false;const [local,domain]=e.split('@');if(blocked.has(domain)||/^(no-?reply|noreply)/i.test(local))return false;try{const host=new URL(l.website).hostname.replace(/^www\\./,'').toLowerCase();if(!(domain===host||domain.endsWith('.'+host)||host.endsWith('.'+domain)))return false}catch(_){return false}return /^https?:\\/\\//i.test(l.source)&&Boolean(l.email_observation)}
+function valid(l){const e=l.email.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))return false;const [local,domain]=e.split('@');if(blocked.has(domain)||/^(no-?reply|noreply)/i.test(local))return false;try{const host=new URL(l.website).hostname.replace(/^www\./,'').toLowerCase();if(!(domain===host||domain.endsWith('.'+host)||host.endsWith('.'+domain)))return false}catch(_){return false}return /^https?:\/\//i.test(l.source)&&Boolean(l.email_observation)}
 
 function seed(){
  const hash=bcrypt.hashSync(crypto.randomBytes(24).toString('hex'),10);
