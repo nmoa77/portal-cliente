@@ -73,6 +73,7 @@ function renderShell() {
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',alert: s.pendingCancels,         alertTitle: `${s.pendingCancels || 0} cancelamento(s) pendente(s)` },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      alert: s.unreadAdminTickets,     alertTitle: `${s.unreadAdminTickets || 0} ticket(s) com nova resposta de cliente` },
     { id: 'metaads',   icon: 'quote',   label: 'Meta Ads' },
+    { id: 'metareports', icon: 'cal', label: 'Relatórios Meta' },
     { id: 'announcements', icon: 'sparkle', label: 'Anúncios',
         count: s.activeAnnouncements, countTitle: `${s.activeAnnouncements || 0} anúncio(s) ativo(s)` },
     { id: 'notifications', icon: 'bell', label: 'Notificações' },
@@ -158,6 +159,7 @@ async function go(view) {
     else if (view === 'cancels')  await viewCancels(main);
     else if (view === 'support')  await viewSupport(main);
     else if (view === 'metaads')  await viewMetaAds(main);
+    else if (view === 'metareports') { if(typeof window.viewMetaReports!=='function') throw new Error('Módulo Relatórios Meta não carregado.'); await window.viewMetaReports(main); }
     else if (view === 'metaads-detail') await viewMetaAdDetail(main, state._currentCampaignId);
     else if (view === 'announcements') await viewAnnouncements(main);
     else if (view === 'notifications') await viewNotifications(main);
