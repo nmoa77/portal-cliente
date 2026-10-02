@@ -6,7 +6,8 @@ const {requireAuth,requireAdmin}=require('./auth');
 const {deliver}=require('./email');
 
 module.exports=function installMetaReportAutomation(app){
-  db.exec(`CREATE TABLE IF NOT EXISTS meta_monthly_reports (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,ref_year INTEGER NOT NULL,ref_month INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','collecting','ready','sent','error')),totals_json TEXT,posts_json TEXT,summary_text TEXT,pdf_path TEXT,generated_at TEXT,sent_at TEXT,error_message TEXT,created_at TEXT DEFAULT (datetime('now')),updated_at TEXT DEFAULT (datetime('now')),UNIQUE(user_id,ref_year,ref_month));`);
+  db.exec(`CREATE TABLE IF NOT EXISTS meta_monthly_reports (id INTEGER PRIMARY KEY AUTOINCREMENT,user_id INTEGER NOT NULL,ref_year INTEGER NOT NULL,ref_month INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','collecting','ready','sent','error')),totals_json TEXT,posts_json TEXT,summary_text TEXT,pdf_path TEXT,generated_at TEXT,sent_at TEXT,email_opened_at TEXT,email_tracking_token TEXT,error_message TEXT,created_at TEXT DEFAULT (datetime('now')),updated_at TEXT DEFAULT (datetime('now')),UNIQUE(user_id,ref_year,ref_month));`);
+  const reportCols=db.prepare(`PRAGMA table_info(meta_monthly_reports)`).all().map(c=>c.name);if(!reportCols.includes('email_opened_at'))db.exec(`ALTER TABLE meta_monthly_reports ADD COLUMN email_opened_at TEXT`);if(!reportCols.includes('email_tracking_token'))db.exec(`ALTER TABLE meta_monthly_reports ADD COLUMN email_tracking_token TEXT`);
 
   const graphVersion=()=>process.env.META_GRAPH_VERSION||'';
   const graphBase=()=>`https://graph.facebook.com/${graphVersion()}`;
@@ -59,7 +60,52 @@ module.exports=function installMetaReportAutomation(app){
   function reportRow(userId,y,m){return db.prepare(`SELECT * FROM meta_monthly_reports WHERE user_id=? AND ref_year=? AND ref_month=?`).get(userId,y,m);}
   function upsert(userId,y,m,status){db.prepare(`INSERT INTO meta_monthly_reports(user_id,ref_year,ref_month,status,updated_at) VALUES(?,?,?,?,datetime('now')) ON CONFLICT(user_id,ref_year,ref_month) DO UPDATE SET status=excluded.status,error_message=NULL,updated_at=datetime('now')`).run(userId,y,m,status);return reportRow(userId,y,m);}
   async function generate(userId,y,m,{send=false}={}){upsert(userId,y,m,'collecting');try{const data=await collect(userId,y,m),row=reportRow(userId,y,m),filename=`meta-${userId}-${y}-${String(m).padStart(2,'0')}-${row.id}.pdf`,file=path.join(reportsDir(),filename),summary=`Relatório ${months[m-1]} ${y} - ${data.client.name}`;await makePdf(data,file);db.prepare(`UPDATE meta_monthly_reports SET status='ready',totals_json=?,posts_json=?,summary_text=?,pdf_path=?,generated_at=datetime('now'),error_message=NULL,updated_at=datetime('now') WHERE id=?`).run(JSON.stringify({facebook:data.facebook.totals,instagram:data.instagram.totals}),JSON.stringify({facebook:data.facebook.posts,instagram:data.instagram.media}),summary,filename,row.id);if(send)await sendReport(row.id);return{report:reportRow(userId,y,m),data};}catch(e){db.prepare(`UPDATE meta_monthly_reports SET status='error',error_message=?,updated_at=datetime('now') WHERE user_id=? AND ref_year=? AND ref_month=?`).run(e.message,userId,y,m);throw e;}}
-  async function sendReport(id){const r=db.prepare(`SELECT r.*,u.name,u.company,u.email FROM meta_monthly_reports r JOIN users u ON u.id=r.user_id WHERE r.id=?`).get(id);if(!r||r.status!=='ready'||!r.pdf_path)throw new Error('Relatório ainda não está pronto.');const label=r.company||r.name||'cliente',month=`${months[r.ref_month-1]} ${r.ref_year}`,baseUrl=(process.env.PORTAL_URL||'https://cliente.duit.pt').replace(/\/$/,''),url=`${baseUrl}/cliente.html?view=reports`,openToken=crypto.randomBytes(24).toString('hex'),openPixel=`${baseUrl}/api/meta/reports/open/${openToken}.gif?t=${Date.now()}`;db.prepare(`UPDATE meta_monthly_reports SET email_tracking_token=?,email_opened_at=NULL WHERE id=?`).run(openToken,id);deliver(db,{to:r.email,subject:`Relatório de redes sociais - ${month}`,body:`Caro(a) ${r.name},\n\nO relatório de redes sociais de ${month} já está disponível no portal DUIT.\n\nAceda ao portal para consultar e descarregar o PDF.\n\nCumprimentos,`,html:`<div style="font-family:Arial,sans-serif;line-height:1.6"><p>Caro(a) ${esc(r.name)},</p><p>O relatório de redes sociais de <strong>${esc(month)}</strong> já está disponível no portal DUIT.</p><p><a href="${url}" style="display:inline-block;background:#ffd60a;color:#111;padding:12px 18px;text-decoration:none;font-weight:700;border-radius:8px">Consultar relatório</a></p><p>Cumprimentos,<br>DUIT</p></div>`,user_id:r.user_id,kind:'meta_report'});db.prepare(`UPDATE meta_monthly_reports SET status='sent',sent_at=datetime('now'),updated_at=datetime('now') WHERE id=?`).run(id);return{ok:true,client:label};}
+  async function sendReport(id){
+    const r=db.prepare(`SELECT r.*,u.name,u.company,u.email FROM meta_monthly_reports r JOIN users u ON u.id=r.user_id WHERE r.id=?`).get(id);
+    if(!r||r.status!=='ready'||!r.pdf_path)throw new Error('Relatório ainda não está pronto.');
+    const label=r.company||r.name||'cliente';
+    const month=`${months[r.ref_month-1]} ${r.ref_year}`;
+    const baseUrl=(process.env.PORTAL_URL||'https://cliente.duit.pt').replace(/\/$/,'');
+    const url=`${baseUrl}/cliente.html?view=reports`;
+    const openToken=crypto.randomBytes(24).toString('hex');
+    const openPixel=`${baseUrl}/api/meta/reports/open/${openToken}.gif?t=${Date.now()}`;
+    db.prepare(`UPDATE meta_monthly_reports SET email_tracking_token=?,email_opened_at=NULL WHERE id=?`).run(openToken,id);
+
+    const emailHtml=`<!doctype html>
+<html lang="pt">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"></head>
+<body style="margin:0;padding:0;background:#f5f3ef;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Space Grotesk',Helvetica,Arial,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f3ef;padding:32px 16px"><tr><td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#fff;border-radius:16px;overflow:hidden">
+<tr><td style="background:#0a0a0a;padding:28px 40px"><a href="${url}" style="text-decoration:none;display:inline-block"><img src="${baseUrl}/logo-branco.png" alt="DUIT" width="135" style="display:block;width:135px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none"></a></td></tr>
+<tr><td style="background:#ffd60a;height:5px;font-size:0;line-height:0">&nbsp;</td></tr>
+<tr><td style="padding:40px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td style="padding:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:#8b8680">Relatório mensal</td></tr>
+<tr><td style="padding:0 0 22px;font-size:26px;font-weight:700;color:#0a0a0a;line-height:1.2">Relatório de redes sociais · ${esc(month)}</td></tr>
+<tr><td style="padding:0 0 14px;color:#0a0a0a;font-size:15px">Caro(a) ${esc(r.name)},</td></tr>
+<tr><td style="padding:0 0 16px;color:#2a2a2a;font-size:15px;line-height:1.65">O relatório de redes sociais de <strong>${esc(month)}</strong> já está disponível no portal DUIT.</td></tr>
+<tr><td style="padding:12px 0 4px"><a href="${url}" style="display:inline-block;background:#ffd60a;color:#0a0a0a;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px">Consultar relatório →</a></td></tr>
+<tr><td style="padding:28px 0 0;color:#2a2a2a;font-size:15px">Cumprimentos,</td></tr>
+<tr><td style="padding:10px 0 0"><img src="${baseUrl}/assinatura-email.png" alt="Nuno Alho — DUIT" width="400" style="display:block;width:100%;max-width:400px;height:auto;border:0"></td></tr>
+</table></td></tr>
+<tr><td style="background:#fafaf8;padding:22px 40px;border-top:1px solid #ece9e2;font-size:12px;color:#8b8680;line-height:1.6"><strong style="color:#0a0a0a">DUIT</strong> — Design com método<br>${esc(baseUrl.replace(/^https?:\/\//,''))} · info@duit.pt</td></tr>
+</table>
+<div style="font-size:11px;color:#a39e96;margin-top:16px">Este email foi enviado a partir do portal DUIT.</div>
+<img src="${openPixel}" alt="" width="1" height="1" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden">
+</td></tr></table>
+</body></html>`;
+
+    deliver(db,{
+      to:r.email,
+      subject:`Relatório de redes sociais - ${month}`,
+      body:`Caro(a) ${r.name},\n\nO relatório de redes sociais de ${month} já está disponível no portal DUIT.\n\nAceda ao portal para consultar e descarregar o PDF.\n\nCumprimentos,`,
+      html:emailHtml,
+      user_id:r.user_id,
+      kind:'meta_report'
+    });
+    db.prepare(`UPDATE meta_monthly_reports SET status='sent',sent_at=datetime('now'),updated_at=datetime('now') WHERE id=?`).run(id);
+    return{ok:true,client:label};
+  }
 
   app.post('/api/meta/reports/:userId/:year/:month/generate',requireAdmin,async(req,res)=>{try{const uid=Number(req.params.userId),y=Number(req.params.year),m=Number(req.params.month);res.json(await generate(uid,y,m,{send:req.query.send==='1'}));}catch(e){res.status(502).json({error:e.message});}});
   app.post('/api/meta/reports/:id/send',requireAdmin,async(req,res)=>{try{res.json(await sendReport(Number(req.params.id)));}catch(e){res.status(400).json({error:e.message});}});
