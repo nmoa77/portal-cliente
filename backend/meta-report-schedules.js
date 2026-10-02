@@ -28,8 +28,8 @@ module.exports=function installMetaReportSchedules(app){
 
   app.post('/api/meta/report-schedules/:userId',requireAdmin,(req,res)=>{
     const userId=Number(req.params.userId),months=Math.max(1,Math.min(36,Number(req.body?.months||6)));
-    const user=db.prepare(`SELECT id FROM users WHERE id=? AND role='client' AND is_active=1`).get(userId);
-    if(!user)return res.status(404).json({error:'Cliente não encontrado ou inativo.'});
+    const user=db.prepare(`SELECT u.id FROM users u WHERE u.id=? AND u.role='client' AND u.is_active=1 AND EXISTS (SELECT 1 FROM subscription_items si JOIN subscriptions s ON s.id=si.subscription_id JOIN plans p ON p.id=si.plan_id WHERE s.user_id=u.id AND p.category='social' AND si.status='active')`).get(userId);
+    if(!user)return res.status(409).json({error:'O cliente precisa de ter um plano de redes sociais ativo para agendar relatórios.'});
     const start=currentMonthKey();
     db.prepare(`INSERT INTO meta_report_schedules(user_id,enabled,duration_months,remaining_runs,start_month,last_run_month,updated_at)
       VALUES(?,1,?,?,?,NULL,datetime('now'))
@@ -53,7 +53,7 @@ module.exports=function installMetaReportSchedules(app){
     if(typeof gen!=='function')return;
     running=true;
     try{
-      const schedules=db.prepare(`SELECT * FROM meta_report_schedules WHERE enabled=1 AND remaining_runs>0`).all();
+      const schedules=db.prepare(`SELECT rs.* FROM meta_report_schedules rs WHERE rs.enabled=1 AND rs.remaining_runs>0 AND EXISTS (SELECT 1 FROM subscription_items si JOIN subscriptions s ON s.id=si.subscription_id JOIN plans p ON p.id=si.plan_id WHERE s.user_id=rs.user_id AND p.category='social' AND si.status='active')`).all();
       const prev=previousPeriod(now);
       for(const s of schedules){
         if(s.last_run_month===runKey)continue;
