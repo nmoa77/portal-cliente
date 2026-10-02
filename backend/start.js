@@ -14,7 +14,11 @@ try {
     "require('./ebook-leads-actions')(capturedApp);",
     "require('./ebook-delete-actions')(capturedApp);",
     "require('./landing-pages-actions')(capturedApp);",
-    "require('./prospect-area-actions')(capturedApp);"
+    "require('./prospect-area-actions')(capturedApp);",
+    "require('./meta-reports-actions')(capturedApp);",
+    "require('./meta-report-automation')(capturedApp);",
+    "require('./meta-report-archive')(capturedApp);",
+    "require('./meta-report-schedules')(capturedApp);"
   ];
   for (const line of installs) {
     if (!serverSource.includes(line)) serverSource = serverSource.replace(marker, `${line}\n\n${marker}`);
