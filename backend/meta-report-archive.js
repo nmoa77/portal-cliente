@@ -7,12 +7,24 @@ module.exports=function installMetaReportArchive(app){
   const cols=db.prepare(`PRAGMA table_info(meta_monthly_reports)`).all().map(c=>c.name);
   if(!cols.includes('viewed_at')) db.exec(`ALTER TABLE meta_monthly_reports ADD COLUMN viewed_at TEXT`);
   if(!cols.includes('downloaded_at')) db.exec(`ALTER TABLE meta_monthly_reports ADD COLUMN downloaded_at TEXT`);
+  if(!cols.includes('email_opened_at')) db.exec(`ALTER TABLE meta_monthly_reports ADD COLUMN email_opened_at TEXT`);
+  if(!cols.includes('email_tracking_token')) db.exec(`ALTER TABLE meta_monthly_reports ADD COLUMN email_tracking_token TEXT`);
   const reportsDir=()=>process.env.REPORTS_DIR||(process.env.DATABASE_PATH?path.join(path.dirname(process.env.DATABASE_PATH),'meta-reports'):path.join(process.cwd(),'data','meta-reports'));
   const reportPath=name=>path.join(reportsDir(),path.basename(String(name||'')));
 
   app.get('/api/meta/reports/archive',requireAdmin,(req,res)=>{
-    const rows=db.prepare(`SELECT r.id,r.user_id,r.ref_year,r.ref_month,r.status,r.summary_text,r.pdf_path,r.generated_at,r.sent_at,r.viewed_at,r.downloaded_at,r.error_message,r.created_at,r.updated_at,u.name,u.company,u.email FROM meta_monthly_reports r JOIN users u ON u.id=r.user_id ORDER BY r.ref_year DESC,r.ref_month DESC,COALESCE(u.company,u.name) COLLATE NOCASE ASC`).all();
+    const rows=db.prepare(`SELECT r.id,r.user_id,r.ref_year,r.ref_month,r.status,r.summary_text,r.pdf_path,r.generated_at,r.sent_at,r.email_opened_at,r.viewed_at,r.downloaded_at,r.error_message,r.created_at,r.updated_at,u.name,u.company,u.email FROM meta_monthly_reports r JOIN users u ON u.id=r.user_id ORDER BY r.ref_year DESC,r.ref_month DESC,COALESCE(u.company,u.name) COLLATE NOCASE ASC`).all();
     res.json(rows);
+  });
+
+  app.get('/api/meta/reports/open/:token.gif',(req,res)=>{
+    const token=String(req.params.token||'').trim();
+    if(token){try{db.prepare(`UPDATE meta_monthly_reports SET email_opened_at=COALESCE(email_opened_at,datetime('now')),updated_at=datetime('now') WHERE email_tracking_token=?`).run(token);}catch(_){}}
+    res.setHeader('Content-Type','image/gif');
+    res.setHeader('Cache-Control','no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma','no-cache');
+    res.setHeader('Expires','0');
+    res.end(Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==','base64'));
   });
 
   app.get('/api/meta/reports/:id/preview.png',requireAuth,(req,res)=>{
