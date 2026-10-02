@@ -5,6 +5,17 @@ const path = require('path');
 // Assim, qualquer eliminação feita no CRM fica guardada na BD persistente.
 const { cleanupDeletedProspects } = require('./prospect-deleted-guard');
 
+// Sincroniza o módulo de relatórios Meta antes de arrancar o servidor.
+require('./meta-report-pdf-sync-patch');
+require('./meta-report-preview-sync-patch');
+require('./meta-report-email-sync-patch');
+require('./email-signature-patch');
+require('./client-deeplink-patch');
+require('./client-calendar-stats-patch');
+require('./client-social-lifetime-total-patch');
+require('./client-social-stats-total-patch');
+require('./meta-report-scheduling-sync-patch');
+
 // Arranca a aplicação com a camada de templates de proposta instalada.
 require('./start-proposal-templates');
 
