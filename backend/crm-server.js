@@ -123,7 +123,7 @@ function getCrmProspect(id) {
            COALESCE(c.lead_status,'por_contactar') lead_status,
            COALESCE(c.priority,'possivel') priority,
            c.first_contact_at, c.follow_up_at, c.notes, c.proposal_email, c.email_observation,
-           c.ebook_page_id, c.landing_page_id, c.email_template_id, c.updated_at,
+           c.ebook_page_id, c.landing_page_id, c.email_template_id, c.instagram_checked_at, c.instagram_source, c.updated_at,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id) quote_count,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status='accepted') accepted_count
       FROM users u
@@ -144,7 +144,7 @@ capturedApp.get('/api/crm/prospects', requireAdmin, (req, res) => {
            COALESCE(c.lead_status,'por_contactar') lead_status,
            COALESCE(c.priority,'possivel') priority,
            c.first_contact_at, c.follow_up_at, c.notes, c.proposal_email, c.email_observation,
-           c.ebook_page_id, c.landing_page_id, c.email_template_id, c.updated_at,
+           c.ebook_page_id, c.landing_page_id, c.email_template_id, c.instagram_checked_at, c.instagram_source, c.updated_at,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id) quote_count,
            (SELECT COUNT(*) FROM quotes q WHERE q.user_id=u.id AND q.status='accepted') accepted_count
       FROM users u
