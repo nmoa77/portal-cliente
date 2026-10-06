@@ -29,7 +29,7 @@ express.static = function patchedStatic(root, options) {
 
     fs.readFile(adminPath, 'utf8', (err, html) => {
       if (err) return middleware(req, res, next);
-      const script = '<script src="/js/prospects-crm.js?v=20261001singlepreview"></script><script src="/js/leads-admin.js?v=20260928d"></script>';
+      const script = '<script src="/js/prospects-crm.js?v=20261006social"></script><script src="/js/prospects-social.js?v=20261006a"></script><script src="/js/leads-admin.js?v=20260928d"></script>';
       const output = html.includes('/js/leads-admin.js')
         ? html
         : html.replace('</body>', `  ${script}\n</body>`);
@@ -318,7 +318,7 @@ capturedApp.delete('/api/crm/prospects/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-require('./leads-actions')(capturedApp);
+require('./social-prospect-actions')(capturedApp, requireAdmin);\nrequire('./leads-actions')(capturedApp);
 
 // Arranca finalmente o servidor original, agora já com as rotas CRM registadas.
 originalListen.apply(capturedApp, capturedListenArgs);
