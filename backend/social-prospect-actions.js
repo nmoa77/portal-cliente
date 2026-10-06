@@ -204,11 +204,16 @@ module.exports=function(app,requireAdmin){
     db.prepare(`
       UPDATE prospect_crm SET outreach_channel=?,dm_message=?,dm_status=?,
         dm_sent_at=CASE WHEN ?='enviado' THEN COALESCE(dm_sent_at,datetime('now')) ELSE dm_sent_at END,
-        lead_status=CASE WHEN ?='enviado' AND lead_status='por_contactar' THEN 'contactado' ELSE lead_status END,
-        first_contact_at=CASE WHEN ?='enviado' THEN COALESCE(first_contact_at,date('now')) ELSE first_contact_at END,
+        lead_status=CASE
+          WHEN ?='interessado' THEN 'interessado'
+          WHEN ?='respondeu' AND lead_status NOT IN ('interessado','proposta') THEN 'respondeu'
+          WHEN ?='sem_interesse' THEN 'sem_interesse'
+          WHEN ?='enviado' AND lead_status='por_contactar' THEN 'contactado'
+          ELSE lead_status END,
+        first_contact_at=CASE WHEN ? IN ('enviado','respondeu','interessado','sem_interesse') THEN COALESCE(first_contact_at,date('now')) ELSE first_contact_at END,
         updated_at=datetime('now')
       WHERE user_id=?
-    `).run(channel,msg,status,status,status,status,id);
+    `).run(channel,msg,status,status,status,status,status,status,status,id);
     res.json({ok:true,user_id:id,outreach_channel:channel,dm_message:msg,dm_status:status});
   });
 };
