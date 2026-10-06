@@ -23,7 +23,7 @@ module.exports=function(app,requireAdmin){
 
   function dmFor(p){
     const c=(p.company||'a sua empresa').trim();
-    return 'Olá 👋 Sou o Nuno, da DUIT.\n\nEstive a ver a página da '+c+'. O trabalho tem muito potencial para redes sociais, mas manter a página ativa, pensar no que publicar e criar conteúdos com regularidade acaba por consumir bastante tempo.\n\nÉ precisamente aí que posso ajudar: trato do planeamento, design, textos e publicação, para a página continuar ativa sem lhe roubar tempo ao negócio.\n\nSe fizer sentido, posso mostrar-lhe como faria isso para a '+c+'.';
+    return 'Olá 👋 Sou o Nuno, da DUIT.\n\nEstive a ver a '+c+'. Manter as redes ativas e publicar com regularidade consome tempo.\n\nEu posso tratar disso por si — conteúdos, design e publicação.\n\nSe fizer sentido, explico-lhe como.';
   }
 
   function extractInstagram(html){
@@ -165,6 +165,21 @@ module.exports=function(app,requireAdmin){
     const tx=db.transaction(()=>{for(const x of pending)up.run(dmFor(x),x.user_id)});
     tx();
   }catch(e){console.warn('[social prospect] refresh DM time focus:',e.message)}
+
+  // DUIT_DM_SHORT_20261006 — atualiza apenas DMs ainda não enviadas para versão curta.
+  try{
+    const pending=db.prepare(`
+      SELECT p.user_id,u.company
+      FROM prospect_crm p JOIN users u ON u.id=p.user_id
+      WHERE u.is_prospect=1
+        AND p.instagram IS NOT NULL AND trim(p.instagram)<>''
+        AND COALESCE(p.dm_status,'por_enviar')='por_enviar'
+        AND p.dm_sent_at IS NULL
+    `).all();
+    const up=db.prepare(`UPDATE prospect_crm SET dm_message=?,updated_at=datetime('now') WHERE user_id=? AND COALESCE(dm_status,'por_enviar')='por_enviar' AND dm_sent_at IS NULL`);
+    const tx=db.transaction(()=>{for(const x of pending)up.run(dmFor(x),x.user_id)});
+    tx();
+  }catch(e){console.warn('[social prospect] refresh short DM:',e.message)}
 
   // Aproveita imediatamente os Instagrams já existentes.
   try{
