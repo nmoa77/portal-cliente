@@ -107,6 +107,7 @@ module.exports=function(app,requireAdmin){
       JOIN users u ON u.id=p.user_id
       WHERE u.is_prospect=1
         AND COALESCE(p.lead_status,'por_contactar')<>'sem_interesse'
+        AND COALESCE(p.dm_status,'')<>'cancelado'
         AND (p.email_sent_at IS NULL OR p.email_first_opened_at IS NOT NULL OR COALESCE(p.email_open_count,0)>0)
         AND (p.instagram IS NULL OR trim(p.instagram)='')
         ${onlyUnchecked?"AND (p.instagram_checked_at IS NULL OR datetime(p.instagram_checked_at)<datetime('now','-30 days'))":''}
@@ -122,7 +123,7 @@ module.exports=function(app,requireAdmin){
         instagram_source='website',
         instagram_checked_at=datetime('now'),
         outreach_channel='instagram',
-        dm_status=CASE WHEN COALESCE(dm_status,'') IN ('enviado','respondeu','interessado','sem_interesse') THEN dm_status ELSE 'por_enviar' END,
+        dm_status=CASE WHEN COALESCE(dm_status,'') IN ('enviado','respondeu','interessado','sem_interesse','cancelado') THEN dm_status ELSE 'por_enviar' END,
         dm_message=CASE WHEN COALESCE(dm_message,'')='' THEN ? ELSE dm_message END,
         updated_at=datetime('now')
       WHERE user_id=?
@@ -207,7 +208,7 @@ module.exports=function(app,requireAdmin){
     `).all();
     const save=db.prepare(`
       UPDATE prospect_crm SET outreach_channel='instagram',
-        dm_status=CASE WHEN COALESCE(dm_status,'') IN ('enviado','respondeu','interessado','sem_interesse') THEN dm_status ELSE 'por_enviar' END,
+        dm_status=CASE WHEN COALESCE(dm_status,'') IN ('enviado','respondeu','interessado','sem_interesse','cancelado') THEN dm_status ELSE 'por_enviar' END,
         dm_message=CASE WHEN COALESCE(dm_message,'')='' THEN ? ELSE dm_message END,
         updated_at=datetime('now')
       WHERE user_id=?
@@ -242,7 +243,7 @@ module.exports=function(app,requireAdmin){
     const exists=db.prepare('SELECT user_id FROM prospect_crm WHERE user_id=?').get(id);
     if(!exists)return res.status(404).json({error:'Prospect não encontrado.'});
     const channel=['instagram','email'].includes(b.outreach_channel)?b.outreach_channel:'instagram';
-    const status=['por_enviar','enviado','respondeu','interessado','sem_interesse'].includes(b.dm_status)?b.dm_status:'por_enviar';
+    const status=['por_enviar','enviado','respondeu','interessado','sem_interesse','cancelado'].includes(b.dm_status)?b.dm_status:'por_enviar';
     const msg=String(b.dm_message||'').trim().slice(0,4000);
     db.prepare(`
       UPDATE prospect_crm SET outreach_channel=?,dm_message=?,dm_status=?,
@@ -253,7 +254,7 @@ module.exports=function(app,requireAdmin){
           WHEN ?='sem_interesse' THEN 'sem_interesse'
           WHEN ?='enviado' AND lead_status='por_contactar' THEN 'contactado'
           ELSE lead_status END,
-        first_contact_at=CASE WHEN ? IN ('enviado','respondeu','interessado','sem_interesse') THEN COALESCE(first_contact_at,date('now')) ELSE first_contact_at END,
+        first_contact_at=CASE WHEN ? IN ('enviado','respondeu','interessado','sem_interesse','cancelado') THEN COALESCE(first_contact_at,date('now')) ELSE first_contact_at END,
         updated_at=datetime('now')
       WHERE user_id=?
     `).run(channel,msg,status,status,status,status,status,status,status,id);
