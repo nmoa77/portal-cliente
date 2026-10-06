@@ -22,10 +22,8 @@ module.exports=function(app,requireAdmin){
   ]);
 
   function dmFor(p){
-    const raw=String(p.email_observation||p.opportunity||'há trabalho interessante que pode ser mais aproveitado nas redes sociais')
-      .trim().replace(/[.!?]+$/,'');
-    return 'Olá 👋 Sou o Nuno, da DUIT.\n\nEstive a ver a página da '+(p.company||'empresa')+
-      ' e reparei que '+raw+'.\n\nVi uma alteração simples que eu faria aqui. Se quiser, digo-lhe qual é — sem compromisso.';
+    const c=(p.company||'a sua empresa').trim();
+    return 'Olá 👋 Sou o Nuno, da DUIT.\n\nEstive a ver a página da '+c+'. O trabalho tem muito potencial para redes sociais, mas manter a página ativa, pensar no que publicar e criar conteúdos com regularidade acaba por consumir bastante tempo.\n\nÉ precisamente aí que posso ajudar: trato do planeamento, design, textos e publicação, para a página continuar ativa sem lhe roubar tempo ao negócio.\n\nSe fizer sentido, posso mostrar-lhe como faria isso para a '+c+'.';
   }
 
   function extractInstagram(html){
@@ -152,6 +150,21 @@ module.exports=function(app,requireAdmin){
     console.log(`[social prospect] Instagram: ${found} encontrados em ${rows.length} prospects elegíveis; ${visited} sites consultados; ${failed} falhas de acesso`);
     return {checked:rows.length,sites_visited:visited,found,failed};
   }
+
+  // DUIT_DM_TIME_FOCUS_20261006 — atualiza apenas DMs ainda não enviadas.
+  try{
+    const pending=db.prepare(`
+      SELECT p.user_id,p.instagram,p.dm_status,u.company
+      FROM prospect_crm p JOIN users u ON u.id=p.user_id
+      WHERE u.is_prospect=1
+        AND p.instagram IS NOT NULL AND trim(p.instagram)<>''
+        AND COALESCE(p.dm_status,'por_enviar')='por_enviar'
+        AND p.dm_sent_at IS NULL
+    `).all();
+    const up=db.prepare(`UPDATE prospect_crm SET dm_message=?,updated_at=datetime('now') WHERE user_id=? AND COALESCE(dm_status,'por_enviar')='por_enviar' AND dm_sent_at IS NULL`);
+    const tx=db.transaction(()=>{for(const x of pending)up.run(dmFor(x),x.user_id)});
+    tx();
+  }catch(e){console.warn('[social prospect] refresh DM time focus:',e.message)}
 
   // Aproveita imediatamente os Instagrams já existentes.
   try{
