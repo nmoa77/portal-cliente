@@ -161,5 +161,15 @@
    };
  }
 
- load().then(refresh);
+ async function bootSocialControl(){
+   await load();
+   const main=document.getElementById('main');
+   const title=String(main?.querySelector('.page-head h1')?.textContent||'').trim().toLocaleLowerCase('pt-PT');
+   const onProspects=(location.hash||'').replace(/^#/,'')==='prospects'||title==='prospects'||title==='prospecção';
+   if(onProspects&&!main?.querySelector('.crm-toolbar')&&typeof window.viewProspects==='function'){
+     try{await window.viewProspects(main)}catch(e){console.error('[social prospect] render:',e)}
+   }
+   refresh();
+ }
+ bootSocialControl();
 })();
