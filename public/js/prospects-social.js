@@ -137,6 +137,29 @@
    renderControl();
  }
  function refresh(){decorate();renderControl()}
+
+ const oldView=window.viewProspects;
+ if(typeof oldView==='function'){
+   window.viewProspects=async function(main){
+     await oldView(main);
+     await load();
+     refresh();
+   };
+ }
+ const oldSetFilter=window.crmSetFilter;
+ if(typeof oldSetFilter==='function'){
+   window.crmSetFilter=function(...args){
+     oldSetFilter(...args);
+     setTimeout(refresh,0);
+   };
+ }
+ const oldToggleDateSort=window.crmToggleDateSort;
+ if(typeof oldToggleDateSort==='function'){
+   window.crmToggleDateSort=function(...args){
+     oldToggleDateSort(...args);
+     setTimeout(refresh,0);
+   };
+ }
+
  load().then(refresh);
- new MutationObserver(()=>refresh()).observe(document.documentElement,{childList:true,subtree:true});
 })();
