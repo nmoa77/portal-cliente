@@ -258,6 +258,6 @@ module.exports=function(app,requireAdmin){
         updated_at=datetime('now')
       WHERE user_id=?
     `).run(channel,msg,status,status,status,status,status,status,status,id);
-    res.json({ok:true,user_id:id,outreach_channel:channel,dm_message:msg,dm_status:status});
+    const saved=db.prepare('SELECT dm_sent_at,dm_status FROM prospect_crm WHERE user_id=?').get(id)||{};res.json({ok:true,user_id:id,outreach_channel:channel,dm_message:msg,dm_status:saved.dm_status||status,dm_sent_at:saved.dm_sent_at||null});
   });
 };
