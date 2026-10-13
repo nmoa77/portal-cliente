@@ -189,12 +189,39 @@ module.exports = function installProspectCrmActions(app) {
 
     let html;
     if(useCustomHtml){
-      const custom=withLpUrl(resolved.email_html).trim();
-      if(/<html(?:\s|>)/i.test(custom)){
-        html=/<\/body>/i.test(custom)?custom.replace(/<\/body>/i,trackingPixel+'</body>'):custom+trackingPixel;
-      }else{
-        html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f3f1ed;font-family:Arial,sans-serif;color:#111">${custom}${trackingPixel}</body></html>`;
-      }
+      let custom=withLpUrl(resolved.email_html).trim();
+
+      // O HTML configurado na Landing Page representa apenas o conteúdo interno
+      // do email. A estrutura exterior, alinhamento, assinatura e tracking
+      // continuam a ser controlados pelo template comum de outreach.
+      // Se existir HTML completo antigo, aproveitamos apenas o conteúdo do <body>.
+      const bodyMatch=custom.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if(bodyMatch)custom=bodyMatch[1].trim();
+
+      html=`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;background:#f3f1ed;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="padding:28px 14px;background:#f3f1ed">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:640px;background:#ffffff;border-radius:16px;overflow:hidden">
+          <tr>
+            <td style="padding:0">
+              ${custom}
+            </td>
+          </tr>
+          ${signatureBlock}
+        </table>
+        ${trackingPixel}
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
     }else{
       html=`<!doctype html><html><body style="margin:0;background:#f3f1ed;font-family:Arial,sans-serif;color:#111"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px"><tr><td align="center"><table width="640" style="width:100%;max-width:640px;background:#fff;border-radius:16px;overflow:hidden"><tr><td style="background:#111;padding:20px 28px;border-bottom:3px solid #ffd60a"><img src="${portal}/logo-branco.png" width="138" alt="DUIT"></td></tr><tr><td style="padding:30px 34px;font-size:15px;line-height:1.7">${esc(body).split(/\n\s*\n/).map(par=>`<p style="margin:0 0 18px">${par.replace(/\n/g,'<br>')}</p>`).join('')}</td></tr>${linkBlock}${signatureBlock}</table>${trackingPixel}</td></tr></table></body></html>`;
     }
