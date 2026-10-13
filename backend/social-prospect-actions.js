@@ -1,6 +1,8 @@
 const db=require('./db');
+const {ensureTable,fill}=require('./prospect-email-resolver');
 
 module.exports=function(app,requireAdmin){
+  ensureTable();
   const cols=db.prepare('PRAGMA table_info(prospect_crm)').all().map(c=>c.name);
   for(const [name,type] of [
     ['outreach_channel','TEXT'],
@@ -22,7 +24,19 @@ module.exports=function(app,requireAdmin){
   ]);
 
   function dmFor(p){
-    const c=(p.company||'a sua empresa').trim();
+    let row=p||{};
+    if(p?.user_id){
+      row=db.prepare(`SELECT u.name,u.company,c.email_observation,c.opportunity,c.idea,c.email_template_id FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id WHERE u.id=?`).get(p.user_id)||p;
+    }
+    const tid=Number(row.email_template_id||0);
+    const tpl=tid
+      ?db.prepare('SELECT * FROM prospect_email_templates WHERE id=? AND is_active=1').get(tid)
+      :db.prepare('SELECT * FROM prospect_email_templates WHERE is_active=1 ORDER BY is_default DESC,id ASC LIMIT 1').get();
+    const fallback='Olá 👋 Sou o Nuno, da DUIT.\n\nEstive a ver a {empresa} e reparei numa oportunidade concreta: {oportunidade}.\n\nEu abordaria isto assim: {ideia}';
+    return fill(tpl?.dm_body||fallback,row);
+  }
+  function legacyDm(company){
+    const c=String(company||'a sua empresa').trim();
     return 'Olá 👋 Sou o Nuno, da DUIT.\n\nEstive a ver a '+c+'. Manter as redes ativas e publicar com regularidade consome tempo.\n\nEu posso tratar disso por si — conteúdos, design e publicação.\n\nSe lhe fizer sentido, estou aqui. 🙂';
   }
 
@@ -162,7 +176,7 @@ module.exports=function(app,requireAdmin){
         AND COALESCE(p.dm_status,'por_enviar')='por_enviar'
         AND p.dm_sent_at IS NULL
     `).all();
-    const up=db.prepare(`UPDATE prospect_crm SET dm_message=?,updated_at=datetime('now') WHERE user_id=? AND COALESCE(dm_status,'por_enviar')='por_enviar' AND dm_sent_at IS NULL`);
+    const up=db.prepare(`UPDATE prospect_crm SET dm_message=?,updated_at=datetime('now') WHERE user_id=? AND COALESCE(dm_status,'por_enviar')='por_enviar' AND dm_sent_at IS NULL AND COALESCE(dm_message,'')=''`);
     const tx=db.transaction(()=>{for(const x of pending)up.run(dmFor(x),x.user_id)});
     tx();
   }catch(e){console.warn('[social prospect] refresh DM time focus:',e.message)}
@@ -177,7 +191,7 @@ module.exports=function(app,requireAdmin){
         AND COALESCE(p.dm_status,'por_enviar')='por_enviar'
         AND p.dm_sent_at IS NULL
     `).all();
-    const up=db.prepare(`UPDATE prospect_crm SET dm_message=?,updated_at=datetime('now') WHERE user_id=? AND COALESCE(dm_status,'por_enviar')='por_enviar' AND dm_sent_at IS NULL`);
+    const up=db.prepare(`UPDATE prospect_crm SET dm_message=?,updated_at=datetime('now') WHERE user_id=? AND COALESCE(dm_status,'por_enviar')='por_enviar' AND dm_sent_at IS NULL AND COALESCE(dm_message,'')=''`);
     const tx=db.transaction(()=>{for(const x of pending)up.run(dmFor(x),x.user_id)});
     tx();
   }catch(e){console.warn('[social prospect] refresh short DM:',e.message)}
@@ -192,10 +206,18 @@ module.exports=function(app,requireAdmin){
         AND COALESCE(p.dm_status,'por_enviar')='por_enviar'
         AND p.dm_sent_at IS NULL
     `).all();
-    const up=db.prepare(`UPDATE prospect_crm SET dm_message=?,updated_at=datetime('now') WHERE user_id=? AND COALESCE(dm_status,'por_enviar')='por_enviar' AND dm_sent_at IS NULL`);
+    const up=db.prepare(`UPDATE prospect_crm SET dm_message=?,updated_at=datetime('now') WHERE user_id=? AND COALESCE(dm_status,'por_enviar')='por_enviar' AND dm_sent_at IS NULL AND COALESCE(dm_message,'')=''`);
     const tx=db.transaction(()=>{for(const x of pending)up.run(dmFor(x),x.user_id)});
     tx();
   }catch(e){console.warn('[social prospect] refresh soft close DM:',e.message)}
+
+  // DUIT_APPROACH_DM_MIGRATION_20261013 — troca apenas a antiga DM genérica, nunca texto editado manualmente.
+  try{
+    const legacy=db.prepare(`SELECT p.user_id,p.dm_message,u.company FROM prospect_crm p JOIN users u ON u.id=p.user_id WHERE u.is_prospect=1 AND p.dm_sent_at IS NULL AND COALESCE(p.dm_status,'por_enviar')='por_enviar' AND COALESCE(p.dm_message,'')<>''`).all();
+    const up=db.prepare(`UPDATE prospect_crm SET dm_message=?,updated_at=datetime('now') WHERE user_id=? AND dm_sent_at IS NULL AND COALESCE(dm_status,'por_enviar')='por_enviar'`);
+    const tx=db.transaction(()=>{for(const x of legacy){if(String(x.dm_message||'').trim()===legacyDm(x.company).trim())up.run(dmFor({user_id:x.user_id}),x.user_id)}});
+    tx();
+  }catch(e){console.warn('[social prospect] migrate approach DM:',e.message)}
 
   // Aproveita imediatamente os Instagrams já existentes.
   try{
