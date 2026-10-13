@@ -36,13 +36,13 @@ function ensureTable(){
 
   // Migra apenas o antigo modelo predefinido da DUIT; modelos personalizados ficam intactos.
   try{
-    const rows=db.prepare('SELECT id,name,body,dm_body,description FROM prospect_email_templates').all();
+    const rows=db.prepare('SELECT id,name,body,dm_body,description,is_default FROM prospect_email_templates').all();
     const upd=db.prepare("UPDATE prospect_email_templates SET body=?,dm_body=?,description=COALESCE(NULLIF(description,''),?),updated_at=datetime('now') WHERE id=?");
     for(const row of rows){
       const old1='Estive a conhecer melhor a {empresa} e reparei que {observacao}.';
       const old2='Estive a ver a presença digital da {empresa} e notei {observacao}.';
       let body=String(row.body||'');
-      if(body.includes(old1)||body.includes(old2)){
+      if(Number(row.is_default)===1&&(body.includes(old1)||body.includes(old2))){
         body=DEFAULT_EMAIL_BODY;
       }
       const dm=String(row.dm_body||'').trim()||DEFAULT_DM_BODY;
