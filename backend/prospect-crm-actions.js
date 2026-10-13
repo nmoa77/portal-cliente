@@ -179,14 +179,28 @@ module.exports = function installProspectCrmActions(app) {
     const token=crypto.randomBytes(24).toString('hex');
     const lp=resolved.landing_page;
     const lpUrl=lp?portal+'/'+encodeURIComponent(lp.public_key):null;
-    const linkBlock=lp
+    const useCustomHtml=Boolean(lp&&resolved.email_format==='html'&&String(resolved.email_html||'').trim());
+    const withLpUrl=value=>String(value||'').replace(/\{lp_url\}/gi,lpUrl||'').replace(/\{landing_page_url\}/gi,lpUrl||'');
+    const trackingPixel=`<img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0">`;
+    const linkBlock=lp&&!useCustomHtml
       ?`<tr><td style="padding:0 34px 32px"><a href="${lpUrl}" style="display:inline-block;background:#ffd60a;color:#111;text-decoration:none;font-weight:800;padding:14px 22px;border-radius:9px">Ver ${esc(lp.title)} →</a></td></tr><tr><td style="padding:0 34px 18px;color:#999;font-size:11px">Se o botão não abrir, copie este endereço: ${esc(lpUrl)}</td></tr>`
       :'';
     const signatureBlock=`<tr><td style="padding:8px 34px 30px;color:#2a2a2a;font-size:15px;line-height:1.5"><img src="${portal}/assinatura-email.png?v=${Date.now()}" width="400" alt="Nuno Alho — DUIT" style="display:block;width:100%;max-width:400px;height:auto;border:0;margin-top:10px"></td></tr>`;
 
-    const html=`<!doctype html><html><body style="margin:0;background:#f3f1ed;font-family:Arial,sans-serif;color:#111"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px"><tr><td align="center"><table width="640" style="width:100%;max-width:640px;background:#fff;border-radius:16px;overflow:hidden"><tr><td style="background:#111;padding:20px 28px;border-bottom:3px solid #ffd60a"><img src="${portal}/logo-branco.png" width="138" alt="DUIT"></td></tr><tr><td style="padding:30px 34px;font-size:15px;line-height:1.7">${esc(body).split(/\n\s*\n/).map(par=>`<p style="margin:0 0 18px">${par.replace(/\n/g,'<br>')}</p>`).join('')}</td></tr>${linkBlock}${signatureBlock}</table><img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt=""></td></tr></table></body></html>`;
+    let html;
+    if(useCustomHtml){
+      const custom=withLpUrl(resolved.email_html).trim();
+      if(/<html(?:\s|>)/i.test(custom)){
+        html=/<\/body>/i.test(custom)?custom.replace(/<\/body>/i,trackingPixel+'</body>'):custom+trackingPixel;
+      }else{
+        html=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#f3f1ed;font-family:Arial,sans-serif;color:#111">${custom}${trackingPixel}</body></html>`;
+      }
+    }else{
+      html=`<!doctype html><html><body style="margin:0;background:#f3f1ed;font-family:Arial,sans-serif;color:#111"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px"><tr><td align="center"><table width="640" style="width:100%;max-width:640px;background:#fff;border-radius:16px;overflow:hidden"><tr><td style="background:#111;padding:20px 28px;border-bottom:3px solid #ffd60a"><img src="${portal}/logo-branco.png" width="138" alt="DUIT"></td></tr><tr><td style="padding:30px 34px;font-size:15px;line-height:1.7">${esc(body).split(/\n\s*\n/).map(par=>`<p style="margin:0 0 18px">${par.replace(/\n/g,'<br>')}</p>`).join('')}</td></tr>${linkBlock}${signatureBlock}</table>${trackingPixel}</td></tr></table></body></html>`;
+    }
 
-    const text=body+(lpUrl?'\n\n'+lpUrl:'');
+    const htmlText=useCustomHtml?withLpUrl(resolved.email_html).replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/\s+/g,' ').trim():'';
+    const text=useCustomHtml?(body.trim()||htmlText)+(lpUrl&&!/\{lp_url\}|\{landing_page_url\}/i.test(String(resolved.email_html||''))?'\n\n'+lpUrl:''):body+(lpUrl?'\n\n'+lpUrl:'');
     db.prepare(`UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,email_tracking_token=?,email_first_sent_at=COALESCE(email_first_sent_at,datetime('now')),email_sent_at=datetime('now'),email_send_count=COALESCE(email_send_count,0)+1,email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),updated_at=datetime('now') WHERE user_id=?`).run(lp?lp.id:null,approach?.template?.id||resolved.template?.id||null,token,id);
     deliver(db,{to:p.email,subject,body:text,html,user_id:id,kind:'prospect_outreach',force:true});
     res.json({ok:true,landing_page_id:lp?lp.id:null,email_template_id:approach?.template?.id||resolved.template?.id||null,email_source:resolved.source_type,email_source_name:resolved.source_name,send_limit:sendingState()});
