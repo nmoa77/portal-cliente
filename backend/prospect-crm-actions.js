@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const db = require('./db');
 const { requireAdmin } = require('./auth');
 const { deliver, T } = require('./email');
-const { resolveProspectEmail } = require('./prospect-email-resolver');
+const { resolveProspectEmail, resolveProspectApproach } = require('./prospect-email-resolver');
 
 module.exports = function installProspectCrmActions(app) {
   const cols = db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c => c.name);
@@ -167,6 +167,7 @@ module.exports = function installProspectCrmActions(app) {
     const selectedLpId=Number(req.body?.landing_page_id||0);
     const selectedTemplateId=Number(req.body?.email_template_id||0);
     const resolved=resolveProspectEmail(id,selectedLpId,selectedTemplateId);
+    const approach=resolveProspectApproach(id,selectedTemplateId);
     if(!resolved)return res.status(404).json({error:'Prospect não encontrado.'});
     if(resolved.error)return res.status(400).json({error:resolved.error});
 
@@ -186,9 +187,9 @@ module.exports = function installProspectCrmActions(app) {
     const html=`<!doctype html><html><body style="margin:0;background:#f3f1ed;font-family:Arial,sans-serif;color:#111"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 14px"><tr><td align="center"><table width="640" style="width:100%;max-width:640px;background:#fff;border-radius:16px;overflow:hidden"><tr><td style="background:#111;padding:20px 28px;border-bottom:3px solid #ffd60a"><img src="${portal}/logo-branco.png" width="138" alt="DUIT"></td></tr><tr><td style="padding:30px 34px;font-size:15px;line-height:1.7">${esc(body).split(/\n\s*\n/).map(par=>`<p style="margin:0 0 18px">${par.replace(/\n/g,'<br>')}</p>`).join('')}</td></tr>${linkBlock}${signatureBlock}</table><img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt=""></td></tr></table></body></html>`;
 
     const text=body+(lpUrl?'\n\n'+lpUrl:'');
-    db.prepare(`UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,email_tracking_token=?,email_first_sent_at=COALESCE(email_first_sent_at,datetime('now')),email_sent_at=datetime('now'),email_send_count=COALESCE(email_send_count,0)+1,email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),updated_at=datetime('now') WHERE user_id=?`).run(lp?lp.id:null,lp?null:(resolved.template?.id||null),token,id);
+    db.prepare(`UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,email_tracking_token=?,email_first_sent_at=COALESCE(email_first_sent_at,datetime('now')),email_sent_at=datetime('now'),email_send_count=COALESCE(email_send_count,0)+1,email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),updated_at=datetime('now') WHERE user_id=?`).run(lp?lp.id:null,approach?.template?.id||resolved.template?.id||null,token,id);
     deliver(db,{to:p.email,subject,body:text,html,user_id:id,kind:'prospect_outreach',force:true});
-    res.json({ok:true,landing_page_id:lp?lp.id:null,email_template_id:lp?null:(resolved.template?.id||null),email_source:resolved.source_type,email_source_name:resolved.source_name,send_limit:sendingState()});
+    res.json({ok:true,landing_page_id:lp?lp.id:null,email_template_id:approach?.template?.id||resolved.template?.id||null,email_source:resolved.source_type,email_source_name:resolved.source_name,send_limit:sendingState()});
   });
 
   app.post('/api/crm/prospects/:id/convert',requireAdmin,(req,res)=>{const id=Number(req.params.id),u=db.prepare(`SELECT * FROM users WHERE id=? AND role='client' AND is_prospect=1`).get(id);if(!u)return res.status(404).json({error:'Prospect não encontrado ou já convertido.'});const tempPassword=crypto.randomBytes(8).toString('base64url').slice(0,12),hash=bcrypt.hashSync(tempPassword,10);db.prepare(`UPDATE users SET password_hash=?,is_prospect=0,is_active=1 WHERE id=?`).run(hash,id);try{const tpl=T.welcome(u.name,u.email,tempPassword);deliver(db,{to:u.email,subject:tpl.subject,body:tpl.body,html:tpl.html,user_id:id,kind:'welcome_after_conversion',force:true});}catch(e){console.warn('[crm] welcome convert:',e.message);}res.json({ok:true});});
