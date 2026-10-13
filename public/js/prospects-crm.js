@@ -46,7 +46,50 @@
   window.crmChooseEmailTemplate=function(){crmRefreshEmailPreview();crmApplyApproachToDm();scheduleAutoSave()}
   window.crmChooseLandingPage=function(){crmRefreshEmailPreview();scheduleAutoSave()}
   function crmPreviewFill(text,p){return crmApproachFill(text,p)}
-  function crmRefreshEmailPreview(){const id=Number(document.getElementById('crm-id')?.value||0),box=document.getElementById('crm-email-preview');if(!box)return;const p=id?crmProspects.find(x=>Number(x.id)===id):null,lpId=Number(document.getElementById('crm-landing-page')?.value||0),tplId=Number(document.getElementById('crm-email-template')?.value||0),activeTemplates=crmEmailTemplates.filter(t=>Number(t.is_active)===1),lp=lpId?crmLandingPages.find(x=>Number(x.id)===lpId&&Number(x.is_active)!==0):null,tpl=lp?null:(tplId?activeTemplates.find(x=>Number(x.id)===tplId):activeTemplates.find(x=>Number(x.is_default)===1)||activeTemplates[0]);let source='',subject='',body='';if(lp){source=lp.title||'Landing Page';subject=lp.email_subject||('DUIT — '+(lp.title||''));body=lp.email_body||''}else if(tpl){source=tpl.name||'Abordagem';subject=tpl.subject||'';body=tpl.body||''}else{source='Sem abordagem';subject='Não existe nenhuma abordagem ativa.';body=''}box.querySelector('.subject').textContent=(source?source+' · ':'')+crmPreviewFill(subject,p);box.querySelector('.body').textContent=crmPreviewFill(body,p)||'Esta abordagem ainda não tem texto de email configurado.'}
+  function crmRefreshEmailPreview(){
+    const id=Number(document.getElementById('crm-id')?.value||0),box=document.getElementById('crm-email-preview');
+    if(!box)return;
+    const p=id?crmProspects.find(x=>Number(x.id)===id):null,
+      lpId=Number(document.getElementById('crm-landing-page')?.value||0),
+      tplId=Number(document.getElementById('crm-email-template')?.value||0),
+      activeTemplates=crmEmailTemplates.filter(t=>Number(t.is_active)===1),
+      lp=lpId?crmLandingPages.find(x=>Number(x.id)===lpId&&Number(x.is_active)!==0):null,
+      tpl=lp?null:(tplId?activeTemplates.find(x=>Number(x.id)===tplId):activeTemplates.find(x=>Number(x.is_default)===1)||activeTemplates[0]);
+
+    let source='',subject='',body='',html='',isHtml=false;
+    if(lp){
+      source=lp.title||'Landing Page';
+      subject=lp.email_subject||('DUIT — '+(lp.title||''));
+      body=lp.email_body||'';
+      isHtml=String(lp.email_format||'text').toLowerCase()==='html'&&String(lp.email_html||'').trim();
+      if(isHtml)html=String(lp.email_html||'').trim();
+    }else if(tpl){
+      source=tpl.name||'Abordagem';
+      subject=tpl.subject||'';
+      body=tpl.body||'';
+    }else{
+      source='Sem abordagem';
+      subject='Não existe nenhuma abordagem ativa.';
+      body='';
+    }
+
+    box.querySelector('.subject').textContent=(source?source+' · ':'')+crmPreviewFill(subject,p);
+    const bodyEl=box.querySelector('.body');
+
+    if(isHtml){
+      const lpUrl=lp?.public_key?(location.origin+'/'+encodeURIComponent(lp.public_key)):'';
+      let preview=crmPreviewFill(html,p)
+        .replace(/\{lp_url\}/gi,lpUrl)
+        .replace(/\{landing_page_url\}/gi,lpUrl);
+      const bodyMatch=preview.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if(bodyMatch)preview=bodyMatch[1];
+      bodyEl.style.whiteSpace='normal';
+      bodyEl.innerHTML=preview;
+    }else{
+      bodyEl.style.whiteSpace='pre-wrap';
+      bodyEl.textContent=crmPreviewFill(body,p)||'Esta abordagem ainda não tem texto de email configurado.';
+    }
+  }
   window.crmRefreshEmailPreview=crmRefreshEmailPreview;
   document.addEventListener('duit:prospect-email-templates',e=>{
     const next=e?.detail?.templates;
