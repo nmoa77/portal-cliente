@@ -26,7 +26,7 @@ module.exports=function(app,requireAdmin){
 
   function dmFor(p){
     let row=p||{};
-    if(p?.user_id){
+    if(p?.user_id && p.idea===undefined && p.email_template_id===undefined){
       row=db.prepare(`SELECT u.name,u.company,c.email_observation,c.opportunity,c.idea,c.email_template_id FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id WHERE u.id=?`).get(p.user_id)||p;
     }
     const tid=Number(row.email_template_id||0);
