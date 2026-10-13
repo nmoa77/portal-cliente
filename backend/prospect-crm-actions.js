@@ -185,7 +185,7 @@ module.exports = function installProspectCrmActions(app) {
     const linkBlock=lp&&!useCustomHtml
       ?`<tr><td style="padding:0 34px 32px"><a href="${lpUrl}" style="display:inline-block;background:#ffd60a;color:#111;text-decoration:none;font-weight:800;padding:14px 22px;border-radius:9px">Ver ${esc(lp.title)} →</a></td></tr><tr><td style="padding:0 34px 18px;color:#999;font-size:11px">Se o botão não abrir, copie este endereço: ${esc(lpUrl)}</td></tr>`
       :'';
-    const signatureBlock=`<tr><td style="padding:8px 34px 30px;color:#2a2a2a;font-size:15px;line-height:1.5"><img src="${portal}/assinatura-email.png?v=${Date.now()}" width="400" alt="Nuno Alho — DUIT" style="display:block;width:100%;max-width:400px;height:auto;border:0;margin-top:10px"></td></tr>`;
+    const signatureBlock=`<tr><td style="padding:8px 34px 30px;color:#2a2a2a;font-size:15px;line-height:1.5"><img src="${portal}/assinatura-email.png?v=${Date.now()}" width="320" alt="Nuno Alho — DUIT" style="display:block;width:100%;max-width:320px;height:auto;border:0;margin-top:10px"></td></tr>`;
 
     let html;
     if(useCustomHtml){
