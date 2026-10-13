@@ -52,6 +52,36 @@ function ensureTable(){
     }
   }catch(_){}
 
+  /* DUIT_APPROACH_LIBRARY_20261013 — biblioteca inicial; nunca duplica nomes já existentes. */
+  try{
+    const starters=[
+      {
+        name:'Valor do trabalho',
+        description:'Para empresas com bom portfólio/produto em que a comunicação ainda não transmite todo o valor do que fazem.',
+        subject:'{empresa} — o trabalho merece ser mostrado melhor',
+        body:'Olá,\n\nSou o Nuno, da DUIT.\n\nEstive a conhecer melhor a {empresa} e há um ponto que me chamou a atenção: {oportunidade}.\n\nO trabalho já existe. O que eu mudaria seria a forma de o transformar em comunicação: {ideia}.\n\nSe fizer sentido, responda a este email e explico-lhe como começaria.',
+        dm:'Olá 👋 Sou o Nuno, da DUIT.\n\nEstive a ver a {empresa} e achei que há trabalho aí que podia estar a ser mostrado com mais força.\n\nO ponto que me chamou a atenção foi este: {oportunidade}.\n\nEu começaria por {ideia}.'
+      },
+      {
+        name:'Tempo e consistência',
+        description:'Para negócios em que o principal ganho é retirar à equipa o peso de preparar e manter a comunicação regular.',
+        subject:'{empresa} — tornar a comunicação mais simples',
+        body:'Olá,\n\nSou o Nuno, da DUIT.\n\nAo conhecer melhor a {empresa}, reparei nesta oportunidade: {oportunidade}.\n\nA ideia não é criar mais trabalho para a equipa. Pelo contrário: eu estruturaria isto de forma simples — {ideia}.\n\nÉ este tipo de acompanhamento que faço na DUIT para a comunicação não ficar sempre para depois.',
+        dm:'Olá 👋 Sou o Nuno, da DUIT.\n\nEstive a conhecer a {empresa} e reparei numa oportunidade: {oportunidade}.\n\nA minha ideia seria simplificar isso, não acrescentar trabalho: {ideia}.'
+      },
+      {
+        name:'Direta e curta',
+        description:'Primeiro contacto curto para empresas em que existe uma oportunidade clara e não é preciso explicar demasiado.',
+        subject:'{empresa} — uma ideia concreta',
+        body:'Olá,\n\nSou o Nuno, da DUIT.\n\nReparei nisto na {empresa}: {oportunidade}.\n\nEu faria uma alteração simples: {ideia}.\n\nSe este ponto fizer sentido para si, estou disponível.',
+        dm:'Olá 👋 Sou o Nuno, da DUIT.\n\nReparei numa coisa na {empresa}: {oportunidade}.\n\nEu começaria por {ideia}.'
+      }
+    ];
+    const exists=db.prepare('SELECT id FROM prospect_email_templates WHERE lower(name)=lower(?) LIMIT 1');
+    const ins=db.prepare(`INSERT INTO prospect_email_templates(name,description,subject,body,dm_body,is_default,is_active) VALUES(?,?,?,?,?,0,1)`);
+    for(const x of starters)if(!exists.get(x.name))ins.run(x.name,x.description,x.subject,x.body,x.dm);
+  }catch(_){}
+
   /* DUIT_REMOVE_DUPLICATE_TEXT_SIGNATURE */
   try{
     const rows=db.prepare('SELECT id,body FROM prospect_email_templates').all();
