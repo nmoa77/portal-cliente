@@ -17,7 +17,7 @@
     return String(text||'').replace(/\{empresa\}/gi,company).replace(/\{nome\}/gi,name).replace(/\{observacao\}/gi,observation).replace(/\{oportunidade\}/gi,opportunity).replace(/\{problema\}/gi,opportunity).replace(/\{ideia\}/gi,idea);
   }
   function crmSelectedApproach(p){
-    const active=crmEmailTemplates.filter(t=>Number(t.is_active)===1),id=Number(document.getElementById('crm-email-template')?.value||p?.email_template_id||0);
+    const active=crmEmailTemplates.filter(t=>Number(t.is_active)===1),sel=document.getElementById('crm-email-template'),id=sel?Number(sel.value||0):Number(p?.email_template_id||0);
     return (id?active.find(t=>Number(t.id)===id):null)||active.find(t=>Number(t.is_default)===1)||active[0]||null;
   }
   function crmDefaultDm(p){const tpl=crmSelectedApproach(p||{}),fallback='Olá 👋 Sou o Nuno, da DUIT.\n\nEstive a ver a {empresa} e reparei numa oportunidade concreta: {oportunidade}.\n\nEu abordaria isto assim: {ideia}';return crmApproachFill(tpl?.dm_body||fallback,p||{})}
