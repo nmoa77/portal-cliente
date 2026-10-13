@@ -161,8 +161,11 @@ function resolveProspectEmail(userId,landingPageId,emailTemplateId){
     if(!lp)return {error:'Landing Page não encontrada ou inativa.'};
     const subject=fill(lp.email_subject,p)||('DUIT — '+lp.title);
     const body=fill(lp.email_body,p);
-    if(!body.trim())return {error:'Esta Landing Page ainda não tem texto de email configurado.'};
-    return {prospect:p,source_type:'landing_page',source_name:lp.title,landing_page:lp,template:null,subject,body};
+    const emailHtml=fill(lp.email_html,p);
+    const emailFormat=String(lp.email_format||'text')==='html'&&emailHtml.trim()?'html':'text';
+    if(emailFormat==='html'&&!emailHtml.trim())return {error:'Esta Landing Page está em modo HTML mas ainda não tem HTML configurado.'};
+    if(emailFormat==='text'&&!body.trim())return {error:'Esta Landing Page ainda não tem texto de email configurado.'};
+    return {prospect:p,source_type:'landing_page',source_name:lp.title,landing_page:lp,template:null,subject,body,email_html:emailHtml,email_format:emailFormat};
   }
   const tpl=getTemplate(emailTemplateId);
   if(!tpl)return {error:Number(emailTemplateId||0)?'A abordagem selecionada não existe ou está inativa.':'Não existe nenhuma abordagem ativa.'};
