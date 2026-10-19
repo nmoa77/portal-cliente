@@ -47,7 +47,51 @@
   .faq details p{font-size:15px;line-height:1.55}
 }
 @media(max-width:900px){.hero-grid{display:flex;flex-direction:column}.hero-grid>.portrait{order:0;width:100%}.hero-grid>.hero-copy{order:1;width:100%}}
-.step-icon{width:88px;height:88px;border-radius:23px;background:#ffd200;color:#111;display:grid;place-items:center;margin:0 0 22px}.step-icon svg{width:49px;height:49px;display:block}@media(max-width:560px){.how .step{text-align:center;padding:28px 22px}.how .step-icon{width:94px;height:94px;margin:0 auto 20px;border-radius:26px}.how .step-icon svg{width:55px;height:55px}.how .step h3{text-align:center}.how .step p{text-align:center}}</style>
+.step-icon{width:88px;height:88px;border-radius:23px;background:#ffd200;color:#111;display:grid;place-items:center;margin:0 0 22px}.step-icon svg{width:49px;height:49px;display:block}@media(max-width:560px){.how .step{text-align:center;padding:28px 22px}.how .step-icon{width:94px;height:94px;margin:0 auto 20px;border-radius:26px}.how .step-icon svg{width:55px;height:55px}.how .step h3{text-align:center}.how .step p{text-align:center}}
+/* DUIT Design: mobile viewport, consistent type and navigation */
+html,body{max-width:100%;overflow-x:clip}
+@media(max-width:900px){
+  body{width:100%;overflow-x:hidden}
+  .w,.hero-grid,.hero-copy,.portrait,.section,.ai-layout,.ai-copy,.ai-panel,.head,.faq,.formbox{min-width:0;max-width:100%;box-sizing:border-box}
+  .hero{overflow:hidden;width:100%}
+  .hero-grid{width:100%;gap:0;padding-top:12px}
+  .hero-copy{padding-top:22px}
+  .hero h1{font-family:Arial,Helvetica,sans-serif;font-size:clamp(40px,10.5vw,61px);font-weight:900;line-height:1.03;letter-spacing:-.052em;margin:12px 0 18px;overflow-wrap:normal;word-break:normal}
+  .hero .lead{font-size:clamp(16px,4.2vw,20px);line-height:1.5;letter-spacing:0;margin:0 0 22px}
+  .hero-actions{margin-top:0;gap:12px}
+  .hero-actions .btn{max-width:100%;white-space:normal;text-align:center;font-size:15px}
+  .hero .micro{font-size:12px}
+  .portrait{width:100%;max-width:100%;overflow:hidden}
+  .portrait-photo{max-width:100%}
+  .portrait:before{max-width:96vw}
+  .head h2,.copy h2,.statement h2,.formbox h2{font-family:Arial,Helvetica,sans-serif;font-weight:850;font-size:clamp(30px,8vw,45px);line-height:1.12;letter-spacing:-.04em;overflow-wrap:break-word}
+  .head p,.copy p,.ai-layout p{font-size:16px;line-height:1.55;letter-spacing:0}
+  .statement{padding:0 6px}
+  .section,.contact{max-width:100%;overflow:hidden}
+  .step,.compare-card,.ai-panel{min-width:0}
+  .nav .btn{white-space:normal;text-align:center;font-size:12px;line-height:1.2;max-width:55%}
+}
+@media(max-width:560px){
+  .hero-grid{padding-top:4px}
+  .hero-copy{padding:22px 0 26px}
+  .portrait{height:390px}
+  .portrait-photo{height:390px;width:min(100%,390px)}
+  .portrait-photo img{height:102%;left:-12px;bottom:-4px}
+  .portrait:before{width:min(300px,82vw);height:min(300px,82vw);right:0;bottom:12px}
+  .hero h1{font-size:clamp(38px,10.2vw,50px)}
+  .hero-actions .btn{width:auto;max-width:100%;padding:14px 17px}
+  .nav{gap:12px}
+  .nav img{width:110px;max-width:100%}
+  .nav .btn{padding:10px 9px;font-size:11px}
+}
+.back-to-top{display:none}
+@media(max-width:900px){
+  .back-to-top{position:fixed;right:17px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:900;display:grid;place-items:center;width:48px;height:48px;border:0;border-radius:50%;background:#ffd200;color:#111;box-shadow:0 5px 22px #0003;cursor:pointer;opacity:0;pointer-events:none;transform:translateY(12px);transition:opacity .2s,transform .2s}
+  .back-to-top.visible{opacity:1;pointer-events:auto;transform:none}
+  .back-to-top svg{width:23px;height:23px}
+  .cookiebar.show~.back-to-top{bottom:180px}
+}
+</style>
 </head>
 <body>
 <div class="w"><nav class="nav"><a href="https://www.duit.pt"><img src="/logo-proposta.png" alt="DUIT"></a><a class="btn" href="#quero-saber" data-cta="nav">Quero saber como funciona →</a></nav></div>
@@ -157,6 +201,7 @@
 
 <footer class="legal">DUIT · NIF 209 109 017 · Odivelas, Portugal · <a href="/politica-privacidade.html">Privacidade</a> · <a href="/politica-cookies.html">Cookies</a> · <a href="https://www.duit.pt">www.duit.pt</a></footer>
 <div class="cookiebar" id="cookiebar"><p>Utilizamos cookies essenciais. Cookies de medição e publicidade só são utilizados com o seu consentimento. <a href="/politica-cookies.html">Saber mais</a>.</p><div class="cookie-actions"><button onclick="cookieChoice('essential')">Só essenciais</button><button class="accept" onclick="cookieChoice('all')">Aceitar</button></div></div>
+<button class="back-to-top" type="button" aria-label="Voltar ao topo" title="Voltar ao topo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 6-6 6 6"/><path d="M12 8v12"/></svg></button>
 <script src="/js/meta-pixel.js?v=20260930a"></script>
 <script>
 const key=location.pathname.split('/').filter(Boolean).pop(),q=new URLSearchParams(location.search),sid=sessionStorage.designLpSid||(sessionStorage.designLpSid=(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random())),utm={utm_source:q.get('utm_source')||'',utm_medium:q.get('utm_medium')||'',utm_campaign:q.get('utm_campaign')||''};
@@ -164,6 +209,7 @@ function ev(event){fetch('/api/public/lp/'+encodeURIComponent(key)+'/event',{met
 ev('view');window.duitMetaPixel?.track('ViewContent',{content_name:'DUIT Design',content_category:'Landing Page'});
 document.querySelectorAll('[data-cta]').forEach(x=>x.addEventListener('click',()=>{ev('cta');window.duitMetaPixel?.trackCustom('CTA_Click',{landing_page:'duit-design',cta:x.dataset.cta||'design'})}));
 document.getElementById('designForm').addEventListener('submit',async e=>{e.preventDefault();const b=Object.fromEntries(new FormData(e.target)),btn=e.target.querySelector('.submit');btn.disabled=true;btn.textContent='A enviar…';try{const r=await fetch('/api/public/lp/'+encodeURIComponent(key)+'/design-lead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...b,...utm,session_id:sid})}),d=await r.json();if(!r.ok)throw new Error(d.error||'Não foi possível enviar.');window.duitMetaPixel?.track('Lead',{content_name:'DUIT Design',content_category:'Landing Page'});e.target.style.display='none';document.getElementById('thanks').style.display='block';document.getElementById('offer').style.display='block'}catch(err){alert(err.message);btn.disabled=false;btn.textContent='Quero saber como funciona →'}});
+const topBtn=document.querySelector('.back-to-top');if(topBtn){const updateTop=()=>topBtn.classList.toggle('visible',window.scrollY>350);window.addEventListener('scroll',updateTop,{passive:true});updateTop();topBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));}
 const revealObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('in');revealObserver.unobserve(entry.target)}})},{threshold:.12,rootMargin:'0px 0px -40px 0px'});document.querySelectorAll('.reveal').forEach(el=>revealObserver.observe(el));
 function cookieChoice(v){localStorage.setItem('duitCookieConsent',v);window.duitMetaPixel?.setConsent(v);document.getElementById('cookiebar')?.classList.remove('show')}if(!localStorage.getItem('duitCookieConsent'))document.getElementById('cookiebar')?.classList.add('show');
 </script>
