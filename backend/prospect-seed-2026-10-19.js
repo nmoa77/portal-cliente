@@ -189,10 +189,10 @@ try {
     for(const x of prospects){
       const email=x.email.trim().toLowerCase();
       const company=x.company.trim().toLowerCase();
-      const site=x.website.replace(/\\/$/,'').toLowerCase();
+      const site=x.website.replace(/\/$/,'').toLowerCase();
       const domain=email.split('@')[1];
-      const host=new URL(x.website).hostname.toLowerCase().replace(/^www\\./,'');
-      const forbidden=/^(gmail\\.com|hotmail\\.com|outlook\\.com|yahoo\\.com|icloud\\.com|sapo\\.pt)$/i;
+      const host=new URL(x.website).hostname.toLowerCase().replace(/^www\./,'');
+      const forbidden=/^(gmail\.com|hotmail\.com|outlook\.com|yahoo\.com|icloud\.com|sapo\.pt)$/i;
       if(!domain||forbidden.test(domain)||email.startsWith('noreply@')||wasDeleted(email)||seenEmails.has(email)||seenCompanies.has(company)||seenSites.has(site)||byCompany.get(x.company)||byEmail.get(email)||bySite.get(x.website)){skipped++;continue;}
       if(domain!==host && !x.source){skipped++;continue;}
       seenEmails.add(email);seenCompanies.add(company);seenSites.add(site);
