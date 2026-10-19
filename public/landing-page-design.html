@@ -91,6 +91,39 @@ html,body{max-width:100%;overflow-x:clip}
   .back-to-top svg{width:23px;height:23px}
   .cookiebar.show~.back-to-top{bottom:180px}
 }
+
+/* Layout comercial mais leve e focado no trabalho */
+.hero h1{font-size:clamp(50px,6.3vw,83px);line-height:.97}
+.hero .lead{max-width:470px;line-height:1.4}
+#trabalhos{background:#fff}
+#trabalhos .head{margin-bottom:27px}
+#trabalhos .head h2{font-size:clamp(34px,4.5vw,54px)}
+#trabalhos .portfolio{gap:14px}
+.ai-section{background:#f5f4ef}
+.ai-layout{gap:44px}
+.ai-layout h2{font-size:clamp(36px,4.5vw,56px);line-height:1.08;margin-bottom:18px}
+.ai-layout p{font-size:17px;line-height:1.5}
+.ai-panel{padding:30px}
+.ai-panel h3{font-size:clamp(24px,2.6vw,30px);margin-bottom:14px}
+.ai-point{padding:12px 0}
+.section:has(.how){background:#fff}
+.section:has(.how) .head{margin-bottom:30px}
+.step{padding:23px}
+.step p{line-height:1.45}
+@media(max-width:900px){
+ .hero h1{font-size:clamp(39px,10vw,60px);line-height:1.02}
+ .hero .lead{font-size:17px}
+ .ai-layout{gap:20px}
+ .ai-panel{padding:24px}
+}
+@media(max-width:560px){
+ #trabalhos{padding-top:46px;padding-bottom:48px}
+ #trabalhos .head h2{font-size:clamp(30px,8vw,40px)}
+ .ai-layout h2{font-size:clamp(34px,9vw,44px)}
+ .ai-layout p{font-size:16px}
+ .section:has(.how) .head h2{font-size:clamp(30px,8vw,40px)}
+ .step{padding:24px 20px}
+}
 </style>
 </head>
 <body>
@@ -101,10 +134,10 @@ html,body{max-width:100%;overflow-x:clip}
     <div class="hero-copy">
       <div class="ey">Nuno · Designer Gráfico · DUIT</div>
       <h1>Está na hora de ter <span class="mark">o seu designer.</span></h1>
-      <p class="lead">Acesso direto a um designer de confiança, quando a sua empresa precisa — sem o custo e o compromisso de contratar mais uma pessoa para os quadros.</p>
+      <p class="lead">Design profissional, sempre que precisa. Sem contratar.</p>
       <div class="hero-actions">
         <a class="btn" href="#quero-saber" data-cta="hero">Quero saber como funciona →</a>
-        <span class="micro">Presença. Rapidez. Trabalho acompanhado.</span>
+        
       </div>
     </div>
     <div class="portrait" aria-label="Nuno Alho, designer gráfico">
@@ -113,38 +146,13 @@ html,body{max-width:100%;overflow-x:clip}
   </div>
 </section>
 
-<section class="section dark reveal">
-  <div class="w statement">
-    <div class="ey" style="color:#ffd200">A questão não é se precisa de design</div>
-    <h2>Precisa de um designer.<br><span class="yellow">Não precisa de contratar um.</span></h2>
-  </div>
-</section>
 
 
 
-<section class="section ai-section reveal" id="design-com-identidade">
-  <div class="w ai-layout">
-    <div class="ai-copy">
-      <div class="ey">Criatividade com identidade</div>
-      <h2>A IA cria imagens.<br><span>Eu crio para a sua marca.</span></h2>
-      <p>A inteligência artificial pode ser uma excelente ferramenta. Mas a sua empresa merece mais do que imagens bonitas e genéricas.</p>
-      <p>Precisa de alguém que compreenda a sua identidade, saiba o que comunicar e transforme ideias em peças que realmente fazem sentido.</p>
-      <div class="ai-claim">A tecnologia ajuda. A experiência faz a diferença.</div>
-      <a class="btn" href="#quero-saber" data-cta="ai">Quero um designer que conheça a minha marca →</a>
-    </div>
-    <div class="ai-panel">
-      <div class="ey">Ferramentas + critério</div>
-      <h3>Usar IA é fácil.<br>Ter identidade é outra coisa.</h3>
-      <div class="ai-point"><strong>Não é só gerar imagens</strong><p>É comunicar a mensagem certa para as pessoas certas.</p></div>
-      <div class="ai-point"><strong>Não é fazer tudo igual</strong><p>É respeitar a identidade e o caráter de cada marca.</p></div>
-      <div class="ai-point"><strong>Não é escolher entre IA e design</strong><p>É aproveitar a tecnologia com direção criativa e experiência humana.</p></div>
-    </div>
-  </div>
-</section>
 
 <section class="section soft reveal" id="trabalhos">
   <div class="w">
-    <div class="head"><div class="ey">Trabalho real</div><h2>Alguns trabalhos.<br>O próximo pode ser o seu.</h2><p>Uma pequena amostra do tipo de trabalho que desenvolvo para marcas e empresas.</p></div>
+    <div class="head"><div class="ey">Trabalho real</div><h2>Trabalho que fala por si.</h2></div>
     <div class="portfolio">
       <figure class="work"><img loading="lazy" src="/portfolio/dg2.webp" alt="Trabalho de design gráfico DUIT"><figcaption class="work-label">Design gráfico</figcaption></figure>
       <figure class="work"><img loading="lazy" src="/portfolio/web2.webp" alt="Projeto web DUIT"><figcaption class="work-label">Web design</figcaption></figure>
@@ -153,18 +161,35 @@ html,body{max-width:100%;overflow-x:clip}
       <figure class="work"><img loading="lazy" src="/portfolio/web.webp" alt="Projeto web DUIT"><figcaption class="work-label">Web design</figcaption></figure>
       <figure class="work"><img loading="lazy" src="/portfolio/dg3.webp" alt="Trabalho de design gráfico DUIT"><figcaption class="work-label">Design gráfico</figcaption></figure>
     </div>
-    <p class="portfolio-note">Uma seleção de trabalhos desenvolvidos pela DUIT.</p>
+
+  </div>
+</section>
+
+<section class="section ai-section reveal" id="design-com-identidade">
+  <div class="w ai-layout">
+    <div class="ai-copy">
+      <div class="ey">Design com identidade</div>
+      <h2>A IA cria imagens.<br><span>Eu crio para a sua marca.</span></h2>
+      <p>Uso a tecnologia quando faz sentido. Mas cada peça precisa de critério, consistência e personalidade.</p>
+    </div>
+    <div class="ai-panel">
+      <div class="ey">O que faz a diferença</div>
+      <h3>Não é só criar.<br>É conhecer a sua marca.</h3>
+      <div class="ai-point"><strong>Uma identidade coerente</strong></div>
+      <div class="ai-point"><strong>Uma pessoa com quem falar</strong></div>
+      <div class="ai-point"><strong>Design pensado para o seu negócio</strong></div>
+    </div>
   </div>
 </section>
 
 <section class="section soft reveal">
   <div class="w">
-    <div class="head"><div class="ey">Como trabalhamos</div><h2>Pede. Eu trato.<br>E sabe sempre onde estamos.</h2></div>
+    <div class="head"><div class="ey">Como trabalhamos</div><h2>Simples, do pedido à entrega.</h2></div>
     <div class="how">
-      <div class="step"><div class="step-icon" role="img" aria-label="Etapa 1"><svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 33h26M12 10h17l7 7v20H12z"/><path d="M29 10v8h7M18 25h12M18 30h8"/></svg></div><h3>Faz o pedido</h3><p>Envia o que precisa diretamente pela DUIT.</p></div>
-      <div class="step"><div class="step-icon" role="img" aria-label="Etapa 2"><svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h30v21H21l-9 7v-7H9z"/><path d="m17 23 5 5 10-11"/></svg></div><h3>Eu respondo</h3><p>Percebo o pedido, organizo o trabalho e defino o prazo.</p></div>
-      <div class="step"><div class="step-icon" role="img" aria-label="Etapa 3"><svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="9" width="34" height="29" rx="4"/><path d="M7 17h34M15 25h10M15 31h17"/><path d="m32 24 3 3 5-6"/></svg></div><h3>Acompanha</h3><p>Vê o estado do projeto, versões e o que está a aguardar validação.</p></div>
-      <div class="step"><div class="step-icon" role="img" aria-label="Etapa 4"><svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M24 7 10 14v19l14 8 14-8V14zM10 14l14 8 14-8M24 22v19"/><path d="m17 29 5 5 10-11"/></svg></div><h3>Recebe</h3><p>Aprova, pede alterações quando necessário e recebe os ficheiros finais.</p></div>
+      <div class="step"><div class="step-icon" role="img" aria-label="Etapa 1"><svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 33h26M12 10h17l7 7v20H12z"/><path d="M29 10v8h7M18 25h12M18 30h8"/></svg></div><h3>Faz o pedido</h3><p>Diz-me o que precisas.</p></div>
+      <div class="step"><div class="step-icon" role="img" aria-label="Etapa 2"><svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h30v21H21l-9 7v-7H9z"/><path d="m17 23 5 5 10-11"/></svg></div><h3>Eu respondo</h3><p>Confirmo o pedido e o prazo.</p></div>
+      <div class="step"><div class="step-icon" role="img" aria-label="Etapa 3"><svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="9" width="34" height="29" rx="4"/><path d="M7 17h34M15 25h10M15 31h17"/><path d="m32 24 3 3 5-6"/></svg></div><h3>Acompanha</h3><p>Segue o progresso na DUIT.</p></div>
+      <div class="step"><div class="step-icon" role="img" aria-label="Etapa 4"><svg viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><path d="M24 7 10 14v19l14 8 14-8V14zM10 14l14 8 14-8M24 22v19"/><path d="m17 29 5 5 10-11"/></svg></div><h3>Recebe</h3><p>Aprova e recebe os ficheiros.</p></div>
     </div>
   </div>
 </section>
@@ -174,7 +199,7 @@ html,body{max-width:100%;overflow-x:clip}
 
 
 <section class="section reveal">
-  <div class="faq"><div class="head"><div class="ey">Sem complicar</div><h2>Perguntas que provavelmente está a fazer.</h2></div>
+  <div class="faq"><div class="head"><div class="ey">Sem complicar</div><h2>Ainda tem dúvidas?</h2></div>
     <details><summary>Isto é um pack de horas?</summary><p>Não. A ideia é precisamente evitar horas para gastar ou minutos para controlar. O foco é ter acesso continuado a um designer e uma forma simples de pedir e acompanhar trabalho.</p></details>
     <details><summary>Posso pedir qualquer tipo de design?</summary><p>O acompanhamento é pensado para necessidades gráficas correntes da empresa. Projetos de grande dimensão ou com um âmbito fora do acompanhamento normal são avaliados antes de avançar.</p></details>
     <details><summary>Há vários designers?</summary><p>Não. Trabalha diretamente comigo, Nuno. É precisamente essa continuidade que me permite conhecer melhor a marca e responder mais depressa.</p></details>
@@ -185,8 +210,8 @@ html,body{max-width:100%;overflow-x:clip}
 <section class="contact reveal" id="quero-saber">
   <div class="w formbox">
     <div class="ey" style="color:#ffd200">Quer saber como funciona?</div>
-    <h2>Veja se faz sentido para a sua empresa.</h2>
-    <p>Deixe os seus dados. Eu mostro-lhe como funciona, explico o acompanhamento e apresento-lhe o valor.</p>
+    <h2>Vamos falar da sua marca?</h2>
+    <p>Deixe o seu contacto. Explico-lhe tudo, sem compromisso.</p>
     <form id="designForm"><div class="grid">
       <input name="name" placeholder="Nome *" required>
       <input name="company" placeholder="Empresa">
