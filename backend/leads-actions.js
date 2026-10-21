@@ -67,6 +67,19 @@ module.exports=function(app){
     res.json({ok:true});
   });
 
+  app.delete('/api/crm/leads/:id',requireAdmin,(req,res)=>{
+    const id=Number(req.params.id);
+    if(!Number.isFinite(id)||id<=0)return res.status(400).json({error:'Lead inválido.'});
+    const exists=db.prepare('SELECT id FROM users WHERE id=?').get(id);
+    if(!exists)return res.status(404).json({error:'Lead não encontrado.'});
+    const tx=db.transaction(()=>{
+      db.prepare('DELETE FROM landing_page_leads WHERE user_id=?').run(id);
+      db.prepare('DELETE FROM crm_lead_state WHERE user_id=?').run(id);
+    });
+    tx();
+    res.json({ok:true});
+  });
+
   app.patch('/api/crm/leads/:id',requireAdmin,(req,res)=>{
     const id=Number(req.params.id),status=String(req.body?.status||'');
     if(!['novo','lido','em_contacto','convertido'].includes(status))return res.status(400).json({error:'Estado inválido.'});
