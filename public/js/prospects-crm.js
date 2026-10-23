@@ -39,7 +39,7 @@
       delivered:['ok','Entregue'],
       opened:['ok','Aberto'],
       clicked:['ok','Clicado'],
-      delivery_delayed:['warn','Atrasado'],
+      delivery_delayed:['warn','Entrega atrasada'],
       bounced:['err','Bounce'],
       complained:['err','Spam'],
       suppressed:['err','Suprimido'],
@@ -48,7 +48,40 @@
       unknown:['muted','Sem estado']
     };
     const v=map[rs]||['muted',rs||'Sem estado'];
-    return '<span class="pill '+v[0]+'" title="'+(p.resend_error?safe(p.resend_error):'')+'">'+safe(v[1])+'</span>';
+
+    let title='',detail='';
+    const type=String(p.resend_detail_type||'').toLowerCase();
+    const subtype=String(p.resend_detail_subtype||'').trim();
+
+    if(rs==='delivery_delayed'){
+      title='Falha temporária de comunicação';
+      detail='O email ainda não foi entregue porque ocorreu um problema temporário no servidor do destinatário. O Resend continuará a tentar a entrega.';
+    }else if(rs==='bounced'){
+      if(type==='transient'){
+        title='Falha temporária de comunicação';
+        detail='O servidor do destinatário recusou temporariamente o email. Pode ser uma caixa cheia ou uma indisponibilidade temporária.';
+      }else if(type==='permanent'){
+        title='Falha permanente';
+        detail='O servidor do destinatário rejeitou definitivamente o email. Convém confirmar se o endereço existe e está correto.';
+      }else{
+        title='Email devolvido';
+        detail='O servidor do destinatário recusou o email.';
+      }
+    }else if(rs==='complained'){
+      title='Marcado como spam';
+      detail='O destinatário assinalou este email como spam.';
+    }else if(rs==='failed'){
+      title='Falha no envio';
+      detail='O Resend não conseguiu concluir o envio deste email.';
+    }else if(rs==='delivered'){
+      title='Entregue';
+      detail='O servidor de email do destinatário confirmou a entrega.';
+    }
+
+    if(subtype)title+=(title?' · ':'')+subtype;
+    const raw=String(p.resend_detail_message||'').trim();
+    const tooltip=[title,detail,raw].filter(Boolean).join(' — ');
+    return '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start"><span class="pill '+v[0]+'"'+(tooltip?' title="'+safe(tooltip)+'"':'')+'>'+safe(v[1])+'</span>'+(title?'<span style="font-size:10px;color:var(--muted);line-height:1.25;max-width:150px">'+safe(title)+'</span>':'')+'</div>';
   }
 
   function contactState(p){const parts=[];if(!p.email_sent_at)parts.push('<span class="pill muted">⚪ Não enviado</span>');else if(!p.email_first_opened_at)parts.push('<span class="pill warn">🟡 Enviado · por abrir</span>');else parts.push(`<span class="pill ok">🟢 Email visto · ${Number(p.email_open_count||0)}x</span>`);if(p.email_sent_at){const pv=Number(p.proposal_view_count||0);parts.push(pv?`<span class="pill ok">👁 Proposta vista · ${pv}x</span>`:'<span class="pill muted">Proposta · por abrir</span>');if(Number(p.guide_open_count||0)>0)parts.push(`<span class="pill ok">📖 Ebook visto · ${Number(p.guide_open_count||0)}x</span>`);if(p.outreach_response==='accepted')parts.push('<span class="pill ok">✓ Aceitou</span>');else if(p.outreach_response==='rejected')parts.push('<span class="pill err">✕ Rejeitou</span>')}return `<div style="display:flex;gap:5px;flex-wrap:wrap;min-width:180px">${parts.join('')}</div>`}
