@@ -20,7 +20,7 @@ body{margin:0;background:#fff;color:var(--ink);font-family:Montserrat,Arial,sans
 a{color:inherit;text-decoration:none}
 img{display:block;max-width:100%}
 button,input,textarea{font:inherit}
-.wrap{width:min(1280px,calc(100% - 56px));max-width:100%;margin:auto}
+.wrap{width:min(1280px,calc(100% - 56px));max-width:100%;margin:auto;padding-left:0;padding-right:0}
 .nav-shell{position:fixed;inset:0 0 auto;z-index:80;transition:.35s var(--ease)}
 .nav-shell.scrolled{background:rgba(255,255,255,.93);backdrop-filter:blur(18px);border-bottom:1px solid rgba(0,0,0,.07)}
 .nav{height:78px;display:flex;align-items:center;gap:28px}
@@ -153,19 +153,28 @@ footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
   .process-title{position:static}.portal-browser{transform:none}
 }
 @media(max-width:650px){
+  :root{--mobile-gutter:20px}
   html,body{overflow-x:hidden!important;width:100%;max-width:100%}
-  main,section,header,footer,.wrap{max-width:100%;min-width:0}
-  .wrap{width:calc(100% - 30px)}
+  main,section,header,footer{max-width:100%;min-width:0}
+  .wrap{width:100%;max-width:100%;padding-left:var(--mobile-gutter);padding-right:var(--mobile-gutter)}
+
   .reveal-left,.reveal-right{transform:translateY(28px)}
   .reveal-left.show,.reveal-right.show{transform:none}
   .hero-grid,.hero-bottom,.section-intro,.services,.process-wrap,.portal-grid,.manifesto-bottom,.contact,.portfolio-grid{min-width:0;width:100%}
+  .section>.wrap,.mid-cta>.wrap,.contact-section>.wrap,.manifesto>.wrap,footer>.wrap{padding-left:var(--mobile-gutter);padding-right:var(--mobile-gutter)}
+  .mid-cta-box,.contact-form,.portal-browser,.project,.service{max-width:100%}
+  .mid-cta-box{margin-left:0;margin-right:0}
+  .project-info{max-width:calc(100% - 32px)}
+  .nav{padding-left:var(--mobile-gutter);padding-right:var(--mobile-gutter)}
+  .mobile-menu-panel{padding-left:var(--mobile-gutter);padding-right:var(--mobile-gutter)}
+
   .hero-grid>*,.hero-bottom>*,.section-intro>*,.services>*,.process-wrap>*,.portal-grid>*,.manifesto-bottom>*,.contact>*{min-width:0}
   .portal-browser,.portal-ui,.contact-form,.mid-cta-box{max-width:100%;min-width:0}
   .portal-row{overflow:hidden}
   .portal-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .service h3,.section-intro h2,.process-title h2,.portal-copy h2,.contact-copy h2,.manifesto .big{overflow-wrap:anywhere}
 .nav{height:68px}.brand img{width:98px}.nav-portal{display:none}.nav-cta{padding:10px 12px;font-size:10px}
-  .hero{padding:98px 0 24px;min-height:auto}.hero:before{width:360px;height:360px;min-width:0;min-height:0;right:-210px;top:90px}
+  .hero{padding:98px 0 34px;min-height:auto}.hero:before{width:360px;height:360px;min-width:0;min-height:0;right:-210px;top:90px}
   .hero h1{font-size:clamp(54px,17vw,86px)}.hero h1 .line2{margin-left:0}.hero-copy{font-size:16px}.hero-strip{grid-template-columns:1fr}.hero-shot{min-height:230px}.hero-shot:nth-child(n){border-radius:18px}
   .section{padding:78px 0}.section-intro{gap:20px;margin-bottom:40px}.section-intro h2{font-size:44px}.section-intro p{font-size:15px}
   .portfolio-grid{gap:10px}.p1,.p2,.p3,.p4,.p5{grid-column:span 12;height:300px;border-radius:16px}.project-info{left:16px;right:16px;bottom:15px}
