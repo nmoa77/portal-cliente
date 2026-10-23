@@ -423,6 +423,8 @@ footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
       <span>·</span>
       <a href="/politica-cookies.html">Cookies</a>
       <span>·</span>
+      <a href="#" onclick="openCookieSettings();return false">Gerir cookies</a>
+      <span>·</span>
       <a href="https://www.livroreclamacoes.pt/Pedido/Reclamacao" target="_blank" rel="noopener">Livro de Reclamações</a>
     </div>
     <span><a href="https://www.instagram.com/duit.pt/" target="_blank" rel="noopener">Instagram</a> · <a href="https://www.facebook.com/duit.pt" target="_blank" rel="noopener">Facebook</a> · <a href="https://cliente.duit.pt">Área de cliente</a></span>
@@ -433,7 +435,7 @@ footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
   <p>Utilizamos cookies essenciais para o funcionamento do site. Cookies de medição e publicidade só são utilizados com o seu consentimento. <a href="/politica-cookies.html">Saber mais</a>.</p>
   <div class="cookie-actions">
     <button type="button" onclick="cookieChoice('essential')">Só essenciais</button>
-    <button type="button" class="accept" onclick="cookieChoice('all')">Aceitar</button>
+    <button type="button" class="accept" onclick="cookieChoice('all')">Aceitar cookies</button>
   </div>
 </div>
 
@@ -441,6 +443,9 @@ footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
 function cookieChoice(choice){
   localStorage.setItem('duitCookieConsent',choice);
   document.getElementById('cookiebar')?.classList.remove('show');
+}
+function openCookieSettings(){
+  document.getElementById('cookiebar')?.classList.add('show');
 }
 if(!localStorage.getItem('duitCookieConsent')){
   document.getElementById('cookiebar')?.classList.add('show');
