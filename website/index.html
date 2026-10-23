@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DUIT — Design & Redes Sociais</title>
+<meta name="description" content="Design gráfico e gestão de redes sociais para empresas. Estratégia, criatividade e acompanhamento próximo. Design? We DUIT.">
+<meta name="theme-color" content="#ffd200">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --yellow:#ffd200;--teal:#16b3b1;--ink:#0b0b0b;--muted:#737373;--paper:#f6f5f1;
+  --line:#e7e4dc;--white:#fff;--radius:22px;--shadow:0 28px 80px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Montserrat,Arial,sans-serif;color:var(--ink);background:#fff;overflow-x:hidden}
+a{color:inherit;text-decoration:none}img{display:block;max-width:100%}button,input,textarea{font:inherit}
+.wrap{width:min(1180px,calc(100% - 48px));margin:auto}
+.nav-shell{position:fixed;inset:0 0 auto;z-index:60;transition:.3s ease}
+.nav-shell.scrolled{background:rgba(255,255,255,.92);backdrop-filter:blur(16px);border-bottom:1px solid rgba(0,0,0,.06)}
+.nav{height:78px;display:flex;align-items:center;gap:28px}
+.brand img{width:122px;height:auto}
+.nav-links{display:flex;gap:24px;margin-left:auto;align-items:center}.nav-links a{font-size:13px;font-weight:700}
+.nav-links a:hover{opacity:.55}.nav-portal{padding:11px 15px;border:1px solid #ddd;border-radius:999px}.nav-cta{padding:12px 17px;background:var(--yellow);border-radius:999px}
+.menu{display:none;margin-left:auto;border:0;background:none;font-size:26px}
+.hero{min-height:100vh;padding:130px 0 70px;background:var(--paper);display:flex;align-items:center;position:relative;overflow:hidden}
+.hero:before{content:"";position:absolute;width:560px;height:560px;border-radius:50%;background:var(--yellow);right:-160px;top:80px;opacity:.95}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;align-items:center;gap:70px;position:relative;z-index:2}
+.kicker{font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:#8d7800;margin-bottom:20px}
+.hero h1{font-size:clamp(58px,7.4vw,106px);line-height:.88;letter-spacing:-.065em;margin:0 0 28px;max-width:760px}
+.hero h1 span{position:relative;z-index:1}.hero h1 span:after{content:"";position:absolute;left:0;right:0;bottom:.06em;height:.15em;background:var(--yellow);z-index:-1}
+.hero p{font-size:20px;line-height:1.55;color:#595959;max-width:610px;margin:0}
+.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:15px 22px;border-radius:12px;font-weight:800;font-size:14px;transition:.25s ease;border:1px solid transparent}
+.btn:hover{transform:translateY(-2px)}.btn-dark{background:#111;color:#fff}.btn-yellow{background:var(--yellow)}.btn-line{border-color:#d9d6ce;background:#fff}
+.hero-visual{position:relative;min-height:610px}
+.hero-person{position:absolute;right:10px;bottom:-40px;width:78%;z-index:3}
+.hero-card{position:absolute;border-radius:18px;overflow:hidden;box-shadow:var(--shadow);background:#fff;z-index:4}
+.hero-card img{width:100%;height:100%;object-fit:cover}
+.card-a{width:210px;height:210px;left:-35px;top:20px;transform:rotate(-5deg)}
+.card-b{width:230px;height:170px;right:-40px;top:95px;transform:rotate(5deg)}
+.card-c{width:190px;height:190px;left:5px;bottom:40px;transform:rotate(3deg)}
+.hero-badge{position:absolute;left:38px;top:270px;background:#111;color:#fff;border-radius:999px;padding:12px 16px;font-size:12px;font-weight:800;z-index:5}
+.hero-badge b{color:var(--yellow)}
+.scroll-note{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#888}
+.section{padding:110px 0}.section.alt{background:var(--paper)}.section.dark{background:#111;color:#fff}
+.head{display:grid;grid-template-columns:.7fr 1.3fr;gap:40px;align-items:end;margin-bottom:54px}.head h2{font-size:clamp(42px,5.4vw,72px);line-height:.96;letter-spacing:-.055em;margin:0}.head p{font-size:17px;line-height:1.65;color:var(--muted);max-width:620px;margin:0}
+.dark .head p{color:#aaa}.dark .kicker{color:var(--yellow)}
+.services{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.service{border-radius:28px;overflow:hidden;min-height:520px;position:relative;padding:42px;display:flex;flex-direction:column;justify-content:flex-end}
+.service.design{background:#111;color:#fff}.service.social{background:var(--yellow)}
+.service h3{font-size:clamp(34px,4vw,56px);letter-spacing:-.05em;margin:0 0 14px}.service p{max-width:520px;line-height:1.6;margin:0 0 24px}.service.design p{color:#bcbcbc}
+.service-media{position:absolute;inset:0;opacity:.42}.service-media img{width:100%;height:100%;object-fit:cover;transition:transform .7s ease}.service:hover .service-media img{transform:scale(1.055)}
+.service:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.75),transparent 62%)}.service.social:after{background:linear-gradient(to top,rgba(255,210,0,.96),rgba(255,210,0,.08) 68%)}
+.service-content{position:relative;z-index:2}.service.social .service-media{opacity:.24}.service-link{font-size:13px;font-weight:900;letter-spacing:.02em}
+.work-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}.work{border-radius:20px;overflow:hidden;position:relative;background:#eee;min-height:260px}.work img{width:100%;height:100%;object-fit:cover;transition:transform .65s cubic-bezier(.2,.7,.2,1)}.work:hover img{transform:scale(1.055)}
+.work:nth-child(1){grid-column:span 7;height:500px}.work:nth-child(2){grid-column:span 5;height:500px}.work:nth-child(3),.work:nth-child(4),.work:nth-child(5){grid-column:span 4;height:360px}
+.work-label{position:absolute;left:18px;bottom:18px;background:rgba(10,10,10,.86);color:#fff;padding:9px 13px;border-radius:999px;font-size:11px;font-weight:800;backdrop-filter:blur(8px)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center}.portal-shot{background:#111;border-radius:28px;padding:18px;box-shadow:var(--shadow);transform:perspective(1200px) rotateY(-5deg);transition:.45s ease}.portal-shot:hover{transform:perspective(1200px) rotateY(0)}.portal-shot img{border-radius:18px;background:#191919}
+.portal-ui{background:#111;border-radius:18px;overflow:hidden;color:white;min-height:430px;padding:22px}.portal-bar{display:flex;gap:7px;margin-bottom:28px}.dot{width:10px;height:10px;border-radius:50%;background:#444}.dot:nth-child(2){background:var(--yellow)}
+.portal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}.portal-head b{font-size:28px}.portal-chip{background:var(--yellow);color:#111;padding:7px 10px;border-radius:999px;font-size:10px;font-weight:900}.portal-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.portal-card{background:#1c1c1c;border:1px solid #2a2a2a;border-radius:14px;padding:16px}.portal-card strong{font-size:30px;display:block}.portal-card.yellow{background:var(--yellow);color:#111}.portal-list{margin-top:12px;border:1px solid #262626;border-radius:14px;overflow:hidden}.portal-row{display:grid;grid-template-columns:1.4fr .8fr .6fr;padding:14px;border-bottom:1px solid #262626;font-size:12px}.portal-row:last-child{border:0}.status{color:var(--yellow)}
+.about-card{background:var(--paper);border-radius:28px;padding:42px}.about-card h2{font-size:clamp(42px,5vw,68px);line-height:.98;letter-spacing:-.055em;margin:0 0 20px}.about-card p{color:#666;font-size:17px;line-height:1.7}.about-photo{position:relative;min-height:560px;border-radius:28px;overflow:hidden;background:var(--yellow)}.about-photo img{position:absolute;height:108%;width:auto;max-width:none;right:4%;bottom:-35px}
+.contact{background:#111;color:#fff;border-radius:32px;padding:64px;display:grid;grid-template-columns:.9fr 1.1fr;gap:70px;align-items:start}.contact h2{font-size:clamp(42px,5vw,70px);line-height:.96;letter-spacing:-.055em;margin:8px 0 18px}.contact p{color:#aaa;line-height:1.65}.contact-form{background:#fff;color:#111;border-radius:22px;padding:30px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form-grid input,.form-grid textarea{width:100%;padding:14px;border:1px solid #e3e0d8;border-radius:10px;background:#faf9f6;color:#111}.form-grid textarea{min-height:110px;resize:vertical}.full{grid-column:1/-1}.submit{width:100%;padding:15px;border:0;border-radius:10px;background:var(--yellow);font-weight:900;cursor:pointer}.form-note{font-size:10px;color:#777;margin-top:10px}.success{display:none;padding:30px;text-align:center}.success .check{width:56px;height:56px;border-radius:50%;background:var(--yellow);display:grid;place-items:center;margin:0 auto 15px;font-weight:900;font-size:24px}
+footer{padding:42px 0}.footer{display:flex;justify-content:space-between;gap:24px;align-items:center;font-size:12px;color:#777}.footer img{width:105px}
+.reveal{opacity:0;transform:translateY(34px);transition:opacity .8s cubic-bezier(.2,.7,.2,1),transform .8s cubic-bezier(.2,.7,.2,1)}.reveal.show{opacity:1;transform:none}
+.reveal-left{opacity:0;transform:translateX(-36px);transition:.8s cubic-bezier(.2,.7,.2,1)}.reveal-left.show{opacity:1;transform:none}.reveal-right{opacity:0;transform:translateX(36px);transition:.8s cubic-bezier(.2,.7,.2,1)}.reveal-right.show{opacity:1;transform:none}
+@media(max-width:960px){.nav-links a:not(.nav-cta):not(.nav-portal){display:none}.hero-grid,.split,.contact,.head{grid-template-columns:1fr}.hero{padding-top:115px}.hero-visual{min-height:520px}.services{grid-template-columns:1fr}.head{gap:18px}.work:nth-child(n){grid-column:span 6;height:340px}.contact{padding:42px}.about-photo{min-height:480px}}
+@media(max-width:650px){.wrap{width:min(100% - 30px,1180px)}.nav{height:68px}.brand img{width:100px}.nav-portal{display:none}.nav-cta{font-size:11px;padding:10px 12px}.hero{min-height:auto;padding:105px 0 55px}.hero-grid{gap:25px}.hero h1{font-size:clamp(46px,15vw,68px)}.hero p{font-size:16px}.hero-visual{min-height:410px}.hero-person{width:88%;right:-10%;bottom:-15px}.card-a{width:135px;height:135px;left:-12px}.card-b{width:140px;height:110px;right:-15px}.card-c{width:125px;height:125px;left:0;bottom:20px}.hero-badge{left:0;top:210px;font-size:10px}.scroll-note{display:none}.section{padding:72px 0}.head h2{font-size:40px}.services{gap:12px}.service{min-height:430px;padding:28px}.work-grid{gap:10px}.work:nth-child(n){grid-column:span 12;height:290px}.split{gap:28px}.portal-shot{transform:none}.about-photo{min-height:420px}.about-card{padding:28px}.contact{padding:28px;border-radius:22px;gap:35px}.form-grid{grid-template-columns:1fr}.full{grid-column:auto}.footer{flex-direction:column;align-items:flex-start}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}.reveal,.reveal-left,.reveal-right{opacity:1;transform:none;transition:none!important}.hero-card,.btn,.work img{transition:none!important}}
+</style>
+</head>
+<body>
+<header class="nav-shell" id="navShell">
+  <div class="wrap nav">
+    <a class="brand" href="#top"><img src="/logo-proposta.png" alt="DUIT"></a>
+    <nav class="nav-links">
+      <a href="#servicos">Serviços</a>
+      <a href="#trabalhos">Trabalhos</a>
+      <a href="#portal">Portal</a>
+      <a class="nav-portal" href="https://cliente.duit.pt">Área de cliente</a>
+      <a class="nav-cta" href="#contacto">Falar com a DUIT →</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="reveal-left">
+      <div class="kicker">Design gráfico · Redes sociais</div>
+      <h1>Quer a sua marca <span>bem feita?</span></h1>
+      <p>Design e comunicação com consistência, proximidade e acompanhamento real. A DUIT ajuda empresas a comunicar melhor — sem complicar.</p>
+      <div class="hero-actions">
+        <a class="btn btn-dark" href="#contacto">Quero falar convosco →</a>
+        <a class="btn btn-line" href="#trabalhos">Ver trabalhos</a>
+      </div>
+    </div>
+    <div class="hero-visual reveal-right">
+      <div class="hero-card card-a"><img src="/portfolio/dg2.webp" alt="Trabalho de design DUIT"></div>
+      <div class="hero-card card-b"><img src="/portfolio/banner_portfolio.webp" alt="Trabalho de comunicação DUIT"></div>
+      <div class="hero-card card-c"><img src="/portfolio/web2.webp" alt="Projeto web DUIT"></div>
+      <div class="hero-badge"><b>Design?</b> We DUIT.</div>
+      <img class="hero-person" src="/nuno-hero.png" alt="Nuno — DUIT">
+    </div>
+  </div>
+  <div class="scroll-note">Descubra a DUIT ↓</div>
+</section>
+
+<section class="section" id="servicos">
+  <div class="wrap">
+    <div class="head reveal">
+      <div><div class="kicker">O que fazemos</div><h2>Duas áreas.<br>Uma só marca.</h2></div>
+      <p>A DUIT concentra-se no que mais impacto tem na comunicação das empresas: uma identidade visual consistente e uma presença digital cuidada.</p>
+    </div>
+    <div class="services">
+      <article class="service design reveal-left">
+        <div class="service-media"><img src="/portfolio/dg3.webp" alt=""></div>
+        <div class="service-content">
+          <div class="kicker">DUIT Design</div>
+          <h3>Design gráfico</h3>
+          <p>Da identidade aos materiais do dia a dia. Um apoio criativo próximo para manter a sua marca coerente e profissional.</p>
+          <a class="service-link" href="#contacto">Falar sobre Design →</a>
+        </div>
+      </article>
+      <article class="service social reveal-right">
+        <div class="service-media"><img src="/img-redes.webp" alt=""></div>
+        <div class="service-content">
+          <div class="kicker">DUIT Social</div>
+          <h3>Redes sociais</h3>
+          <p>Planeamento, criação e gestão de conteúdos com uma presença consistente, pensada para a sua empresa.</p>
+          <a class="service-link" href="#contacto">Falar sobre Redes Sociais →</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="trabalhos">
+  <div class="wrap">
+    <div class="head reveal">
+      <div><div class="kicker">Trabalho real</div><h2>O trabalho fala por nós.</h2></div>
+      <p>Uma seleção de projetos desenvolvidos pela DUIT em design, comunicação e web. Sem imagens de banco, sem promessas genéricas.</p>
+    </div>
+    <div class="work-grid">
+      <figure class="work reveal"><img src="/portfolio/dg.webp" alt="Design gráfico DUIT"><figcaption class="work-label">Design gráfico</figcaption></figure>
+      <figure class="work reveal"><img src="/portfolio/web.webp" alt="Web design DUIT"><figcaption class="work-label">Web</figcaption></figure>
+      <figure class="work reveal"><img src="/portfolio/banner_portfolio2.webp" alt="Comunicação DUIT"><figcaption class="work-label">Comunicação</figcaption></figure>
+      <figure class="work reveal"><img src="/portfolio/dg2.webp" alt="Design gráfico DUIT"><figcaption class="work-label">Identidade</figcaption></figure>
+      <figure class="work reveal"><img src="/portfolio/web3.webp" alt="Projeto digital DUIT"><figcaption class="work-label">Digital</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section class="section dark" id="portal">
+  <div class="wrap split">
+    <div class="reveal-left">
+      <div class="kicker">Portal DUIT</div>
+      <div class="head" style="display:block;margin:0">
+        <h2 style="color:#fff;margin-bottom:20px">Tudo organizado.<br>Sempre à vista.</h2>
+        <p>Projetos, conteúdos, mensagens, aprovações e informação do serviço num único espaço. Sem conversas perdidas e sem depender de dezenas de emails.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-yellow" href="https://cliente.duit.pt">Aceder ao portal →</a>
+      </div>
+    </div>
+    <div class="portal-shot reveal-right">
+      <div class="portal-ui">
+        <div class="portal-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+        <div class="portal-head"><b>Olá 👋</b><span class="portal-chip">DUIT Portal</span></div>
+        <div class="portal-cards">
+          <div class="portal-card yellow"><small>Projetos</small><strong>3</strong></div>
+          <div class="portal-card"><small>Conteúdos</small><strong>16</strong></div>
+          <div class="portal-card"><small>A aprovar</small><strong>2</strong></div>
+        </div>
+        <div class="portal-list">
+          <div class="portal-row"><span>Identidade visual</span><span class="status">Em revisão</span><span>Hoje</span></div>
+          <div class="portal-row"><span>Conteúdos do mês</span><span class="status">A aprovar</span><span>Amanhã</span></div>
+          <div class="portal-row"><span>Campanha digital</span><span>Concluído</span><span>21 Out</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap split">
+    <div class="about-photo reveal-left"><img src="/nuno-hero.png" alt="Nuno — Designer DUIT"></div>
+    <div class="about-card reveal-right">
+      <div class="kicker">Uma relação mais próxima</div>
+      <h2>Não é apenas pedir um trabalho.</h2>
+      <p>É ter alguém que conhece a sua marca, percebe o contexto e acompanha a comunicação ao longo do tempo. Na DUIT, o contacto é direto e o trabalho não passa por uma cadeia de pessoas.</p>
+      <p>Menos ruído. Mais consistência. Mais rapidez quando é preciso avançar.</p>
+      <div class="hero-actions"><a class="btn btn-dark" href="#contacto">Vamos falar →</a></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="contacto">
+  <div class="wrap">
+    <div class="contact reveal">
+      <div>
+        <div class="kicker" style="color:var(--yellow)">Contacto</div>
+        <h2>Tem um projeto?<br>We DUIT.</h2>
+        <p>Deixe o seu contacto e diga-nos o que precisa. Entraremos em contacto consigo para perceber o projeto e indicar a solução mais adequada.</p>
+        <p style="margin-top:28px"><strong style="color:#fff">info@duit.pt</strong><br>+351 918 390 570</p>
+      </div>
+      <div class="contact-form">
+        <form id="siteForm">
+          <div class="form-grid">
+            <input name="nome" placeholder="Nome *" required>
+            <input name="empresa" placeholder="Empresa">
+            <input type="email" name="email" placeholder="Email *" required>
+            <input name="telefone" placeholder="Telefone *" required>
+            <textarea class="full" name="mensagem" placeholder="Em que podemos ajudar?"></textarea>
+            <button class="submit full" type="submit">Enviar pedido →</button>
+          </div>
+          <div class="form-note">Ao enviar aceita o tratamento dos dados para resposta ao seu pedido.</div>
+        </form>
+        <div class="success" id="success"><div class="check">✓</div><h3>Recebido.</h3><p>Obrigado. Entraremos em contacto consigo brevemente.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap footer">
+    <img src="/logo-proposta.png" alt="DUIT">
+    <span>© 2026 DUIT · Design Gráfico & Redes Sociais · Odivelas, Portugal</span>
+    <span><a href="https://www.instagram.com/duit.pt/" target="_blank">Instagram</a> · <a href="https://www.facebook.com/duit.pt" target="_blank">Facebook</a></span>
+  </div>
+</footer>
+
+<script>
+const nav=document.getElementById('navShell');
+const setNav=()=>nav.classList.toggle('scrolled',scrollY>20);addEventListener('scroll',setNav,{passive:true});setNav();
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('show');io.unobserve(e.target)}}),{threshold:.12,rootMargin:'0px 0px -50px 0px'});
+document.querySelectorAll('.reveal,.reveal-left,.reveal-right').forEach((el,i)=>{el.style.transitionDelay=(i%4)*60+'ms';io.observe(el)});
+document.getElementById('siteForm').addEventListener('submit',async e=>{
+  e.preventDefault();const form=e.currentTarget,btn=form.querySelector('.submit'),data=Object.fromEntries(new FormData(form));
+  btn.disabled=true;btn.textContent='A enviar…';
+  try{
+    const r=await fetch('/api/public/site-lead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    const d=await r.json();if(!r.ok)throw new Error(d.erro||'Não foi possível enviar.');
+    form.style.display='none';document.getElementById('success').style.display='block';
+  }catch(err){alert(err.message);btn.disabled=false;btn.textContent='Enviar pedido →'}
+});
+</script>
+</body>
+</html>
