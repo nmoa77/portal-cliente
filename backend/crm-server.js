@@ -320,6 +320,7 @@ capturedApp.delete('/api/crm/prospects/:id', requireAdmin, (req, res) => {
 
 require('./social-prospect-actions')(capturedApp, requireAdmin);
 require('./leads-actions')(capturedApp);
+require('./site-actions')(capturedApp);
 
 // Arranca finalmente o servidor original, agora já com as rotas CRM registadas.
 originalListen.apply(capturedApp, capturedListenArgs);
