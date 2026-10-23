@@ -149,7 +149,7 @@ module.exports = function installProspectCrmActions(app) {
         if(!remote&&row.email&&row.email_sent_at){
           const sentAt=ts(row.email_sent_at);
           const matches=byEmail.get(String(row.email).toLowerCase())||[];
-          remote=matches.map(m=>({m,d:Math.abs(ts(m.created_at)-sentAt)})).filter(x=>x.d<=15*60*1000).sort((a,b)=>a.d-b.d)[0]?.m||null;
+          remote=matches.map(m=>({m,d:Math.abs(ts(m.created_at)-sentAt)})).sort((a,b)=>a.d-b.d)[0]?.m||null;
           if(remote?.id){
             row.resend_email_id=String(remote.id);
             db.prepare(`UPDATE prospect_crm SET resend_email_id=? WHERE user_id=?`).run(row.resend_email_id,row.user_id);
