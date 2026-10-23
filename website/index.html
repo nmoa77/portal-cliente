@@ -31,17 +31,17 @@ button,input,textarea{font:inherit}
 .nav-portal{padding:11px 15px;border:1px solid #dcd8ce;border-radius:999px}
 .nav-cta{background:var(--y);padding:12px 17px;border-radius:999px}
 
-.hero{padding:120px 0 36px;background:var(--paper);min-height:100vh;display:flex;align-items:flex-end;position:relative;overflow:hidden}
-.hero:before{content:"";position:absolute;width:44vw;height:44vw;min-width:460px;min-height:460px;border-radius:50%;background:var(--y);right:-17vw;top:70px}
+.hero{padding:118px 0 72px;background:var(--paper);min-height:760px;display:flex;align-items:center;position:relative;overflow:hidden}
+.hero:before{content:"";position:absolute;width:40vw;height:40vw;min-width:420px;min-height:420px;border-radius:50%;background:var(--y);right:-13vw;top:50%;transform:translateY(-50%)}
 .hero-grid{position:relative;z-index:2;width:100%}
 .kicker{font-size:10px;text-transform:uppercase;letter-spacing:.21em;font-weight:900;color:#8E7600}
 .hero-kicker{display:flex;align-items:center;gap:12px;margin-bottom:22px}.hero-kicker:before{content:"";width:32px;height:2px;background:var(--y)}
-.hero h1{margin:0;font-size:clamp(78px,11vw,168px);line-height:.78;letter-spacing:-.078em;text-transform:uppercase;font-weight:900;max-width:1120px}
-.hero h1 .line2{display:block;margin-left:15vw}
+.hero h1{margin:0;font-size:clamp(78px,10.2vw,154px);line-height:.79;letter-spacing:-.075em;text-transform:uppercase;font-weight:900;max-width:1040px}
+.hero h1 .line2{display:block;margin-left:10vw}
 .hero h1 .accent{display:inline-block;position:relative}
 .hero h1 .accent:after{content:"";position:absolute;left:-.01em;right:-.03em;bottom:.01em;height:.11em;background:var(--y);z-index:-1}
-.hero-bottom{display:grid;grid-template-columns:1.1fr .9fr;gap:60px;align-items:end;margin-top:34px;padding-top:25px;border-top:1px solid #d9d5cb}
-.hero-copy{font-size:20px;line-height:1.55;max-width:650px;color:#4c4a46}
+.hero-bottom{display:grid;grid-template-columns:1.2fr .8fr;gap:48px;align-items:end;margin-top:28px;padding-top:22px;border-top:1px solid #d9d5cb}
+.hero-copy{font-size:18px;line-height:1.55;max-width:610px;color:#4c4a46}
 .hero-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
 .btn{display:inline-flex;align-items:center;justify-content:center;padding:14px 20px;border-radius:999px;font-size:13px;font-weight:900;border:1px solid transparent;transition:.25s var(--ease)}
 .btn:hover{transform:translateY(-2px)}
@@ -54,12 +54,6 @@ button,input,textarea{font:inherit}
 .hero-shot:hover img{transform:scale(1.05)}
 .hero-shot:after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),transparent 55%)}
 .hero-shot span{position:absolute;left:18px;bottom:16px;z-index:2;color:#fff;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}
-
-.marquee{overflow:hidden;background:#111;color:#fff;padding:15px 0;border-block:1px solid #222}
-.marquee-track{display:flex;width:max-content;animation:marquee 24s linear infinite}
-.marquee-track span{font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;padding-right:54px}
-.marquee-track b{color:var(--y)}
-@keyframes marquee{to{transform:translateX(-50%)}}
 
 .section{padding:120px 0}.alt{background:var(--paper)}.dark{background:#111;color:#fff}
 .section-intro{display:grid;grid-template-columns:.72fr 1.28fr;gap:70px;align-items:end;margin-bottom:62px}
@@ -156,7 +150,7 @@ footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
   .footer{flex-direction:column;align-items:flex-start}
 }
 @media(prefers-reduced-motion:reduce){
-  *{scroll-behavior:auto!important}.reveal,.reveal-left,.reveal-right{opacity:1;transform:none;transition:none!important}.marquee-track{animation:none}
+  *{scroll-behavior:auto!important}.reveal,.reveal-left,.reveal-right{opacity:1;transform:none;transition:none!important}
 }
 </style>
 </head>
@@ -193,13 +187,6 @@ footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
     </div>
   </div>
 </section>
-
-<div class="marquee" aria-hidden="true">
-  <div class="marquee-track">
-    <span>DESIGN GRÁFICO <b>✦</b> REDES SOCIAIS <b>✦</b> IDENTIDADE <b>✦</b> CAMPANHAS <b>✦</b> CONTEÚDO <b>✦</b> WE DUIT <b>✦</b></span>
-    <span>DESIGN GRÁFICO <b>✦</b> REDES SOCIAIS <b>✦</b> IDENTIDADE <b>✦</b> CAMPANHAS <b>✦</b> CONTEÚDO <b>✦</b> WE DUIT <b>✦</b></span>
-  </div>
-</div>
 
 <section class="section" id="trabalhos">
   <div class="wrap">
