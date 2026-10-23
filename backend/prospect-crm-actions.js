@@ -8,7 +8,7 @@ const { resolveProspectEmail, resolveProspectApproach } = require('./prospect-em
 module.exports = function installProspectCrmActions(app) {
   const cols = db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c => c.name);
   const add = (name, sql) => { if (!cols.includes(name)) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ${name} ${sql}`); };
-  add('email_tracking_token', 'TEXT'); add('resend_email_id','TEXT'); add('resend_status','TEXT'); add('resend_status_at','TEXT'); add('resend_error','TEXT'); add('email_sent_at', 'TEXT'); add('email_first_sent_at', 'TEXT'); add('email_send_count', 'INTEGER DEFAULT 0'); add('email_first_opened_at', 'TEXT');
+  add('email_tracking_token', 'TEXT'); add('resend_email_id','TEXT'); add('resend_status','TEXT'); add('resend_status_at','TEXT'); add('resend_error','TEXT'); add('resend_detail_type','TEXT'); add('resend_detail_subtype','TEXT'); add('resend_detail_message','TEXT'); add('email_sent_at', 'TEXT'); add('email_first_sent_at', 'TEXT'); add('email_send_count', 'INTEGER DEFAULT 0'); add('email_first_opened_at', 'TEXT');
   // Prospects anteriores a esta coluna: a data que já existia era o primeiro envio.
   db.prepare(`UPDATE prospect_crm SET email_first_sent_at=email_sent_at WHERE email_first_sent_at IS NULL AND email_sent_at IS NOT NULL`).run();
   db.prepare(`UPDATE prospect_crm SET email_send_count=1 WHERE email_sent_at IS NOT NULL AND COALESCE(email_send_count,0)=0`).run(); add('email_last_opened_at', 'TEXT'); add('email_open_count', 'INTEGER DEFAULT 0'); add('proposal_first_viewed_at', 'TEXT'); add('proposal_last_viewed_at', 'TEXT'); add('proposal_view_count', 'INTEGER DEFAULT 0'); add('guide_first_opened_at', 'TEXT'); add('guide_last_opened_at', 'TEXT'); add('guide_open_count', 'INTEGER DEFAULT 0'); add('outreach_response', 'TEXT'); add('outreach_response_reason', 'TEXT'); add('outreach_responded_at', 'TEXT'); add('ebook_page_id', 'INTEGER'); add('outreach_question', 'TEXT'); add('outreach_question_at', 'TEXT'); add('landing_page_id', 'INTEGER'); add('email_template_id', 'INTEGER');
@@ -130,7 +130,7 @@ module.exports = function installProspectCrmActions(app) {
 
   app.get('/proposta', (req,res)=>res.sendFile(require('path').join(__dirname,'..','public','prospect-response.html')));
   app.get('/api/crm/prospects/email-status',requireAdmin,async(req,res)=>{
-    const rows=db.prepare(`SELECT c.user_id,u.email,email_template_id,resend_email_id,resend_status,resend_status_at,resend_error,email_sent_at,email_first_sent_at,COALESCE(email_send_count,0) email_send_count,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,proposal_first_viewed_at,proposal_last_viewed_at,COALESCE(proposal_view_count,0) proposal_view_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at,outreach_question,outreach_question_at FROM prospect_crm c JOIN users u ON u.id=c.user_id`).all();
+    const rows=db.prepare(`SELECT c.user_id,u.email,email_template_id,resend_email_id,resend_status,resend_status_at,resend_error,resend_detail_type,resend_detail_subtype,resend_detail_message,email_sent_at,email_first_sent_at,COALESCE(email_send_count,0) email_send_count,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,proposal_first_viewed_at,proposal_last_viewed_at,COALESCE(proposal_view_count,0) proposal_view_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at,outreach_question,outreach_question_at FROM prospect_crm c JOIN users u ON u.id=c.user_id`).all();
     try{
       const recent=await listResendEmails(500);
       const byId=new Map(recent.map(x=>[String(x.id),x]));
@@ -175,6 +175,35 @@ module.exports = function installProspectCrmActions(app) {
       return {...r,email_first_sent_at:h.first_sent_at||r.email_first_sent_at||r.email_sent_at,email_sent_at:h.last_sent_at||r.email_sent_at,email_send_count:count};
     }));
   });
+  app.post('/api/public/resend-webhook',(req,res)=>{
+    try{
+      const evt=req.body||{},type=String(evt.type||''),data=evt.data||{};
+      const emailId=String(data.email_id||data.id||'');
+      if(!emailId)return res.status(200).json({ok:true,ignored:true});
+      const status=type.startsWith('email.')?type.slice(6):type;
+      const bounce=data.bounce||{};
+      db.prepare(`UPDATE prospect_crm
+        SET resend_status=?,
+            resend_status_at=datetime('now'),
+            resend_detail_type=?,
+            resend_detail_subtype=?,
+            resend_detail_message=?,
+            resend_error=NULL
+        WHERE resend_email_id=?`)
+        .run(
+          status||null,
+          bounce.type?String(bounce.type):null,
+          bounce.subType?String(bounce.subType):null,
+          bounce.message?String(bounce.message):null,
+          emailId
+        );
+      res.json({ok:true});
+    }catch(e){
+      console.warn('[crm] resend webhook:',e.message);
+      res.status(200).json({ok:false});
+    }
+  });
+
   app.get('/api/crm/prospects/send-limit',requireAdmin,(req,res)=>res.json(sendingState()));
   app.get('/api/crm/prospects/email-open/:token.png',(req,res)=>{try{const token=String(req.params.token||'');if(token)db.prepare(`UPDATE prospect_crm SET email_first_opened_at=COALESCE(email_first_opened_at,datetime('now')),email_last_opened_at=datetime('now'),email_open_count=COALESCE(email_open_count,0)+1 WHERE email_tracking_token=?`).run(token);}catch(e){console.warn('[crm] tracking email:',e.message);}res.set('Content-Type','image/png');res.set('Cache-Control','no-store, no-cache, must-revalidate, private');res.send(pixel);});
   app.post('/api/public/prospect-outreach/:token/view',(req,res)=>{const token=String(req.params.token||'');const p=db.prepare(`SELECT user_id FROM prospect_crm WHERE email_tracking_token=?`).get(token);if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});db.prepare(`UPDATE prospect_crm SET proposal_first_viewed_at=COALESCE(proposal_first_viewed_at,datetime('now')),proposal_last_viewed_at=datetime('now'),proposal_view_count=COALESCE(proposal_view_count,0)+1,updated_at=datetime('now') WHERE email_tracking_token=?`).run(token);res.json({ok:true});});
