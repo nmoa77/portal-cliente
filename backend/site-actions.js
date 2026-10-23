@@ -16,6 +16,28 @@ module.exports=function(app){
     return Number(x.lastInsertRowid);
   }
 
+  app.post('/api/public/site-event',(req,res)=>{
+    try{
+      const landingPageId=ensureWebsitePage();
+      const b=req.body||{};
+      const event=clean(b.event||'view',30);
+      const sessionId=clean(b.session_id,80);
+      const referrer=clean(b.referrer,500);
+      const utmSource=clean(b.utm_source,100);
+      const utmMedium=clean(b.utm_medium,100);
+      const utmCampaign=clean(b.utm_campaign,150);
+      db.prepare(`INSERT INTO landing_page_events(
+        landing_page_id,event,session_id,referrer,utm_source,utm_medium,utm_campaign
+      ) VALUES(?,?,?,?,?,?,?)`).run(
+        landingPageId,event,sessionId,referrer,utmSource,utmMedium,utmCampaign
+      );
+      res.json({ok:true});
+    }catch(e){
+      console.error('[site] event:',e);
+      res.status(500).json({erro:'Não foi possível registar o evento.'});
+    }
+  });
+
   app.post('/api/public/site-lead',(req,res)=>{
     const b=req.body||{};
     const name=clean(b.nome||b.name,150);
