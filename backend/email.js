@@ -126,18 +126,28 @@ async function sendViaResend({ to, subject, text, html }) {
   }
 }
 
-async function listResendEmails(limit=100) {
+async function listResendEmails(limit=500) {
   if (!RESEND_API_KEY) return [];
+  const wanted=Math.max(1,Math.min(500,Number(limit)||500)),all=[];
+  let after='';
   try {
-    const r=await fetch('https://api.resend.com/emails?limit='+Math.max(1,Math.min(100,Number(limit)||100)),{
-      headers:{'Authorization':`Bearer ${RESEND_API_KEY}`}
-    });
-    if(!r.ok)return [];
-    const data=await r.json().catch(()=>null);
-    return Array.isArray(data?.data)?data.data:[];
+    while(all.length<wanted){
+      const pageSize=Math.min(100,wanted-all.length);
+      const url='https://api.resend.com/emails?limit='+pageSize+(after?'&after='+encodeURIComponent(after):'');
+      const r=await fetch(url,{headers:{'Authorization':'Bearer '+RESEND_API_KEY}});
+      if(!r.ok)break;
+      const data=await r.json().catch(()=>null);
+      const rows=Array.isArray(data?.data)?data.data:[];
+      if(!rows.length)break;
+      all.push(...rows);
+      if(!data?.has_more)break;
+      after=String(rows[rows.length-1]?.id||'');
+      if(!after)break;
+    }
+    return all;
   } catch(e) {
     console.warn('[email] Resend list erro:',e.message);
-    return [];
+    return all;
   }
 }
 
