@@ -131,8 +131,8 @@ button,input,textarea{font:inherit}
 footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
 .footer{display:flex;align-items:center;justify-content:space-between;gap:25px;font-size:11px}.footer img{width:96px;filter:brightness(0) invert(1)}
 .footer-legal{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.footer-legal a{color:#aaa}.footer-legal a:hover{color:#fff}
-.cookiebar{position:fixed;z-index:10000;left:18px;right:18px;bottom:18px;max-width:760px;margin:auto;background:#111;color:#ddd;border:1px solid #333;border-radius:14px;padding:17px 18px;box-shadow:0 12px 40px #0003;display:none;align-items:center;gap:16px}
-.cookiebar.show{display:flex}.cookiebar p{font-size:12px;line-height:1.5;margin:0;flex:1}.cookiebar a{color:var(--y)}.cookie-actions{display:flex;gap:8px}.cookie-actions button{white-space:nowrap;border:1px solid #555;background:transparent;color:#fff;border-radius:9px;padding:9px 12px;font-weight:700;cursor:pointer}.cookie-actions .accept{background:var(--y);color:#111;border-color:var(--y)}
+.cookiebar{position:fixed;z-index:10000;left:18px;right:18px;bottom:18px;max-width:760px;margin:auto;background:#111;color:#ddd;border:1px solid #333;border-radius:14px;padding:17px 18px;box-shadow:0 12px 40px #0003;display:flex;align-items:center;gap:16px}
+.cookiebar.is-hidden{display:none}.cookiebar p{font-size:12px;line-height:1.5;margin:0;flex:1}.cookiebar a{color:var(--y)}.cookie-actions{display:flex;gap:8px}.cookie-actions button{white-space:nowrap;border:1px solid #555;background:transparent;color:#fff;border-radius:9px;padding:9px 12px;font-weight:700;cursor:pointer}.cookie-actions .accept{background:var(--y);color:#111;border-color:var(--y)}
 
 .reveal{opacity:0;transform:translateY(30px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
 .reveal.show{opacity:1;transform:none}
@@ -423,7 +423,7 @@ footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
       <span>·</span>
       <a href="/politica-cookies.html">Cookies</a>
       <span>·</span>
-      <a href="#" onclick="openCookieSettings();return false">Gerir cookies</a>
+      <a href="#" id="manageCookies">Gerir cookies</a>
       <span>·</span>
       <a href="https://www.livroreclamacoes.pt/Pedido/Reclamacao" target="_blank" rel="noopener">Livro de Reclamações</a>
     </div>
@@ -431,25 +431,36 @@ footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
   </div>
 </footer>
 
-<div class="cookiebar" id="cookiebar">
+<div class="cookiebar" id="cookiebar" role="dialog" aria-live="polite" aria-label="Preferências de cookies">
   <p>Utilizamos cookies essenciais para o funcionamento do site. Cookies de medição e publicidade só são utilizados com o seu consentimento. <a href="/politica-cookies.html">Saber mais</a>.</p>
   <div class="cookie-actions">
-    <button type="button" onclick="cookieChoice('essential')">Só essenciais</button>
-    <button type="button" class="accept" onclick="cookieChoice('all')">Aceitar cookies</button>
+    <button type="button" id="cookiesEssential">Só essenciais</button>
+    <button type="button" class="accept" id="cookiesAccept">Aceitar cookies</button>
   </div>
 </div>
 
 <script>
-function cookieChoice(choice){
-  localStorage.setItem('duitCookieConsent',choice);
-  document.getElementById('cookiebar')?.classList.remove('show');
-}
-function openCookieSettings(){
-  document.getElementById('cookiebar')?.classList.add('show');
-}
-if(!localStorage.getItem('duitCookieConsent')){
-  document.getElementById('cookiebar')?.classList.add('show');
-}
+const cookiebar=document.getElementById('cookiebar');
+const cookieGet=()=>{try{return localStorage.getItem('duitCookieConsent')||''}catch(_){return ''}};
+const cookieSet=value=>{try{localStorage.setItem('duitCookieConsent',value)}catch(_){}};
+const hideCookiebar=()=>cookiebar?.classList.add('is-hidden');
+const showCookiebar=()=>cookiebar?.classList.remove('is-hidden');
+
+if(cookieGet()==='all'||cookieGet()==='essential') hideCookiebar();
+else showCookiebar();
+
+document.getElementById('cookiesEssential')?.addEventListener('click',()=>{
+  cookieSet('essential');
+  hideCookiebar();
+});
+document.getElementById('cookiesAccept')?.addEventListener('click',()=>{
+  cookieSet('all');
+  hideCookiebar();
+});
+document.getElementById('manageCookies')?.addEventListener('click',e=>{
+  e.preventDefault();
+  showCookiebar();
+});
 
 const duitSiteSession=(()=>{let id=sessionStorage.getItem('duitSiteSession');if(!id){id=(crypto?.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36));sessionStorage.setItem('duitSiteSession',id)}return id})();
 const duitSiteUtm=(()=>{const q=new URLSearchParams(location.search);return{utm_source:q.get('utm_source')||'',utm_medium:q.get('utm_medium')||'',utm_campaign:q.get('utm_campaign')||''}})();
