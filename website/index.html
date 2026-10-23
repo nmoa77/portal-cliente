@@ -446,6 +446,14 @@ if(!localStorage.getItem('duitCookieConsent')){
   document.getElementById('cookiebar')?.classList.add('show');
 }
 
+const duitSiteSession=(()=>{let id=sessionStorage.getItem('duitSiteSession');if(!id){id=(crypto?.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36));sessionStorage.setItem('duitSiteSession',id)}return id})();
+const duitSiteUtm=(()=>{const q=new URLSearchParams(location.search);return{utm_source:q.get('utm_source')||'',utm_medium:q.get('utm_medium')||'',utm_campaign:q.get('utm_campaign')||''}})();
+function duitSiteEvent(event){
+  fetch('/api/public/site-event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,session_id:duitSiteSession,referrer:document.referrer||'',...duitSiteUtm})}).catch(()=>{});
+}
+duitSiteEvent('view');
+document.querySelectorAll('a[href="#contacto"],a[href="#trabalhos"],a[href="https://cliente.duit.pt"]').forEach(a=>a.addEventListener('click',()=>duitSiteEvent('cta')));
+
 const nav=document.getElementById('navShell');
 const scrollTopBtn=document.getElementById('scrollTopBtn');
 const setNav=()=>{
