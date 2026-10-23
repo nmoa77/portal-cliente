@@ -2,7 +2,7 @@
 // Em produção, se existir RESEND_API_KEY, envia via Resend (HTML + texto).
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-const EMAIL_FROM = process.env.EMAIL_FROM || 'DUIT <no-reply@duit.pt>';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'DUIT <info@duit.pt>';
 const PORTAL_URL = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
 const LOGO_URL = `${PORTAL_URL}/logo-branco.png`;
 const SIGNATURE_URL = `${PORTAL_URL}/assinatura-email.png`;
