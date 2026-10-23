@@ -19,6 +19,27 @@ app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
+
+// Site público DUIT — servido pelo mesmo serviço Railway, apenas nos hosts duit.pt / www.duit.pt.
+const websiteRoot = path.join(__dirname, '..', 'website');
+const websiteStatic = express.static(websiteRoot, {
+  maxAge: '1h',
+  setHeaders: (res) => res.setHeader('X-DUIT-Site', 'public'),
+});
+app.use((req,res,next)=>{
+  const host=String(req.hostname||req.headers.host||'').toLowerCase().split(':')[0];
+  if(host==='www.duit.pt'){
+    return res.redirect(301,'https://duit.pt'+req.originalUrl);
+  }
+  if(host!=='duit.pt') return next();
+  if(req.path.startsWith('/api/')) return next();
+  return websiteStatic(req,res,()=>{
+    if(req.method==='GET' && !path.extname(req.path)){
+      return res.sendFile(path.join(websiteRoot,'index.html'));
+    }
+    next();
+  });
+});
 // PWA — garantir os MIME types correctos para manifest e service worker.
 // Express por defeito serve .webmanifest como text/plain em algumas versões.
 app.use(express.static(path.join(__dirname, '..', 'public'), {
