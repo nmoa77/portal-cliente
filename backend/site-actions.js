@@ -1,7 +1,7 @@
 const db=require('./db');
 const crypto=require('crypto');
 const bcrypt=require('bcryptjs');
-const {deliver}=require('./email');
+const {deliver,T}=require('./email');
 
 module.exports=function(app){
   function clean(v,max=2000){return String(v??'').trim().slice(0,max)}
@@ -67,11 +67,8 @@ module.exports=function(app){
       }catch(e){console.warn('[site] email admin:',e.message)}
 
       try{
-        const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-        const subject='Recebemos o seu contacto — DUIT';
-        const body=['Olá '+name+',','','Recebemos o seu contacto através do site da DUIT.','Entraremos em contacto consigo brevemente.','','Até breve,','Nuno · DUIT'].join('\n');
-        const html='<div style="font-family:Arial,sans-serif;color:#111;line-height:1.6;max-width:620px;margin:auto"><div style="padding:24px 0"><img src="https://cliente.duit.pt/logo-email.png" alt="DUIT" width="130" style="display:block;width:130px;height:auto"></div><div style="background:#fff;border:1px solid #eee;border-radius:16px;padding:28px"><h2 style="margin:0 0 14px;font-size:26px">Recebemos o seu contacto.</h2><p>Olá '+esc(name)+',</p><p>Obrigado pelo contacto através do site da DUIT. Entraremos em contacto consigo brevemente.</p><p style="margin-top:22px">Até breve,<br><strong>Nuno · DUIT</strong></p></div></div>';
-        deliver(db,{to:email,subject,body,html,user_id:uid,kind:'duit_site_lead_confirmation',force:true});
+        const tpl=T.siteLeadConfirmation(name,area);
+        deliver(db,{to:email,subject:tpl.subject,body:tpl.body,html:tpl.html,user_id:uid,kind:'duit_site_lead_confirmation',force:true});
       }catch(e){console.warn('[site] confirmação cliente:',e.message)}
 
       res.json({ok:true});
