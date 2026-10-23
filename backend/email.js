@@ -99,31 +99,49 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
 }
 
 /* ---------- Entrega ---------- */
-function sendViaResend({ to, subject, text, html }) {
-  if (!RESEND_API_KEY) return;
+async function sendViaResend({ to, subject, text, html }) {
+  if (!RESEND_API_KEY) return { sent:false, status:'not_configured', id:null, error:'RESEND_API_KEY em falta' };
   const payload = { from: EMAIL_FROM, to: [to], subject };
   if (text) payload.text = text;
   if (html) payload.html = html;
   try {
-    fetch('https://api.resend.com/emails', {
+    const r=await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RESEND_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
-    }).then(async (r) => {
-      if (!r.ok) {
-        const t = await r.text().catch(() => '');
-        console.warn(`[email] Resend falhou (${r.status}): ${t}`);
-      }
-    }).catch((e) => console.warn('[email] Resend erro:', e.message));
+    });
+    const raw=await r.text().catch(()=>'');
+    let data={}; try{data=raw?JSON.parse(raw):{}}catch(_){}
+    if (!r.ok) {
+      console.warn(`[email] Resend falhou (${r.status}): ${raw}`);
+      return { sent:false, status:'failed', id:null, error:data?.message||raw||`HTTP ${r.status}` };
+    }
+    return { sent:true, status:'sent', id:data?.id||null, error:null };
   } catch (e) {
     console.warn('[email] Resend erro:', e.message);
+    return { sent:false, status:'failed', id:null, error:e.message };
   }
 }
 
-function deliver(db, { to, subject, body, html, user_id = null, kind = 'generic', force = false }) {
+async function listResendEmails(limit=100) {
+  if (!RESEND_API_KEY) return [];
+  try {
+    const r=await fetch('https://api.resend.com/emails?limit='+Math.max(1,Math.min(100,Number(limit)||100)),{
+      headers:{'Authorization':`Bearer ${RESEND_API_KEY}`}
+    });
+    if(!r.ok)return [];
+    const data=await r.json().catch(()=>null);
+    return Array.isArray(data?.data)?data.data:[];
+  } catch(e) {
+    console.warn('[email] Resend list erro:',e.message);
+    return [];
+  }
+}
+
+async function deliver(db, { to, subject, body, html, user_id = null, kind = 'generic', force = false }) {
   const line = `[EMAIL → ${to}] ${subject}`;
   console.log('\n' + '━'.repeat(Math.min(line.length, 80)));
   console.log(line);
@@ -148,10 +166,10 @@ function deliver(db, { to, subject, body, html, user_id = null, kind = 'generic'
 
   if (suppressed) {
     console.log(`[email] suprimido (utilizador desativou notificações): ${to}`);
-    return;
+    return {sent:false,status:'suppressed',id:null,error:null};
   }
 
-  sendViaResend({ to, subject, text: body || '', html: html || '' });
+  return await sendViaResend({ to, subject, text: body || '', html: html || '' });
 }
 
 /* ---------- Templates (tratamento formal — você) ---------- */
@@ -827,4 +845,4 @@ Cumprimentos,`;
   }
 };
 
-module.exports = { deliver, T };
+module.exports = { deliver, T, listResendEmails };
