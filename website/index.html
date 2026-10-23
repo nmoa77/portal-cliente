@@ -441,12 +441,38 @@ footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
 
 <script>
 const cookiebar=document.getElementById('cookiebar');
-const cookieGet=()=>{try{return localStorage.getItem('duitCookieConsent')||''}catch(_){return ''}};
-const cookieSet=value=>{try{localStorage.setItem('duitCookieConsent',value)}catch(_){}};
+let duitCookieSessionConsent='';
+
+const cookieGet=()=>{
+  try{
+    const local=localStorage.getItem('duitCookieConsent');
+    if(local)return local;
+  }catch(_){}
+  try{
+    const match=document.cookie.match(/(?:^|; )duit_cookie_consent=([^;]+)/);
+    if(match)return decodeURIComponent(match[1]);
+  }catch(_){}
+  return duitCookieSessionConsent;
+};
+
+const cookieSet=value=>{
+  let stored=false;
+  try{
+    localStorage.setItem('duitCookieConsent',value);
+    stored=true;
+  }catch(_){}
+  try{
+    document.cookie='duit_cookie_consent='+encodeURIComponent(value)+'; Max-Age=31536000; Path=/; SameSite=Lax; Secure';
+    stored=true;
+  }catch(_){}
+  if(!stored)duitCookieSessionConsent=value;
+};
+
 const hideCookiebar=()=>cookiebar?.classList.add('is-hidden');
 const showCookiebar=()=>cookiebar?.classList.remove('is-hidden');
 
-if(cookieGet()==='all'||cookieGet()==='essential') hideCookiebar();
+const consent=cookieGet();
+if(consent==='all'||consent==='essential') hideCookiebar();
 else showCookiebar();
 
 document.getElementById('cookiesEssential')?.addEventListener('click',()=>{
