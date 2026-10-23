@@ -130,16 +130,36 @@ module.exports = function installProspectCrmActions(app) {
 
   app.get('/proposta', (req,res)=>res.sendFile(require('path').join(__dirname,'..','public','prospect-response.html')));
   app.get('/api/crm/prospects/email-status',requireAdmin,async(req,res)=>{
-    const rows=db.prepare(`SELECT user_id,email_template_id,resend_email_id,resend_status,resend_status_at,resend_error,email_sent_at,email_first_sent_at,COALESCE(email_send_count,0) email_send_count,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,proposal_first_viewed_at,proposal_last_viewed_at,COALESCE(proposal_view_count,0) proposal_view_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at,outreach_question,outreach_question_at FROM prospect_crm`).all();
+    const rows=db.prepare(`SELECT c.user_id,u.email,email_template_id,resend_email_id,resend_status,resend_status_at,resend_error,email_sent_at,email_first_sent_at,COALESCE(email_send_count,0) email_send_count,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,proposal_first_viewed_at,proposal_last_viewed_at,COALESCE(proposal_view_count,0) proposal_view_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at,outreach_question,outreach_question_at FROM prospect_crm c JOIN users u ON u.id=c.user_id`).all();
     try{
-      const recent=await listResendEmails(100);
+      const recent=await listResendEmails(500);
       const byId=new Map(recent.map(x=>[String(x.id),x]));
+      const byEmail=new Map();
+      for(const msg of recent){
+        for(const addr of (Array.isArray(msg.to)?msg.to:[])){
+          const key=String(addr||'').trim().toLowerCase();
+          if(!key)continue;
+          if(!byEmail.has(key))byEmail.set(key,[]);
+          byEmail.get(key).push(msg);
+        }
+      }
+      const ts=v=>{const n=Date.parse(String(v||'').replace(' ','T'));return Number.isFinite(n)?n:0};
       for(const row of rows){
-        const remote=row.resend_email_id?byId.get(String(row.resend_email_id)):null;
-        if(remote?.last_event&&remote.last_event!==row.resend_status){
-          row.resend_status=String(remote.last_event);
+        let remote=row.resend_email_id?byId.get(String(row.resend_email_id)):null;
+        if(!remote&&row.email&&row.email_sent_at){
+          const sentAt=ts(row.email_sent_at);
+          const matches=byEmail.get(String(row.email).toLowerCase())||[];
+          remote=matches.map(m=>({m,d:Math.abs(ts(m.created_at)-sentAt)})).filter(x=>x.d<=15*60*1000).sort((a,b)=>a.d-b.d)[0]?.m||null;
+          if(remote?.id){
+            row.resend_email_id=String(remote.id);
+            db.prepare(`UPDATE prospect_crm SET resend_email_id=? WHERE user_id=?`).run(row.resend_email_id,row.user_id);
+          }
+        }
+        if(remote?.last_event){
+          const next=String(remote.last_event);
+          row.resend_status=next;
           row.resend_status_at=String(remote.created_at||new Date().toISOString());
-          db.prepare(`UPDATE prospect_crm SET resend_status=?,resend_status_at=datetime('now'),resend_error=NULL WHERE user_id=?`).run(row.resend_status,row.user_id);
+          db.prepare(`UPDATE prospect_crm SET resend_status=?,resend_status_at=datetime('now'),resend_error=NULL WHERE user_id=?`).run(next,row.user_id);
         }
       }
     }catch(e){console.warn('[crm] resend status:',e.message);}
