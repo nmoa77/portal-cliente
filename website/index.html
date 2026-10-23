@@ -123,8 +123,8 @@ button,input,textarea{font:inherit}
 .contact-copy p{color:#999;line-height:1.7;max-width:520px}
 .contact-form{background:#fff;color:#111;border-radius:24px;padding:30px}
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
-.form-grid input,.form-grid textarea{width:100%;padding:14px;border:1px solid #e3e0d8;background:#faf9f6;border-radius:10px;outline:0}
-.form-grid input:focus,.form-grid textarea:focus{border-color:var(--y);box-shadow:0 0 0 3px rgba(255,210,0,.18)}
+.form-grid input,.form-grid select,.form-grid textarea{width:100%;padding:14px;border:1px solid #e3e0d8;background:#faf9f6;border-radius:10px;outline:0;color:#111}
+.form-grid input:focus,.form-grid select:focus,.form-grid textarea:focus{border-color:var(--y);box-shadow:0 0 0 3px rgba(255,210,0,.18)}
 .form-grid textarea{min-height:120px;resize:vertical}.full{grid-column:1/-1}.submit{width:100%;border:0;padding:15px;border-radius:10px;background:var(--y);font-weight:900;cursor:pointer}.form-note{font-size:10px;color:#777;margin-top:10px}
 .success{display:none;text-align:center;padding:36px 10px}.success .check{width:58px;height:58px;border-radius:50%;background:var(--y);display:grid;place-items:center;margin:0 auto 15px;font-size:24px;font-weight:900}
 
@@ -384,6 +384,12 @@ footer{padding:34px 0;background:#111;color:#777;border-top:1px solid #222}
           <input name="empresa" placeholder="Empresa">
           <input type="email" name="email" placeholder="Email *" required>
           <input name="telefone" placeholder="Telefone *" required>
+          <select class="full" name="area" required>
+            <option value="" selected disabled>Área de interesse *</option>
+            <option value="Design Gráfico">Design Gráfico</option>
+            <option value="Redes Sociais">Redes Sociais</option>
+            <option value="Design + Redes Sociais">Design + Redes Sociais</option>
+          </select>
           <textarea class="full" name="mensagem" placeholder="O que precisa?"></textarea>
           <button class="submit full" type="submit">Enviar pedido →</button>
         </div>
