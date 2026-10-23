@@ -22,8 +22,9 @@ module.exports=function(app){
     const company=clean(b.empresa||b.company,150);
     const email=clean(b.email,240).toLowerCase();
     const phone=clean(b.telefone||b.phone,80);
+    const area=clean(b.area,120);
     const message=clean(b.mensagem||b.message,4000);
-    if(!name||!email.includes('@')||!phone)return res.status(400).json({erro:'Indique nome, email e telefone.'});
+    if(!name||!email.includes('@')||!phone||!area)return res.status(400).json({erro:'Indique nome, email, telefone e área de interesse.'});
 
     try{
       const landingPageId=ensureWebsitePage();
@@ -42,7 +43,7 @@ module.exports=function(app){
           VALUES(?,?,?,?,?,?,1,1)`).run(name,email,hash,'client',company,phone).lastInsertRowid);
       }
 
-      const note='Lead recebido através de duit.pt'+(message?' · '+message:'');
+      const note='Lead recebido através de duit.pt · Área: '+area+(message?' · '+message:'');
       db.prepare(`INSERT INTO prospect_crm(user_id,lead_status,priority,notes,landing_page_id,updated_at)
         VALUES(?,'interessado','atacar',?,?,datetime('now'))
         ON CONFLICT(user_id) DO UPDATE SET
@@ -55,13 +56,13 @@ module.exports=function(app){
       db.prepare(`INSERT INTO landing_page_leads(
         landing_page_id,name,company,email,phone,user_id,source_type,message,plan
       ) VALUES(?,?,?,?,?,?,?,?,?)`).run(
-        landingPageId,name,company,email,phone,uid,'website',message,'Site DUIT'
+        landingPageId,name,company,email,phone,uid,'website',message,area
       );
 
       try{
         const adminUrl=(process.env.PORTAL_URL||'https://cliente.duit.pt').replace(/\/+$/,'')+'/admin.html';
         const subject='Novo lead do site DUIT — '+(company||name);
-        const body=['Novo contacto através de duit.pt.','','Nome: '+name,'Empresa: '+(company||'—'),'Email: '+email,'Telefone: '+phone,'Mensagem: '+(message||'—'),'','Abrir Leads: '+adminUrl].join('\n');
+        const body=['Novo contacto através de duit.pt.','','Nome: '+name,'Empresa: '+(company||'—'),'Email: '+email,'Telefone: '+phone,'Área: '+area,'Mensagem: '+(message||'—'),'','Abrir Leads: '+adminUrl].join('\n');
         deliver(db,{to:'info@duit.pt',subject,body,kind:'duit_site_new_lead',force:true});
       }catch(e){console.warn('[site] email admin:',e.message)}
 
