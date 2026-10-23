@@ -2,13 +2,13 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const db = require('./db');
 const { requireAdmin } = require('./auth');
-const { deliver, T } = require('./email');
+const { deliver, T, listResendEmails } = require('./email');
 const { resolveProspectEmail, resolveProspectApproach } = require('./prospect-email-resolver');
 
 module.exports = function installProspectCrmActions(app) {
   const cols = db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c => c.name);
   const add = (name, sql) => { if (!cols.includes(name)) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ${name} ${sql}`); };
-  add('email_tracking_token', 'TEXT'); add('email_sent_at', 'TEXT'); add('email_first_sent_at', 'TEXT'); add('email_send_count', 'INTEGER DEFAULT 0'); add('email_first_opened_at', 'TEXT');
+  add('email_tracking_token', 'TEXT'); add('resend_email_id','TEXT'); add('resend_status','TEXT'); add('resend_status_at','TEXT'); add('resend_error','TEXT'); add('email_sent_at', 'TEXT'); add('email_first_sent_at', 'TEXT'); add('email_send_count', 'INTEGER DEFAULT 0'); add('email_first_opened_at', 'TEXT');
   // Prospects anteriores a esta coluna: a data que já existia era o primeiro envio.
   db.prepare(`UPDATE prospect_crm SET email_first_sent_at=email_sent_at WHERE email_first_sent_at IS NULL AND email_sent_at IS NOT NULL`).run();
   db.prepare(`UPDATE prospect_crm SET email_send_count=1 WHERE email_sent_at IS NOT NULL AND COALESCE(email_send_count,0)=0`).run(); add('email_last_opened_at', 'TEXT'); add('email_open_count', 'INTEGER DEFAULT 0'); add('proposal_first_viewed_at', 'TEXT'); add('proposal_last_viewed_at', 'TEXT'); add('proposal_view_count', 'INTEGER DEFAULT 0'); add('guide_first_opened_at', 'TEXT'); add('guide_last_opened_at', 'TEXT'); add('guide_open_count', 'INTEGER DEFAULT 0'); add('outreach_response', 'TEXT'); add('outreach_response_reason', 'TEXT'); add('outreach_responded_at', 'TEXT'); add('ebook_page_id', 'INTEGER'); add('outreach_question', 'TEXT'); add('outreach_question_at', 'TEXT'); add('landing_page_id', 'INTEGER'); add('email_template_id', 'INTEGER');
@@ -129,8 +129,20 @@ module.exports = function installProspectCrmActions(app) {
   }
 
   app.get('/proposta', (req,res)=>res.sendFile(require('path').join(__dirname,'..','public','prospect-response.html')));
-  app.get('/api/crm/prospects/email-status',requireAdmin,(req,res)=>{
-    const rows=db.prepare(`SELECT user_id,email_template_id,email_sent_at,email_first_sent_at,COALESCE(email_send_count,0) email_send_count,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,proposal_first_viewed_at,proposal_last_viewed_at,COALESCE(proposal_view_count,0) proposal_view_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at,outreach_question,outreach_question_at FROM prospect_crm`).all();
+  app.get('/api/crm/prospects/email-status',requireAdmin,async(req,res)=>{
+    const rows=db.prepare(`SELECT user_id,email_template_id,resend_email_id,resend_status,resend_status_at,resend_error,email_sent_at,email_first_sent_at,COALESCE(email_send_count,0) email_send_count,email_first_opened_at,email_last_opened_at,COALESCE(email_open_count,0) email_open_count,proposal_first_viewed_at,proposal_last_viewed_at,COALESCE(proposal_view_count,0) proposal_view_count,guide_first_opened_at,guide_last_opened_at,COALESCE(guide_open_count,0) guide_open_count,outreach_response,outreach_response_reason,outreach_responded_at,outreach_question,outreach_question_at FROM prospect_crm`).all();
+    try{
+      const recent=await listResendEmails(100);
+      const byId=new Map(recent.map(x=>[String(x.id),x]));
+      for(const row of rows){
+        const remote=row.resend_email_id?byId.get(String(row.resend_email_id)):null;
+        if(remote?.last_event&&remote.last_event!==row.resend_status){
+          row.resend_status=String(remote.last_event);
+          row.resend_status_at=String(remote.created_at||new Date().toISOString());
+          db.prepare(`UPDATE prospect_crm SET resend_status=?,resend_status_at=datetime('now'),resend_error=NULL WHERE user_id=?`).run(row.resend_status,row.user_id);
+        }
+      }
+    }catch(e){console.warn('[crm] resend status:',e.message);}
     let history=new Map();
     try{
       const sent=db.prepare(`SELECT user_id,MIN(created_at) first_sent_at,MAX(created_at) last_sent_at,COUNT(*) send_count FROM notifications WHERE kind='prospect_outreach' AND user_id IS NOT NULL GROUP BY user_id`).all();
@@ -151,7 +163,7 @@ module.exports = function installProspectCrmActions(app) {
   app.post('/api/public/prospect-outreach/:token/respond',(req,res)=>{const token=String(req.params.token||''),status=String(req.body?.status||''),reason=String(req.body?.reason||'').trim();if(!['accepted','rejected'].includes(status))return res.status(400).json({error:'Resposta inválida.'});const p=db.prepare(`SELECT c.user_id,u.name,u.company,u.email FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(token);if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});db.prepare(`UPDATE prospect_crm SET outreach_response=?,outreach_response_reason=?,outreach_responded_at=datetime('now'),lead_status=?,updated_at=datetime('now') WHERE email_tracking_token=?`).run(status,reason,status==='accepted'?'interessado':'sem_interesse',token);if(status==='accepted'){try{const message=reason||'Sem mensagem.';deliver(db,{to:'info@duit.pt',subject:`Novo interesse — DUIT First · ${p.company||p.name||'Prospect'}`,body:`Nome: ${p.name||'—'}\nEmpresa: ${p.company||'—'}\nEmail: ${p.email||'—'}\n\nMensagem:\n${message}`,html:`<div style="font-family:Arial,sans-serif;color:#222;line-height:1.6"><h2 style="margin:0 0 18px">Novo interesse — DUIT First</h2><p><strong>Nome:</strong> ${esc(p.name||'—')}<br><strong>Empresa:</strong> ${esc(p.company||'—')}<br><strong>Email:</strong> ${esc(p.email||'—')}</p><div style="margin-top:18px"><strong>Mensagem:</strong><div style="margin-top:8px;padding:16px;border-left:4px solid #ffd60a;background:#f7f7f4;white-space:pre-wrap">${esc(message)}</div></div></div>`,user_id:p.user_id,kind:'duit_first_interest',force:true});}catch(e){console.warn('[crm] notify DUIT First interest:',e.message);}}res.json({ok:true,status});});
   app.post('/api/public/prospect-outreach/:token/question',(req,res)=>{const token=String(req.params.token||''),message=String(req.body?.message||'').trim();if(message.length<3)return res.status(400).json({error:'Escreva a sua dúvida antes de enviar.'});if(message.length>2000)return res.status(400).json({error:'A mensagem é demasiado longa.'});const p=db.prepare(`SELECT c.user_id,u.name,u.company,u.email FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(token);if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});db.prepare(`UPDATE prospect_crm SET outreach_question=?,outreach_question_at=datetime('now'),lead_status='respondeu',updated_at=datetime('now') WHERE email_tracking_token=?`).run(message,token);try{const admins=db.prepare(`SELECT id,name,email FROM users WHERE role='admin' AND email IS NOT NULL AND TRIM(email)!=''`).all();const who=p.company||p.name||'Prospect';for(const a of admins){deliver(db,{to:a.email,subject:`Dúvida sobre proposta — ${who}`,body:`${who}${p.email?` (${p.email})`:''} enviou uma dúvida através da proposta:\n\n${message}\n\nAbra o CRM de Prospects para acompanhar este contacto.`,html:`<div style="font-family:Arial,sans-serif;color:#222;line-height:1.6"><h2 style="margin:0 0 14px">Nova dúvida sobre uma proposta</h2><p><strong>${esc(who)}</strong>${p.email?` · ${esc(p.email)}`:''}</p><div style="padding:16px;border-left:4px solid #ffd60a;background:#f7f7f4;white-space:pre-wrap">${esc(message)}</div><p style="color:#666;font-size:13px">A dúvida ficou guardada no CRM de Prospects.</p></div>`,user_id:a.id,kind:'prospect_question',force:true});}}catch(e){console.warn('[crm] notify prospect question:',e.message);}res.json({ok:true});});
 
-  app.post('/api/crm/prospects/:id/send-email',requireAdmin,(req,res)=>{
+  app.post('/api/crm/prospects/:id/send-email',requireAdmin,async(req,res)=>{
     const limit=sendingState();
     if(!limit.allowed){
       const mins=Math.max(1,Math.ceil((new Date(limit.next_at).getTime()-Date.now())/60000));
@@ -229,8 +241,10 @@ module.exports = function installProspectCrmActions(app) {
     const htmlText=useCustomHtml?withLpUrl(resolved.email_html).replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/\s+/g,' ').trim():'';
     const text=useCustomHtml?(body.trim()||htmlText)+(lpUrl&&!/\{lp_url\}|\{landing_page_url\}/i.test(String(resolved.email_html||''))?'\n\n'+lpUrl:''):body+(lpUrl?'\n\n'+lpUrl:'');
     db.prepare(`UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,email_tracking_token=?,email_first_sent_at=COALESCE(email_first_sent_at,datetime('now')),email_sent_at=datetime('now'),email_send_count=COALESCE(email_send_count,0)+1,email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),updated_at=datetime('now') WHERE user_id=?`).run(lp?lp.id:null,approach?.template?.id||resolved.template?.id||null,token,id);
-    deliver(db,{to:p.email,subject,body:text,html,user_id:id,kind:'prospect_outreach',force:true});
-    res.json({ok:true,landing_page_id:lp?lp.id:null,email_template_id:approach?.template?.id||resolved.template?.id||null,email_source:resolved.source_type,email_source_name:resolved.source_name,send_limit:sendingState()});
+    const delivery=await deliver(db,{to:p.email,subject,body:text,html,user_id:id,kind:'prospect_outreach',force:true});
+    db.prepare(`UPDATE prospect_crm SET resend_email_id=?,resend_status=?,resend_status_at=datetime('now'),resend_error=? WHERE user_id=?`)
+      .run(delivery?.id||null,delivery?.status||'unknown',delivery?.error||null,id);
+    res.json({ok:true,landing_page_id:lp?lp.id:null,email_template_id:approach?.template?.id||resolved.template?.id||null,email_source:resolved.source_type,email_source_name:resolved.source_name,resend_status:delivery?.status||'unknown',send_limit:sendingState()});
   });
 
   app.post('/api/crm/prospects/:id/convert',requireAdmin,(req,res)=>{const id=Number(req.params.id),u=db.prepare(`SELECT * FROM users WHERE id=? AND role='client' AND is_prospect=1`).get(id);if(!u)return res.status(404).json({error:'Prospect não encontrado ou já convertido.'});const tempPassword=crypto.randomBytes(8).toString('base64url').slice(0,12),hash=bcrypt.hashSync(tempPassword,10);db.prepare(`UPDATE users SET password_hash=?,is_prospect=0,is_active=1 WHERE id=?`).run(hash,id);try{const tpl=T.welcome(u.name,u.email,tempPassword);deliver(db,{to:u.email,subject:tpl.subject,body:tpl.body,html:tpl.html,user_id:id,kind:'welcome_after_conversion',force:true});}catch(e){console.warn('[crm] welcome convert:',e.message);}res.json({ok:true});});
