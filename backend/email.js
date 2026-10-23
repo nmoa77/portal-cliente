@@ -655,6 +655,28 @@ Cumprimentos,`;
     ],ctaLabel:'Ver apresentação →',ctaUrl:url}); return {subject,body,html};
   },
 
+  siteLeadConfirmation: (name, area) => {
+    const first=(name||'').split(' ')[0]||'';
+    const subject='Recebemos o seu contacto — DUIT';
+    const body=`Olá ${first},
+
+Recebemos o seu contacto através do site da DUIT${area?' sobre '+area:''}.
+
+Vamos analisar o seu pedido e entraremos em contacto consigo brevemente.
+
+Cumprimentos,`;
+    const html=layout({
+      eyebrow:'Contacto DUIT',
+      title:'Recebemos o seu contacto.',
+      greeting:`Olá ${first},`,
+      paragraphs:[
+        `Recebemos o seu contacto através do site da DUIT${area?' sobre <strong>'+escapeHtml(area)+'</strong>':''}.`,
+        'Vamos analisar o seu pedido e entraremos em contacto consigo brevemente.'
+      ]
+    });
+    return {subject,body,html};
+  },
+
   duitStartLeadConfirmation: (name, url) => {
     const first=(name||'').split(' ')[0]||'';
     const subject='Recebemos o seu pedido — DUIT Start';
