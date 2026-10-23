@@ -74,7 +74,6 @@
       title='Falha no envio';
       detail='O Resend não conseguiu concluir o envio deste email.';
     }else if(rs==='delivered'){
-      title='Entregue';
       detail='O servidor de email do destinatário confirmou a entrega.';
     }
 
