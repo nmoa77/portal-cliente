@@ -15,7 +15,32 @@
     const observation=crmHumanize(p?.email_observation,'há elementos interessantes na comunicação atual');
     const opportunity=crmHumanize(document.getElementById('crm-opportunity')?.value||p?.opportunity,p?.email_observation||'há espaço para tornar a comunicação mais clara e consistente');
     const idea=crmHumanize(document.getElementById('crm-idea')?.value||p?.idea,'começar por transformar esse ponto numa comunicação mais clara, regular e fácil de reconhecer');
-    return String(text||'').replace(/\{empresa\}/gi,company).replace(/\{nome\}/gi,name).replace(/\{observacao\}/gi,observation).replace(/\{oportunidade\}/gi,opportunity).replace(/\{problema\}/gi,opportunity).replace(/\{ideia\}/gi,idea);
+    const sectorName=String(document.getElementById('crm-sector')?.value||p?.sector||'').trim();
+    const sector=(crmSectorContent||[]).find(x=>String(x.sector||'').trim().toLowerCase()===sectorName.toLowerCase())||{};
+    const abs=v=>{const s=String(v||'').trim();if(!s)return '';if(/^https?:\/\//i.test(s))return s;return location.origin+(s.startsWith('/')?'':'/')+s};
+    return String(text||'')
+      .replace(/\{empresa\}/gi,company)
+      .replace(/\{nome\}/gi,name)
+      .replace(/\{observacao\}/gi,observation)
+      .replace(/\{oportunidade\}/gi,opportunity)
+      .replace(/\{problema\}/gi,opportunity)
+      .replace(/\{ideia\}/gi,idea)
+      .replace(/\{setor\}/gi,sectorName)
+      .replace(/\{sector_headline\}/gi,String(sector.headline||''))
+      .replace(/\{sector_subheadline\}/gi,String(sector.subheadline||''))
+      .replace(/\{hero\}/gi,abs(sector.hero_image))
+      .replace(/\{imagem_1\}/gi,abs(sector.image_1))
+      .replace(/\{imagem_2\}/gi,abs(sector.image_2))
+      .replace(/\{imagem_3\}/gi,abs(sector.image_3))
+      .replace(/\{imagem_4\}/gi,abs(sector.image_4))
+      .replace(/\{vantagem_1\}/gi,String(sector.advantage_1_title||''))
+      .replace(/\{vantagem_1_texto\}/gi,String(sector.advantage_1_text||''))
+      .replace(/\{vantagem_2\}/gi,String(sector.advantage_2_title||''))
+      .replace(/\{vantagem_2_texto\}/gi,String(sector.advantage_2_text||''))
+      .replace(/\{vantagem_3\}/gi,String(sector.advantage_3_title||''))
+      .replace(/\{vantagem_3_texto\}/gi,String(sector.advantage_3_text||''))
+      .replace(/\{vantagem_4\}/gi,String(sector.advantage_4_title||''))
+      .replace(/\{vantagem_4_texto\}/gi,String(sector.advantage_4_text||''));
   }
   function crmSelectedApproach(p){
     const active=crmEmailTemplates.filter(t=>Number(t.is_active)===1),sel=document.getElementById('crm-email-template'),id=sel?Number(sel.value||0):Number(p?.email_template_id||0);
