@@ -1,5 +1,5 @@
 const db = require('./db');
-const { deliver } = require('./email');
+const { deliver, T } = require('./email');
 
 module.exports = function installCrmOptOut(app, requireAdmin) {
   // Reutiliza a blacklist persistente já usada pelo guard de prospects apagados.
@@ -73,25 +73,15 @@ module.exports = function installCrmOptOut(app, requireAdmin) {
         deleted_at=datetime('now')
     `).run(email, company, name, clean(prospect.phone, 80), clean(prospect.website, 500), reason);
 
-    const subject = 'Confirmação de remoção — DUIT';
-    const body = `Olá,
-
-Confirmamos a remoção do seu contacto da nossa lista de prospeção/comunicação.
-
-Não receberá novas comunicações comerciais da DUIT.
-
-Obrigado pela indicação.
-
-Cumprimentos,
-Nuno
-DUIT`;
+    const tpl = T.prospectOptOut(name || company || '');
 
     let confirmationQueued = false;
     try {
       deliver(db, {
         to: email,
-        subject,
-        body,
+        subject: tpl.subject,
+        body: tpl.body,
+        html: tpl.html,
         user_id: id,
         kind: 'prospect_opt_out_confirmation',
         force: true,
