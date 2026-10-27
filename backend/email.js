@@ -204,8 +204,20 @@ async function deliver(db, { to, subject, body, html, user_id = null, kind = 'ge
   if (body) console.log(body.split('\n').map(l => '  ' + l).join('\n'));
   console.log('━'.repeat(Math.min(line.length, 80)) + '\n');
 
-  // Respeita a preferência de notificações do destinatário (exceto emails críticos: force=true)
+  // Respeita unsubscribe e preferência de notificações.
+  // Emails críticos de conta/segurança continuam disponíveis mesmo após unsubscribe.
   let suppressed = false;
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS email_unsubscribes (
+      email TEXT PRIMARY KEY COLLATE NOCASE,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`);
+    const unsubscribed = db.prepare(
+      `SELECT 1 FROM email_unsubscribes WHERE lower(trim(email))=lower(trim(?)) LIMIT 1`
+    ).get(String(to || '').trim());
+    const criticalKinds = new Set(['password_reset','welcome','prospect_opt_out_confirmation']);
+    if (unsubscribed && !criticalKinds.has(String(kind || ''))) suppressed = true;
+  } catch (e) { /* não bloquear envio por erro de leitura da preferência */ }
   if (!force && user_id) {
     try {
       const u = db.prepare(`SELECT notifications_enabled FROM users WHERE id=?`).get(user_id);
