@@ -84,6 +84,19 @@ function ensureTable(){
     for(const x of starters)if(!exists.get(x.name))ins.run(x.name,x.description,x.subject,x.body,x.dm);
   }catch(_){}
 
+  /* DUIT_RENAME_VISUAL_EMAIL_CTA */
+  try{
+    const rows=db.prepare("SELECT id,html_body FROM prospect_email_templates WHERE html_body IS NOT NULL AND TRIM(html_body)!=''").all();
+    const upd=db.prepare("UPDATE prospect_email_templates SET html_body=?,updated_at=datetime('now') WHERE id=?");
+    for(const row of rows){
+      const html=String(row.html_body||'');
+      const next=html
+        .replace(/>\s*Ver proposta\s*→\s*</gi,'>Saber mais →<')
+        .replace(/>\s*Ver proposta\s*</gi,'>Saber mais<');
+      if(next!==html)upd.run(next,row.id);
+    }
+  }catch(_){}
+
   /* DUIT_TUNE_SECTOR_VISUAL_EMAIL — remove área, troca marcadores por ícones e CTA para LP */
   try{
     const rows=db.prepare("SELECT id,name,html_body FROM prospect_email_templates WHERE html_body IS NOT NULL AND TRIM(html_body)!=''").all();
