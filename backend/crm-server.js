@@ -108,6 +108,8 @@ CREATE TABLE IF NOT EXISTS prospect_sector_images (
 );
 CREATE INDEX IF NOT EXISTS idx_prospect_sector_images_sector ON prospect_sector_images(sector,id);
 `);
+const sectorContentCols=db.prepare(`PRAGMA table_info(prospect_sector_content)`).all().map(c=>c.name);
+if(!sectorContentCols.includes('landing_page_id')) db.exec(`ALTER TABLE prospect_sector_content ADD COLUMN landing_page_id INTEGER`);
 const crmCols=db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c=>c.name);
 if(!crmCols.includes('email_area')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_area TEXT`);if(!crmCols.includes('email_observation')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_observation TEXT`);if(!crmCols.includes('ebook_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ebook_page_id INTEGER`);if(!crmCols.includes('landing_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN landing_page_id INTEGER`);if(!crmCols.includes('email_template_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_template_id INTEGER`);
 try{
@@ -411,6 +413,8 @@ capturedApp.put('/api/crm/prospect-sectors/:sector', requireAdmin, (req, res) =>
   const sector=decodeURIComponent(String(req.params.sector||'')).trim().slice(0,120);
   if(!sector)return res.status(400).json({error:'Setor inválido.'});
   const x=req.body||{};
+  const areaLandingPageId=Number(x.landing_page_id||0)||null;
+  const validAreaLandingPageId=areaLandingPageId&&db.prepare('SELECT id FROM landing_pages WHERE id=? AND is_active=1').get(areaLandingPageId)?areaLandingPageId:null;
   const fields=[
     'headline','subheadline','hero_image','image_1','image_2','image_3','image_4',
     'advantage_1_title','advantage_1_text','advantage_2_title','advantage_2_text',
@@ -421,8 +425,8 @@ capturedApp.put('/api/crm/prospect-sectors/:sector', requireAdmin, (req, res) =>
     INSERT INTO prospect_sector_content (
       sector,headline,subheadline,hero_image,image_1,image_2,image_3,image_4,
       advantage_1_title,advantage_1_text,advantage_2_title,advantage_2_text,
-      advantage_3_title,advantage_3_text,advantage_4_title,advantage_4_text,updated_at
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+      advantage_3_title,advantage_3_text,advantage_4_title,advantage_4_text,landing_page_id,updated_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
     ON CONFLICT(sector) DO UPDATE SET
       headline=excluded.headline,subheadline=excluded.subheadline,hero_image=excluded.hero_image,
       image_1=excluded.image_1,image_2=excluded.image_2,image_3=excluded.image_3,image_4=excluded.image_4,
@@ -430,8 +434,9 @@ capturedApp.put('/api/crm/prospect-sectors/:sector', requireAdmin, (req, res) =>
       advantage_2_title=excluded.advantage_2_title,advantage_2_text=excluded.advantage_2_text,
       advantage_3_title=excluded.advantage_3_title,advantage_3_text=excluded.advantage_3_text,
       advantage_4_title=excluded.advantage_4_title,advantage_4_text=excluded.advantage_4_text,
+      landing_page_id=excluded.landing_page_id,
       updated_at=datetime('now')
-  `).run(sector,...values);
+  `).run(sector,...values,validAreaLandingPageId);
   res.json({ok:true,sector});
 });
 
