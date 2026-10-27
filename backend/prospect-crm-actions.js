@@ -240,7 +240,7 @@ module.exports = function installProspectCrmActions(app) {
     const token=crypto.randomBytes(24).toString('hex');
     const lp=resolved.landing_page;
     const lpUrl=lp?portal+'/'+encodeURIComponent(lp.public_key):null;
-    const useCustomHtml=Boolean(lp&&resolved.email_format==='html'&&String(resolved.email_html||'').trim());
+    const useCustomHtml=Boolean(resolved.email_format==='html'&&String(resolved.email_html||'').trim());
     const withLpUrl=value=>String(value||'').replace(/\{lp_url\}/gi,lpUrl||'').replace(/\{landing_page_url\}/gi,lpUrl||'');
     const trackingPixel=`<img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0">`;
     const linkBlock=lp&&!useCustomHtml
