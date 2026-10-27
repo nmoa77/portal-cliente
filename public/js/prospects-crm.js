@@ -131,15 +131,16 @@
         <div style="padding:10px 12px;border-radius:10px;background:var(--bg-2);font-size:12px"><span style="color:var(--muted)">Melhor taxa de resposta</span><br><strong>${safe(best.name)} · ${pct(best.replied,best.sent)}%</strong></div>
       </div>
       <div style="overflow-x:auto">
-        <table class="table" style="min-width:780px">
-          <thead><tr><th>Abordagem</th><th>Enviados</th><th>Entregues</th><th>Abertos</th><th>Proposta vista</th><th>Responderam</th><th>Interesse</th></tr></thead>
+        <table class="table" style="min-width:900px">
+          <thead><tr><th>Abordagem</th><th>Enviados</th><th>Entregues</th><th>Abertos</th><th>Proposta vista</th><th>Responderam</th><th>Taxa de resposta</th><th>Interesse</th></tr></thead>
           <tbody>${rows.map(g=>`<tr>
             <td><strong>${safe(g.name)}</strong><div style="font-size:11px;color:var(--muted)">${g.total} prospect${g.total===1?'':'s'} associados</div></td>
             <td><strong>${g.sent}</strong></td>
             <td>${g.delivered} <span style="font-size:11px;color:var(--muted)">(${pct(g.delivered,g.sent)}%)</span></td>
             <td>${g.opened} <span style="font-size:11px;color:var(--muted)">(${pct(g.opened,g.sent)}%)</span></td>
             <td>${g.proposal} <span style="font-size:11px;color:var(--muted)">(${pct(g.proposal,g.sent)}%)</span></td>
-            <td><strong>${g.replied}</strong> <span style="font-size:11px;color:var(--muted)">(${pct(g.replied,g.sent)}%)</span></td>
+            <td><strong>${g.replied}</strong></td>
+            <td><strong>${pct(g.replied,g.sent)}%</strong></td>
             <td>${g.interested} <span style="font-size:11px;color:var(--muted)">(${pct(g.interested,g.sent)}%)</span></td>
           </tr>`).join('')}</tbody>
         </table>
