@@ -84,6 +84,17 @@ function ensureTable(){
     for(const x of starters)if(!exists.get(x.name))ins.run(x.name,x.description,x.subject,x.body,x.dm);
   }catch(_){}
 
+  /* DUIT_REMOVE_INTERNAL_IDEA_BLOCK — o ângulo comercial é interno e não deve aparecer no email visual */
+  try{
+    const rows=db.prepare("SELECT id,html_body FROM prospect_email_templates WHERE html_body IS NOT NULL AND TRIM(html_body)!=''").all();
+    const upd=db.prepare("UPDATE prospect_email_templates SET html_body=?,updated_at=datetime('now') WHERE id=?");
+    for(const row of rows){
+      let html=String(row.html_body||'');
+      const cleaned=html.replace(/<!--\s*IDEIA PARA A EMPRESA\s*-->[\s\S]*?<!--\s*GALERIA\s*-->/i,'<!-- GALERIA -->');
+      if(cleaned!==html)upd.run(cleaned,row.id);
+    }
+  }catch(_){}
+
   /* DUIT_REMOVE_DUPLICATE_TEXT_SIGNATURE */
   try{
     const rows=db.prepare('SELECT id,body FROM prospect_email_templates').all();
