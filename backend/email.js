@@ -37,7 +37,7 @@ function addUnsubscribe(to, body, html) {
   const textNote = `\n\n—\nSe não pretende receber mais comunicações da DUIT, pode cancelar a subscrição aqui: ${url}`;
   const htmlNote = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;margin:14px auto 0;">
-      <tr><td align="center" style="font-size:11px;line-height:1.5;color:#9a958d;padding:0 16px 8px;">
+      <tr><td align="center" style="font-size:9px;line-height:1.45;color:#aaa59d;padding:0 16px 8px;">
         Não pretende receber mais comunicações da DUIT?
         <a href="${url}" style="color:#7d7871;text-decoration:underline;">Cancelar subscrição</a>
       </td></tr>
