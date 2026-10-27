@@ -282,37 +282,8 @@ function defaultSectorContent(sector){
   return out;
 }
 
-/* DUIT_EMAIL_AREA_MIGRATION */
-try{
-  const rows=db.prepare("SELECT user_id,sector,email_area FROM prospect_crm").all();
-  const upd=db.prepare("UPDATE prospect_crm SET email_area=? WHERE user_id=?");
-  for(const row of rows){
-    if(!String(row.email_area||'').trim())upd.run(emailAreaForSector(row.sector),row.user_id);
-  }
-
-  const contentRows=db.prepare("SELECT * FROM prospect_sector_content").all();
-  const targetExists=db.prepare("SELECT sector FROM prospect_sector_content WHERE lower(sector)=lower(?) LIMIT 1");
-  const insertContent=db.prepare(`
-    INSERT OR IGNORE INTO prospect_sector_content(
-      sector,headline,subheadline,hero_image,image_1,image_2,image_3,image_4,
-      advantage_1_title,advantage_1_text,advantage_2_title,advantage_2_text,
-      advantage_3_title,advantage_3_text,advantage_4_title,advantage_4_text,updated_at
-    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
-  `);
-  const oldImages=db.prepare("SELECT filename,mime_type,image_data FROM prospect_sector_images WHERE lower(sector)=lower(?) ORDER BY id").all.bind(db.prepare("SELECT filename,mime_type,image_data FROM prospect_sector_images WHERE lower(sector)=lower(?) ORDER BY id"));
-  const insertImage=db.prepare("INSERT INTO prospect_sector_images(sector,filename,mime_type,image_data) VALUES(?,?,?,?)");
-  for(const row of contentRows){
-    const area=emailAreaForSector(row.sector);
-    if(String(area).toLowerCase()===String(row.sector||'').trim().toLowerCase())continue;
-    if(!targetExists.get(area)){
-      insertContent.run(area,row.headline,row.subheadline,row.hero_image,row.image_1,row.image_2,row.image_3,row.image_4,
-        row.advantage_1_title,row.advantage_1_text,row.advantage_2_title,row.advantage_2_text,
-        row.advantage_3_title,row.advantage_3_text,row.advantage_4_title,row.advantage_4_text);
-      const imgs=db.prepare("SELECT filename,mime_type,image_data FROM prospect_sector_images WHERE lower(sector)=lower(?) ORDER BY id").all(row.sector);
-      for(const img of imgs)insertImage.run(area,img.filename,img.mime_type,img.image_data);
-    }
-  }
-}catch(e){console.warn('[crm] email-area migration:',e.message);}
+/* Área do email: nunca reescrever prospects existentes em migrations.
+ * Quando email_area estiver vazia, é calculada em memória a partir do setor. */
 
 function randomPasswordHash() {
   return bcrypt.hashSync(crypto.randomBytes(18).toString('base64url'), 10);
@@ -324,7 +295,7 @@ function validEbookPageId(value){
 }
 
 function getCrmProspect(id) {
-  return db.prepare(`
+  const row=db.prepare(`
     SELECT u.id, u.name, u.email, u.company, u.phone, u.created_at,
            c.sector, c.email_area, c.location, c.website, c.instagram,
            c.opportunity, c.idea, c.recommended_plan, c.solution_text,
@@ -342,15 +313,17 @@ function getCrmProspect(id) {
        AND NOT EXISTS (SELECT 1 FROM landing_page_leads ll WHERE ll.user_id=u.id)
        AND COALESCE(c.outreach_response,'')='' AND COALESCE(c.outreach_question,'')=''
   `).get(id);
+  if(row&&!String(row.email_area||'').trim())row.email_area=emailAreaForSector(row.sector);
+  return row;
 }
 
 capturedApp.get('/api/crm/prospect-sectors', requireAdmin, (req, res) => {
-  const counts=db.prepare(`
-    SELECT COALESCE(NULLIF(TRIM(email_area),''),'Serviços Profissionais') area,COUNT(*) prospect_count
-      FROM prospect_crm
-     GROUP BY COALESCE(NULLIF(TRIM(email_area),''),'Serviços Profissionais')
-  `).all();
-  const countMap=new Map(counts.map(x=>[String(x.area).toLowerCase(),Number(x.prospect_count||0)]));
+  const prospects=db.prepare("SELECT sector,email_area FROM prospect_crm").all();
+  const countMap=new Map();
+  for(const p of prospects){
+    const area=String(p.email_area||'').trim()||emailAreaForSector(p.sector);
+    countMap.set(area,(countMap.get(area)||0)+1);
+  }
   const insert=db.prepare(`
     INSERT OR IGNORE INTO prospect_sector_content(
       sector,headline,subheadline,
@@ -366,7 +339,7 @@ capturedApp.get('/api/crm/prospect-sectors', requireAdmin, (req, res) => {
   }
   const content=db.prepare('SELECT * FROM prospect_sector_content').all();
   const map=new Map(content.map(x=>[String(x.sector).trim().toLowerCase(),x]));
-  res.json(EMAIL_AREAS.map(area=>({sector:area,prospect_count:countMap.get(area.toLowerCase())||0,...(map.get(area.toLowerCase())||{})})));
+  res.json(EMAIL_AREAS.map(area=>({sector:area,prospect_count:countMap.get(area)||0,...(map.get(area.toLowerCase())||{})})));
 });
 
 capturedApp.get('/api/crm/prospect-sectors/:sector/images', requireAdmin, (req,res)=>{
@@ -463,6 +436,7 @@ capturedApp.get('/api/crm/prospects', requireAdmin, (req, res) => {
          WHEN 'atacar' THEN 0 WHEN 'possivel' THEN 1 ELSE 2 END,
        COALESCE(c.updated_at, u.created_at) DESC
   `).all();
+  for(const row of rows){if(!String(row.email_area||'').trim())row.email_area=emailAreaForSector(row.sector)}
   res.json(rows);
 });
 
