@@ -141,12 +141,45 @@ function layout({ eyebrow, title, greeting, paragraphs = [], ctaLabel, ctaUrl })
 </html>`;
 }
 
+function inlineRemoteImages(html){
+  let source=String(html||'');
+  if(!source)return {html:source,attachments:[]};
+
+  const seen=new Map();
+  const attachments=[];
+  let n=0;
+
+  const next=source.replace(/<img\b([^>]*?)\bsrc=(["'])(https?:\/\/[^"']+)\2([^>]*)>/gi,(full,before,quote,url,after)=>{
+    // O pixel de tracking tem de continuar remoto para registar a abertura.
+    if(/\/api\/crm\/prospects\/email-open\//i.test(url))return full;
+
+    let cid=seen.get(url);
+    if(!cid){
+      cid='duit-inline-'+(++n);
+      seen.set(url,cid);
+      let filename='imagem-'+n+'.jpg';
+      try{
+        const u=new URL(url);
+        const base=decodeURIComponent((u.pathname.split('/').pop()||'').trim());
+        if(base&&/\.[a-z0-9]{2,5}$/i.test(base))filename=base;
+        else if(/logo/i.test(u.pathname))filename='duit-logo.png';
+        else if(/assinatura/i.test(u.pathname))filename='duit-assinatura.png';
+      }catch(_){}
+      attachments.push({path:url,filename,content_id:cid});
+    }
+    return '<img'+before+' src="cid:'+cid+'"'+after+'>';
+  });
+
+  return {html:next,attachments};
+}
+
 /* ---------- Entrega ---------- */
-async function sendViaResend({ to, subject, text, html }) {
+async function sendViaResend({ to, subject, text, html, attachments = [] }) {
   if (!RESEND_API_KEY) return { sent:false, status:'not_configured', id:null, error:'RESEND_API_KEY em falta' };
   const payload = { from: EMAIL_FROM, to: [to], subject };
   if (text) payload.text = text;
   if (html) payload.html = html;
+  if (Array.isArray(attachments) && attachments.length) payload.attachments = attachments;
   try {
     const r=await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -237,7 +270,14 @@ async function deliver(db, { to, subject, body, html, user_id = null, kind = 'ge
     return {sent:false,status:'suppressed',id:null,error:null};
   }
 
-  return await sendViaResend({ to, subject, text: body || '', html: html || '' });
+  let attachments=[];
+  if(String(kind||'')==='prospect_outreach'&&html){
+    const inlined=inlineRemoteImages(html);
+    html=inlined.html;
+    attachments=inlined.attachments;
+  }
+
+  return await sendViaResend({ to, subject, text: body || '', html: html || '', attachments });
 }
 
 /* ---------- Templates (tratamento formal — você) ---------- */
