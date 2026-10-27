@@ -184,6 +184,32 @@ async function deliver(db, { to, subject, body, html, user_id = null, kind = 'ge
 
 /* ---------- Templates (tratamento formal — você) ---------- */
 const T = {
+  prospectOptOut: (name) => {
+    const first = String(name || '').trim().split(/\s+/)[0] || '';
+    const subject = 'Confirmação de remoção — DUIT';
+    const body =
+`Olá${first ? ' ' + first : ''},
+
+Confirmamos a remoção do seu contacto da nossa lista de prospeção/comunicação.
+
+Não receberá novas comunicações comerciais da DUIT.
+
+Obrigado pela indicação.
+
+Cumprimentos,`;
+    const html = layout({
+      eyebrow: 'Preferências de contacto',
+      title: 'Contacto removido',
+      greeting: `Olá${first ? ' ' + first : ''},`,
+      paragraphs: [
+        'Confirmamos a remoção do seu contacto da nossa lista de prospeção/comunicação.',
+        'Não receberá novas comunicações comerciais da DUIT.',
+        'Obrigado pela indicação.',
+      ],
+    });
+    return { subject, body, html };
+  },
+
   welcome: (name, email, password) => {
     const first = (name || '').split(' ')[0] || '';
     const subject = `Bem-vindo à DUIT — a sua conta foi criada`;
