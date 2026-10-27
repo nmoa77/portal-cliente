@@ -94,28 +94,42 @@
     const wrap=document.createElement('div');
     wrap.className='overlay';
     wrap.id='modal-crm-sectors';
-    wrap.innerHTML=`<div class="modal wide" style="max-width:1080px">
+    wrap.innerHTML=`<div class="modal wide" style="max-width:1120px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-        <div><div class="eyebrow">Emails visuais</div><h3 style="margin:4px 0">Conteúdo por setor</h3><p class="lede">Defina as imagens, mensagem e vantagens que o email deve usar para cada área de negócio.</p></div>
+        <div><div class="eyebrow">Emails visuais</div><h3 style="margin:4px 0">Conteúdo por setor</h3><p class="lede">Os textos já vêm preparados. Carregue as imagens que quer usar e escolha-as diretamente da galeria.</p></div>
         <button type="button" class="btn btn-icon" onclick="closeCrmSectorContent()">✕</button>
       </div>
-      <div style="display:grid;grid-template-columns:260px minmax(0,1fr);gap:18px;margin-top:18px">
-        <div id="crm-sector-list" style="border-right:1px solid var(--line);padding-right:14px;max-height:650px;overflow:auto"></div>
+      <div style="display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px;margin-top:18px">
+        <div id="crm-sector-list" style="border-right:1px solid var(--line);padding-right:14px;max-height:700px;overflow:auto"></div>
         <form id="crm-sector-form">
           <input type="hidden" id="crm-sector-name">
           <div id="crm-sector-empty" class="empty" style="padding:50px 12px">Escolha um setor.</div>
           <div id="crm-sector-fields" style="display:none">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px"><div><div class="eyebrow">Setor</div><h3 id="crm-sector-title" style="margin:3px 0"></h3></div><span id="crm-sector-count" class="pill muted"></span></div>
-            <div class="field"><label>Headline do email</label><input id="crm-sector-headline" placeholder="Ex: Mais confiança antes da primeira consulta."></div>
-            <div class="field"><label>Subheadline</label><textarea id="crm-sector-subheadline" rows="2" placeholder="Mensagem curta focada no resultado que este negócio procura."></textarea></div>
-            <div class="field"><label>Imagem Hero · URL ou caminho</label><input id="crm-sector-hero" placeholder="https://... ou /imagens/fisioterapia-hero.webp"><div id="crm-sector-hero-preview" style="margin-top:8px"></div></div>
-            <div class="grid g-2" style="gap:12px">
-              ${[1,2,3,4].map(n=>`<div class="field"><label>Imagem de apoio ${n}</label><input id="crm-sector-image-${n}" placeholder="URL ou caminho"><div id="crm-sector-image-preview-${n}" style="margin-top:6px"></div></div>`).join('')}
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px">
+              <div><div class="eyebrow">Setor</div><h3 id="crm-sector-title" style="margin:3px 0"></h3></div>
+              <span id="crm-sector-count" class="pill muted"></span>
             </div>
-            <div style="margin:18px 0 10px"><div class="eyebrow">Vantagens para este negócio</div><strong>O cliente deve reconhecer aqui aquilo que quer alcançar.</strong></div>
-            <div class="grid g-2" style="gap:12px">
-              ${[1,2,3,4].map(n=>`<div style="padding:12px;border:1px solid var(--line);border-radius:12px"><div class="field"><label>Vantagem ${n}</label><input id="crm-sector-adv-title-${n}" placeholder="Ex: Mais pedidos de marcação"></div><div class="field"><label>Texto curto</label><textarea id="crm-sector-adv-text-${n}" rows="2" placeholder="Explique o benefício em uma frase."></textarea></div></div>`).join('')}
+
+            <div class="field"><label>Headline do email</label><input id="crm-sector-headline"></div>
+            <div class="field"><label>Subheadline</label><textarea id="crm-sector-subheadline" rows="2"></textarea></div>
+
+            <div style="padding:14px;border:1px solid var(--line);border-radius:14px;margin:16px 0">
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+                <div><div class="eyebrow">Galeria do setor</div><strong>Imagens para usar nos emails</strong></div>
+                <label class="btn btn-yellow" style="cursor:pointer">+ Adicionar imagens<input id="crm-sector-upload" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden></label>
+              </div>
+              <div id="crm-sector-gallery" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px"></div>
+              <div style="font-size:11px;color:var(--muted);margin-top:8px">Ao carregar, as imagens são otimizadas automaticamente para o email.</div>
             </div>
+
+            <div style="margin:16px 0 8px"><div class="eyebrow">Imagens escolhidas</div><strong>Hero + 4 imagens de apoio</strong></div>
+            <div id="crm-sector-selected-images" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:18px"></div>
+
+            <div style="margin:18px 0 10px"><div class="eyebrow">Vantagens para este negócio</div><strong>Já preparadas para o setor — pode ajustar se quiser.</strong></div>
+            <div class="grid g-2" style="gap:12px">
+              ${[1,2,3,4].map(n=>`<div style="padding:12px;border:1px solid var(--line);border-radius:12px"><div class="field"><label>Vantagem ${n}</label><input id="crm-sector-adv-title-${n}"></div><div class="field"><label>Texto curto</label><textarea id="crm-sector-adv-text-${n}" rows="2"></textarea></div></div>`).join('')}
+            </div>
+
             <div class="modal-actions" style="margin-top:18px"><div class="spacer"></div><button type="button" class="btn btn-ghost" onclick="closeCrmSectorContent()">Fechar</button><button type="submit" class="btn btn-yellow">Guardar setor</button></div>
           </div>
         </form>
@@ -124,20 +138,38 @@
     document.body.appendChild(wrap);
     wrap.addEventListener('click',e=>{if(e.target===wrap)closeCrmSectorContent()});
     document.getElementById('crm-sector-form')?.addEventListener('submit',saveCrmSectorContent);
-    ['hero','1','2','3','4'].forEach(k=>{
-      const id=k==='hero'?'crm-sector-hero':'crm-sector-image-'+k;
-      document.getElementById(id)?.addEventListener('input',renderCrmSectorImagePreviews);
-    });
+    document.getElementById('crm-sector-upload')?.addEventListener('change',uploadCrmSectorImages);
   }
 
-  function renderCrmSectorImagePreviews(){
-    const img=(inputId,previewId)=>{
-      const url=String(document.getElementById(inputId)?.value||'').trim(),box=document.getElementById(previewId);
-      if(!box)return;
-      box.innerHTML=url?`<img src="${safe(url)}" alt="" style="width:100%;height:92px;object-fit:cover;border-radius:10px;border:1px solid var(--line)" onerror="this.style.display='none'">`:'';
-    };
-    img('crm-sector-hero','crm-sector-hero-preview');
-    [1,2,3,4].forEach(n=>img('crm-sector-image-'+n,'crm-sector-image-preview-'+n));
+  let crmSectorGallery=[];
+
+  function sectorImageSlots(s){
+    return [
+      ['hero_image','Hero'],
+      ['image_1','Imagem 1'],
+      ['image_2','Imagem 2'],
+      ['image_3','Imagem 3'],
+      ['image_4','Imagem 4']
+    ].map(([key,label])=>({key,label,url:String(s?.[key]||'')}));
+  }
+
+  function renderCrmSectorSelectedImages(){
+    const sector=String(document.getElementById('crm-sector-name')?.value||'');
+    const s=crmSectorContent.find(x=>String(x.sector)===sector)||{};
+    const box=document.getElementById('crm-sector-selected-images');if(!box)return;
+    box.innerHTML=sectorImageSlots(s).map(slot=>`<div style="border:1px solid var(--line);border-radius:12px;padding:7px;min-height:120px"><div style="font-size:10px;font-weight:700;margin-bottom:6px">${slot.label}</div>${slot.url?`<img src="${safe(slot.url)}" style="width:100%;height:82px;object-fit:cover;border-radius:8px"><button type="button" class="btn btn-ghost btn-sm" style="width:100%;margin-top:5px" onclick="clearCrmSectorImageSlot('${slot.key}')">Remover</button>`:'<div style="height:82px;border:1px dashed var(--line);border-radius:8px;display:grid;place-items:center;font-size:11px;color:var(--muted)">Escolha na galeria</div>'}</div>`).join('');
+  }
+
+  function renderCrmSectorGallery(){
+    const box=document.getElementById('crm-sector-gallery');if(!box)return;
+    if(!crmSectorGallery.length){box.innerHTML='<div class="empty" style="grid-column:1/-1;padding:18px">Ainda não adicionou imagens a este setor.</div>';return}
+    box.innerHTML=crmSectorGallery.map(img=>`<div style="border:1px solid var(--line);border-radius:12px;padding:6px;position:relative">
+      <img src="${safe(img.url)}" alt="" style="width:100%;height:105px;object-fit:cover;border-radius:8px">
+      <select style="width:100%;margin-top:6px;font-size:11px" onchange="assignCrmSectorImage(${img.id},this.value);this.value=''">
+        <option value="">Usar como…</option><option value="hero_image">Hero</option><option value="image_1">Imagem 1</option><option value="image_2">Imagem 2</option><option value="image_3">Imagem 3</option><option value="image_4">Imagem 4</option>
+      </select>
+      <button type="button" class="btn btn-icon" title="Apagar imagem" style="position:absolute;right:8px;top:8px;background:#fff" onclick="deleteCrmSectorImage(${img.id})">×</button>
+    </div>`).join('');
   }
 
   function renderCrmSectorList(){
@@ -148,41 +180,88 @@
   window.openCrmSectorContent=async()=>{
     ensureSectorContentModal();
     document.getElementById('modal-crm-sectors')?.classList.add('open');
-    const box=document.getElementById('crm-sector-list');
-    if(box)box.innerHTML='<div class="empty">A carregar setores…</div>';
-    try{crmSectorContent=await api('/api/crm/prospect-sectors');renderCrmSectorList();if(crmSectorContent[0])selectCrmSectorContent(0)}
+    const box=document.getElementById('crm-sector-list');if(box)box.innerHTML='<div class="empty">A carregar setores…</div>';
+    try{crmSectorContent=await api('/api/crm/prospect-sectors');renderCrmSectorList();if(crmSectorContent[0])await selectCrmSectorContent(0)}
     catch(e){if(box)box.innerHTML='<div class="empty">Erro: '+safe(e.message)+'</div>'}
   };
   window.closeCrmSectorContent=()=>document.getElementById('modal-crm-sectors')?.classList.remove('open');
 
-  window.selectCrmSectorContent=index=>{
+  window.selectCrmSectorContent=async index=>{
     const s=crmSectorContent[Number(index)];if(!s)return;
     document.getElementById('crm-sector-empty').style.display='none';
     document.getElementById('crm-sector-fields').style.display='';
     document.getElementById('crm-sector-title').textContent=s.sector||'Setor';
     document.getElementById('crm-sector-count').textContent=(Number(s.prospect_count||0))+' prospects';
     const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||''};
-    set('crm-sector-name',s.sector);set('crm-sector-headline',s.headline);set('crm-sector-subheadline',s.subheadline);set('crm-sector-hero',s.hero_image);
-    [1,2,3,4].forEach(n=>{set('crm-sector-image-'+n,s['image_'+n]);set('crm-sector-adv-title-'+n,s['advantage_'+n+'_title']);set('crm-sector-adv-text-'+n,s['advantage_'+n+'_text'])});
-    renderCrmSectorImagePreviews();
+    set('crm-sector-name',s.sector);set('crm-sector-headline',s.headline);set('crm-sector-subheadline',s.subheadline);
+    [1,2,3,4].forEach(n=>{set('crm-sector-adv-title-'+n,s['advantage_'+n+'_title']);set('crm-sector-adv-text-'+n,s['advantage_'+n+'_text'])});
+    try{crmSectorGallery=await api('/api/crm/prospect-sectors/'+encodeURIComponent(s.sector)+'/images')}catch(_){crmSectorGallery=[]}
+    renderCrmSectorGallery();renderCrmSectorSelectedImages();
+  };
+
+  function currentCrmSector(){
+    const name=String(document.getElementById('crm-sector-name')?.value||'');
+    return crmSectorContent.find(x=>String(x.sector)===name);
+  }
+
+  window.assignCrmSectorImage=(id,slot)=>{
+    if(!slot)return;const s=currentCrmSector(),img=crmSectorGallery.find(x=>Number(x.id)===Number(id));if(!s||!img)return;
+    s[slot]=img.url;renderCrmSectorSelectedImages();
+  };
+  window.clearCrmSectorImageSlot=slot=>{const s=currentCrmSector();if(!s)return;s[slot]='';renderCrmSectorSelectedImages()};
+
+  async function compressSectorImage(file){
+    const bitmap=await createImageBitmap(file);
+    const maxW=1200,maxH=800,scale=Math.min(1,maxW/bitmap.width,maxH/bitmap.height);
+    const w=Math.max(1,Math.round(bitmap.width*scale)),h=Math.max(1,Math.round(bitmap.height*scale));
+    const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+    canvas.getContext('2d').drawImage(bitmap,0,0,w,h);
+    bitmap.close?.();
+    return canvas.toDataURL('image/jpeg',0.82);
+  }
+
+  async function uploadCrmSectorImages(e){
+    const sector=String(document.getElementById('crm-sector-name')?.value||'').trim(),files=[...(e.target.files||[])];
+    if(!sector||!files.length)return;
+    const label=e.target.closest('label'),old=label?.firstChild?.textContent;
+    try{
+      if(label)label.childNodes[0].textContent='A carregar…';
+      for(const file of files){
+        if(!/^image\//.test(file.type))continue;
+        const data_url=await compressSectorImage(file);
+        await api('/api/crm/prospect-sectors/'+encodeURIComponent(sector)+'/images',{method:'POST',body:{filename:file.name,data_url}});
+      }
+      crmSectorGallery=await api('/api/crm/prospect-sectors/'+encodeURIComponent(sector)+'/images');
+      renderCrmSectorGallery();toast('Imagem(ns) adicionada(s) à galeria.','check');
+    }catch(err){toast(err.message||'Não foi possível carregar a imagem.','cancel')}
+    finally{e.target.value='';if(label)label.childNodes[0].textContent='+ Adicionar imagens'}
+  }
+
+  window.deleteCrmSectorImage=async id=>{
+    if(!confirm('Apagar esta imagem da galeria?'))return;
+    try{
+      await api('/api/crm/prospect-sector-images/'+id,{method:'DELETE'});
+      const sector=String(document.getElementById('crm-sector-name')?.value||'');
+      crmSectorGallery=await api('/api/crm/prospect-sectors/'+encodeURIComponent(sector)+'/images');
+      const s=currentCrmSector();if(s){const url='/api/public/prospect-sector-images/'+id;['hero_image','image_1','image_2','image_3','image_4'].forEach(k=>{if(s[k]===url)s[k]=''})}
+      renderCrmSectorGallery();renderCrmSectorSelectedImages();
+    }catch(err){toast(err.message||'Não foi possível apagar a imagem.','cancel')}
   };
 
   async function saveCrmSectorContent(e){
     e.preventDefault();
-    const sector=String(document.getElementById('crm-sector-name')?.value||'').trim();if(!sector)return;
+    const sector=String(document.getElementById('crm-sector-name')?.value||'').trim(),s=currentCrmSector();if(!sector||!s)return;
     const body={
       headline:document.getElementById('crm-sector-headline')?.value||'',
       subheadline:document.getElementById('crm-sector-subheadline')?.value||'',
-      hero_image:document.getElementById('crm-sector-hero')?.value||''
+      hero_image:s.hero_image||'',image_1:s.image_1||'',image_2:s.image_2||'',image_3:s.image_3||'',image_4:s.image_4||''
     };
-    [1,2,3,4].forEach(n=>{body['image_'+n]=document.getElementById('crm-sector-image-'+n)?.value||'';body['advantage_'+n+'_title']=document.getElementById('crm-sector-adv-title-'+n)?.value||'';body['advantage_'+n+'_text']=document.getElementById('crm-sector-adv-text-'+n)?.value||''});
+    [1,2,3,4].forEach(n=>{body['advantage_'+n+'_title']=document.getElementById('crm-sector-adv-title-'+n)?.value||'';body['advantage_'+n+'_text']=document.getElementById('crm-sector-adv-text-'+n)?.value||''});
     try{
       await api('/api/crm/prospect-sectors/'+encodeURIComponent(sector),{method:'PUT',body});
       toast('Conteúdo do setor guardado.','check');
-      crmSectorContent=await api('/api/crm/prospect-sectors');
-      renderCrmSectorList();
-      const idx=crmSectorContent.findIndex(x=>String(x.sector).toLowerCase()===sector.toLowerCase());
-      if(idx>=0)selectCrmSectorContent(idx);
+      crmSectorContent=await api('/api/crm/prospect-sectors');renderCrmSectorList();
+      const idx=crmSectorContent.findIndex(x=>String(x.sector).toLowerCase()===sector.toLowerCase());if(idx>=0)await selectCrmSectorContent(idx);
     }catch(err){toast(err.message||'Não foi possível guardar o setor.','cancel')}
   }
 
