@@ -138,7 +138,7 @@
             </div>
 
             <div class="field"><label>Headline do email</label><input id="crm-sector-headline"></div>
-            <div class="field"><label>Subheadline</label><textarea id="crm-sector-subheadline" rows="2"></textarea></div>
+            <div class="field"><label>Subheadline</label><textarea id="crm-sector-subheadline" rows="2"></textarea></div><div class="field"><label>Landing Page do botão “Saber mais”</label><select id="crm-sector-lp"><option value="">— sem Landing Page —</option></select><div style="font-size:11px;color:var(--muted);margin-top:5px">O CTA dos emails desta área abre esta Landing Page.</div></div>
 
             <div style="padding:14px;border:1px solid var(--line);border-radius:14px;margin:16px 0">
               <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
@@ -199,6 +199,12 @@
     </div>`).join('');
   }
 
+  function crmAreaLandingPageOptions(selected=''){
+    const current=String(selected||'');
+    const pages=(crmLandingPages||[]).filter(lp=>Number(lp.is_active)!==0&&String(lp.slug||'').toLowerCase()!=='site-duit');
+    return '<option value="">— sem Landing Page —</option>'+pages.map(lp=>`<option value="${Number(lp.id)}" ${String(lp.id)===current?'selected':''}>${safe(lp.title||lp.slug||('Landing Page '+lp.id))}</option>`).join('');
+  }
+
   function renderCrmSectorList(){
     const box=document.getElementById('crm-sector-list');if(!box)return;
     box.innerHTML=crmSectorContent.length?crmSectorContent.map((s,i)=>`<button type="button" class="btn btn-ghost" style="width:100%;justify-content:space-between;margin-bottom:6px;text-align:left" onclick="selectCrmSectorContent(${i})"><span style="overflow:hidden;text-overflow:ellipsis">${safe(s.sector)}</span><span class="pill muted">${Number(s.prospect_count||0)}</span></button>`).join(''):'<div class="empty">Ainda não existem setores nos prospects.</div>';
@@ -220,7 +226,7 @@
     document.getElementById('crm-sector-title').textContent=s.sector||'Setor';
     document.getElementById('crm-sector-count').textContent=(Number(s.prospect_count||0))+' prospects';
     const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v||''};
-    set('crm-sector-name',s.sector);set('crm-sector-headline',s.headline);set('crm-sector-subheadline',s.subheadline);
+    set('crm-sector-name',s.sector);set('crm-sector-headline',s.headline);set('crm-sector-subheadline',s.subheadline);const lpSel=document.getElementById('crm-sector-lp');if(lpSel){lpSel.innerHTML=crmAreaLandingPageOptions(s.landing_page_id);lpSel.value=s.landing_page_id||'';}
     [1,2,3,4].forEach(n=>{set('crm-sector-adv-title-'+n,s['advantage_'+n+'_title']);set('crm-sector-adv-text-'+n,s['advantage_'+n+'_text'])});
     try{crmSectorGallery=await api('/api/crm/prospect-sectors/'+encodeURIComponent(s.sector)+'/images')}catch(_){crmSectorGallery=[]}
     renderCrmSectorGallery();renderCrmSectorSelectedImages();
@@ -281,6 +287,7 @@
     const body={
       headline:document.getElementById('crm-sector-headline')?.value||'',
       subheadline:document.getElementById('crm-sector-subheadline')?.value||'',
+      landing_page_id:Number(document.getElementById('crm-sector-lp')?.value||0)||null,
       hero_image:s.hero_image||'',image_1:s.image_1||'',image_2:s.image_2||'',image_3:s.image_3||'',image_4:s.image_4||''
     };
     [1,2,3,4].forEach(n=>{body['advantage_'+n+'_title']=document.getElementById('crm-sector-adv-title-'+n)?.value||'';body['advantage_'+n+'_text']=document.getElementById('crm-sector-adv-text-'+n)?.value||''});
