@@ -451,6 +451,8 @@
       source=tpl.name||'Abordagem';
       subject=tpl.subject||'';
       body=tpl.body||'';
+      isHtml=Boolean(String(tpl.html_body||'').trim());
+      if(isHtml)html=String(tpl.html_body||'').trim();
     }else{
       source='Sem abordagem';
       subject='Não existe nenhuma abordagem ativa.';
