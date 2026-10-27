@@ -149,6 +149,26 @@ function ensureTable(){
     }
   }catch(_){}
 
+  /* DUIT_UNIFORM_SUPPORT_IMAGES — 4 imagens de apoio com dimensão visual consistente */
+  try{
+    const rows=db.prepare("SELECT id,html_body FROM prospect_email_templates WHERE html_body IS NOT NULL AND TRIM(html_body)!=''").all();
+    const upd=db.prepare("UPDATE prospect_email_templates SET html_body=?,updated_at=datetime('now') WHERE id=?");
+    for(const row of rows){
+      let html=String(row.html_body||'');
+      const next=html.replace(
+        /<img([^>]*?)src=["']\{imagem_([1-4])\}["']([^>]*?)>/gi,
+        (m,a,n,b)=>{
+          let attrs=(a+b)
+            .replace(/\swidth=["'][^"']*["']/gi,'')
+            .replace(/\sheight=["'][^"']*["']/gi,'')
+            .replace(/\sstyle=["'][^"']*["']/gi,'');
+          return '<img'+attrs+' src="{imagem_'+n+'}" width="260" height="220" style="display:block;width:100%;height:220px;object-fit:cover;border:0;border-radius:12px;">';
+        }
+      );
+      if(next!==html)upd.run(next,row.id);
+    }
+  }catch(_){}
+
   /* DUIT_REMOVE_DUPLICATE_TEXT_SIGNATURE */
   try{
     const rows=db.prepare('SELECT id,body FROM prospect_email_templates').all();
