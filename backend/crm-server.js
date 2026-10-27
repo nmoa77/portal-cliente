@@ -135,7 +135,8 @@ function asMoney(value) {
 }
 
 const EMAIL_AREAS=[
-  'Saúde & Bem-estar',
+  'Saúde',
+  'Bem-estar',
   'Beleza & Estética',
   'Construção & Engenharia',
   'Indústria & Produção',
@@ -156,7 +157,8 @@ const EMAIL_AREAS=[
 function emailAreaForSector(value){
   const s=String(value||'').trim().toLowerCase();
   if(!s)return 'Serviços Profissionais';
-  if(/fisioter|clínic|clinica|saúde|saude|médic|medic|dent|terap|farm|osteop|podolog|psicolog|nutri/.test(s))return 'Saúde & Bem-estar';
+  if(/fisioter|clínic|clinica|saúde|saude|médic|medic|dent|farm|osteop|podolog|psicolog|nutri|exame|anális|analise|laborat|radiolog|ecograf|resson|tac|cardiolog|dermatolog/.test(s))return 'Saúde';
+  if(/bem-estar|wellness|massag|reiki|mindful|medita|yoga|pilates|relax|spa/.test(s))return 'Bem-estar';
   if(/beleza|estét|estet|cabele|barbear|spa|unhas|cosmét|cosmet/.test(s))return 'Beleza & Estética';
   if(/constru|obra|arquitet|engenh|remodel|instala|eletric|canaliz|climat|avac/.test(s))return 'Construção & Engenharia';
   if(/indústr|industr|fábrica|fabrica|metal|produção|producao|manuf|maquin/.test(s))return 'Indústria & Produção';
