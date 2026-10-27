@@ -118,27 +118,29 @@
       if(['respondeu','interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||''))g.replied++;
       if(['interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||'')==='accepted')g.interested++;
     }
+    const MIN_SAMPLE=30;
     const rows=[...groups.values()].filter(g=>g.sent>0).sort((a,b)=>{
       const ar=a.sent?a.opened/a.sent:0,br=b.sent?b.opened/b.sent:0;
       return br-ar||b.sent-a.sent;
     });
     if(!rows.length)return '<div class="card" style="padding:18px;margin-bottom:16px"><div class="eyebrow">Performance por abordagem</div><strong>Ainda não existem envios suficientes para comparar abordagens.</strong></div>';
     const pct=(n,d)=>d?Math.round(n/d*100):0;
-    const best=rows[0];
+    const eligible=rows.filter(g=>g.sent>=MIN_SAMPLE);
+    const best=eligible.length?eligible[0]:null;
     return `<div class="card" style="padding:18px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px">
         <div><div class="eyebrow">Performance por abordagem</div><h3 style="margin:3px 0 4px">O que está a funcionar melhor</h3><div style="font-size:12px;color:var(--muted)">Compare cada abordagem desde o envio até à resposta.</div></div>
-        <div style="padding:10px 12px;border-radius:10px;background:var(--bg-2);font-size:12px"><span style="color:var(--muted)">Melhor taxa de abertura</span><br><strong>${safe(best.name)} · ${pct(best.opened,best.sent)}%</strong></div>
+        <div style="padding:10px 12px;border-radius:10px;background:var(--bg-2);font-size:12px"><span style="color:var(--muted)">Melhor abordagem</span><br><strong>${best?safe(best.name)+' · '+pct(best.opened,best.sent)+'%':'Amostra insuficiente'}</strong>${best?'<div style="font-size:10px;color:var(--muted);margin-top:2px">'+best.opened+'/'+best.sent+' abertos</div>':'<div style="font-size:10px;color:var(--muted);margin-top:2px">mínimo '+MIN_SAMPLE+' envios</div>'}</div>
       </div>
       <div style="overflow-x:auto">
         <table class="table" style="min-width:900px">
-          <thead><tr><th>Abordagem</th><th>Enviados</th><th>Entregues</th><th>Abertos</th><th>Taxa de abertura</th><th>Proposta vista</th><th>Responderam</th><th>Interesse</th></tr></thead>
+          <thead><tr><th>Abordagem</th><th>Enviados</th><th>Entregues</th><th>Abertos</th><th>Sucesso abertura</th><th>Proposta vista</th><th>Responderam</th><th>Interesse</th></tr></thead>
           <tbody>${rows.map(g=>`<tr>
             <td><strong>${safe(g.name)}</strong><div style="font-size:11px;color:var(--muted)">${g.total} prospect${g.total===1?'':'s'} associados</div></td>
             <td><strong>${g.sent}</strong></td>
             <td>${g.delivered} <span style="font-size:11px;color:var(--muted)">(${pct(g.delivered,g.sent)}%)</span></td>
             <td>${g.opened}</td>
-            <td><strong>${pct(g.opened,g.sent)}%</strong></td>
+            <td><strong>${pct(g.opened,g.sent)}%</strong><div style="font-size:10px;color:var(--muted);margin-top:2px">${g.opened}/${g.sent}${g.sent<MIN_SAMPLE?' · amostra baixa':''}</div></td>
             <td>${g.proposal} <span style="font-size:11px;color:var(--muted)">(${pct(g.proposal,g.sent)}%)</span></td>
             <td><strong>${g.replied}</strong></td>
             <td>${g.interested} <span style="font-size:11px;color:var(--muted)">(${pct(g.interested,g.sent)}%)</span></td>
