@@ -84,6 +84,34 @@ function ensureTable(){
     for(const x of starters)if(!exists.get(x.name))ins.run(x.name,x.description,x.subject,x.body,x.dm);
   }catch(_){}
 
+  /* DUIT_TUNE_SECTOR_VISUAL_EMAIL — remove área, troca marcadores por ícones e CTA para LP */
+  try{
+    const rows=db.prepare("SELECT id,name,html_body FROM prospect_email_templates WHERE html_body IS NOT NULL AND TRIM(html_body)!=''").all();
+    const upd=db.prepare("UPDATE prospect_email_templates SET html_body=?,updated_at=datetime('now') WHERE id=?");
+    for(const row of rows){
+      let html=String(row.html_body||'');
+      if(!html)continue;
+
+      // Remove o rótulo da área/setor no topo.
+      html=html.replace(/<div[^>]*>\s*\{setor\}\s*<\/div>/i,'');
+
+      // Substitui os traços coloridos dos quatro benefícios por ícones simples.
+      html=html
+        .replace(/<div style="width:32px;height:4px;background:#FFD200;margin-bottom:14px;"><\/div>/g,
+          '<div style="width:34px;height:34px;border-radius:50%;background:#FFF4B8;color:#111111;font-size:18px;line-height:34px;text-align:center;margin-bottom:14px;">✓</div>')
+        .replace(/<div style="width:32px;height:4px;background:#16B3B1;margin-bottom:14px;"><\/div>/g,
+          '<div style="width:34px;height:34px;border-radius:50%;background:#DDF7F6;color:#111111;font-size:18px;line-height:34px;text-align:center;margin-bottom:14px;">✓</div>');
+
+      // Fecho passa a CTA direto para a landing page.
+      html=html.replace(
+        /<h2[^>]*>\s*Faz sentido para a \{empresa\}\?\s*<\/h2>[\s\S]*?<p[^>]*>\s*Responda a este email e explico-lhe como aplicaria esta abordagem ao seu negócio\.\s*<\/p>/i,
+        '<h2 style="font-size:24px;line-height:1.25;margin:0 0 14px;color:#111111;">Veja como isto pode funcionar na {empresa}.</h2><a href="{lp_url}" style="display:inline-block;background:#FFD200;color:#111111;text-decoration:none;font-weight:800;font-size:15px;padding:15px 24px;border-radius:10px;">Ver proposta →</a>'
+      );
+
+      upd.run(html,row.id);
+    }
+  }catch(_){}
+
   /* DUIT_REMOVE_OPPORTUNITY_BLOCK_FROM_VISUAL_EMAIL — oportunidade interna não deve ser exposta no email visual */
   try{
     const rows=db.prepare("SELECT id,html_body FROM prospect_email_templates WHERE html_body IS NOT NULL AND TRIM(html_body)!=''").all();
