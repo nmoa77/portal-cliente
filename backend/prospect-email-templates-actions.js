@@ -11,7 +11,7 @@ module.exports=function(app){
 
   app.post('/api/admin/prospect-email-templates',requireAdmin,(req,res)=>{
     const b=req.body||{},name=String(b.name||'').trim(),description=String(b.description||'').trim(),subject=String(b.subject||'').trim(),body=String(b.body||'').trim(),dmBody=String(b.dm_body||'').trim(),htmlBody=String(b.html_body||'').trim();
-    if(!name||!subject||!body)return res.status(400).json({error:'Indique nome, assunto e texto do email.'});
+    if(!name||!subject||(!body&&!htmlBody))return res.status(400).json({error:'Indique nome, assunto e pelo menos uma versão do email (texto ou HTML).'});
     const tx=db.transaction(()=>{
       if(Number(b.is_default||0)===1)db.prepare('UPDATE prospect_email_templates SET is_default=0').run();
       const x=db.prepare(`INSERT INTO prospect_email_templates(name,description,subject,body,dm_body,html_body,is_default,is_active,updated_at)
@@ -26,7 +26,7 @@ module.exports=function(app){
     const id=Number(req.params.id),cur=db.prepare('SELECT * FROM prospect_email_templates WHERE id=?').get(id);
     if(!cur)return res.status(404).json({error:'Modelo não encontrado.'});
     const b=req.body||{},name=b.name===undefined?cur.name:String(b.name||'').trim(),description=b.description===undefined?String(cur.description||''):String(b.description||'').trim(),subject=b.subject===undefined?cur.subject:String(b.subject||'').trim(),body=b.body===undefined?cur.body:String(b.body||'').trim(),dmBody=b.dm_body===undefined?String(cur.dm_body||''):String(b.dm_body||'').trim(),htmlBody=b.html_body===undefined?String(cur.html_body||''):String(b.html_body||'').trim(),makeDefault=b.is_default===undefined?Number(cur.is_default):Number(Boolean(b.is_default));let active=b.is_active===undefined?Number(cur.is_active):Number(Boolean(b.is_active));
-    if(!name||!subject||!body)return res.status(400).json({error:'Nome, assunto e texto são obrigatórios.'});
+    if(!name||!subject||(!body&&!htmlBody))return res.status(400).json({error:'Nome, assunto e pelo menos uma versão do email (texto ou HTML) são obrigatórios.'});
     const tx=db.transaction(()=>{
       if(makeDefault){db.prepare('UPDATE prospect_email_templates SET is_default=0').run();active=1;}
       db.prepare(`UPDATE prospect_email_templates SET name=?,description=?,subject=?,body=?,dm_body=?,html_body=?,is_default=?,is_active=?,updated_at=datetime('now') WHERE id=?`).run(name.slice(0,120),description.slice(0,500),subject.slice(0,250),body.slice(0,12000),dmBody.slice(0,4000),htmlBody.slice(0,30000),makeDefault,active,id);
