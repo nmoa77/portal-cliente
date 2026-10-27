@@ -433,7 +433,7 @@ capturedApp.put('/api/crm/prospect-sectors/:sector', requireAdmin, (req, res) =>
 capturedApp.get('/api/crm/prospects', requireAdmin, (req, res) => {
   const rows = db.prepare(`
     SELECT u.id, u.name, u.email, u.company, u.phone, u.created_at,
-           c.sector, c.location, c.website, c.instagram,
+           c.sector, c.email_area, c.location, c.website, c.instagram,
            c.opportunity, c.idea, c.recommended_plan, c.solution_text,
            COALESCE(c.monthly_value,0) monthly_value,
            COALESCE(c.offer_value,0) offer_value,
