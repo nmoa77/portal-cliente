@@ -1,11 +1,54 @@
 // Email DUIT — em dev regista na consola + tabela `notifications`.
 // Em produção, se existir RESEND_API_KEY, envia via Resend (HTML + texto).
+const crypto = require('crypto');
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_FROM = process.env.EMAIL_FROM || 'DUIT <info@duit.pt>';
 const PORTAL_URL = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
 const LOGO_URL = `${PORTAL_URL}/logo-branco.png`;
 const SIGNATURE_URL = `${PORTAL_URL}/assinatura-email.png`;
+
+const UNSUBSCRIBE_SECRET = process.env.EMAIL_UNSUBSCRIBE_SECRET || process.env.JWT_SECRET || RESEND_API_KEY || 'duit-local-unsubscribe';
+
+function makeUnsubscribeToken(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  const payload = Buffer.from(normalized, 'utf8').toString('base64url');
+  const sig = crypto.createHmac('sha256', UNSUBSCRIBE_SECRET).update(payload).digest('base64url');
+  return payload + '.' + sig;
+}
+
+function verifyUnsubscribeToken(token) {
+  const [payload, sig] = String(token || '').split('.');
+  if (!payload || !sig) return null;
+  const expected = crypto.createHmac('sha256', UNSUBSCRIBE_SECRET).update(payload).digest('base64url');
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  } catch (_) { return null; }
+  try {
+    const email = Buffer.from(payload, 'base64url').toString('utf8').trim().toLowerCase();
+    return email && email.includes('@') ? email : null;
+  } catch (_) { return null; }
+}
+
+function addUnsubscribe(to, body, html) {
+  const email = String(to || '').trim().toLowerCase();
+  if (!email) return { body, html };
+  const url = `${PORTAL_URL}/unsubscribe?token=${encodeURIComponent(makeUnsubscribeToken(email))}`;
+  const textNote = `\n\n—\nSe não pretende receber mais comunicações da DUIT, pode cancelar a subscrição aqui: ${url}`;
+  const htmlNote = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;margin:14px auto 0;">
+      <tr><td align="center" style="font-size:11px;line-height:1.5;color:#9a958d;padding:0 16px 8px;">
+        Não pretende receber mais comunicações da DUIT?
+        <a href="${url}" style="color:#7d7871;text-decoration:underline;">Cancelar subscrição</a>
+      </td></tr>
+    </table>`;
+  const nextBody = String(body || '') + textNote;
+  let nextHtml = String(html || '');
+  if (nextHtml) {
+    nextHtml = nextHtml.includes('</body>') ? nextHtml.replace('</body>', htmlNote + '\n</body>') : nextHtml + htmlNote;
+  }
+  return { body: nextBody, html: nextHtml };
+}
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, c => (
@@ -152,6 +195,9 @@ async function listResendEmails(limit=500) {
 }
 
 async function deliver(db, { to, subject, body, html, user_id = null, kind = 'generic', force = false }) {
+  const withUnsubscribe = addUnsubscribe(to, body, html);
+  body = withUnsubscribe.body;
+  html = withUnsubscribe.html;
   const line = `[EMAIL → ${to}] ${subject}`;
   console.log('\n' + '━'.repeat(Math.min(line.length, 80)));
   console.log(line);
@@ -881,4 +927,4 @@ Cumprimentos,`;
   }
 };
 
-module.exports = { deliver, T, listResendEmails };
+module.exports = { deliver, T, listResendEmails, makeUnsubscribeToken, verifyUnsubscribeToken };
