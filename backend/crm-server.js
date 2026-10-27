@@ -109,7 +109,7 @@ CREATE TABLE IF NOT EXISTS prospect_sector_images (
 CREATE INDEX IF NOT EXISTS idx_prospect_sector_images_sector ON prospect_sector_images(sector,id);
 `);
 const crmCols=db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c=>c.name);
-if(!crmCols.includes('email_observation')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_observation TEXT`);if(!crmCols.includes('ebook_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ebook_page_id INTEGER`);if(!crmCols.includes('landing_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN landing_page_id INTEGER`);if(!crmCols.includes('email_template_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_template_id INTEGER`);
+if(!crmCols.includes('email_area')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_area TEXT`);if(!crmCols.includes('email_observation')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_observation TEXT`);if(!crmCols.includes('ebook_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ebook_page_id INTEGER`);if(!crmCols.includes('landing_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN landing_page_id INTEGER`);if(!crmCols.includes('email_template_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_template_id INTEGER`);
 try{
   const legacyLp=db.prepare("SELECT id FROM landing_pages WHERE slug='duit-start' LIMIT 1").get();
   if(legacyLp) db.prepare("UPDATE prospect_crm SET landing_page_id=? WHERE landing_page_id IS NULL AND (email_sent_at IS NOT NULL OR email_first_sent_at IS NOT NULL OR COALESCE(email_send_count,0)>0)").run(legacyLp.id);
@@ -130,6 +130,46 @@ function clean(value, max = 4000) {
 function asMoney(value) {
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? +n.toFixed(2) : 0;
+}
+
+const EMAIL_AREAS=[
+  'Saúde & Bem-estar',
+  'Beleza & Estética',
+  'Construção & Engenharia',
+  'Indústria & Produção',
+  'Artes Gráficas & Comunicação',
+  'Automóvel',
+  'Imobiliário',
+  'Turismo & Alojamento',
+  'Restauração',
+  'Comércio & Retalho',
+  'Serviços Profissionais',
+  'Educação & Formação',
+  'Transportes & Logística',
+  'Tecnologia & Digital',
+  'Agricultura & Agroalimentar',
+  'Desporto & Fitness'
+];
+
+function emailAreaForSector(value){
+  const s=String(value||'').trim().toLowerCase();
+  if(!s)return 'Serviços Profissionais';
+  if(/fisioter|clínic|clinica|saúde|saude|médic|medic|dent|terap|farm|osteop|podolog|psicolog|nutri/.test(s))return 'Saúde & Bem-estar';
+  if(/beleza|estét|estet|cabele|barbear|spa|unhas|cosmét|cosmet/.test(s))return 'Beleza & Estética';
+  if(/constru|obra|arquitet|engenh|remodel|instala|eletric|canaliz|climat|avac/.test(s))return 'Construção & Engenharia';
+  if(/indústr|industr|fábrica|fabrica|metal|produção|producao|manuf|maquin/.test(s))return 'Indústria & Produção';
+  if(/gráfic|grafic|impress|publicidade|sinalética|sinalet|brinde|offset|serigraf|comunicação visual|comunicacao visual/.test(s))return 'Artes Gráficas & Comunicação';
+  if(/oficina|auto|automó|automov|mecân|mecan|pneu|carro|stand/.test(s))return 'Automóvel';
+  if(/imobili|mediação|mediacao|property|real estate|imóvel|imovel/.test(s))return 'Imobiliário';
+  if(/turis|hotel|aloj|viagen|travel|rent|tour|hostel|resort/.test(s))return 'Turismo & Alojamento';
+  if(/restaur|café|cafe|pastel|food|bar|gastr|catering/.test(s))return 'Restauração';
+  if(/loja|comércio|comercio|retalho|retail|boutique|mercearia/.test(s))return 'Comércio & Retalho';
+  if(/educa|escola|formaç|formac|academ|colégio|colegio|curso/.test(s))return 'Educação & Formação';
+  if(/transport|logíst|logist|distribu|estafeta|mudança|mudanca/.test(s))return 'Transportes & Logística';
+  if(/tecnolog|software|digital|informát|informat|it\b|web|saas/.test(s))return 'Tecnologia & Digital';
+  if(/agric|agro|vinho|vinícola|vinicola|quinta|pecuár|pecuar|alimentar/.test(s))return 'Agricultura & Agroalimentar';
+  if(/desporto|fitness|ginás|ginas|personal trainer|crossfit|padel|futebol/.test(s))return 'Desporto & Fitness';
+  return 'Serviços Profissionais';
 }
 
 function defaultSectorContent(sector){
@@ -240,6 +280,38 @@ function defaultSectorContent(sector){
   return out;
 }
 
+/* DUIT_EMAIL_AREA_MIGRATION */
+try{
+  const rows=db.prepare("SELECT user_id,sector,email_area FROM prospect_crm").all();
+  const upd=db.prepare("UPDATE prospect_crm SET email_area=? WHERE user_id=?");
+  for(const row of rows){
+    if(!String(row.email_area||'').trim())upd.run(emailAreaForSector(row.sector),row.user_id);
+  }
+
+  const contentRows=db.prepare("SELECT * FROM prospect_sector_content").all();
+  const targetExists=db.prepare("SELECT sector FROM prospect_sector_content WHERE lower(sector)=lower(?) LIMIT 1");
+  const insertContent=db.prepare(`
+    INSERT OR IGNORE INTO prospect_sector_content(
+      sector,headline,subheadline,hero_image,image_1,image_2,image_3,image_4,
+      advantage_1_title,advantage_1_text,advantage_2_title,advantage_2_text,
+      advantage_3_title,advantage_3_text,advantage_4_title,advantage_4_text,updated_at
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+  `);
+  const oldImages=db.prepare("SELECT filename,mime_type,image_data FROM prospect_sector_images WHERE lower(sector)=lower(?) ORDER BY id").all.bind(db.prepare("SELECT filename,mime_type,image_data FROM prospect_sector_images WHERE lower(sector)=lower(?) ORDER BY id"));
+  const insertImage=db.prepare("INSERT INTO prospect_sector_images(sector,filename,mime_type,image_data) VALUES(?,?,?,?)");
+  for(const row of contentRows){
+    const area=emailAreaForSector(row.sector);
+    if(String(area).toLowerCase()===String(row.sector||'').trim().toLowerCase())continue;
+    if(!targetExists.get(area)){
+      insertContent.run(area,row.headline,row.subheadline,row.hero_image,row.image_1,row.image_2,row.image_3,row.image_4,
+        row.advantage_1_title,row.advantage_1_text,row.advantage_2_title,row.advantage_2_text,
+        row.advantage_3_title,row.advantage_3_text,row.advantage_4_title,row.advantage_4_text);
+      const imgs=db.prepare("SELECT filename,mime_type,image_data FROM prospect_sector_images WHERE lower(sector)=lower(?) ORDER BY id").all(row.sector);
+      for(const img of imgs)insertImage.run(area,img.filename,img.mime_type,img.image_data);
+    }
+  }
+}catch(e){console.warn('[crm] email-area migration:',e.message);}
+
 function randomPasswordHash() {
   return bcrypt.hashSync(crypto.randomBytes(18).toString('base64url'), 10);
 }
@@ -252,7 +324,7 @@ function validEbookPageId(value){
 function getCrmProspect(id) {
   return db.prepare(`
     SELECT u.id, u.name, u.email, u.company, u.phone, u.created_at,
-           c.sector, c.location, c.website, c.instagram,
+           c.sector, c.email_area, c.location, c.website, c.instagram,
            c.opportunity, c.idea, c.recommended_plan, c.solution_text,
            COALESCE(c.monthly_value,0) monthly_value,
            COALESCE(c.offer_value,0) offer_value,
@@ -271,14 +343,12 @@ function getCrmProspect(id) {
 }
 
 capturedApp.get('/api/crm/prospect-sectors', requireAdmin, (req, res) => {
-  const sectors=db.prepare(`
-    SELECT TRIM(c.sector) sector, COUNT(*) prospect_count
-      FROM prospect_crm c
-     WHERE c.sector IS NOT NULL AND TRIM(c.sector)!=''
-     GROUP BY lower(TRIM(c.sector))
-     ORDER BY prospect_count DESC, sector COLLATE NOCASE
+  const counts=db.prepare(`
+    SELECT COALESCE(NULLIF(TRIM(email_area),''),'Serviços Profissionais') area,COUNT(*) prospect_count
+      FROM prospect_crm
+     GROUP BY COALESCE(NULLIF(TRIM(email_area),''),'Serviços Profissionais')
   `).all();
-
+  const countMap=new Map(counts.map(x=>[String(x.area).toLowerCase(),Number(x.prospect_count||0)]));
   const insert=db.prepare(`
     INSERT OR IGNORE INTO prospect_sector_content(
       sector,headline,subheadline,
@@ -286,16 +356,15 @@ capturedApp.get('/api/crm/prospect-sectors', requireAdmin, (req, res) => {
       advantage_3_title,advantage_3_text,advantage_4_title,advantage_4_text
     ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
   `);
-  for(const row of sectors){
-    const d=defaultSectorContent(row.sector);
-    insert.run(row.sector,d.headline,d.subheadline,
+  for(const area of EMAIL_AREAS){
+    const d=defaultSectorContent(area);
+    insert.run(area,d.headline,d.subheadline,
       d.advantage_1_title,d.advantage_1_text,d.advantage_2_title,d.advantage_2_text,
       d.advantage_3_title,d.advantage_3_text,d.advantage_4_title,d.advantage_4_text);
   }
-
   const content=db.prepare('SELECT * FROM prospect_sector_content').all();
   const map=new Map(content.map(x=>[String(x.sector).trim().toLowerCase(),x]));
-  res.json(sectors.map(row=>({...row,...(map.get(String(row.sector).toLowerCase())||{})})));
+  res.json(EMAIL_AREAS.map(area=>({sector:area,prospect_count:countMap.get(area.toLowerCase())||0,...(map.get(area.toLowerCase())||{})})));
 });
 
 capturedApp.get('/api/crm/prospect-sectors/:sector/images', requireAdmin, (req,res)=>{
@@ -432,13 +501,13 @@ capturedApp.post('/api/crm/prospects', requireAdmin, (req, res) => {
 
     db.prepare(`
       INSERT INTO prospect_crm (
-        user_id,sector,location,website,instagram,opportunity,idea,
+        user_id,sector,email_area,location,website,instagram,opportunity,idea,
         recommended_plan,solution_text,monthly_value,offer_value,
         lead_status,priority,first_contact_at,follow_up_at,notes,proposal_email,email_observation,ebook_page_id,landing_page_id,email_template_id,updated_at
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
     `).run(
       u.lastInsertRowid,
-      clean(body.sector, 120), clean(body.location, 120), clean(body.website, 500), clean(body.instagram, 500),
+      clean(body.sector, 120), clean(body.email_area,120)||emailAreaForSector(body.sector), clean(body.location, 120), clean(body.website, 500), clean(body.instagram, 500),
       clean(body.opportunity), clean(body.idea), plan, clean(body.solution_text),
       asMoney(body.monthly_value), asMoney(body.offer_value), status, priority,
       clean(body.first_contact_at, 30), clean(body.follow_up_at, 30), clean(body.notes), clean(body.proposal_email, 12000),clean(body.email_observation,1200),ebookPageId,landingPageId,emailTemplateId
@@ -495,13 +564,14 @@ capturedApp.patch('/api/crm/prospects/:id', requireAdmin, (req, res) => {
 
     db.prepare(`
       UPDATE prospect_crm SET
-        sector=?, location=?, website=?, instagram=?, opportunity=?, idea=?,
+        sector=?, email_area=?, location=?, website=?, instagram=?, opportunity=?, idea=?,
         recommended_plan=?, solution_text=?, monthly_value=?, offer_value=?,
         lead_status=?, priority=?, first_contact_at=?, follow_up_at=?, notes=?, proposal_email=?,email_observation=?,ebook_page_id=?,landing_page_id=?,email_template_id=?,
         updated_at=datetime('now')
       WHERE user_id=?
     `).run(
       body.sector === undefined ? current.sector : clean(body.sector, 120),
+      body.email_area === undefined ? (current.email_area||emailAreaForSector(body.sector===undefined?current.sector:body.sector)) : (clean(body.email_area,120)||emailAreaForSector(body.sector===undefined?current.sector:body.sector)),
       body.location === undefined ? current.location : clean(body.location, 120),
       body.website === undefined ? current.website : clean(body.website, 500),
       body.instagram === undefined ? current.instagram : clean(body.instagram, 500),
