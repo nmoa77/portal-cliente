@@ -79,6 +79,25 @@ CREATE TABLE IF NOT EXISTS prospect_crm (
 );
 CREATE INDEX IF NOT EXISTS idx_prospect_crm_status ON prospect_crm(lead_status);
 CREATE INDEX IF NOT EXISTS idx_prospect_crm_priority ON prospect_crm(priority);
+CREATE TABLE IF NOT EXISTS prospect_sector_content (
+  sector TEXT PRIMARY KEY,
+  headline TEXT,
+  subheadline TEXT,
+  hero_image TEXT,
+  image_1 TEXT,
+  image_2 TEXT,
+  image_3 TEXT,
+  image_4 TEXT,
+  advantage_1_title TEXT,
+  advantage_1_text TEXT,
+  advantage_2_title TEXT,
+  advantage_2_text TEXT,
+  advantage_3_title TEXT,
+  advantage_3_text TEXT,
+  advantage_4_title TEXT,
+  advantage_4_text TEXT,
+  updated_at TEXT DEFAULT (datetime('now'))
+);
 `);
 const crmCols=db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c=>c.name);
 if(!crmCols.includes('email_observation')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_observation TEXT`);if(!crmCols.includes('ebook_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ebook_page_id INTEGER`);if(!crmCols.includes('landing_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN landing_page_id INTEGER`);if(!crmCols.includes('email_template_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_template_id INTEGER`);
@@ -133,6 +152,54 @@ function getCrmProspect(id) {
        AND COALESCE(c.outreach_response,'')='' AND COALESCE(c.outreach_question,'')=''
   `).get(id);
 }
+
+capturedApp.get('/api/crm/prospect-sectors', requireAdmin, (req, res) => {
+  const rows = db.prepare(`
+    SELECT TRIM(c.sector) sector,
+           COUNT(*) prospect_count,
+           s.headline, s.subheadline, s.hero_image,
+           s.image_1, s.image_2, s.image_3, s.image_4,
+           s.advantage_1_title, s.advantage_1_text,
+           s.advantage_2_title, s.advantage_2_text,
+           s.advantage_3_title, s.advantage_3_text,
+           s.advantage_4_title, s.advantage_4_text,
+           s.updated_at
+      FROM prospect_crm c
+      LEFT JOIN prospect_sector_content s ON lower(TRIM(s.sector))=lower(TRIM(c.sector))
+     WHERE c.sector IS NOT NULL AND TRIM(c.sector)!=''
+     GROUP BY lower(TRIM(c.sector))
+     ORDER BY prospect_count DESC, sector COLLATE NOCASE
+  `).all();
+  res.json(rows);
+});
+
+capturedApp.put('/api/crm/prospect-sectors/:sector', requireAdmin, (req, res) => {
+  const sector=decodeURIComponent(String(req.params.sector||'')).trim().slice(0,120);
+  if(!sector)return res.status(400).json({error:'Setor inválido.'});
+  const x=req.body||{};
+  const fields=[
+    'headline','subheadline','hero_image','image_1','image_2','image_3','image_4',
+    'advantage_1_title','advantage_1_text','advantage_2_title','advantage_2_text',
+    'advantage_3_title','advantage_3_text','advantage_4_title','advantage_4_text'
+  ];
+  const values=fields.map(k=>clean(x[k],k.includes('image')?1000:500));
+  db.prepare(`
+    INSERT INTO prospect_sector_content (
+      sector,headline,subheadline,hero_image,image_1,image_2,image_3,image_4,
+      advantage_1_title,advantage_1_text,advantage_2_title,advantage_2_text,
+      advantage_3_title,advantage_3_text,advantage_4_title,advantage_4_text,updated_at
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
+    ON CONFLICT(sector) DO UPDATE SET
+      headline=excluded.headline,subheadline=excluded.subheadline,hero_image=excluded.hero_image,
+      image_1=excluded.image_1,image_2=excluded.image_2,image_3=excluded.image_3,image_4=excluded.image_4,
+      advantage_1_title=excluded.advantage_1_title,advantage_1_text=excluded.advantage_1_text,
+      advantage_2_title=excluded.advantage_2_title,advantage_2_text=excluded.advantage_2_text,
+      advantage_3_title=excluded.advantage_3_title,advantage_3_text=excluded.advantage_3_text,
+      advantage_4_title=excluded.advantage_4_title,advantage_4_text=excluded.advantage_4_text,
+      updated_at=datetime('now')
+  `).run(sector,...values);
+  res.json({ok:true,sector});
+});
 
 capturedApp.get('/api/crm/prospects', requireAdmin, (req, res) => {
   const rows = db.prepare(`
