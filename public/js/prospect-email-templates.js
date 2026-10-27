@@ -22,9 +22,9 @@
         <div class="field"><label>Nome da abordagem</label><input id="crm-et-name" placeholder="Ex.: Oportunidade concreta"></div>
         <div class="field"><label>Quando usar</label><textarea id="crm-et-description" rows="2" placeholder="Ex.: Empresas com bom trabalho, mas comunicação pouco consistente."></textarea></div>
         <div class="field"><label>Assunto do email</label><input id="crm-et-subject" placeholder="{empresa} — reparei numa oportunidade"></div>
-        <div class="field"><label>Email</label><textarea id="crm-et-body" rows="9"></textarea></div>
+        <div class="field"><label>Email · versão texto</label><textarea id="crm-et-body" rows="7"></textarea></div><div class="field"><label>Email · HTML visual</label><textarea id="crm-et-html" rows="14" spellcheck="false" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px"></textarea><small style="display:block;color:var(--muted);margin-top:5px">Se preencher este campo, o envio usa esta versão HTML. O texto acima fica como fallback.</small></div>
         <div class="field"><label>Instagram / DM</label><textarea id="crm-et-dm" rows="6"></textarea></div>
-        <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px">Variáveis disponíveis: <code>{empresa}</code>, <code>{nome}</code>, <code>{observacao}</code>, <code>{oportunidade}</code>, <code>{problema}</code> e <code>{ideia}</code>.</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px">Variáveis: <code>{empresa}</code>, <code>{nome}</code>, <code>{setor}</code>, <code>{observacao}</code>, <code>{oportunidade}</code>, <code>{ideia}</code>, <code>{sector_headline}</code>, <code>{sector_subheadline}</code>, <code>{hero}</code>, <code>{imagem_1}</code>–<code>{imagem_4}</code>, <code>{vantagem_1}</code>–<code>{vantagem_4}</code> e <code>{vantagem_1_texto}</code>–<code>{vantagem_4_texto}</code>.</div>
         <label style="display:flex;gap:8px;align-items:center;margin-top:12px"><input type="checkbox" id="crm-et-default"> Definir como abordagem predefinida</label>
         <input type="hidden" id="crm-et-id">
         <div class="modal-actions" style="padding-bottom:0"><button class="btn btn-ghost" type="button" id="crm-et-cancel">Limpar</button><div class="spacer"></div><button class="btn btn-yellow" type="button" id="crm-et-save">Guardar abordagem</button></div>
@@ -38,7 +38,7 @@
   }
 
   function clearForm(){
-    ['crm-et-id','crm-et-name','crm-et-description','crm-et-subject','crm-et-body','crm-et-dm'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+    ['crm-et-id','crm-et-name','crm-et-description','crm-et-subject','crm-et-body','crm-et-html','crm-et-dm'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
     const d=document.getElementById('crm-et-default');if(d)d.checked=false;
   }
 
@@ -63,6 +63,7 @@
     document.getElementById('crm-et-description').value=t.description||'';
     document.getElementById('crm-et-subject').value=t.subject||'';
     document.getElementById('crm-et-body').value=t.body||'';
+    document.getElementById('crm-et-html').value=t.html_body||'';
     document.getElementById('crm-et-dm').value=t.dm_body||'';
     document.getElementById('crm-et-default').checked=Number(t.is_default)===1;
   }
@@ -73,6 +74,7 @@
       description:document.getElementById('crm-et-description').value.trim(),
       subject:document.getElementById('crm-et-subject').value.trim(),
       body:document.getElementById('crm-et-body').value.trim(),
+      html_body:document.getElementById('crm-et-html').value.trim(),
       dm_body:document.getElementById('crm-et-dm').value.trim(),
       is_default:document.getElementById('crm-et-default').checked,
       is_active:true
