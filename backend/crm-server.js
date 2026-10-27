@@ -176,6 +176,12 @@ function emailAreaForSector(value){
   return 'Serviços Profissionais';
 }
 
+function effectiveEmailArea(sector,emailArea){
+  const area=String(emailArea||'').trim();
+  if(!area||area==='Saúde & Bem-estar')return emailAreaForSector(sector);
+  return area;
+}
+
 function defaultSectorContent(sector){
   const s=String(sector||'').toLowerCase();
   let headline='Uma presença mais forte para fazer o seu negócio crescer.';
@@ -187,7 +193,7 @@ function defaultSectorContent(sector){
     ['Mais consistência','Uma presença coerente reforça a marca ao longo do tempo.']
   ];
 
-  if(/fisioter|clínic|clinica|saúde|saude|médic|medic|dent|terap/.test(s)){
+  if(s==='saúde'){
     headline='Mais confiança antes da primeira consulta.';
     subheadline='Mostre especializações, serviços e experiência de forma clara para que novos pacientes sintam confiança antes de entrar em contacto.';
     advantages=[
@@ -195,6 +201,15 @@ function defaultSectorContent(sector){
       ['Mais confiança','Mostre equipa, espaço, especializações e experiência profissional.'],
       ['Mais visibilidade local','Reforce a presença junto de pessoas que procuram estes serviços na sua zona.'],
       ['Mais diferenciação','Comunique de forma clara porque devem escolher a sua clínica.']
+    ];
+  }else if(s==='bem-estar'){
+    headline='Transforme bem-estar numa experiência que começa antes da visita.';
+    subheadline='Mostre ambiente, serviços e acompanhamento de forma leve e profissional para despertar confiança e vontade de marcar.';
+    advantages=[
+      ['Mais marcações','Apresente serviços e experiências de forma clara e apelativa.'],
+      ['Mais confiança','Mostre o espaço, profissionais e abordagem de acompanhamento.'],
+      ['Mais desejo','Uma comunicação cuidada ajuda o cliente a imaginar a experiência.'],
+      ['Mais recorrência','Mantenha a marca presente entre sessões e visitas.']
     ];
   }else if(/constru|obra|arquitet|engenh|remodel|instala/.test(s)){
     headline='Mostre melhor a qualidade do trabalho que já faz.';
@@ -315,7 +330,7 @@ function getCrmProspect(id) {
        AND NOT EXISTS (SELECT 1 FROM landing_page_leads ll WHERE ll.user_id=u.id)
        AND COALESCE(c.outreach_response,'')='' AND COALESCE(c.outreach_question,'')=''
   `).get(id);
-  if(row&&!String(row.email_area||'').trim())row.email_area=emailAreaForSector(row.sector);
+  if(row)row.email_area=effectiveEmailArea(row.sector,row.email_area);
   return row;
 }
 
@@ -323,7 +338,7 @@ capturedApp.get('/api/crm/prospect-sectors', requireAdmin, (req, res) => {
   const prospects=db.prepare("SELECT sector,email_area FROM prospect_crm").all();
   const countMap=new Map();
   for(const p of prospects){
-    const area=String(p.email_area||'').trim()||emailAreaForSector(p.sector);
+    const area=effectiveEmailArea(p.sector,p.email_area);
     countMap.set(area,(countMap.get(area)||0)+1);
   }
   const insert=db.prepare(`
@@ -438,7 +453,7 @@ capturedApp.get('/api/crm/prospects', requireAdmin, (req, res) => {
          WHEN 'atacar' THEN 0 WHEN 'possivel' THEN 1 ELSE 2 END,
        COALESCE(c.updated_at, u.created_at) DESC
   `).all();
-  for(const row of rows){if(!String(row.email_area||'').trim())row.email_area=emailAreaForSector(row.sector)}
+  for(const row of rows){row.email_area=effectiveEmailArea(row.sector,row.email_area)}
   res.json(rows);
 });
 
