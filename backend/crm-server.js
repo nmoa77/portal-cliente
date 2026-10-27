@@ -318,6 +318,7 @@ capturedApp.delete('/api/crm/prospects/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+require('./unsubscribe-actions')(capturedApp);
 require('./crm-optout-actions')(capturedApp, requireAdmin);
 require('./social-prospect-actions')(capturedApp, requireAdmin);
 require('./leads-actions')(capturedApp);
