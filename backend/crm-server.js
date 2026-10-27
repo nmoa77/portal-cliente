@@ -98,6 +98,15 @@ CREATE TABLE IF NOT EXISTS prospect_sector_content (
   advantage_4_text TEXT,
   updated_at TEXT DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS prospect_sector_images (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sector TEXT NOT NULL,
+  filename TEXT,
+  mime_type TEXT NOT NULL,
+  image_data BLOB NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_prospect_sector_images_sector ON prospect_sector_images(sector,id);
 `);
 const crmCols=db.prepare(`PRAGMA table_info(prospect_crm)`).all().map(c=>c.name);
 if(!crmCols.includes('email_observation')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_observation TEXT`);if(!crmCols.includes('ebook_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN ebook_page_id INTEGER`);if(!crmCols.includes('landing_page_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN landing_page_id INTEGER`);if(!crmCols.includes('email_template_id')) db.exec(`ALTER TABLE prospect_crm ADD COLUMN email_template_id INTEGER`);
@@ -121,6 +130,114 @@ function clean(value, max = 4000) {
 function asMoney(value) {
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? +n.toFixed(2) : 0;
+}
+
+function defaultSectorContent(sector){
+  const s=String(sector||'').toLowerCase();
+  let headline='Uma presença mais forte para fazer o seu negócio crescer.';
+  let subheadline='Comunicação profissional, clara e consistente para transformar atenção em confiança e novas oportunidades.';
+  let advantages=[
+    ['Mais confiança','Uma imagem profissional ajuda potenciais clientes a escolher a sua empresa.'],
+    ['Mais visibilidade','Conteúdos pensados para chegar às pessoas certas.'],
+    ['Mais oportunidades','Uma comunicação clara facilita o contacto e gera novas oportunidades.'],
+    ['Mais consistência','Uma presença coerente reforça a marca ao longo do tempo.']
+  ];
+
+  if(/fisioter|clínic|clinica|saúde|saude|médic|medic|dent|terap/.test(s)){
+    headline='Mais confiança antes da primeira consulta.';
+    subheadline='Mostre especializações, serviços e experiência de forma clara para que novos pacientes sintam confiança antes de entrar em contacto.';
+    advantages=[
+      ['Mais pedidos de marcação','Ajude novos pacientes a perceber rapidamente como pode ajudá-los.'],
+      ['Mais confiança','Mostre equipa, espaço, especializações e experiência profissional.'],
+      ['Mais visibilidade local','Reforce a presença junto de pessoas que procuram estes serviços na sua zona.'],
+      ['Mais diferenciação','Comunique de forma clara porque devem escolher a sua clínica.']
+    ];
+  }else if(/constru|obra|arquitet|engenh|remodel|instala/.test(s)){
+    headline='Mostre melhor a qualidade do trabalho que já faz.';
+    subheadline='Transforme obras, projetos e detalhes de execução numa presença profissional que transmite capacidade e confiança.';
+    advantages=[
+      ['Mais confiança','Mostre projetos reais, acabamentos e qualidade de execução.'],
+      ['Mais pedidos de orçamento','Ajude potenciais clientes a perceber o que faz e a pedir contacto.'],
+      ['Mais credibilidade','Uma imagem consistente reforça a dimensão e profissionalismo da empresa.'],
+      ['Mais diferenciação','Destaque experiência, especialização e resultados concretos.']
+    ];
+  }else if(/imobili|mediação|mediacao|property|real estate/.test(s)){
+    headline='Mais impacto para imóveis que merecem ser vistos.';
+    subheadline='Uma comunicação visual mais forte para valorizar imóveis, reforçar confiança e gerar mais contactos.';
+    advantages=[
+      ['Mais contactos','Apresente imóveis de forma mais apelativa e orientada à ação.'],
+      ['Mais confiança','Reforce a credibilidade da marca e dos consultores.'],
+      ['Mais valorização','Uma apresentação cuidada aumenta a perceção de valor dos imóveis.'],
+      ['Mais consistência','Mantenha uma presença profissional em todos os canais.']
+    ];
+  }else if(/turis|hotel|aloj|viagen|travel|rent|tour/.test(s)){
+    headline='Transforme destinos e experiências em vontade de reservar.';
+    subheadline='Conteúdos visuais que mostram a experiência, despertam desejo e facilitam a decisão de quem está a escolher.';
+    advantages=[
+      ['Mais reservas','Mostre a experiência de forma clara e apelativa.'],
+      ['Mais desejo','Conteúdos visuais ajudam o cliente a imaginar-se no destino.'],
+      ['Mais confiança','Uma presença cuidada reforça credibilidade antes da reserva.'],
+      ['Mais diferenciação','Destaque aquilo que torna a experiência única.']
+    ];
+  }else if(/oficina|auto|automó|mecân|pneu|carro/.test(s)){
+    headline='Mais confiança para quem precisa de deixar o carro em boas mãos.';
+    subheadline='Mostre serviços, especialização e trabalho real para reforçar confiança e gerar mais marcações.';
+    advantages=[
+      ['Mais marcações','Explique serviços e facilite o contacto de quem precisa de assistência.'],
+      ['Mais confiança','Mostre trabalho real, equipa e especialização técnica.'],
+      ['Mais visibilidade local','Chegue a mais condutores na sua zona.'],
+      ['Mais recorrência','Mantenha a oficina presente quando surgir uma nova necessidade.']
+    ];
+  }else if(/restaur|café|cafe|pastel|food|bar|gastr/.test(s)){
+    headline='Faça com que a vontade comece antes de chegar à mesa.';
+    subheadline='Uma presença visual que mostra produto, ambiente e experiência para transformar atenção em visitas e reservas.';
+    advantages=[
+      ['Mais reservas','Conteúdo apelativo incentiva a decisão e o contacto.'],
+      ['Mais desejo','Boas imagens valorizam pratos, espaço e experiência.'],
+      ['Mais alcance local','Reforce a presença junto de quem está perto.'],
+      ['Mais notoriedade','Crie uma imagem reconhecível e consistente.']
+    ];
+  }else if(/beleza|estét|estet|cabele|barbear|spa|unhas/.test(s)){
+    headline='Resultados que se veem merecem uma comunicação à altura.';
+    subheadline='Mostre serviços, resultados e experiência com uma imagem profissional que gera confiança e novas marcações.';
+    advantages=[
+      ['Mais marcações','Apresente serviços de forma clara e apelativa.'],
+      ['Mais confiança','Mostre resultados e experiência com consistência.'],
+      ['Mais desejo','Uma presença visual cuidada aumenta a intenção de experimentar.'],
+      ['Mais fidelização','Mantenha a marca presente entre visitas.']
+    ];
+  }else if(/indústr|industr|fábrica|fabrica|metal|produção|producao/.test(s)){
+    headline='Mostre capacidade, rigor e experiência antes da primeira reunião.';
+    subheadline='Uma comunicação profissional para apresentar processos, projetos e competência técnica a potenciais clientes e parceiros.';
+    advantages=[
+      ['Mais credibilidade','Mostre capacidade produtiva, experiência e rigor.'],
+      ['Mais oportunidades B2B','Facilite a perceção do que a empresa consegue executar.'],
+      ['Mais diferenciação','Destaque tecnologia, processos e especialização.'],
+      ['Mais confiança','Uma presença sólida reforça a decisão de contacto.']
+    ];
+  }else if(/transport|logíst|logist|distribu/.test(s)){
+    headline='Faça a sua capacidade chegar primeiro ao cliente.';
+    subheadline='Mostre cobertura, fiabilidade e operação de forma clara para gerar confiança e novas oportunidades comerciais.';
+    advantages=[
+      ['Mais confiança','Comunique fiabilidade, cobertura e capacidade operacional.'],
+      ['Mais oportunidades','Ajude empresas a perceber rapidamente como pode servi-las.'],
+      ['Mais credibilidade','Mostre frota, operação e experiência.'],
+      ['Mais presença','Mantenha a marca visível junto de decisores.']
+    ];
+  }else if(/educa|escola|formaç|formac|academ/.test(s)){
+    headline='Mostre porque aprender consigo faz diferença.';
+    subheadline='Uma comunicação clara para apresentar oferta, metodologia e resultados a alunos e famílias.';
+    advantages=[
+      ['Mais inscrições','Torne a oferta mais clara e fácil de escolher.'],
+      ['Mais confiança','Mostre metodologia, equipa e resultados.'],
+      ['Mais envolvimento','Crie conteúdos úteis para alunos e famílias.'],
+      ['Mais diferenciação','Destaque aquilo que torna a formação especial.']
+    ];
+  }
+
+  const out={headline,subheadline};
+  advantages.forEach((a,i)=>{out['advantage_'+(i+1)+'_title']=a[0];out['advantage_'+(i+1)+'_text']=a[1]});
+  return out;
 }
 
 function randomPasswordHash() {
@@ -154,23 +271,71 @@ function getCrmProspect(id) {
 }
 
 capturedApp.get('/api/crm/prospect-sectors', requireAdmin, (req, res) => {
-  const rows = db.prepare(`
-    SELECT TRIM(c.sector) sector,
-           COUNT(*) prospect_count,
-           s.headline, s.subheadline, s.hero_image,
-           s.image_1, s.image_2, s.image_3, s.image_4,
-           s.advantage_1_title, s.advantage_1_text,
-           s.advantage_2_title, s.advantage_2_text,
-           s.advantage_3_title, s.advantage_3_text,
-           s.advantage_4_title, s.advantage_4_text,
-           s.updated_at
+  const sectors=db.prepare(`
+    SELECT TRIM(c.sector) sector, COUNT(*) prospect_count
       FROM prospect_crm c
-      LEFT JOIN prospect_sector_content s ON lower(TRIM(s.sector))=lower(TRIM(c.sector))
      WHERE c.sector IS NOT NULL AND TRIM(c.sector)!=''
      GROUP BY lower(TRIM(c.sector))
      ORDER BY prospect_count DESC, sector COLLATE NOCASE
   `).all();
-  res.json(rows);
+
+  const insert=db.prepare(`
+    INSERT OR IGNORE INTO prospect_sector_content(
+      sector,headline,subheadline,
+      advantage_1_title,advantage_1_text,advantage_2_title,advantage_2_text,
+      advantage_3_title,advantage_3_text,advantage_4_title,advantage_4_text
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+  `);
+  for(const row of sectors){
+    const d=defaultSectorContent(row.sector);
+    insert.run(row.sector,d.headline,d.subheadline,
+      d.advantage_1_title,d.advantage_1_text,d.advantage_2_title,d.advantage_2_text,
+      d.advantage_3_title,d.advantage_3_text,d.advantage_4_title,d.advantage_4_text);
+  }
+
+  const content=db.prepare('SELECT * FROM prospect_sector_content').all();
+  const map=new Map(content.map(x=>[String(x.sector).trim().toLowerCase(),x]));
+  res.json(sectors.map(row=>({...row,...(map.get(String(row.sector).toLowerCase())||{})})));
+});
+
+capturedApp.get('/api/crm/prospect-sectors/:sector/images', requireAdmin, (req,res)=>{
+  const sector=decodeURIComponent(String(req.params.sector||'')).trim();
+  const rows=db.prepare('SELECT id,sector,filename,mime_type,created_at FROM prospect_sector_images WHERE lower(sector)=lower(?) ORDER BY id DESC').all(sector);
+  res.json(rows.map(x=>({...x,url:'/api/public/prospect-sector-images/'+x.id})));
+});
+
+capturedApp.post('/api/crm/prospect-sectors/:sector/images', requireAdmin, (req,res)=>{
+  const sector=decodeURIComponent(String(req.params.sector||'')).trim().slice(0,120);
+  const filename=clean(req.body?.filename,180)||'imagem';
+  const dataUrl=String(req.body?.data_url||'');
+  const m=dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/i);
+  if(!sector||!m)return res.status(400).json({error:'Imagem inválida.'});
+  const data=Buffer.from(m[2],'base64');
+  if(!data.length||data.length>900000)return res.status(400).json({error:'A imagem deve ter menos de 900 KB após otimização.'});
+  const info=db.prepare('INSERT INTO prospect_sector_images(sector,filename,mime_type,image_data) VALUES(?,?,?,?)').run(sector,filename,m[1].toLowerCase(),data);
+  res.status(201).json({id:Number(info.lastInsertRowid),sector,filename,mime_type:m[1].toLowerCase(),url:'/api/public/prospect-sector-images/'+info.lastInsertRowid});
+});
+
+capturedApp.delete('/api/crm/prospect-sector-images/:id', requireAdmin, (req,res)=>{
+  const id=Number(req.params.id||0);
+  const url='/api/public/prospect-sector-images/'+id;
+  db.prepare(`UPDATE prospect_sector_content SET
+    hero_image=CASE WHEN hero_image=? THEN NULL ELSE hero_image END,
+    image_1=CASE WHEN image_1=? THEN NULL ELSE image_1 END,
+    image_2=CASE WHEN image_2=? THEN NULL ELSE image_2 END,
+    image_3=CASE WHEN image_3=? THEN NULL ELSE image_3 END,
+    image_4=CASE WHEN image_4=? THEN NULL ELSE image_4 END
+  `).run(url,url,url,url,url);
+  db.prepare('DELETE FROM prospect_sector_images WHERE id=?').run(id);
+  res.json({ok:true});
+});
+
+capturedApp.get('/api/public/prospect-sector-images/:id',(req,res)=>{
+  const row=db.prepare('SELECT mime_type,image_data FROM prospect_sector_images WHERE id=?').get(Number(req.params.id||0));
+  if(!row)return res.status(404).end();
+  res.set('Content-Type',row.mime_type||'image/jpeg');
+  res.set('Cache-Control','public,max-age=31536000,immutable');
+  res.send(row.image_data);
 });
 
 capturedApp.put('/api/crm/prospect-sectors/:sector', requireAdmin, (req, res) => {
