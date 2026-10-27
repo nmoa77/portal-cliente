@@ -210,7 +210,9 @@ function fill(text,p){
     .replace(/\{vantagem_3\}/gi,String(p?.sector_advantage_3_title||''))
     .replace(/\{vantagem_3_texto\}/gi,String(p?.sector_advantage_3_text||''))
     .replace(/\{vantagem_4\}/gi,String(p?.sector_advantage_4_title||''))
-    .replace(/\{vantagem_4_texto\}/gi,String(p?.sector_advantage_4_text||''));
+    .replace(/\{vantagem_4_texto\}/gi,String(p?.sector_advantage_4_text||''))
+    .replace(/\{lp_url\}/gi,p?.sector_landing_page_key?PORTAL_URL+'/'+encodeURIComponent(p.sector_landing_page_key):'')
+    .replace(/\{landing_page_url\}/gi,p?.sector_landing_page_key?PORTAL_URL+'/'+encodeURIComponent(p.sector_landing_page_key):'');
 }
 
 function getTemplate(emailTemplateId){
@@ -227,9 +229,11 @@ function prospectRow(userId){
     s.advantage_1_title sector_advantage_1_title,s.advantage_1_text sector_advantage_1_text,
     s.advantage_2_title sector_advantage_2_title,s.advantage_2_text sector_advantage_2_text,
     s.advantage_3_title sector_advantage_3_title,s.advantage_3_text sector_advantage_3_text,
-    s.advantage_4_title sector_advantage_4_title,s.advantage_4_text sector_advantage_4_text
+    s.advantage_4_title sector_advantage_4_title,s.advantage_4_text sector_advantage_4_text,
+    s.landing_page_id sector_landing_page_id, alp.public_key sector_landing_page_key, alp.title sector_landing_page_title
     FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id
     LEFT JOIN prospect_sector_content s ON lower(TRIM(s.sector))=lower(TRIM(COALESCE(NULLIF(c.email_area,''),c.sector)))
+    LEFT JOIN landing_pages alp ON alp.id=s.landing_page_id AND alp.is_active=1
     WHERE u.id=? AND u.is_prospect=1`).get(Number(userId));
 }
 
