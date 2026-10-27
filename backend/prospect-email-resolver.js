@@ -1,4 +1,5 @@
 const db=require('./db');
+const PORTAL_URL=(process.env.PORTAL_URL||'https://cliente.duit.pt').replace(/\/+$/,'');
 
 const DEFAULT_EMAIL_BODY='Olá,\n\nSou o Nuno, da DUIT.\n\nEstive a conhecer melhor a {empresa} e reparei numa oportunidade concreta: {oportunidade}.\n\nA forma como eu abordaria isto seria simples: {ideia}.\n\nSe fizer sentido para si, responda a este email e explico-lhe como aplicaria isto à comunicação da {empresa}.';
 const DEFAULT_DM_BODY='Olá 👋 Sou o Nuno, da DUIT.\n\nEstive a ver a {empresa} e reparei numa oportunidade concreta: {oportunidade}.\n\nEu abordaria isto assim: {ideia}';
@@ -21,6 +22,7 @@ function ensureTable(){
   const cols=db.prepare('PRAGMA table_info(prospect_email_templates)').all().map(c=>c.name);
   if(!cols.includes('description'))db.exec('ALTER TABLE prospect_email_templates ADD COLUMN description TEXT');
   if(!cols.includes('dm_body'))db.exec('ALTER TABLE prospect_email_templates ADD COLUMN dm_body TEXT');
+  if(!cols.includes('html_body'))db.exec('ALTER TABLE prospect_email_templates ADD COLUMN html_body TEXT');
 
   const has=db.prepare('SELECT id FROM prospect_email_templates LIMIT 1').get();
   if(!has){
@@ -107,6 +109,13 @@ function humanize(raw,fallback=''){
   return text?text.charAt(0).toLocaleLowerCase('pt-PT')+text.slice(1):'';
 }
 
+function asset(value){
+  const v=String(value||'').trim();
+  if(!v)return '';
+  if(/^https?:\/\//i.test(v))return v;
+  return PORTAL_URL+(v.startsWith('/')?'':'/')+v;
+}
+
 function fill(text,p){
   const company=String(p?.company||p?.name||'').trim();
   const name=String(p?.name||'').trim();
@@ -119,7 +128,23 @@ function fill(text,p){
     .replace(/\{observacao\}/gi,observation)
     .replace(/\{oportunidade\}/gi,opportunity)
     .replace(/\{problema\}/gi,opportunity)
-    .replace(/\{ideia\}/gi,idea);
+    .replace(/\{ideia\}/gi,idea)
+    .replace(/\{setor\}/gi,String(p?.sector||''))
+    .replace(/\{sector_headline\}/gi,String(p?.sector_headline||''))
+    .replace(/\{sector_subheadline\}/gi,String(p?.sector_subheadline||''))
+    .replace(/\{hero\}/gi,asset(p?.sector_hero))
+    .replace(/\{imagem_1\}/gi,asset(p?.sector_image_1))
+    .replace(/\{imagem_2\}/gi,asset(p?.sector_image_2))
+    .replace(/\{imagem_3\}/gi,asset(p?.sector_image_3))
+    .replace(/\{imagem_4\}/gi,asset(p?.sector_image_4))
+    .replace(/\{vantagem_1\}/gi,String(p?.sector_advantage_1_title||''))
+    .replace(/\{vantagem_1_texto\}/gi,String(p?.sector_advantage_1_text||''))
+    .replace(/\{vantagem_2\}/gi,String(p?.sector_advantage_2_title||''))
+    .replace(/\{vantagem_2_texto\}/gi,String(p?.sector_advantage_2_text||''))
+    .replace(/\{vantagem_3\}/gi,String(p?.sector_advantage_3_title||''))
+    .replace(/\{vantagem_3_texto\}/gi,String(p?.sector_advantage_3_text||''))
+    .replace(/\{vantagem_4\}/gi,String(p?.sector_advantage_4_title||''))
+    .replace(/\{vantagem_4_texto\}/gi,String(p?.sector_advantage_4_text||''));
 }
 
 function getTemplate(emailTemplateId){
@@ -130,8 +155,15 @@ function getTemplate(emailTemplateId){
 }
 
 function prospectRow(userId){
-  return db.prepare(`SELECT u.id,u.name,u.email,u.company,c.email_observation,c.opportunity,c.idea,c.landing_page_id,c.email_template_id
+  return db.prepare(`SELECT u.id,u.name,u.email,u.company,c.sector,c.email_observation,c.opportunity,c.idea,c.landing_page_id,c.email_template_id,
+    s.headline sector_headline,s.subheadline sector_subheadline,s.hero_image sector_hero,
+    s.image_1 sector_image_1,s.image_2 sector_image_2,s.image_3 sector_image_3,s.image_4 sector_image_4,
+    s.advantage_1_title sector_advantage_1_title,s.advantage_1_text sector_advantage_1_text,
+    s.advantage_2_title sector_advantage_2_title,s.advantage_2_text sector_advantage_2_text,
+    s.advantage_3_title sector_advantage_3_title,s.advantage_3_text sector_advantage_3_text,
+    s.advantage_4_title sector_advantage_4_title,s.advantage_4_text sector_advantage_4_text
     FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id
+    LEFT JOIN prospect_sector_content s ON lower(TRIM(s.sector))=lower(TRIM(c.sector))
     WHERE u.id=? AND u.is_prospect=1`).get(Number(userId));
 }
 
@@ -147,7 +179,9 @@ function resolveProspectApproach(userId,emailTemplateId){
     source_name:tpl.name,
     subject:fill(tpl.subject,p),
     body:fill(tpl.body,p),
-    dm_body:fill(tpl.dm_body||DEFAULT_DM_BODY,p)
+    dm_body:fill(tpl.dm_body||DEFAULT_DM_BODY,p),
+    email_html:fill(tpl.html_body||'',p),
+    email_format:String(tpl.html_body||'').trim()?'html':'text'
   };
 }
 
@@ -169,7 +203,7 @@ function resolveProspectEmail(userId,landingPageId,emailTemplateId){
   }
   const tpl=getTemplate(emailTemplateId);
   if(!tpl)return {error:Number(emailTemplateId||0)?'A abordagem selecionada não existe ou está inativa.':'Não existe nenhuma abordagem ativa.'};
-  return {prospect:p,source_type:Number(emailTemplateId||0)?'selected_template':'default_template',source_name:tpl.name,landing_page:null,template:tpl,subject:fill(tpl.subject,p),body:fill(tpl.body,p)};
+  return {prospect:p,source_type:Number(emailTemplateId||0)?'selected_template':'default_template',source_name:tpl.name,landing_page:null,template:tpl,subject:fill(tpl.subject,p),body:fill(tpl.body,p),email_html:fill(tpl.html_body||'',p),email_format:String(tpl.html_body||'').trim()?'html':'text'};
 }
 
 module.exports={ensureTable,fill,resolveProspectApproach,resolveProspectEmail,DEFAULT_DM_BODY};
