@@ -130,6 +130,7 @@ function fill(text,p){
     .replace(/\{problema\}/gi,opportunity)
     .replace(/\{ideia\}/gi,idea)
     .replace(/\{setor\}/gi,String(p?.sector||''))
+    .replace(/\{area_email\}/gi,String(p?.email_area||''))
     .replace(/\{sector_headline\}/gi,String(p?.sector_headline||''))
     .replace(/\{sector_subheadline\}/gi,String(p?.sector_subheadline||''))
     .replace(/\{hero\}/gi,asset(p?.sector_hero))
@@ -155,7 +156,7 @@ function getTemplate(emailTemplateId){
 }
 
 function prospectRow(userId){
-  return db.prepare(`SELECT u.id,u.name,u.email,u.company,c.sector,c.email_observation,c.opportunity,c.idea,c.landing_page_id,c.email_template_id,
+  return db.prepare(`SELECT u.id,u.name,u.email,u.company,c.sector,c.email_area,c.email_observation,c.opportunity,c.idea,c.landing_page_id,c.email_template_id,
     s.headline sector_headline,s.subheadline sector_subheadline,s.hero_image sector_hero,
     s.image_1 sector_image_1,s.image_2 sector_image_2,s.image_3 sector_image_3,s.image_4 sector_image_4,
     s.advantage_1_title sector_advantage_1_title,s.advantage_1_text sector_advantage_1_text,
@@ -163,7 +164,7 @@ function prospectRow(userId){
     s.advantage_3_title sector_advantage_3_title,s.advantage_3_text sector_advantage_3_text,
     s.advantage_4_title sector_advantage_4_title,s.advantage_4_text sector_advantage_4_text
     FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id
-    LEFT JOIN prospect_sector_content s ON lower(TRIM(s.sector))=lower(TRIM(c.sector))
+    LEFT JOIN prospect_sector_content s ON lower(TRIM(s.sector))=lower(TRIM(COALESCE(NULLIF(c.email_area,''),c.sector)))
     WHERE u.id=? AND u.is_prospect=1`).get(Number(userId));
 }
 
