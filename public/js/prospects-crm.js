@@ -106,46 +106,128 @@
 
   function crmApproachStatsHtml(){
     const groups=new Map();
+    const siteLpIds=new Set(
+      crmLandingPages
+        .filter(lp=>String(lp.slug||'').toLowerCase()==='site-duit')
+        .map(lp=>Number(lp.id))
+    );
+
     for(const p of crmProspects){
+      // O site institucional não é uma abordagem de prospeção.
+      if(p.landing_page_id && siteLpIds.has(Number(p.landing_page_id))) continue;
+
       const name=crmApproachName(p);
-      if(!groups.has(name))groups.set(name,{name,total:0,sent:0,delivered:0,opened:0,proposal:0,replied:0,interested:0});
-      const g=groups.get(name);g.total++;
-      if(p.email_sent_at)g.sent++;
+      if(!groups.has(name))groups.set(name,{
+        name,total:0,sent:0,resendKnown:0,delivered:0,opened:0,clicked:0,
+        proposal:0,replied:0,interested:0
+      });
+      const g=groups.get(name);
+      g.total++;
+
+      if(!p.email_sent_at) continue;
+      g.sent++;
+
       const rs=String(p.resend_status||'').toLowerCase();
-      if(['delivered','opened','clicked'].includes(rs)||p.email_first_opened_at||Number(p.email_open_count||0)>0)g.delivered++;
+      const knownStatuses=['sent','delivered','opened','clicked','delivery_delayed','bounced','complained','suppressed','failed'];
+      if(knownStatuses.includes(rs)) g.resendKnown++;
+      if(['delivered','opened','clicked'].includes(rs)) g.delivered++;
+      if(rs==='clicked') g.clicked++;
+
       if(p.email_first_opened_at||Number(p.email_open_count||0)>0)g.opened++;
       if(Number(p.proposal_view_count||0)>0)g.proposal++;
       if(['respondeu','interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||''))g.replied++;
       if(['interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||'')==='accepted')g.interested++;
     }
+
     const MIN_SAMPLE=30;
+    const pct=(n,d)=>d?Math.round(n/d*100):0;
     const rows=[...groups.values()].filter(g=>g.sent>0).sort((a,b)=>{
       const ar=a.sent?a.opened/a.sent:0,br=b.sent?b.opened/b.sent:0;
       return br-ar||b.sent-a.sent;
     });
+
     if(!rows.length)return '<div class="card" style="padding:18px;margin-bottom:16px"><div class="eyebrow">Performance por abordagem</div><strong>Ainda não existem envios suficientes para comparar abordagens.</strong></div>';
-    const pct=(n,d)=>d?Math.round(n/d*100):0;
+
     const eligible=rows.filter(g=>g.sent>=MIN_SAMPLE);
     const best=eligible.length?eligible[0]:null;
+
+    const deliveryCell=g=>{
+      const coverage=pct(g.resendKnown,g.sent);
+      const rate=g.resendKnown?pct(g.delivered,g.resendKnown):0;
+      if(!g.resendKnown)return '<span style="color:var(--muted)">—</span><div style="font-size:10px;color:var(--muted);margin-top:2px">sem dados Resend</div>';
+      return `<strong>${g.delivered}</strong><div style="font-size:10px;color:var(--muted);margin-top:2px">${rate}% dos confirmados · cobertura ${coverage}%</div>`;
+    };
+
+    const rateCell=(value,base,label='')=>`<strong>${pct(value,base)}%</strong><div style="font-size:10px;color:var(--muted);margin-top:2px">${value}/${base}${label?' · '+label:''}</div>`;
+
     return `<div class="card" style="padding:18px;margin-bottom:16px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:14px">
-        <div><div class="eyebrow">Performance por abordagem</div><h3 style="margin:3px 0 4px">O que está a funcionar melhor</h3><div style="font-size:12px;color:var(--muted)">Compare cada abordagem desde o envio até à resposta.</div></div>
-        <div style="padding:10px 12px;border-radius:10px;background:var(--bg-2);font-size:12px"><span style="color:var(--muted)">Melhor abordagem</span><br><strong>${best?safe(best.name)+' · '+pct(best.opened,best.sent)+'%':'Amostra insuficiente'}</strong>${best?'<div style="font-size:10px;color:var(--muted);margin-top:2px">'+best.opened+'/'+best.sent+' abertos</div>':'<div style="font-size:10px;color:var(--muted);margin-top:2px">mínimo '+MIN_SAMPLE+' envios</div>'}</div>
+        <div>
+          <div class="eyebrow">Performance por abordagem</div>
+          <h3 style="margin:3px 0 4px">O que está a funcionar melhor</h3>
+          <div style="font-size:12px;color:var(--muted)">Funil por abordagem: envio → entrega → abertura → clique/proposta → resposta → interesse.</div>
+        </div>
+        <div style="padding:10px 12px;border-radius:10px;background:var(--bg-2);font-size:12px">
+          <span style="color:var(--muted)">Melhor taxa de abertura</span><br>
+          <strong>${best?safe(best.name)+' · '+pct(best.opened,best.sent)+'%':'Amostra insuficiente'}</strong>
+          ${best?'<div style="font-size:10px;color:var(--muted);margin-top:2px">'+best.opened+'/'+best.sent+' abertos</div>':'<div style="font-size:10px;color:var(--muted);margin-top:2px">mínimo '+MIN_SAMPLE+' envios</div>'}
+        </div>
       </div>
+
       <div style="overflow-x:auto">
-        <table class="table" style="min-width:900px">
-          <thead><tr><th>Abordagem</th><th>Enviados</th><th>Entregues</th><th>Abertos</th><th>Sucesso abertura</th><th>Proposta vista</th><th>Responderam</th><th>Interesse</th></tr></thead>
-          <tbody>${rows.map(g=>`<tr>
-            <td><strong>${safe(g.name)}</strong><div style="font-size:11px;color:var(--muted)">${g.total} prospect${g.total===1?'':'s'} associados</div></td>
-            <td><strong>${g.sent}</strong></td>
-            <td>${g.delivered} <span style="font-size:11px;color:var(--muted)">(${pct(g.delivered,g.sent)}%)</span></td>
-            <td>${g.opened}</td>
-            <td><strong>${pct(g.opened,g.sent)}%</strong><div style="font-size:10px;color:var(--muted);margin-top:2px">${g.opened}/${g.sent}${g.sent<MIN_SAMPLE?' · amostra baixa':''}</div></td>
-            <td>${g.proposal} <span style="font-size:11px;color:var(--muted)">(${pct(g.proposal,g.sent)}%)</span></td>
-            <td><strong>${g.replied}</strong></td>
-            <td>${g.interested} <span style="font-size:11px;color:var(--muted)">(${pct(g.interested,g.sent)}%)</span></td>
-          </tr>`).join('')}</tbody>
+        <table class="table" style="min-width:1180px">
+          <thead><tr>
+            <th>Abordagem</th>
+            <th>Enviados</th>
+            <th>Entregues</th>
+            <th>Taxa entrega</th>
+            <th>Abertos</th>
+            <th>Taxa abertura</th>
+            <th>Cliques</th>
+            <th>Proposta vista</th>
+            <th>Responderam</th>
+            <th>Interesse</th>
+          </tr></thead>
+          <tbody>${rows.map(g=>{
+            const coverage=pct(g.resendKnown,g.sent);
+            const deliveryRate=g.resendKnown?pct(g.delivered,g.resendKnown):0;
+            return `<tr>
+              <td>
+                <strong>${safe(g.name)}</strong>
+                <div style="font-size:11px;color:var(--muted)">${g.total} prospect${g.total===1?'':'s'} associados</div>
+              </td>
+              <td><strong>${g.sent}</strong></td>
+              <td>${deliveryCell(g)}</td>
+              <td>
+                ${coverage>=80
+                  ? rateCell(g.delivered,g.resendKnown)
+                  : '<strong>—</strong><div style="font-size:10px;color:var(--muted);margin-top:2px">cobertura Resend '+coverage+'% · incompleta</div>'}
+              </td>
+              <td><strong>${g.opened}</strong></td>
+              <td>${rateCell(g.opened,g.sent,g.sent<MIN_SAMPLE?'amostra baixa':'')}</td>
+              <td>
+                <strong>${g.clicked}</strong>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px">${g.resendKnown?pct(g.clicked,g.resendKnown):0}% dos confirmados</div>
+              </td>
+              <td>
+                <strong>${g.proposal}</strong>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(g.proposal,g.sent)}% dos enviados</div>
+              </td>
+              <td>
+                <strong>${g.replied}</strong>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(g.replied,g.sent)}% dos enviados</div>
+              </td>
+              <td>
+                <strong>${g.interested}</strong>
+                <div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(g.interested,g.sent)}% dos enviados</div>
+              </td>
+            </tr>`;
+          }).join('')}</tbody>
         </table>
+      </div>
+
+      <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5">
+        Entregues e cliques usam estados confirmados pelo Resend. Quando a cobertura Resend é inferior a 80%, a taxa de entrega não é apresentada para evitar conclusões erradas sobre envios históricos.
       </div>
     </div>`;
   }
