@@ -478,50 +478,35 @@
     try{crmSectorContent=await api('/api/crm/prospect-sectors');refreshCrmEmailAreaSelect(document.getElementById('crm-email-area')?.value||'')}catch(_){}
   }
   function crmPreviewFill(text,p){return crmApproachFill(text,p)}
-  function crmRefreshEmailPreview(){
+  async function crmRefreshEmailPreview(){
     const id=Number(document.getElementById('crm-id')?.value||0),box=document.getElementById('crm-email-preview');
     if(!box)return;
-    const p=id?crmProspects.find(x=>Number(x.id)===id):null,
-      lpId=Number(document.getElementById('crm-landing-page')?.value||0),
-      tplId=Number(document.getElementById('crm-email-template')?.value||0),
-      activeTemplates=crmEmailTemplates.filter(t=>Number(t.is_active)===1),
-      lp=lpId?crmLandingPages.find(x=>Number(x.id)===lpId&&Number(x.is_active)!==0):null,
-      tpl=lp?null:(tplId?activeTemplates.find(x=>Number(x.id)===tplId):activeTemplates.find(x=>Number(x.is_default)===1)||activeTemplates[0]);
-
-    let source='',subject='',body='',html='',isHtml=false;
-    if(lp){
-      source=lp.title||'Landing Page';
-      subject=lp.email_subject||('DUIT — '+(lp.title||''));
-      body=lp.email_body||'';
-      isHtml=String(lp.email_format||'text').toLowerCase()==='html'&&String(lp.email_html||'').trim();
-      if(isHtml)html=String(lp.email_html||'').trim();
-    }else if(tpl){
-      source=tpl.name||'Abordagem';
-      subject=tpl.subject||'';
-      body=tpl.body||'';
-      isHtml=Boolean(String(tpl.html_body||'').trim());
-      if(isHtml)html=String(tpl.html_body||'').trim();
-    }else{
-      source='Sem abordagem';
-      subject='Não existe nenhuma abordagem ativa.';
-      body='';
+    const bodyEl=box.querySelector('.body');
+    if(!id){
+      box.querySelector('.subject').textContent='Guarde primeiro o prospect para ver o email final.';
+      bodyEl.style.whiteSpace='normal';
+      bodyEl.innerHTML='';
+      return;
     }
 
-    box.querySelector('.subject').textContent=(source?source+' · ':'')+crmPreviewFill(subject,p);
-    const bodyEl=box.querySelector('.body');
+    const lpId=Number(document.getElementById('crm-landing-page')?.value||0)||null;
+    const tplId=Number(document.getElementById('crm-email-template')?.value||0)||null;
 
-    if(isHtml){
-      const lpUrl=lp?.public_key?(location.origin+'/'+encodeURIComponent(lp.public_key)):'';
-      let preview=crmPreviewFill(html,p)
-        .replace(/\{lp_url\}/gi,lpUrl)
-        .replace(/\{landing_page_url\}/gi,lpUrl);
-      const bodyMatch=preview.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-      if(bodyMatch)preview=bodyMatch[1];
+    try{
+      box.querySelector('.subject').textContent='A carregar email final…';
       bodyEl.style.whiteSpace='normal';
-      bodyEl.innerHTML=preview;
-    }else{
-      bodyEl.style.whiteSpace='pre-wrap';
-      bodyEl.textContent=crmPreviewFill(body,p)||'Esta abordagem ainda não tem texto de email configurado.';
+      bodyEl.innerHTML='<div style="padding:18px;color:var(--muted)">A gerar exatamente o email que será enviado…</div>';
+
+      const out=await api(`/api/crm/prospects/${id}/email-preview-final`,{
+        method:'POST',
+        body:{landing_page_id:lpId,email_template_id:tplId}
+      });
+
+      box.querySelector('.subject').textContent=out?.subject||'Preview do email';
+      bodyEl.innerHTML=`<iframe title="Preview final do email" style="display:block;width:100%;height:1100px;border:0;background:#fff;border-radius:10px" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" srcdoc="${String(out?.html||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"></iframe>`;
+    }catch(e){
+      box.querySelector('.subject').textContent='Não foi possível gerar o preview final.';
+      bodyEl.textContent=e.message||'Erro ao gerar preview.';
     }
   }
   window.crmRefreshEmailPreview=crmRefreshEmailPreview;
