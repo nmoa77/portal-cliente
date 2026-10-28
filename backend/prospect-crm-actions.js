@@ -266,7 +266,7 @@ module.exports = function installProspectCrmActions(app) {
         .replace(/\swidth="[^"]*"/gi,'')
         .replace(/\sheight="[^"]*"/gi,'')
         .replace(/\sstyle="[^"]*"/gi,'');
-      return '<img'+attrs+' src="'+src+'" width="272" height="220" style="display:block;width:104%;max-width:none;height:220px;object-fit:cover;object-position:center;border:0;border-radius:12px;margin:0 -2%;">';
+      return '<img'+attrs+' src="'+src+'" width="272" height="220" style="display:block;width:100%;max-width:100%;height:220px;object-fit:cover;object-position:center;border:0;border-radius:12px;margin:0;">';
     });
 
     return out;
