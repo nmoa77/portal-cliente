@@ -219,6 +219,32 @@ function ensureTable(){
     }
   }catch(_){}
 
+  /* DUIT_STRONG_COLORS_CENTER_SECTION */
+  try{
+    const rows=db.prepare("SELECT id,html_body FROM prospect_email_templates WHERE html_body IS NOT NULL AND TRIM(html_body)!=''").all();
+    const upd=db.prepare("UPDATE prospect_email_templates SET html_body=?,updated_at=datetime('now') WHERE id=?");
+    for(const row of rows){
+      let html=String(row.html_body||'');
+      if(!html)continue;
+
+      html=html
+        .replace(/background:#FFF1A8/gi,'background:#FFD200')
+        .replace(/background:#DDF7F6/gi,'background:#16B3B1');
+
+      html=html.replace(
+        /(<[^>]+style=["'][^"']*color:#16B3B1[^"']*)(["'][^>]*>\s*O QUE PODE GANHAR\s*<\/[^>]+>)/i,
+        (m,a,b)=>a.replace(/text-align:[^;]+;?/i,'')+'text-align:center;'+b
+      );
+
+      html=html.replace(
+        /(<[^>]+style=["'][^"']*font-size:2[4-9]px[^"']*)(["'][^>]*>\s*Uma comunicação pensada para o seu negócio\.\s*<\/[^>]+>)/i,
+        (m,a,b)=>a.replace(/text-align:[^;]+;?/i,'')+'text-align:center;'+b
+      );
+
+      if(html!==String(row.html_body||''))upd.run(html,row.id);
+    }
+  }catch(_){}
+
   /* DUIT_REMOVE_DUPLICATE_TEXT_SIGNATURE */
   try{
     const rows=db.prepare('SELECT id,body FROM prospect_email_templates').all();
