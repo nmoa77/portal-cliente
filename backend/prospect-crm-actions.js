@@ -220,32 +220,10 @@ module.exports = function installProspectCrmActions(app) {
   app.post('/api/public/prospect-outreach/:token/respond',(req,res)=>{const token=String(req.params.token||''),status=String(req.body?.status||''),reason=String(req.body?.reason||'').trim();if(!['accepted','rejected'].includes(status))return res.status(400).json({error:'Resposta inválida.'});const p=db.prepare(`SELECT c.user_id,u.name,u.company,u.email FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(token);if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});db.prepare(`UPDATE prospect_crm SET outreach_response=?,outreach_response_reason=?,outreach_responded_at=datetime('now'),lead_status=?,updated_at=datetime('now') WHERE email_tracking_token=?`).run(status,reason,status==='accepted'?'interessado':'sem_interesse',token);if(status==='accepted'){try{const message=reason||'Sem mensagem.';deliver(db,{to:'info@duit.pt',subject:`Novo interesse — DUIT First · ${p.company||p.name||'Prospect'}`,body:`Nome: ${p.name||'—'}\nEmpresa: ${p.company||'—'}\nEmail: ${p.email||'—'}\n\nMensagem:\n${message}`,html:`<div style="font-family:Arial,sans-serif;color:#222;line-height:1.6"><h2 style="margin:0 0 18px">Novo interesse — DUIT First</h2><p><strong>Nome:</strong> ${esc(p.name||'—')}<br><strong>Empresa:</strong> ${esc(p.company||'—')}<br><strong>Email:</strong> ${esc(p.email||'—')}</p><div style="margin-top:18px"><strong>Mensagem:</strong><div style="margin-top:8px;padding:16px;border-left:4px solid #ffd60a;background:#f7f7f4;white-space:pre-wrap">${esc(message)}</div></div></div>`,user_id:p.user_id,kind:'duit_first_interest',force:true});}catch(e){console.warn('[crm] notify DUIT First interest:',e.message);}}res.json({ok:true,status});});
   app.post('/api/public/prospect-outreach/:token/question',(req,res)=>{const token=String(req.params.token||''),message=String(req.body?.message||'').trim();if(message.length<3)return res.status(400).json({error:'Escreva a sua dúvida antes de enviar.'});if(message.length>2000)return res.status(400).json({error:'A mensagem é demasiado longa.'});const p=db.prepare(`SELECT c.user_id,u.name,u.company,u.email FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(token);if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});db.prepare(`UPDATE prospect_crm SET outreach_question=?,outreach_question_at=datetime('now'),lead_status='respondeu',updated_at=datetime('now') WHERE email_tracking_token=?`).run(message,token);try{const admins=db.prepare(`SELECT id,name,email FROM users WHERE role='admin' AND email IS NOT NULL AND TRIM(email)!=''`).all();const who=p.company||p.name||'Prospect';for(const a of admins){deliver(db,{to:a.email,subject:`Dúvida sobre proposta — ${who}`,body:`${who}${p.email?` (${p.email})`:''} enviou uma dúvida através da proposta:\n\n${message}\n\nAbra o CRM de Prospects para acompanhar este contacto.`,html:`<div style="font-family:Arial,sans-serif;color:#222;line-height:1.6"><h2 style="margin:0 0 14px">Nova dúvida sobre uma proposta</h2><p><strong>${esc(who)}</strong>${p.email?` · ${esc(p.email)}`:''}</p><div style="padding:16px;border-left:4px solid #ffd60a;background:#f7f7f4;white-space:pre-wrap">${esc(message)}</div><p style="color:#666;font-size:13px">A dúvida ficou guardada no CRM de Prospects.</p></div>`,user_id:a.id,kind:'prospect_question',force:true});}}catch(e){console.warn('[crm] notify prospect question:',e.message);}res.json({ok:true});});
 
-  app.post('/api/crm/prospects/:id/send-email',requireAdmin,async(req,res)=>{
-    const limit=sendingState();
-    if(!limit.allowed){
-      const mins=Math.max(1,Math.ceil((new Date(limit.next_at).getTime()-Date.now())/60000));
-      const msg=limit.reason==='daily'
-        ?`Limite diário de ${DAILY_LIMIT} emails atingido. Novos envios ficam disponíveis amanhã.`
-        :limit.reason==='10m'
-          ?`Já enviou ${LIMIT_30M} emails nos últimos 10 minutos. Aguarde cerca de ${mins} min.`
-          :`Já enviou ${LIMIT_60M} emails na última hora. Aguarde cerca de ${mins} min.`;
-      return res.status(429).json({error:msg,send_limit:limit});
-    }
-
-    const id=Number(req.params.id);
-    const selectedLpId=Number(req.body?.landing_page_id||0);
-    const selectedTemplateId=Number(req.body?.email_template_id||0);
-    const resolved=resolveProspectEmail(id,selectedLpId,selectedTemplateId);
-    const approach=resolveProspectApproach(id,selectedTemplateId);
-    if(!resolved)return res.status(404).json({error:'Prospect não encontrado.'});
-    if(resolved.error)return res.status(400).json({error:resolved.error});
-
+  function composeProspectEmail(resolved,approach,token,includeTracking=true){
     const p=resolved.prospect;
-    if(!p.email)return res.status(400).json({error:'Este prospect não tem email.'});
-
     const subject=resolved.subject;
     const body=resolved.body;
-    const token=crypto.randomBytes(24).toString('hex');
     const lp=resolved.landing_page;
     const lpUrl=lp?portal+'/'+encodeURIComponent(lp.public_key):null;
     const areaLpUrl=p.sector_landing_page_key?portal+'/'+encodeURIComponent(p.sector_landing_page_key):null;
@@ -253,7 +231,7 @@ module.exports = function installProspectCrmActions(app) {
     const ctaTrackUrl=targetUrl?`${portal}/api/public/prospect-cta/${encodeURIComponent(token)}`:null;
     const useCustomHtml=Boolean(resolved.email_format==='html'&&String(resolved.email_html||'').trim());
     const withLpUrl=value=>String(value||'').replace(/\{lp_url\}/gi,targetUrl||'').replace(/\{landing_page_url\}/gi,targetUrl||'');
-    const trackingPixel=`<img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0">`;
+    const trackingPixel=includeTracking?`<img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0">`:'';
     const linkBlock=lp&&!useCustomHtml
       ?`<tr><td style="padding:0 34px 32px"><a href="${ctaTrackUrl||lpUrl}" style="display:inline-block;background:#ffd60a;color:#111;text-decoration:none;font-weight:800;padding:14px 22px;border-radius:9px">Ver ${esc(lp.title)} →</a></td></tr><tr><td style="padding:0 34px 18px;color:#999;font-size:11px">Se o botão não abrir, copie este endereço: ${esc(lpUrl)}</td></tr>`
       :'';
@@ -301,6 +279,49 @@ module.exports = function installProspectCrmActions(app) {
 
     const htmlText=useCustomHtml?withLpUrl(resolved.email_html).replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/\s+/g,' ').trim():'';
     const text=useCustomHtml?(body.trim()||htmlText)+(targetUrl&&!/\{lp_url\}|\{landing_page_url\}/i.test(String(resolved.email_html||''))?'\n\n'+targetUrl:''):body+(targetUrl?'\n\n'+targetUrl:'');
+    return {p,subject,body,lp,targetUrl,html,text};
+  }
+
+  app.post('/api/crm/prospects/:id/email-preview-final',requireAdmin,(req,res)=>{
+    const id=Number(req.params.id);
+    const selectedLpId=Number(req.body?.landing_page_id||0);
+    const selectedTemplateId=Number(req.body?.email_template_id||0);
+    const resolved=resolveProspectEmail(id,selectedLpId,selectedTemplateId);
+    const approach=resolveProspectApproach(id,selectedTemplateId);
+    if(!resolved)return res.status(404).json({error:'Prospect não encontrado.'});
+    if(resolved.error)return res.status(400).json({error:resolved.error});
+    const p=resolved.prospect;
+    if(!p.email)return res.status(400).json({error:'Este prospect não tem email.'});
+    const composed=composeProspectEmail(resolved,approach,'preview',false);
+    res.json({subject:composed.subject,html:composed.html});
+  });
+
+  app.post('/api/crm/prospects/:id/send-email',requireAdmin,async(req,res)=>{
+    const limit=sendingState();
+    if(!limit.allowed){
+      const mins=Math.max(1,Math.ceil((new Date(limit.next_at).getTime()-Date.now())/60000));
+      const msg=limit.reason==='daily'
+        ?`Limite diário de ${DAILY_LIMIT} emails atingido. Novos envios ficam disponíveis amanhã.`
+        :limit.reason==='10m'
+          ?`Já enviou ${LIMIT_30M} emails nos últimos 10 minutos. Aguarde cerca de ${mins} min.`
+          :`Já enviou ${LIMIT_60M} emails na última hora. Aguarde cerca de ${mins} min.`;
+      return res.status(429).json({error:msg,send_limit:limit});
+    }
+
+    const id=Number(req.params.id);
+    const selectedLpId=Number(req.body?.landing_page_id||0);
+    const selectedTemplateId=Number(req.body?.email_template_id||0);
+    const resolved=resolveProspectEmail(id,selectedLpId,selectedTemplateId);
+    const approach=resolveProspectApproach(id,selectedTemplateId);
+    if(!resolved)return res.status(404).json({error:'Prospect não encontrado.'});
+    if(resolved.error)return res.status(400).json({error:resolved.error});
+
+    const p=resolved.prospect;
+    if(!p.email)return res.status(400).json({error:'Este prospect não tem email.'});
+
+    const token=crypto.randomBytes(24).toString('hex');
+    const composed=composeProspectEmail(resolved,approach,token,true);
+    const {subject,body,lp,targetUrl,html,text}=composed;
     db.prepare(`UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,email_tracking_token=?,email_first_sent_at=COALESCE(email_first_sent_at,datetime('now')),email_sent_at=datetime('now'),email_send_count=COALESCE(email_send_count,0)+1,email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,cta_first_clicked_at=NULL,cta_last_clicked_at=NULL,cta_click_count=0,cta_target_url=?,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),updated_at=datetime('now') WHERE user_id=?`).run(lp?lp.id:null,approach?.template?.id||resolved.template?.id||null,token,targetUrl,id);
     const delivery=await deliver(db,{to:p.email,subject,body:text,html,user_id:id,kind:'prospect_outreach',force:true});
     db.prepare(`UPDATE prospect_crm SET resend_email_id=?,resend_status=?,resend_status_at=datetime('now'),resend_error=? WHERE user_id=?`)
