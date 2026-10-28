@@ -239,7 +239,7 @@ module.exports = function installProspectCrmActions(app) {
           .replace(/text-align:[^;"]+;?/gi,'')
           .replace(/min-height:[^;"]+;?/gi,'')
           .replace(/margin:[^;"]+;?/gi,'');
-        return a+cleanStyle+'text-align:center;min-height:58px;margin:0 0 14px;'+b;
+        return a+cleanStyle+'text-align:center;min-height:0;margin:0 0 5px;'+b;
       });
     }
 
