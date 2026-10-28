@@ -306,6 +306,13 @@ module.exports = function installProspectCrmActions(app) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    @media only screen and (max-width:600px){
+      .duit-gallery-row{display:block!important;width:100%!important}
+      .duit-gallery-cell{display:block!important;width:100%!important;padding:0 0 12px!important}
+      .duit-gallery-cell img{display:block!important;width:100%!important;max-width:100%!important;height:220px!important;object-fit:cover!important;margin:0!important}
+    }
+  </style>
 </head>
 <body style="margin:0;background:#f3f1ed;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;color:#111">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="padding:28px 14px;background:#f3f1ed">
