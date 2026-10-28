@@ -32,7 +32,7 @@
       <div class="thanks" id="topThanks"><strong>Recebido ✓</strong><br>Entrarei em contacto consigo.</div>
     </div>
     <div class="hero-card">
-      <img id="heroImage" src="/portfolio/dg2.webp" alt="">
+      <img id="heroImage" src="" alt="">
     </div>
   </div>
 </section>
@@ -181,7 +181,7 @@ async function loadArea(){
   document.getElementById('heroLead').textContent=cfg.lead;
   document.getElementById('areaHeadline').textContent=data.headline||'Design pensado para a realidade do seu negócio.';
   document.getElementById('areaIntro').textContent=cfg.intro;
-  document.getElementById('heroImage').src=abs(data.hero_image)||'/portfolio/dg2.webp';
+  document.getElementById('heroImage').src=abs(data.hero_image)||abs(data.image_1)||abs(data.image_2)||abs(data.image_3)||abs(data.image_4)||'';
   ['1','2','3','4'].forEach(n=>{const el=document.getElementById('sectorImg'+n),src=abs(data['image_'+n]);if(src){el.src=src}else{el.classList.add('hidden')}});
   document.getElementById('applications').innerHTML=cfg.apps.map((x,i)=>'<div class="app-card"><div class="n">'+(i+1)+'</div><h3>'+x[0]+'</h3><p>'+x[1]+'</p></div>').join('');
   document.getElementById('topMessage').value='Pedido através da LP por área · '+sector;
