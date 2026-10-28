@@ -145,11 +145,9 @@
 <script>
 const q=new URLSearchParams(location.search);
 const pathKey=location.pathname.split('/').filter(Boolean).pop()||'';
-const areaFromQuery=String(q.get('area')||'').trim().toLowerCase();
-let slug=areaFromQuery;
-if(!slug&&pathKey.startsWith('duit-design-'))slug=pathKey.replace(/^duit-design-/,'');
+let slug='';
+if(pathKey.startsWith('duit-design-'))slug=pathKey.replace(/^duit-design-/,'');
 if(!slug&&location.pathname.includes('/area/'))slug=pathKey;
-if(!slug)slug='servicos-profissionais';
 const CONFIG={
  'saude':{title:'Comunicação que transmite confiança antes da primeira consulta.',lead:'Design profissional para clínicas, consultórios e serviços de saúde — claro, credível e consistente.',intro:'Na saúde, cada ponto de contacto comunica confiança: da receção ao digital, da sinalética às redes sociais.',apps:[['Materiais clínicos','Folhetos, guias, campanhas e comunicação para pacientes.'],['Digital','Redes sociais, anúncios e peças para serviços e especialidades.'],['Espaço','Sinalética, informação e materiais para a clínica.'],['Comercial','Apresentações, propostas e materiais institucionais.']]},
  'bem-estar':{title:'Uma marca de bem-estar deve começar a experiência antes da visita.',lead:'Comunicação cuidada para marcas que vendem experiência, confiança e continuidade.',intro:'O ambiente, o tom e a imagem contam tanto como o serviço. A DUIT ajuda a manter essa sensação em todos os pontos de contacto.',apps:[['Campanhas','Promoções, vouchers e campanhas sazonais.'],['Redes sociais','Conteúdo visual coerente e reconhecível.'],['Experiência','Menus, cartões, sinalética e materiais no espaço.'],['Marca','Peças que reforçam identidade e fidelização.']]},
@@ -172,6 +170,18 @@ const CONFIG={
 const cfg=CONFIG[slug]||CONFIG['servicos-profissionais'];
 const abs=v=>{const s=String(v||'').trim();if(!s)return '';if(/^https?:\/\//i.test(s))return s;return location.origin+(s.startsWith('/')?'':'/')+s};
 async function loadArea(){
+  if(!slug&&pathKey){
+    try{
+      const lpRes=await fetch('/api/public/lp/'+encodeURIComponent(pathKey));
+      if(lpRes.ok){
+        const lp=await lpRes.json();
+        if(String(lp.slug||'').startsWith('duit-design-')&&lp.slug!=='duit-design-area'){
+          slug=String(lp.slug).replace(/^duit-design-/,'');
+        }
+      }
+    }catch(_){}
+  }
+  if(!slug)slug='servicos-profissionais';
   let data={};
   try{const r=await fetch('/api/public/sector-area/'+encodeURIComponent(slug));if(r.ok)data=await r.json()}catch(_){}
   const sector=data.sector||slug.replaceAll('-',' ');
