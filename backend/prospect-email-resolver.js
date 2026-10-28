@@ -169,6 +169,56 @@ function ensureTable(){
     }
   }catch(_){}
 
+  /* DUIT_CENTERED_BENEFITS_ICONS — vantagens centradas com cores DUIT e ícones distintos */
+  try{
+    const rows=db.prepare("SELECT id,html_body FROM prospect_email_templates WHERE html_body IS NOT NULL AND TRIM(html_body)!=''").all();
+    const upd=db.prepare("UPDATE prospect_email_templates SET html_body=?,updated_at=datetime('now') WHERE id=?");
+    for(const row of rows){
+      let html=String(row.html_body||'');
+      if(!html)continue;
+
+      // Centro do título da secção.
+      html=html
+        .replace(/(<[^>]+style=["'][^"']*color:#16B3B1[^"']*)text-align:left;?/gi,'$1text-align:center;')
+        .replace(/(<[^>]+style=["'][^"']*color:#111111[^"']*)text-align:left;?/gi,'$1text-align:center;');
+
+      // Ícones DUIT diferentes para os quatro cartões.
+      const icons=[
+        {n:1,bg:'#FFF1A8',icon:'+'},
+        {n:2,bg:'#DDF7F6',icon:'✓'},
+        {n:3,bg:'#DDF7F6',icon:'⌖'},
+        {n:4,bg:'#FFF1A8',icon:'★'}
+      ];
+      for(const x of icons){
+        const re=new RegExp('<div style="width:34px;height:34px;border-radius:50%;background:[^;]+;color:#111111;font-size:18px;line-height:34px;text-align:center;margin-bottom:14px;">[^<]*<\\/div>','i');
+        html=html.replace(re,`<div style="width:54px;height:54px;border-radius:50%;background:${x.bg};color:#111111;font-size:24px;line-height:54px;text-align:center;margin:0 auto 16px;">${x.icon}</div>`);
+      }
+
+      // Centra o conteúdo dentro dos cartões de vantagens.
+      html=html
+        .replace(/(<td[^>]*style=["'][^"']*padding:[^"']*)(["'])/gi,(m,a,q)=>{
+          if(/vantagem_|Mais pedidos|Mais confiança|Mais visibilidade|Mais diferenciação/i.test(m))return m;
+          return m;
+        })
+        .replace(/(<div style="font-size:18px;line-height:1\.3;font-weight:800;color:#111111;margin-bottom:10px;">)/g,
+          '<div style="font-size:18px;line-height:1.3;font-weight:800;color:#111111;margin-bottom:10px;text-align:center;">')
+        .replace(/(<div style="font-size:15px;line-height:1\.6;color:#5F5A54;">)/g,
+          '<div style="font-size:15px;line-height:1.6;color:#5F5A54;text-align:center;">');
+
+      // Fallback para títulos/textos que usam outras variações de inline CSS.
+      html=html.replace(
+        /(<[^>]+style=["'][^"']*)(font-weight:8\d\d;)([^"']*)(["'][^>]*>\s*\{vantagem_[1-4]\}\s*<\/[^>]+>)/gi,
+        '$1$2$3text-align:center;$4'
+      );
+      html=html.replace(
+        /(<[^>]+style=["'][^"']*)(color:#(?:5F5A54|666666|6B6B6B);)([^"']*)(["'][^>]*>\s*\{vantagem_[1-4]_texto\}\s*<\/[^>]+>)/gi,
+        '$1$2$3text-align:center;$4'
+      );
+
+      if(html!==String(row.html_body||''))upd.run(html,row.id);
+    }
+  }catch(_){}
+
   /* DUIT_REMOVE_DUPLICATE_TEXT_SIGNATURE */
   try{
     const rows=db.prepare('SELECT id,body FROM prospect_email_templates').all();
