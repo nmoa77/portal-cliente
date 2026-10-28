@@ -220,6 +220,46 @@ module.exports = function installProspectCrmActions(app) {
   app.post('/api/public/prospect-outreach/:token/respond',(req,res)=>{const token=String(req.params.token||''),status=String(req.body?.status||''),reason=String(req.body?.reason||'').trim();if(!['accepted','rejected'].includes(status))return res.status(400).json({error:'Resposta inválida.'});const p=db.prepare(`SELECT c.user_id,u.name,u.company,u.email FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(token);if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});db.prepare(`UPDATE prospect_crm SET outreach_response=?,outreach_response_reason=?,outreach_responded_at=datetime('now'),lead_status=?,updated_at=datetime('now') WHERE email_tracking_token=?`).run(status,reason,status==='accepted'?'interessado':'sem_interesse',token);if(status==='accepted'){try{const message=reason||'Sem mensagem.';deliver(db,{to:'info@duit.pt',subject:`Novo interesse — DUIT First · ${p.company||p.name||'Prospect'}`,body:`Nome: ${p.name||'—'}\nEmpresa: ${p.company||'—'}\nEmail: ${p.email||'—'}\n\nMensagem:\n${message}`,html:`<div style="font-family:Arial,sans-serif;color:#222;line-height:1.6"><h2 style="margin:0 0 18px">Novo interesse — DUIT First</h2><p><strong>Nome:</strong> ${esc(p.name||'—')}<br><strong>Empresa:</strong> ${esc(p.company||'—')}<br><strong>Email:</strong> ${esc(p.email||'—')}</p><div style="margin-top:18px"><strong>Mensagem:</strong><div style="margin-top:8px;padding:16px;border-left:4px solid #ffd60a;background:#f7f7f4;white-space:pre-wrap">${esc(message)}</div></div></div>`,user_id:p.user_id,kind:'duit_first_interest',force:true});}catch(e){console.warn('[crm] notify DUIT First interest:',e.message);}}res.json({ok:true,status});});
   app.post('/api/public/prospect-outreach/:token/question',(req,res)=>{const token=String(req.params.token||''),message=String(req.body?.message||'').trim();if(message.length<3)return res.status(400).json({error:'Escreva a sua dúvida antes de enviar.'});if(message.length>2000)return res.status(400).json({error:'A mensagem é demasiado longa.'});const p=db.prepare(`SELECT c.user_id,u.name,u.company,u.email FROM prospect_crm c JOIN users u ON u.id=c.user_id WHERE c.email_tracking_token=? AND u.is_prospect=1`).get(token);if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});db.prepare(`UPDATE prospect_crm SET outreach_question=?,outreach_question_at=datetime('now'),lead_status='respondeu',updated_at=datetime('now') WHERE email_tracking_token=?`).run(message,token);try{const admins=db.prepare(`SELECT id,name,email FROM users WHERE role='admin' AND email IS NOT NULL AND TRIM(email)!=''`).all();const who=p.company||p.name||'Prospect';for(const a of admins){deliver(db,{to:a.email,subject:`Dúvida sobre proposta — ${who}`,body:`${who}${p.email?` (${p.email})`:''} enviou uma dúvida através da proposta:\n\n${message}\n\nAbra o CRM de Prospects para acompanhar este contacto.`,html:`<div style="font-family:Arial,sans-serif;color:#222;line-height:1.6"><h2 style="margin:0 0 14px">Nova dúvida sobre uma proposta</h2><p><strong>${esc(who)}</strong>${p.email?` · ${esc(p.email)}`:''}</p><div style="padding:16px;border-left:4px solid #ffd60a;background:#f7f7f4;white-space:pre-wrap">${esc(message)}</div><p style="color:#666;font-size:13px">A dúvida ficou guardada no CRM de Prospects.</p></div>`,user_id:a.id,kind:'prospect_question',force:true});}}catch(e){console.warn('[crm] notify prospect question:',e.message);}res.json({ok:true});});
 
+  function normalizeVisualEmailHtml(html){
+    let out=String(html||'');
+
+    // DUIT: apenas preto + amarelo nos ícones/cartões.
+    out=out
+      .replace(/background:#16B3B1/gi,'background:#FFD200')
+      .replace(/background:#DDF7F6/gi,'background:#FFD200')
+      .replace(/background:#FFF1A8/gi,'background:#FFD200');
+
+    const titles=['Mais pedidos de marcação','Mais confiança','Mais visibilidade local','Mais diferenciação'];
+    for(const title of titles){
+      const escaped=title.replace(/[.*+?^$()|[\]\\]/g,'\\  function composeProspectEmail(resolved,approach,token,includeTracking=true){');
+      const re=new RegExp('(<div[^>]*style=")([^"]*)(">\\s*'+escaped+'\\s*<\\/div>)','i');
+      out=out.replace(re,(m,a,style,b)=>{
+        const cleanStyle=style
+          .replace(/text-align:[^;"]+;?/gi,'')
+          .replace(/min-height:[^;"]+;?/gi,'')
+          .replace(/margin:[^;"]+;?/gi,'');
+        return a+cleanStyle+'text-align:center;min-height:58px;margin:0 0 14px;'+b;
+      });
+    }
+
+    const texts=[
+      'Ajude novos pacientes a perceber rapidamente como pode ajudá-los.',
+      'Mostre equipa, espaço, especializações e experiência profissional.',
+      'Reforce a presença junto de pessoas que procuram estes serviços na sua zona.',
+      'Comunique de forma clara porque devem escolher a sua clínica.'
+    ];
+    for(const txt of texts){
+      const escaped=txt.replace(/[.*+?^$()|[\]\\]/g,'\\  function composeProspectEmail(resolved,approach,token,includeTracking=true){');
+      const re=new RegExp('(<div[^>]*style=")([^"]*)(">\\s*'+escaped+'\\s*<\\/div>)','i');
+      out=out.replace(re,(m,a,style,b)=>{
+        const cleanStyle=style.replace(/text-align:[^;"]+;?/gi,'');
+        return a+cleanStyle+'text-align:center;'+b;
+      });
+    }
+
+    return out;
+  }
+
   function composeProspectEmail(resolved,approach,token,includeTracking=true){
     const p=resolved.prospect;
     const subject=resolved.subject;
@@ -239,7 +279,7 @@ module.exports = function installProspectCrmActions(app) {
 
     let html;
     if(useCustomHtml){
-      let custom=withLpUrl(resolved.email_html).trim();
+      let custom=normalizeVisualEmailHtml(withLpUrl(resolved.email_html).trim());
       if(targetUrl&&ctaTrackUrl)custom=custom.split(targetUrl).join(ctaTrackUrl);
 
       // O HTML configurado na Landing Page representa apenas o conteúdo interno
