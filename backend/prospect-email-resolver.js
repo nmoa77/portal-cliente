@@ -112,8 +112,8 @@ function ensureTable(){
       html=html
         .replace(/<div style="width:32px;height:4px;background:#FFD200;margin-bottom:14px;"><\/div>/g,
           '<div style="width:34px;height:34px;border-radius:50%;background:#FFF4B8;color:#111111;font-size:18px;line-height:34px;text-align:center;margin-bottom:14px;">✓</div>')
-        .replace(/<div style="width:32px;height:4px;background:#16B3B1;margin-bottom:14px;"><\/div>/g,
-          '<div style="width:34px;height:34px;border-radius:50%;background:#DDF7F6;color:#111111;font-size:18px;line-height:34px;text-align:center;margin-bottom:14px;">✓</div>');
+        .replace(/<div style="width:32px;height:4px;background:#FFD200;margin-bottom:14px;"><\/div>/g,
+          '<div style="width:34px;height:34px;border-radius:50%;background:#FFD200;color:#111111;font-size:18px;line-height:34px;text-align:center;margin-bottom:14px;">✓</div>');
 
       // Fecho passa a CTA direto para a landing page.
       html=html.replace(
@@ -228,8 +228,8 @@ function ensureTable(){
       if(!html)continue;
 
       html=html
-        .replace(/background:#FFF1A8/gi,'background:#FFD200')
-        .replace(/background:#DDF7F6/gi,'background:#16B3B1');
+        .replace(/background:#FFD200/gi,'background:#FFD200')
+        .replace(/background:#FFD200/gi,'background:#FFD200');
 
       html=html.replace(
         /(<[^>]+style=["'][^"']*color:#16B3B1[^"']*)(["'][^>]*>\s*O QUE PODE GANHAR\s*<\/[^>]+>)/i,
