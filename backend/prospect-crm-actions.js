@@ -223,11 +223,12 @@ module.exports = function installProspectCrmActions(app) {
   function normalizeVisualEmailHtml(html){
     let out=String(html||'');
 
-    // DUIT: apenas preto + amarelo nos ícones/cartões.
+    // DUIT: apenas preto + amarelo no bloco visual.
     out=out
       .replace(/background:#16B3B1/gi,'background:#FFD200')
       .replace(/background:#DDF7F6/gi,'background:#FFD200')
-      .replace(/background:#FFF1A8/gi,'background:#FFD200');
+      .replace(/background:#FFF1A8/gi,'background:#FFD200')
+      .replace(/color:#16B3B1/gi,'color:#FFD200');
 
     const titles=['Mais pedidos de marcação','Mais confiança','Mais visibilidade local','Mais diferenciação'];
     for(const title of titles){
