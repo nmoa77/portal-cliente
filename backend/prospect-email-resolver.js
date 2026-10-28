@@ -245,6 +245,28 @@ function ensureTable(){
     }
   }catch(_){}
 
+  /* DUIT_RESTORE_SECTION_HEADINGS_LEFT */
+  try{
+    const rows=db.prepare("SELECT id,html_body FROM prospect_email_templates WHERE html_body IS NOT NULL AND TRIM(html_body)!=''").all();
+    const upd=db.prepare("UPDATE prospect_email_templates SET html_body=?,updated_at=datetime('now') WHERE id=?");
+    for(const row of rows){
+      let html=String(row.html_body||'');
+      if(!html)continue;
+
+      html=html.replace(
+        /(<[^>]+style=["'][^"']*color:#16B3B1[^"']*)text-align:center;([^"']*["'][^>]*>\s*O QUE PODE GANHAR\s*<\/[^>]+>)/i,
+        '$1text-align:left;$2'
+      );
+
+      html=html.replace(
+        /(<[^>]+style=["'][^"']*font-size:2[4-9]px[^"']*)text-align:center;([^"']*["'][^>]*>\s*Uma comunicação pensada para o seu negócio\.\s*<\/[^>]+>)/i,
+        '$1text-align:left;$2'
+      );
+
+      if(html!==String(row.html_body||''))upd.run(html,row.id);
+    }
+  }catch(_){}
+
   /* DUIT_REMOVE_DUPLICATE_TEXT_SIGNATURE */
   try{
     const rows=db.prepare('SELECT id,body FROM prospect_email_templates').all();
