@@ -258,6 +258,17 @@ module.exports = function installProspectCrmActions(app) {
       });
     }
 
+    // Normaliza a grelha das 4 imagens de apoio.
+    // Pequeno zoom evita linhas/brancos existentes nas extremidades de algumas imagens.
+    out=out.replace(/<img([^>]*?)src="([^"]+)"([^>]*?)>/gi,(m,a,src,b)=>{
+      if(!/prospect-sector|sector-image|\/api\/crm\/prospect-sectors|\/api\/crm\/prospect-sector/i.test(src)) return m;
+      let attrs=(a+b)
+        .replace(/\swidth="[^"]*"/gi,'')
+        .replace(/\sheight="[^"]*"/gi,'')
+        .replace(/\sstyle="[^"]*"/gi,'');
+      return '<img'+attrs+' src="'+src+'" width="272" height="220" style="display:block;width:104%;max-width:none;height:220px;object-fit:cover;object-position:center;border:0;border-radius:12px;margin:0 -2%;">';
+    });
+
     return out;
   }
 
