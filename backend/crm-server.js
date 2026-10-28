@@ -334,6 +334,45 @@ function getCrmProspect(id) {
   return row;
 }
 
+
+const SECTOR_AREA_SLUGS={
+  'saude':'Saúde',
+  'bem-estar':'Bem-estar',
+  'beleza-estetica':'Beleza & Estética',
+  'construcao-engenharia':'Construção & Engenharia',
+  'industria-producao':'Indústria & Produção',
+  'artes-graficas-comunicacao':'Artes Gráficas & Comunicação',
+  'automovel':'Automóvel',
+  'imobiliario':'Imobiliário',
+  'turismo-alojamento':'Turismo & Alojamento',
+  'restauracao':'Restauração',
+  'comercio-retalho':'Comércio & Retalho',
+  'servicos-profissionais':'Serviços Profissionais',
+  'educacao-formacao':'Educação & Formação',
+  'transportes-logistica':'Transportes & Logística',
+  'tecnologia-digital':'Tecnologia & Digital',
+  'agricultura-agroalimentar':'Agricultura & Agroalimentar',
+  'desporto-fitness':'Desporto & Fitness'
+};
+
+capturedApp.get('/api/public/sector-area/:slug',(req,res)=>{
+  const slug=String(req.params.slug||'').trim().toLowerCase();
+  const sector=SECTOR_AREA_SLUGS[slug];
+  if(!sector)return res.status(404).json({error:'Área não encontrada.'});
+  const row=db.prepare(`SELECT sector,headline,subheadline,hero_image,image_1,image_2,image_3,image_4,
+    advantage_1_title,advantage_1_text,advantage_2_title,advantage_2_text,
+    advantage_3_title,advantage_3_text,advantage_4_title,advantage_4_text
+    FROM prospect_sector_content WHERE lower(sector)=lower(?)`).get(sector)||{};
+  const d=defaultSectorContent(sector);
+  res.json({slug,sector,...d,...row});
+});
+
+capturedApp.get('/area/:slug',(req,res)=>{
+  const slug=String(req.params.slug||'').trim().toLowerCase();
+  if(!SECTOR_AREA_SLUGS[slug])return res.status(404).send('Área não encontrada.');
+  return res.sendFile(path.join(__dirname,'..','public','landing-page-area.html'));
+});
+
 capturedApp.get('/api/crm/prospect-sectors', requireAdmin, (req, res) => {
   const prospects=db.prepare("SELECT sector,email_area FROM prospect_crm").all();
   const countMap=new Map();
