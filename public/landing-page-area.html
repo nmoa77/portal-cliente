@@ -186,7 +186,6 @@ const CONFIG={
  'fisioterapia':{title:'Movimento, recuperação e confiança.',lead:'Design para clínicas de fisioterapia, reabilitação e terapia manual.',intro:'Quem procura fisioterapia quer perceber rapidamente como pode ser ajudado. A comunicação deve mostrar especialização, acompanhamento e confiança.',apps:[['Tratamentos','Apresentar áreas de intervenção e serviços de forma clara.'],['Equipa','Dar visibilidade aos profissionais e à experiência clínica.'],['Digital','Conteúdo para redes sociais, campanhas e presença local.'],['Marcação','Peças e páginas que facilitam o contacto e a marcação.']]},
  'dentistas':{title:'Confiança antes de abrir o sorriso.',lead:'Design para clínicas dentárias, dentistas e serviços de medicina dentária.',intro:'Na medicina dentária, confiança, clareza e apresentação contam desde o primeiro contacto. A comunicação deve mostrar tratamentos, equipa e qualidade clínica sem parecer fria.',apps:[['Tratamentos','Apresentar ortodontia, implantologia, higiene oral e outras especialidades.'],['Equipa','Dar visibilidade aos profissionais e à experiência clínica.'],['Digital','Conteúdo para redes sociais, campanhas e presença local.'],['Marcação','Peças e páginas que facilitam o contacto e a marcação.']]}
 };
-const cfg=CONFIG[slug]||CONFIG['servicos-profissionais'];
 const abs=v=>{const s=String(v||'').trim();if(!s)return '';if(/^https?:\/\//i.test(s))return s;return location.origin+(s.startsWith('/')?'':'/')+s};
 async function loadArea(){
   if(!slug&&pathKey){
@@ -201,6 +200,7 @@ async function loadArea(){
     }catch(_){}
   }
   if(!slug)slug='servicos-profissionais';
+  const cfg=CONFIG[slug]||CONFIG['servicos-profissionais'];
   let data={};
   try{const r=await fetch('/api/public/sector-area/'+encodeURIComponent(slug));if(r.ok)data=await r.json()}catch(_){}
   const sector=data.sector||slug.replaceAll('-',' ');
