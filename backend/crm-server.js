@@ -156,6 +156,7 @@ const EMAIL_AREAS=[
   'Tecnologia & Digital',
   'Agricultura & Agroalimentar',
   'Desporto & Fitness',
+  'Estúdios de Dança',
   'Aventura',
   'Centro de Estudos',
   'Saúde Mental',
@@ -181,6 +182,7 @@ function emailAreaForSector(value){
   if(/turis|hotel|aloj|viagen|travel|rent|tour|hostel|resort/.test(s))return 'Turismo & Alojamento';
   if(/restaur|café|cafe|pastel|food|bar|gastr|catering/.test(s))return 'Restauração';
   if(/loja|comércio|comercio|retalho|retail|boutique|mercearia/.test(s))return 'Comércio & Retalho';
+  if(/estúdio de dança|estudio de danca|estúdio dança|estudio danca|escola de dança|escola de danca|academia de dança|academia de danca|ballet|balé|bale|hip hop|dança contemporânea|danca contemporanea|dança clássica|danca classica|salsa|bachata|kizomba|dança urbana|danca urbana|danças de salão|dancas de salao|zumba/.test(s))return 'Estúdios de Dança';
   if(/centro de estudos|centro estudos|explicaç|explicac|apoio escolar|estudo acompanhado|tutoria|tutoring|sala de estudo/.test(s))return 'Centro de Estudos';
   if(/educa|escola|formaç|formac|academ|colégio|colegio|curso/.test(s))return 'Educação & Formação';
   if(/transport|logíst|logist|distribu|estafeta|mudança|mudanca/.test(s))return 'Transportes & Logística';
@@ -213,7 +215,8 @@ function ensureSpecialAreaInfrastructure(){
     {area:'Centro de Estudos',slug:'centro-de-estudos',title:'DUIT Design · Centro de Estudos'},
     {area:'Saúde Mental',slug:'saude-mental',title:'DUIT Design · Saúde Mental'},
     {area:'Fisioterapia',slug:'fisioterapia',title:'DUIT Design · Fisioterapia'},
-    {area:'Dentistas',slug:'dentistas',title:'DUIT Design · Dentistas'}
+    {area:'Dentistas',slug:'dentistas',title:'DUIT Design · Dentistas'},
+    {area:'Estúdios de Dança',slug:'estudios-de-danca',title:'DUIT Design · Estúdios de Dança'}
   ];
 
   const insertContent=db.prepare(`
@@ -270,7 +273,7 @@ try{
 }
 
 function reconcileNewSpecialAreasForUnsentProspectsOnce(){
-  const key='20261029_aventura_centro_estudos_saude_mental_fisioterapia_dentistas_unsent_v1';
+  const key='20261029_aventura_centro_estudos_saude_mental_fisioterapia_dentistas_estudios_danca_unsent_v2';
   if(db.prepare('SELECT 1 FROM crm_data_migrations WHERE key=?').get(key))return;
 
   const cols=new Set(db.prepare('PRAGMA table_info(prospect_crm)').all().map(x=>x.name));
@@ -297,7 +300,7 @@ function reconcileNewSpecialAreasForUnsentProspectsOnce(){
   const tx=db.transaction(()=>{
     for(const row of rows){
       const area=emailAreaForSector(row.sector);
-      if(area!=='Aventura' && area!=='Centro de Estudos' && area!=='Saúde Mental' && area!=='Fisioterapia' && area!=='Dentistas')continue;
+      if(area!=='Aventura' && area!=='Centro de Estudos' && area!=='Saúde Mental' && area!=='Fisioterapia' && area!=='Dentistas' && area!=='Estúdios de Dança')continue;
       upd.run(area,landingPageForEmailArea(area),row.user_id);
     }
     db.prepare('INSERT INTO crm_data_migrations(key) VALUES(?)').run(key);
@@ -414,6 +417,15 @@ function defaultSectorContent(sector){
       ['Mais confiança','Mostre equipa, acompanhamento e experiência clínica.'],
       ['Mais proximidade','Comunique evolução, recuperação e acompanhamento personalizado.'],
       ['Mais diferenciação','Destaque especializações, técnicas e resultados.']
+    ];
+  }else if(s==='estúdios de dança'){
+    headline='Faça a energia das aulas começar antes de entrar no estúdio.';
+    subheadline='Mostre estilos, ambiente, professores e aulas de forma visual para transformar interesse em inscrições.';
+    advantages=[
+      ['Mais inscrições','Apresente aulas, níveis e horários de forma clara e apelativa.'],
+      ['Mais desejo','Uma comunicação visual forte ajuda o aluno a imaginar-se dentro da aula.'],
+      ['Mais confiança','Mostre professores, espaço e ambiente de forma profissional.'],
+      ['Mais comunidade','Reforce o sentimento de pertença e a energia do estúdio.']
     ];
   }else if(s==='dentistas'){
     headline='Mais confiança antes da primeira consulta.';
