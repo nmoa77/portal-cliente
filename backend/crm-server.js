@@ -155,7 +155,9 @@ const EMAIL_AREAS=[
   'Transportes & Logística',
   'Tecnologia & Digital',
   'Agricultura & Agroalimentar',
-  'Desporto & Fitness'
+  'Desporto & Fitness',
+  'Aventura',
+  'Centro de Estudos'
 ];
 
 function emailAreaForSector(value){
@@ -169,9 +171,11 @@ function emailAreaForSector(value){
   if(/gráfic|grafic|impress|publicidade|sinalética|sinalet|brinde|offset|serigraf|comunicação visual|comunicacao visual/.test(s))return 'Artes Gráficas & Comunicação';
   if(/oficina|auto|automó|automov|mecân|mecan|pneu|carro|stand/.test(s))return 'Automóvel';
   if(/imobili|mediação|mediacao|property|real estate|imóvel|imovel/.test(s))return 'Imobiliário';
+  if(/surf|rapel|rappel|canyoning|escalad|rafting|coasteering|btt|mountain bike|paintball|arvorismo|aventura|outdoor|desportos? de aventura/.test(s))return 'Aventura';
   if(/turis|hotel|aloj|viagen|travel|rent|tour|hostel|resort/.test(s))return 'Turismo & Alojamento';
   if(/restaur|café|cafe|pastel|food|bar|gastr|catering/.test(s))return 'Restauração';
   if(/loja|comércio|comercio|retalho|retail|boutique|mercearia/.test(s))return 'Comércio & Retalho';
+  if(/centro de estudos|centro estudos|explicaç|explicac|apoio escolar|estudo acompanhado|tutoria|tutoring|sala de estudo/.test(s))return 'Centro de Estudos';
   if(/educa|escola|formaç|formac|academ|colégio|colegio|curso/.test(s))return 'Educação & Formação';
   if(/transport|logíst|logist|distribu|estafeta|mudança|mudanca/.test(s))return 'Transportes & Logística';
   if(/tecnolog|software|digital|informát|informat|it\b|web|saas/.test(s))return 'Tecnologia & Digital';
@@ -195,6 +199,107 @@ function landingPageForEmailArea(area){
      LIMIT 1
   `).get(String(area||'').trim());
   return Number(row?.landing_page_id||0)||null;
+}
+
+function ensureSpecialAreaInfrastructure(){
+  const specs=[
+    {area:'Aventura',slug:'aventura',title:'DUIT Design · Aventura'},
+    {area:'Centro de Estudos',slug:'centro-de-estudos',title:'DUIT Design · Centro de Estudos'}
+  ];
+
+  const insertContent=db.prepare(`
+    INSERT OR IGNORE INTO prospect_sector_content(
+      sector,headline,subheadline,
+      advantage_1_title,advantage_1_text,advantage_2_title,advantage_2_text,
+      advantage_3_title,advantage_3_text,advantage_4_title,advantage_4_text
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?)
+  `);
+
+  for(const spec of specs){
+    const d=defaultSectorContent(spec.area);
+    insertContent.run(
+      spec.area,d.headline,d.subheadline,
+      d.advantage_1_title,d.advantage_1_text,
+      d.advantage_2_title,d.advantage_2_text,
+      d.advantage_3_title,d.advantage_3_text,
+      d.advantage_4_title,d.advantage_4_text
+    );
+
+    const lpSlug='duit-design-'+spec.slug;
+    let lp=db.prepare('SELECT id FROM landing_pages WHERE slug=? LIMIT 1').get(lpSlug);
+    if(!lp){
+      const key=crypto.randomBytes(9).toString('base64url');
+      const info=db.prepare(`
+        INSERT INTO landing_pages(
+          title,slug,public_key,eyebrow,headline,intro,price_cents,credit_cents,is_active
+        ) VALUES(?,?,?,?,?,?,?,?,1)
+      `).run(
+        spec.title,
+        lpSlug,
+        key,
+        'DUIT Design',
+        d.headline,
+        d.subheadline,
+        0,
+        0
+      );
+      lp={id:Number(info.lastInsertRowid)};
+    }
+
+    db.prepare(`
+      UPDATE prospect_sector_content
+         SET landing_page_id=?,updated_at=datetime('now')
+       WHERE lower(TRIM(sector))=lower(TRIM(?))
+    `).run(lp.id,spec.area);
+  }
+}
+
+try{
+  ensureSpecialAreaInfrastructure();
+}catch(e){
+  console.warn('[crm] novas áreas/LP:',e.message);
+}
+
+function reconcileNewSpecialAreasForUnsentProspectsOnce(){
+  const key='20261029_aventura_centro_estudos_unsent_v1';
+  if(db.prepare('SELECT 1 FROM crm_data_migrations WHERE key=?').get(key))return;
+
+  const cols=new Set(db.prepare('PRAGMA table_info(prospect_crm)').all().map(x=>x.name));
+  const checks=[
+    cols.has('email_sent_at')?'c.email_sent_at IS NULL':'1=1',
+    cols.has('email_first_sent_at')?'c.email_first_sent_at IS NULL':'1=1',
+    cols.has('email_send_count')?'COALESCE(c.email_send_count,0)=0':'1=1'
+  ].join(' AND ');
+
+  const rows=db.prepare(`
+    SELECT c.user_id,c.sector,c.email_area
+      FROM prospect_crm c
+      JOIN users u ON u.id=c.user_id
+     WHERE u.role='client' AND u.is_prospect=1
+       AND ${checks}
+  `).all();
+
+  const upd=db.prepare(`
+    UPDATE prospect_crm
+       SET email_area=?,landing_page_id=?,updated_at=datetime('now')
+     WHERE user_id=?
+  `);
+
+  const tx=db.transaction(()=>{
+    for(const row of rows){
+      const area=emailAreaForSector(row.sector);
+      if(area!=='Aventura' && area!=='Centro de Estudos')continue;
+      upd.run(area,landingPageForEmailArea(area),row.user_id);
+    }
+    db.prepare('INSERT INTO crm_data_migrations(key) VALUES(?)').run(key);
+  });
+  tx();
+}
+
+try{
+  reconcileNewSpecialAreasForUnsentProspectsOnce();
+}catch(e){
+  console.warn('[crm] associação novas áreas:',e.message);
 }
 
 function reconcileExistingProspectAreasAndLandingPagesOnce(){
@@ -264,6 +369,24 @@ function defaultSectorContent(sector){
       ['Mais confiança','Mostre o espaço, profissionais e abordagem de acompanhamento.'],
       ['Mais desejo','Uma comunicação cuidada ajuda o cliente a imaginar a experiência.'],
       ['Mais recorrência','Mantenha a marca presente entre sessões e visitas.']
+    ];
+  }else if(s==='aventura'){
+    headline='Transforme adrenalina em vontade de reservar.';
+    subheadline='Mostre experiências, segurança e emoção de forma visual para transformar curiosidade em reservas.';
+    advantages=[
+      ['Mais reservas','Apresente atividades e experiências de forma clara e apelativa.'],
+      ['Mais desejo','Boas imagens ajudam o cliente a imaginar-se na experiência.'],
+      ['Mais confiança','Comunique segurança, acompanhamento e profissionalismo.'],
+      ['Mais diferenciação','Destaque aquilo que torna cada atividade memorável.']
+    ];
+  }else if(s==='centro de estudos'){
+    headline='Mais confiança para quem escolhe apoiar o futuro.';
+    subheadline='Mostre acompanhamento, método e resultados de forma clara para transmitir confiança a alunos e famílias.';
+    advantages=[
+      ['Mais inscrições','Torne a oferta de apoio escolar fácil de perceber e escolher.'],
+      ['Mais confiança','Mostre método, acompanhamento e proximidade.'],
+      ['Mais visibilidade local','Chegue a famílias e alunos na sua zona.'],
+      ['Mais diferenciação','Comunique aquilo que distingue o seu centro de estudos.']
     ];
   }else if(/constru|obra|arquitet|engenh|remodel|instala/.test(s)){
     headline='Mostre melhor a qualidade do trabalho que já faz.';
@@ -406,7 +529,9 @@ const SECTOR_AREA_SLUGS={
   'transportes-logistica':'Transportes & Logística',
   'tecnologia-digital':'Tecnologia & Digital',
   'agricultura-agroalimentar':'Agricultura & Agroalimentar',
-  'desporto-fitness':'Desporto & Fitness'
+  'desporto-fitness':'Desporto & Fitness',
+  'aventura':'Aventura',
+  'centro-de-estudos':'Centro de Estudos'
 };
 
 capturedApp.get('/api/public/sector-area/:slug',(req,res)=>{
