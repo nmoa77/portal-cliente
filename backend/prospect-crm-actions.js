@@ -28,12 +28,36 @@ module.exports = function installProspectCrmActions(app) {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
   const portal = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
   const guideTarget = process.env.DUIT_GUIDE_URL || `${portal}/ebook-duit.pdf`;
-  const LIMIT_30M=6, LIMIT_60M=15, DAILY_LIMIT=100;
+  const LIMIT_30M=6, LIMIT_60M=15, DAILY_LIMIT=100, MONTHLY_LIMIT=3000;
+  const WARN_AT=.80, CRITICAL_AT=.90;
 
   function favoritePage(){ try{return db.prepare(`SELECT * FROM ebook_pages WHERE active=1 ORDER BY is_favorite DESC,id ASC LIMIT 1`).get();}catch(_){return null;} }
   function resolvedPage(explicitId){ try{if(explicitId){const p=db.prepare(`SELECT * FROM ebook_pages WHERE id=? AND active=1`).get(Number(explicitId));if(p)return p;}return favoritePage();}catch(_){return null;} }
   const sentSince = mins => db.prepare(`SELECT email_sent_at FROM prospect_crm WHERE email_sent_at IS NOT NULL AND datetime(email_sent_at) > datetime('now', ?) ORDER BY datetime(email_sent_at) ASC`).all(`-${mins} minutes`);
-  function sendingState(){const today=Number(db.prepare(`SELECT COUNT(*) n FROM prospect_crm WHERE email_sent_at IS NOT NULL AND date(email_sent_at,'localtime')=date('now','localtime')`).get().n||0);const m30=sentSince(10),m60=sentSince(60);let nextAt=0,reason='';if(today>=DAILY_LIMIT){const d=new Date();d.setDate(d.getDate()+1);d.setHours(0,0,0,0);nextAt=d.getTime();reason='daily';}else if(m30.length>=LIMIT_30M){nextAt=new Date(String(m30[0].email_sent_at).replace(' ','T')+'Z').getTime()+10*60000;reason='10m';}else if(m60.length>=LIMIT_60M){nextAt=new Date(String(m60[0].email_sent_at).replace(' ','T')+'Z').getTime()+60*60000;reason='60m';}return {allowed:!nextAt,reason,next_at:nextAt?new Date(nextAt).toISOString():null,today,daily_limit:DAILY_LIMIT,sent_10m:m30.length,limit_10m:LIMIT_30M,sent_60m:m60.length,limit_60m:LIMIT_60M};}
+  function sendingState(){
+    const today=Number(db.prepare(`SELECT COUNT(*) n FROM prospect_crm WHERE email_sent_at IS NOT NULL AND date(email_sent_at,'localtime')=date('now','localtime')`).get().n||0);
+    const month=Number(db.prepare(`SELECT COUNT(*) n FROM prospect_crm WHERE email_sent_at IS NOT NULL AND strftime('%Y-%m',email_sent_at,'localtime')=strftime('%Y-%m','now','localtime')`).get().n||0);
+    const m30=sentSince(10),m60=sentSince(60);
+    const dailyPct=DAILY_LIMIT?today/DAILY_LIMIT:0,monthlyPct=MONTHLY_LIMIT?month/MONTHLY_LIMIT:0;
+    let nextAt=0,reason='';
+    if(month>=MONTHLY_LIMIT){
+      const d=new Date();d.setMonth(d.getMonth()+1,1);d.setHours(0,0,0,0);nextAt=d.getTime();reason='monthly';
+    }else if(today>=DAILY_LIMIT){
+      const d=new Date();d.setDate(d.getDate()+1);d.setHours(0,0,0,0);nextAt=d.getTime();reason='daily';
+    }else if(m30.length>=LIMIT_30M){
+      nextAt=new Date(String(m30[0].email_sent_at).replace(' ','T')+'Z').getTime()+10*60000;reason='10m';
+    }else if(m60.length>=LIMIT_60M){
+      nextAt=new Date(String(m60[0].email_sent_at).replace(' ','T')+'Z').getTime()+60*60000;reason='60m';
+    }
+    const level=Math.max(dailyPct,monthlyPct)>=CRITICAL_AT?'critical':Math.max(dailyPct,monthlyPct)>=WARN_AT?'warning':'ok';
+    return {
+      allowed:!nextAt,reason,next_at:nextAt?new Date(nextAt).toISOString():null,
+      today,daily_limit:DAILY_LIMIT,daily_remaining:Math.max(0,DAILY_LIMIT-today),daily_percent:Math.round(dailyPct*100),
+      month,monthly_limit:MONTHLY_LIMIT,monthly_remaining:Math.max(0,MONTHLY_LIMIT-month),monthly_percent:Math.round(monthlyPct*100),
+      warning_level:level,
+      sent_10m:m30.length,limit_10m:LIMIT_30M,sent_60m:m60.length,limit_60m:LIMIT_60M
+    };
+  }
 
   function emailHtml(text, token) {
     const clean=String(text||'').replace(/^Assunto:.*?(\r?\n){1,2}/i,'').trim();
@@ -359,11 +383,13 @@ module.exports = function installProspectCrmActions(app) {
     const limit=sendingState();
     if(!limit.allowed){
       const mins=Math.max(1,Math.ceil((new Date(limit.next_at).getTime()-Date.now())/60000));
-      const msg=limit.reason==='daily'
-        ?`Limite diário de ${DAILY_LIMIT} emails atingido. Novos envios ficam disponíveis amanhã.`
-        :limit.reason==='10m'
-          ?`Já enviou ${LIMIT_30M} emails nos últimos 10 minutos. Aguarde cerca de ${mins} min.`
-          :`Já enviou ${LIMIT_60M} emails na última hora. Aguarde cerca de ${mins} min.`;
+      const msg=limit.reason==='monthly'
+        ?`Limite mensal de ${MONTHLY_LIMIT} emails atingido. Novos envios ficam disponíveis no próximo mês.`
+        :limit.reason==='daily'
+          ?`Limite diário de ${DAILY_LIMIT} emails atingido. Novos envios ficam disponíveis amanhã.`
+          :limit.reason==='10m'
+            ?`Já enviou ${LIMIT_30M} emails nos últimos 10 minutos. Aguarde cerca de ${mins} min.`
+            :`Já enviou ${LIMIT_60M} emails na última hora. Aguarde cerca de ${mins} min.`;
       return res.status(429).json({error:msg,send_limit:limit});
     }
 
