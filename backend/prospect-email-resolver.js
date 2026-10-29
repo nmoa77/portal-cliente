@@ -377,7 +377,38 @@ function resolveProspectEmail(userId,landingPageId,emailTemplateId){
   ensureTable();
   const p=prospectRow(userId);
   if(!p)return null;
+
   const lpId=Number(landingPageId||0);
+  const explicitTemplateId=Number(emailTemplateId||0);
+
+  // Quando existe uma abordagem selecionada (ex.: "Email por sector"),
+  // essa abordagem define SEMPRE o conteúdo do email. A Landing Page serve
+  // apenas como destino do CTA e não precisa de ter texto/HTML de email próprio.
+  if(explicitTemplateId){
+    const tpl=getTemplate(explicitTemplateId);
+    if(!tpl)return {error:'A abordagem selecionada não existe ou está inativa.'};
+
+    let lp=null;
+    if(lpId){
+      lp=db.prepare('SELECT * FROM landing_pages WHERE id=? AND is_active=1').get(lpId);
+      if(!lp)return {error:'Landing Page não encontrada ou inativa.'};
+    }
+
+    return {
+      prospect:p,
+      source_type:'selected_template',
+      source_name:tpl.name,
+      landing_page:lp,
+      template:tpl,
+      subject:fill(tpl.subject,p),
+      body:fill(tpl.body,p),
+      email_html:fill(tpl.html_body||'',p),
+      email_format:String(tpl.html_body||'').trim()?'html':'text'
+    };
+  }
+
+  // Compatibilidade: se não houver abordagem explícita e a LP tiver o seu
+  // próprio email configurado, mantém-se o comportamento antigo.
   if(lpId){
     const lp=db.prepare('SELECT * FROM landing_pages WHERE id=? AND is_active=1').get(lpId);
     if(!lp)return {error:'Landing Page não encontrada ou inativa.'};
@@ -389,9 +420,10 @@ function resolveProspectEmail(userId,landingPageId,emailTemplateId){
     if(emailFormat==='text'&&!body.trim())return {error:'Esta Landing Page ainda não tem texto de email configurado.'};
     return {prospect:p,source_type:'landing_page',source_name:lp.title,landing_page:lp,template:null,subject,body,email_html:emailHtml,email_format:emailFormat};
   }
-  const tpl=getTemplate(emailTemplateId);
-  if(!tpl)return {error:Number(emailTemplateId||0)?'A abordagem selecionada não existe ou está inativa.':'Não existe nenhuma abordagem ativa.'};
-  return {prospect:p,source_type:Number(emailTemplateId||0)?'selected_template':'default_template',source_name:tpl.name,landing_page:null,template:tpl,subject:fill(tpl.subject,p),body:fill(tpl.body,p),email_html:fill(tpl.html_body||'',p),email_format:String(tpl.html_body||'').trim()?'html':'text'};
+
+  const tpl=getTemplate(null);
+  if(!tpl)return {error:'Não existe nenhuma abordagem ativa.'};
+  return {prospect:p,source_type:'default_template',source_name:tpl.name,landing_page:null,template:tpl,subject:fill(tpl.subject,p),body:fill(tpl.body,p),email_html:fill(tpl.html_body||'',p),email_format:String(tpl.html_body||'').trim()?'html':'text'};
 }
 
 module.exports={ensureTable,fill,resolveProspectApproach,resolveProspectEmail,DEFAULT_DM_BODY};
