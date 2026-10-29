@@ -405,14 +405,14 @@ function resolveProspectEmail(userId,landingPageId,emailTemplateId){
   const p=prospectRow(userId);
   if(!p)return null;
 
-  const lpId=Number(landingPageId||0);
-  const explicitTemplateId=Number(emailTemplateId||0);
+  const lpId=Number(landingPageId||p.landing_page_id||0);
+  const selectedTemplateId=Number(emailTemplateId||p.email_template_id||0);
 
-  // Quando existe uma abordagem selecionada (ex.: "Email por sector"),
+  // Quando existe uma abordagem selecionada/gravadа no prospect (ex.: "Email por sector"),
   // essa abordagem define SEMPRE o conteúdo do email. A Landing Page serve
   // apenas como destino do CTA e não precisa de ter texto/HTML de email próprio.
-  if(explicitTemplateId){
-    const tpl=getTemplate(explicitTemplateId);
+  if(selectedTemplateId){
+    const tpl=getTemplate(selectedTemplateId);
     if(!tpl)return {error:'A abordagem selecionada não existe ou está inativa.'};
 
     let lp=null;
