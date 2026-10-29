@@ -58,6 +58,7 @@ function renderShell() {
     { id: 'home',      icon: 'home',    label: 'Visão geral' },
     { id: 'clients',   icon: 'users',   label: 'Clientes' },
     { id: 'landing-pages', icon: 'sparkle', label: 'Landing Pages' },
+    { id: 'areas', icon: 'folder', label: 'Áreas' },
     { id: 'prospects', icon: 'sparkle', label: 'Prospecção',
         count: s.totalProspects,         countTitle: `${s.totalProspects || 0} prospect(s) por converter`,
         alert: s.pendingProspectActions, alertTitle: `${s.pendingProspectActions || 0} prospect(s) já respondeu(eram) — pronto a converter` },
@@ -123,6 +124,11 @@ async function go(view) {
     if (view === 'home')          await viewHome(main);
     else if (view === 'clients')  await viewClients(main);
     else if (view === 'landing-pages') { if(typeof window.duitViewLandingPages!=='function') throw new Error('Módulo Landing Pages não carregado.'); await window.duitViewLandingPages(); }
+    else if (view === 'areas') {
+      if(typeof window.openCrmSectorContent!=='function') throw new Error('Módulo Áreas não carregado.');
+      main.innerHTML='<div class="page-head"><div><div class="eyebrow">Landing Pages</div><h1>Áreas</h1><p class="lede">Conteúdo, imagens e Landing Page associados a cada área.</p></div></div>';
+      await window.openCrmSectorContent();
+    }
     else if (view === 'prospects')await viewProspects(main);
     else if (view === 'leads')     await viewLeads(main);
     else if (view === 'subs')     await viewSubs(main);
