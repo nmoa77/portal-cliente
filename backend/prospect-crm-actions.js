@@ -381,10 +381,14 @@ module.exports = function installProspectCrmActions(app) {
     const token=crypto.randomBytes(24).toString('hex');
     const composed=composeProspectEmail(resolved,approach,token,true);
     const {subject,body,lp,targetUrl,html,text}=composed;
-    db.prepare(`UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,email_tracking_token=?,email_first_sent_at=COALESCE(email_first_sent_at,datetime('now')),email_sent_at=datetime('now'),email_send_count=COALESCE(email_send_count,0)+1,email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,cta_first_clicked_at=NULL,cta_last_clicked_at=NULL,cta_click_count=0,cta_target_url=?,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),updated_at=datetime('now') WHERE user_id=?`).run(lp?lp.id:null,approach?.template?.id||resolved.template?.id||null,token,targetUrl,id);
     const delivery=await deliver(db,{to:p.email,subject,body:text,html,user_id:id,kind:'prospect_outreach',force:true});
-    db.prepare(`UPDATE prospect_crm SET resend_email_id=?,resend_status=?,resend_status_at=datetime('now'),resend_error=? WHERE user_id=?`)
-      .run(delivery?.id||null,delivery?.status||'unknown',delivery?.error||null,id);
+    if(delivery?.sent){
+      db.prepare(`UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,email_tracking_token=?,email_first_sent_at=COALESCE(email_first_sent_at,datetime('now')),email_sent_at=datetime('now'),email_send_count=COALESCE(email_send_count,0)+1,email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,cta_first_clicked_at=NULL,cta_last_clicked_at=NULL,cta_click_count=0,cta_target_url=?,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),resend_email_id=?,resend_status=?,resend_status_at=datetime('now'),resend_error=NULL,updated_at=datetime('now') WHERE user_id=?`)
+        .run(lp?lp.id:null,approach?.template?.id||resolved.template?.id||null,token,targetUrl,delivery?.id||null,delivery?.status||'sent',id);
+    }else{
+      db.prepare(`UPDATE prospect_crm SET resend_email_id=?,resend_status=?,resend_status_at=datetime('now'),resend_error=?,updated_at=datetime('now') WHERE user_id=?`)
+        .run(delivery?.id||null,delivery?.status||'failed',delivery?.error||null,id);
+    }
     res.json({ok:true,landing_page_id:lp?lp.id:null,email_template_id:approach?.template?.id||resolved.template?.id||null,email_source:resolved.source_type,email_source_name:resolved.source_name,resend_status:delivery?.status||'unknown',send_limit:sendingState()});
   });
 
