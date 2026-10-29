@@ -125,9 +125,8 @@ async function go(view) {
     else if (view === 'clients')  await viewClients(main);
     else if (view === 'landing-pages') { if(typeof window.duitViewLandingPages!=='function') throw new Error('Módulo Landing Pages não carregado.'); await window.duitViewLandingPages(); }
     else if (view === 'areas') {
-      if(typeof window.openCrmSectorContent!=='function') throw new Error('Módulo Áreas não carregado.');
-      main.innerHTML='<div class="page-head"><div><div class="eyebrow">Landing Pages</div><h1>Áreas</h1><p class="lede">Conteúdo, imagens e Landing Page associados a cada área.</p></div></div>';
-      await window.openCrmSectorContent();
+      if(typeof window.duitViewAreas!=='function') throw new Error('Módulo Áreas não carregado.');
+      await window.duitViewAreas(main);
     }
     else if (view === 'prospects')await viewProspects(main);
     else if (view === 'leads')     await viewLeads(main);
