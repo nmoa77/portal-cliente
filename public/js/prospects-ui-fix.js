@@ -69,13 +69,22 @@
       #main .duit-analytics{margin:2px 0 18px}
       #main .duit-analytics-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
       #main .duit-analytics-toolbar select{flex:0 1 230px;width:auto!important;min-width:180px;min-height:38px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
-      #main .duit-analytics-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
-      #main .duit-analytics-card{padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--card);min-width:0;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease}#main .duit-analytics-card:hover{transform:translateY(-1px);box-shadow:0 5px 16px rgba(0,0,0,.07)}
-      #main .duit-analytics-card .k-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
-      #main .duit-analytics-card .k-value{font-family:'Clash Display';font-size:27px;font-weight:600;line-height:1.05;margin-top:5px;white-space:nowrap}
-      #main .duit-analytics-card .k-sub{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.35}
+      #main .duit-analytics-summary{display:grid;grid-template-columns:1.15fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+      #main .duit-analytics-secondary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+      #main .duit-analytics-card{position:relative;padding:16px 16px 14px;border:1px solid var(--line);border-radius:15px;background:var(--card);min-width:0;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+      #main .duit-analytics-card:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,.07);border-color:#d7d2c8}
+      #main .duit-analytics-card.primary{min-height:108px}
+      #main .duit-analytics-card .k-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.11em;color:var(--muted)}
+      #main .duit-analytics-card .k-value{font-family:'Clash Display';font-size:31px;font-weight:650;line-height:1.02;margin-top:8px;white-space:nowrap;letter-spacing:-.02em}
+      #main .duit-analytics-card .k-sub{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.35}
+      #main .duit-analytics-card .k-rate{position:absolute;right:14px;top:14px;font-size:10px;font-weight:700;padding:5px 7px;border-radius:999px;background:var(--bg-2);color:var(--muted);border:1px solid var(--line-2)}
       #main .duit-analytics-card.highlight{background:var(--yellow);border-color:var(--yellow);color:#0a0a0a}
       #main .duit-analytics-card.highlight .k-label,#main .duit-analytics-card.highlight .k-sub{color:#4a4300}
+      #main .duit-analytics-card.highlight .k-rate{background:rgba(255,255,255,.48);border-color:rgba(0,0,0,.08);color:#332f00}
+      #main .duit-analytics-card.money .k-value{font-size:24px}
+      #main .duit-analytics-card.success{background:#111;color:#fff;border-color:#111}
+      #main .duit-analytics-card.success .k-label,#main .duit-analytics-card.success .k-sub{color:#aaa}
+      #main .duit-analytics-card.success .k-rate{background:#222;border-color:#333;color:#ffd60a}
       #main .duit-analytics-sections{display:grid;grid-template-columns:1.35fr 1fr;gap:12px;margin-top:12px}
       #main .duit-analytics-panel{padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
       #main .duit-analytics-panel h3{margin:0 0 12px;font-family:'Clash Display';font-size:17px}
@@ -92,15 +101,15 @@
         #main .crm-prospects-fit th:nth-child(9),#main .crm-prospects-fit td:nth-child(9){display:none}
         #main .crm-prospects-fit th:nth-child(1),#main .crm-prospects-fit td:nth-child(1){width:20%}
         #main .crm-prospects-fit th:nth-child(5),#main .crm-prospects-fit td:nth-child(5){width:20%}
-        #main .duit-analytics-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+        #main .duit-analytics-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#main .duit-analytics-secondary{grid-template-columns:repeat(3,minmax(0,1fr))}
       }
       @media(max-width:900px){
-        #main .duit-analytics-grid{grid-template-columns:1fr 1fr}
+        #main .duit-analytics-summary,#main .duit-analytics-secondary{grid-template-columns:1fr 1fr}
         #main .duit-analytics-sections{grid-template-columns:1fr}
       }
       @media(max-width:620px){
         #main .duit-analytics-toolbar select{flex:1 1 100%;width:100%!important}
-        #main .duit-analytics-grid{grid-template-columns:1fr}
+        #main .duit-analytics-summary,#main .duit-analytics-secondary{grid-template-columns:1fr}
         #main .funnel-row{grid-template-columns:100px 1fr 50px}
       }
     `;
@@ -140,7 +149,10 @@
   function buildAnalyticsHtml(){
     const rows = currentAnalyticsRows();
     const total = rows.length;
-    const sentRows = rows.filter(p => !!p.email_sent_at);
+    const sentRows = rows.filter(p => {
+      const rs=String(p.resend_status||'').toLowerCase();
+      return !!p.resend_email_id || ['sent','delivered','opened','clicked','delivery_delayed'].includes(rs);
+    });
     const sent = sentRows.length;
     const openedRows = sentRows.filter(p => !!p.email_first_opened_at || Number(p.email_open_count || 0) > 0);
     const opened = openedRows.length;
@@ -193,17 +205,20 @@
         <select data-analytics-filter="plan" aria-label="Serviço"><option value="all" ${analyticsState.filters.plan==='all'?'selected':''}>Todos os serviços</option>${planOptions}</select>
       </div>
 
-      <div class="duit-analytics-grid">
-        <div class="duit-analytics-card" data-kpi-click="all"><div class="k-label">Prospects</div><div class="k-value">${total}</div><div class="k-sub">no filtro atual</div></div>
-        <div class="duit-analytics-card" data-kpi-click="sent"><div class="k-label">✉️ Enviados</div><div class="k-value">${sent}</div><div class="k-sub">${total ? pct(sent,total) : '0,0%'} dos prospects</div></div>
-        <div class="duit-analytics-card" data-kpi-click="opened"><div class="k-label">👁️ Abertos</div><div class="k-value">${opened}</div><div class="k-sub">taxa de abertura ${pct(opened,sent)}</div></div>
-        <div class="duit-analytics-card" data-kpi-click="opened"><div class="k-label">Leituras totais</div><div class="k-value">${reads}</div><div class="k-sub">inclui reaberturas do email</div></div>
-        <div class="duit-analytics-card" data-kpi-click="responded"><div class="k-label">💬 Responderam</div><div class="k-value">${responded}</div><div class="k-sub">taxa de resposta ${pct(responded,sent)}</div></div>
-        <div class="duit-analytics-card" data-kpi-click="interested"><div class="k-label">🔥 Interessados</div><div class="k-value">${interested}</div><div class="k-sub">${pct(interested,sent)} dos enviados</div></div>
-        <div class="duit-analytics-card" data-kpi-click="proposals"><div class="k-label">📄 Propostas</div><div class="k-value">${proposals}</div><div class="k-sub">${proposalViews} vista(s) pelo prospect</div></div>
-        <div class="duit-analytics-card highlight" data-kpi-click="accepted"><div class="k-label">✅ Taxa de sucesso</div><div class="k-value">${pct(accepted,sent)}</div><div class="k-sub">${accepted} aceite(s) em ${sent} enviados</div></div>
-        <div class="duit-analytics-card" data-kpi-click="all"><div class="k-label">Valor potencial / mês</div><div class="k-value" style="font-size:22px">${money(potential)}</div><div class="k-sub">pipeline no filtro atual</div></div>
-        <div class="duit-analytics-card" data-kpi-click="accepted"><div class="k-label">Valor ganho / mês</div><div class="k-value" style="font-size:22px">${money(wonValue)}</div><div class="k-sub">associado a propostas aceites</div></div>
+      <div class="duit-analytics-summary">
+        <div class="duit-analytics-card primary" data-kpi-click="all"><div class="k-label">Prospects</div><div class="k-value">${total}</div><div class="k-sub">no filtro atual</div></div>
+        <div class="duit-analytics-card primary" data-kpi-click="sent"><div class="k-label">Emails enviados</div><div class="k-rate">${pct(sent,total)}</div><div class="k-value">${sent}</div><div class="k-sub">envios confirmados</div></div>
+        <div class="duit-analytics-card primary" data-kpi-click="opened"><div class="k-label">Abertos</div><div class="k-rate">${pct(opened,sent)}</div><div class="k-value">${opened}</div><div class="k-sub">prospects que abriram</div></div>
+        <div class="duit-analytics-card primary success" data-kpi-click="responded"><div class="k-label">Responderam</div><div class="k-rate">${pct(responded,sent)}</div><div class="k-value">${responded}</div><div class="k-sub">respostas recebidas</div></div>
+      </div>
+
+      <div class="duit-analytics-secondary">
+        <div class="duit-analytics-card" data-kpi-click="opened"><div class="k-label">Leituras</div><div class="k-value">${reads}</div><div class="k-sub">inclui reaberturas</div></div>
+        <div class="duit-analytics-card" data-kpi-click="interested"><div class="k-label">Interessados</div><div class="k-value">${interested}</div><div class="k-sub">${pct(interested,sent)} dos enviados</div></div>
+        <div class="duit-analytics-card" data-kpi-click="proposals"><div class="k-label">Propostas</div><div class="k-value">${proposals}</div><div class="k-sub">${proposalViews} vista(s)</div></div>
+        <div class="duit-analytics-card highlight" data-kpi-click="accepted"><div class="k-label">Taxa de sucesso</div><div class="k-value">${pct(accepted,sent)}</div><div class="k-sub">${accepted} aceite(s)</div></div>
+        <div class="duit-analytics-card money" data-kpi-click="all"><div class="k-label">Potencial / mês</div><div class="k-value">${money(potential)}</div><div class="k-sub">pipeline atual</div></div>
+        <div class="duit-analytics-card money" data-kpi-click="accepted"><div class="k-label">Ganho / mês</div><div class="k-value">${money(wonValue)}</div><div class="k-sub">propostas aceites</div></div>
       </div>
 
       <div class="duit-analytics-sections">
