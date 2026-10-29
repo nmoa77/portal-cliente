@@ -159,7 +159,8 @@ const EMAIL_AREAS=[
   'Aventura',
   'Centro de Estudos',
   'Saúde Mental',
-  'Fisioterapia'
+  'Fisioterapia',
+  'Dentistas'
 ];
 
 function emailAreaForSector(value){
@@ -167,7 +168,8 @@ function emailAreaForSector(value){
   if(!s)return 'Serviços Profissionais';
   if(/psicolog|psicoterap|psiquiatr|saúde mental|saude mental|terapia psicol|terapia cognitiv|terapia comportamental|terapeuta familiar|terapia de casal|neuropsicolog|aconselhamento psicológico|aconselhamento psicologico/.test(s))return 'Saúde Mental';
   if(/fisioter|reabilitaç|reabilitac|terapia manual|terapia física|terapia fisica|fisiatria|pilates clínico|pilates clinico|reabilitação desportiva|reabilitacao desportiva/.test(s))return 'Fisioterapia';
-  if(/clínic|clinica|saúde|saude|médic|medic|dent|farm|osteop|podolog|nutri|exame|anális|analise|laborat|radiolog|ecograf|resson|tac|cardiolog|dermatolog/.test(s))return 'Saúde';
+  if(/dentist|dentár|dentar|medicina dentária|medicina dentaria|ortodont|implantolog|higiene oral|odontolog|endodont|periodont|prostodont|clínica dentária|clinica dentaria/.test(s))return 'Dentistas';
+  if(/clínic|clinica|saúde|saude|médic|medic|farm|osteop|podolog|nutri|exame|anális|analise|laborat|radiolog|ecograf|resson|tac|cardiolog|dermatolog/.test(s))return 'Saúde';
   if(/bem-estar|wellness|massag|reiki|mindful|medita|yoga|pilates|relax|spa/.test(s))return 'Bem-estar';
   if(/beleza|estét|estet|cabele|barbear|spa|unhas|cosmét|cosmet/.test(s))return 'Beleza & Estética';
   if(/constru|obra|arquitet|engenh|remodel|instala|eletric|canaliz|climat|avac/.test(s))return 'Construção & Engenharia';
@@ -210,7 +212,8 @@ function ensureSpecialAreaInfrastructure(){
     {area:'Aventura',slug:'aventura',title:'DUIT Design · Aventura'},
     {area:'Centro de Estudos',slug:'centro-de-estudos',title:'DUIT Design · Centro de Estudos'},
     {area:'Saúde Mental',slug:'saude-mental',title:'DUIT Design · Saúde Mental'},
-    {area:'Fisioterapia',slug:'fisioterapia',title:'DUIT Design · Fisioterapia'}
+    {area:'Fisioterapia',slug:'fisioterapia',title:'DUIT Design · Fisioterapia'},
+    {area:'Dentistas',slug:'dentistas',title:'DUIT Design · Dentistas'}
   ];
 
   const insertContent=db.prepare(`
@@ -267,7 +270,7 @@ try{
 }
 
 function reconcileNewSpecialAreasForUnsentProspectsOnce(){
-  const key='20261029_aventura_centro_estudos_saude_mental_fisioterapia_unsent_v1';
+  const key='20261029_aventura_centro_estudos_saude_mental_fisioterapia_dentistas_unsent_v1';
   if(db.prepare('SELECT 1 FROM crm_data_migrations WHERE key=?').get(key))return;
 
   const cols=new Set(db.prepare('PRAGMA table_info(prospect_crm)').all().map(x=>x.name));
@@ -294,7 +297,7 @@ function reconcileNewSpecialAreasForUnsentProspectsOnce(){
   const tx=db.transaction(()=>{
     for(const row of rows){
       const area=emailAreaForSector(row.sector);
-      if(area!=='Aventura' && area!=='Centro de Estudos' && area!=='Saúde Mental' && area!=='Fisioterapia')continue;
+      if(area!=='Aventura' && area!=='Centro de Estudos' && area!=='Saúde Mental' && area!=='Fisioterapia' && area!=='Dentistas')continue;
       upd.run(area,landingPageForEmailArea(area),row.user_id);
     }
     db.prepare('INSERT INTO crm_data_migrations(key) VALUES(?)').run(key);
@@ -411,6 +414,15 @@ function defaultSectorContent(sector){
       ['Mais confiança','Mostre equipa, acompanhamento e experiência clínica.'],
       ['Mais proximidade','Comunique evolução, recuperação e acompanhamento personalizado.'],
       ['Mais diferenciação','Destaque especializações, técnicas e resultados.']
+    ];
+  }else if(s==='dentistas'){
+    headline='Mais confiança antes da primeira consulta.';
+    subheadline='Mostre tratamentos, equipa e experiência clínica de forma clara para reduzir dúvidas e gerar mais marcações.';
+    advantages=[
+      ['Mais marcações','Apresente tratamentos e facilite o contacto de novos pacientes.'],
+      ['Mais confiança','Mostre equipa, espaço e experiência clínica.'],
+      ['Mais clareza','Explique especialidades e tratamentos sem complicação.'],
+      ['Mais diferenciação','Destaque tecnologia, acompanhamento e qualidade do serviço.']
     ];
   }else if(/constru|obra|arquitet|engenh|remodel|instala/.test(s)){
     headline='Mostre melhor a qualidade do trabalho que já faz.';
@@ -557,7 +569,8 @@ const SECTOR_AREA_SLUGS={
   'aventura':'Aventura',
   'centro-de-estudos':'Centro de Estudos',
   'saude-mental':'Saúde Mental',
-  'fisioterapia':'Fisioterapia'
+  'fisioterapia':'Fisioterapia',
+  'dentistas':'Dentistas'
 };
 
 capturedApp.get('/api/public/sector-area/:slug',(req,res)=>{
