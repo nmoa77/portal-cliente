@@ -216,13 +216,20 @@ async function loadArea(){
   document.getElementById('bottomMessage').placeholder='Que tipo de trabalhos costuma precisar em '+sector+'? (opcional)';
 }
 const sid=sessionStorage.areaLpSid||(sessionStorage.areaLpSid=(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random())),utm={utm_source:q.get('utm_source')||'',utm_medium:q.get('utm_medium')||'',utm_campaign:q.get('utm_campaign')||''};
-function ev(event){fetch('/api/public/lp/duit-design-area/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,session_id:sid,referrer:document.referrer,...utm})}).catch(()=>{})}
+function currentLpKey(){
+  if(location.pathname.includes('/area/'))return 'duit-design-'+slug;
+  return pathKey||('duit-design-'+slug);
+}
+function ev(event){
+  const key=currentLpKey();
+  fetch('/api/public/lp/'+encodeURIComponent(key)+'/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,session_id:sid,referrer:document.referrer,...utm})}).catch(()=>{})
+}
 async function sendLead(form,thanks){
  const btn=form.querySelector('button[type=submit]'),fd=Object.fromEntries(new FormData(form)),sector=(document.getElementById('areaEy').textContent||'').replace(' · DUIT Design','');
  const original=btn.textContent;btn.disabled=true;btn.textContent='A enviar…';
  const msg=[fd.message,'Área: '+sector].filter(Boolean).join(' · ');
  try{
-  const r=await fetch('/api/public/lp/duit-design-area/design-lead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...fd,message:msg,...utm,session_id:sid})});
+  const r=await fetch('/api/public/lp/'+encodeURIComponent(currentLpKey())+'/design-lead',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...fd,message:msg,...utm,session_id:sid})});
   const d=await r.json();if(!r.ok)throw new Error(d.error||'Não foi possível enviar.');
   form.style.display='none';thanks.style.display='block';ev('cta');
  }catch(e){alert(e.message);btn.disabled=false;btn.textContent=original}
