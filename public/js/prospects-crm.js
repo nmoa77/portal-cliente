@@ -201,6 +201,7 @@
 
   window.duitViewAreas=async main=>{
     if(!main)return;
+    document.getElementById('modal-crm-sectors')?.remove();
     main.innerHTML=`
       <div class="page-head"><div><div class="eyebrow">Landing Pages</div><h1>Áreas</h1><p class="lede">Conteúdo, imagens e Landing Page associados a cada área.</p></div></div>
       <div id="crm-sector-page-list"><div class="empty">A carregar áreas…</div></div>
