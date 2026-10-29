@@ -116,6 +116,115 @@
   function landingPageOptions(){return `<option value="">— sem Landing Page —</option>${crmLandingPages.filter(p=>p.is_active&&p.slug!=='site-duit').map(p=>`<option value="${p.id}">${safe(p.title)}</option>`).join('')}`}
   function emailTemplateOptions(){const active=crmEmailTemplates.filter(t=>Number(t.is_active)===1),def=active.find(t=>Number(t.is_default)===1);return `<option value="">— usar predefinido${def?' · '+safe(def.name):''} —</option>${active.filter(t=>!Number(t.is_default)).map(t=>`<option value="${t.id}">${safe(t.name)}</option>`).join('')}`}
   function installStyles(){if(document.getElementById('crm-prospect-styles'))return;const s=document.createElement('style');s.id='crm-prospect-styles';s.textContent='.crm-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}.crm-toolbar input,.crm-toolbar select{min-height:40px}.crm-toolbar .crm-search{flex:1;min-width:260px}.crm-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:16px}.crm-kpi{padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--card)}.crm-kpi b{font-family:\'Clash Display\';font-size:26px;display:block;margin-top:4px}.crm-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}.crm-contact-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:5px;font-size:12px}.crm-contact-links a{color:var(--ink);text-decoration:underline;text-underline-offset:2px}.crm-modal-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 16px;align-items:start}.crm-modal-grid>.field{min-width:0;margin:0}.crm-modal-grid>.field input,.crm-modal-grid>.field select,.crm-modal-grid>.field textarea{width:100%;box-sizing:border-box}.crm-modal-grid>.field>div[style*="font-size:12px"]{min-height:34px;line-height:1.35}.crm-modal-grid .span-2{grid-column:1/-1}.crm-proposal-box{background:var(--bg-2);border:1px solid var(--line);border-radius:12px;padding:12px}.crm-proposal-box textarea{min-height:330px;font-family:inherit;font-size:13px;line-height:1.55}.crm-plan-preview{font-size:12px;color:var(--muted);padding:8px 10px;background:var(--bg-2);border-radius:8px;margin-top:6px}.crm-email-preview{grid-column:1/-1;border:1px solid var(--line);background:var(--bg-2);border-radius:12px;padding:14px 16px;min-width:0;max-height:620px;overflow:auto}.crm-email-preview .eyebrow{margin-bottom:4px}.crm-email-preview .subject{font-weight:700;margin:5px 0 10px}.crm-email-preview .body{white-space:pre-wrap;font-size:13px;line-height:1.5;color:var(--ink)}.crm-save-state{font-size:12px;color:var(--muted);align-self:center}.crm-sort{cursor:pointer;user-select:none;white-space:nowrap}.crm-table{min-width:1540px;table-layout:fixed}.crm-table th:nth-child(1){width:240px}.crm-table th:nth-child(2){width:180px}.crm-table th:nth-child(3){width:115px}.crm-table th:nth-child(4){width:125px}.crm-table th:nth-child(5){width:230px}.crm-table th:nth-child(6){width:120px}.crm-table th:nth-child(7){width:105px}.crm-table th:nth-child(8){width:150px}.crm-table th:nth-child(9){width:110px}.crm-table th:nth-child(10){width:55px}.crm-table td{vertical-align:top}@media(max-width:1100px){.crm-kpis{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.crm-kpis{grid-template-columns:1fr 1fr}.crm-modal-grid{grid-template-columns:1fr}.crm-modal-grid .span-2{grid-column:auto}}';document.head.appendChild(s)}
+  let crmSectorAutoSaveTimer=null;
+  let crmSectorPopulating=false;
+
+  function crmSectorEditorHtml({modal=false}={}){
+    return `
+      <form id="crm-sector-form">
+        <input type="hidden" id="crm-sector-name">
+        <div id="crm-sector-empty" class="empty" style="padding:50px 12px">Escolha uma área.</div>
+        <div id="crm-sector-fields" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+            <div><div class="eyebrow">Área</div><h3 id="crm-sector-title" style="margin:3px 0"></h3></div>
+            <div style="display:flex;align-items:center;gap:10px"><span id="crm-sector-save-state" style="font-size:12px;color:var(--muted)"></span><span id="crm-sector-count" class="pill muted"></span></div>
+          </div>
+          <div class="field"><label>Headline do email</label><input id="crm-sector-headline"></div>
+          <div class="field"><label>Subheadline</label><textarea id="crm-sector-subheadline" rows="2"></textarea></div>
+          <div class="field"><label>Landing Page do botão “Saber mais”</label><select id="crm-sector-lp"><option value="">— sem Landing Page —</option></select><div style="font-size:11px;color:var(--muted);margin-top:5px">O CTA dos emails desta área abre esta Landing Page.</div></div>
+
+          <div style="padding:14px;border:1px solid var(--line);border-radius:14px;margin:16px 0">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+              <div><div class="eyebrow">Galeria da área</div><strong>Imagens para usar nos emails e LP</strong></div>
+              <label class="btn btn-yellow" style="cursor:pointer">+ Adicionar imagens<input id="crm-sector-upload" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden></label>
+            </div>
+            <div id="crm-sector-gallery" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px"></div>
+          </div>
+
+          <div style="margin:16px 0 8px"><div class="eyebrow">Imagens escolhidas</div><strong>Hero + 4 imagens de apoio</strong></div>
+          <div id="crm-sector-selected-images" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:18px"></div>
+
+          <div style="margin:18px 0 10px"><div class="eyebrow">Vantagens para este negócio</div><strong>Conteúdo específico desta área.</strong></div>
+          <div class="grid g-2" style="gap:12px">
+            ${[1,2,3,4].map(n=>`<div style="padding:12px;border:1px solid var(--line);border-radius:12px"><div class="field"><label>Vantagem ${n}</label><input id="crm-sector-adv-title-${n}"></div><div class="field"><label>Texto curto</label><textarea id="crm-sector-adv-text-${n}" rows="2"></textarea></div></div>`).join('')}
+          </div>
+          ${modal?'<div class="modal-actions" style="margin-top:18px"><div class="spacer"></div><button type="button" class="btn btn-ghost" onclick="closeCrmSectorContent()">Fechar</button></div>':''}
+        </div>
+      </form>`;
+  }
+
+  function bindCrmSectorEditor(){
+    const form=document.getElementById('crm-sector-form');
+    if(form&&!form.dataset.bound){
+      form.dataset.bound='1';
+      form.addEventListener('submit',e=>{e.preventDefault();saveCrmSectorContent(e,false)});
+      form.addEventListener('input',scheduleCrmSectorAutoSave);
+      form.addEventListener('change',scheduleCrmSectorAutoSave);
+    }
+    const upload=document.getElementById('crm-sector-upload');
+    if(upload&&!upload.dataset.bound){upload.dataset.bound='1';upload.addEventListener('change',uploadCrmSectorImages)}
+  }
+
+  function renderCrmSectorPageList(){
+    const box=document.getElementById('crm-sector-page-list');if(!box)return;
+    if(!crmSectorContent.length){box.innerHTML='<div class="empty">Ainda não existem áreas.</div>';return}
+    box.innerHTML=`<div class="card" style="padding:0;overflow:hidden">
+      <div style="display:grid;grid-template-columns:minmax(220px,1.4fr) 110px minmax(220px,1fr) 100px;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">
+        <div>Área</div><div>Prospects</div><div>Landing Page</div><div></div>
+      </div>
+      ${crmSectorContent.map((s,i)=>{
+        const lp=(crmLandingPages||[]).find(x=>Number(x.id)===Number(s.landing_page_id));
+        return `<div style="display:grid;grid-template-columns:minmax(220px,1.4fr) 110px minmax(220px,1fr) 100px;gap:12px;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line)">
+          <div><strong>${safe(s.sector)}</strong></div>
+          <div><span class="pill muted">${Number(s.prospect_count||0)}</span></div>
+          <div style="font-size:12px;color:var(--muted)">${lp?safe(lp.title||lp.slug):'—'}</div>
+          <div style="text-align:right"><button type="button" class="btn btn-ghost btn-sm" onclick="editCrmSectorPage(${i})">Editar</button></div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  window.editCrmSectorPage=async index=>{
+    const list=document.getElementById('crm-sector-page-list');
+    const editor=document.getElementById('crm-sector-page-editor');
+    if(list)list.style.display='none';
+    if(editor)editor.style.display='';
+    await selectCrmSectorContent(index);
+    document.getElementById('crm-sector-page-editor')?.scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  window.closeCrmSectorPageEditor=()=>{
+    clearTimeout(crmSectorAutoSaveTimer);
+    document.getElementById('crm-sector-page-editor')?.style.setProperty('display','none');
+    document.getElementById('crm-sector-page-list')?.style.removeProperty('display');
+  };
+
+  window.duitViewAreas=async main=>{
+    if(!main)return;
+    main.innerHTML=`
+      <div class="page-head"><div><div class="eyebrow">Landing Pages</div><h1>Áreas</h1><p class="lede">Conteúdo, imagens e Landing Page associados a cada área.</p></div></div>
+      <div id="crm-sector-page-list"><div class="empty">A carregar áreas…</div></div>
+      <div id="crm-sector-page-editor" style="display:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
+          <button type="button" class="btn btn-ghost" onclick="closeCrmSectorPageEditor()">← Voltar à listagem</button>
+          <span style="font-size:12px;color:var(--muted)">As alterações são guardadas automaticamente.</span>
+        </div>
+        <div class="card" style="padding:20px">${crmSectorEditorHtml()}</div>
+      </div>`;
+    try{
+      const [sectors,lps]=await Promise.all([
+        api('/api/crm/prospect-sectors'),
+        api('/api/admin/landing-pages').catch(()=>crmLandingPages||[])
+      ]);
+      crmSectorContent=sectors||[];
+      crmLandingPages=lps||crmLandingPages||[];
+      renderCrmSectorPageList();
+      bindCrmSectorEditor();
+    }catch(e){
+      const box=document.getElementById('crm-sector-page-list');if(box)box.innerHTML='<div class="empty">Erro: '+safe(e.message)+'</div>';
+    }
+  };
+
   function ensureSectorContentModal(){
     if(document.getElementById('modal-crm-sectors'))return;
     const wrap=document.createElement('div');
@@ -123,49 +232,17 @@
     wrap.id='modal-crm-sectors';
     wrap.innerHTML=`<div class="modal wide" style="max-width:1120px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-        <div><div class="eyebrow">Emails visuais</div><h3 style="margin:4px 0">Conteúdo por área</h3><p class="lede">Os textos já vêm preparados. Carregue as imagens que quer usar e escolha-as diretamente da galeria.</p></div>
+        <div><div class="eyebrow">Emails visuais</div><h3 style="margin:4px 0">Conteúdo por área</h3><p class="lede">Edite os conteúdos e imagens de cada área.</p></div>
         <button type="button" class="btn btn-icon" onclick="closeCrmSectorContent()">✕</button>
       </div>
       <div style="display:grid;grid-template-columns:250px minmax(0,1fr);gap:18px;margin-top:18px">
         <div id="crm-sector-list" style="border-right:1px solid var(--line);padding-right:14px;max-height:700px;overflow:auto"></div>
-        <form id="crm-sector-form">
-          <input type="hidden" id="crm-sector-name">
-          <div id="crm-sector-empty" class="empty" style="padding:50px 12px">Escolha uma área.</div>
-          <div id="crm-sector-fields" style="display:none">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px">
-              <div><div class="eyebrow">Área do email</div><h3 id="crm-sector-title" style="margin:3px 0"></h3></div>
-              <span id="crm-sector-count" class="pill muted"></span>
-            </div>
-
-            <div class="field"><label>Headline do email</label><input id="crm-sector-headline"></div>
-            <div class="field"><label>Subheadline</label><textarea id="crm-sector-subheadline" rows="2"></textarea></div><div class="field"><label>Landing Page do botão “Saber mais”</label><select id="crm-sector-lp"><option value="">— sem Landing Page —</option></select><div style="font-size:11px;color:var(--muted);margin-top:5px">O CTA dos emails desta área abre esta Landing Page.</div></div>
-
-            <div style="padding:14px;border:1px solid var(--line);border-radius:14px;margin:16px 0">
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-                <div><div class="eyebrow">Galeria da área</div><strong>Imagens para usar nos emails</strong></div>
-                <label class="btn btn-yellow" style="cursor:pointer">+ Adicionar imagens<input id="crm-sector-upload" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden></label>
-              </div>
-              <div id="crm-sector-gallery" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px"></div>
-              <div style="font-size:11px;color:var(--muted);margin-top:8px">Ao carregar, as imagens são otimizadas automaticamente para o email.</div>
-            </div>
-
-            <div style="margin:16px 0 8px"><div class="eyebrow">Imagens escolhidas</div><strong>Hero + 4 imagens de apoio</strong></div>
-            <div id="crm-sector-selected-images" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:18px"></div>
-
-            <div style="margin:18px 0 10px"><div class="eyebrow">Vantagens para este negócio</div><strong>Já preparadas para o setor — pode ajustar se quiser.</strong></div>
-            <div class="grid g-2" style="gap:12px">
-              ${[1,2,3,4].map(n=>`<div style="padding:12px;border:1px solid var(--line);border-radius:12px"><div class="field"><label>Vantagem ${n}</label><input id="crm-sector-adv-title-${n}"></div><div class="field"><label>Texto curto</label><textarea id="crm-sector-adv-text-${n}" rows="2"></textarea></div></div>`).join('')}
-            </div>
-
-            <div class="modal-actions" style="margin-top:18px"><div class="spacer"></div><button type="button" class="btn btn-ghost" onclick="closeCrmSectorContent()">Fechar</button><button type="submit" class="btn btn-yellow">Guardar setor</button></div>
-          </div>
-        </form>
+        ${crmSectorEditorHtml({modal:true})}
       </div>
     </div>`;
     document.body.appendChild(wrap);
     wrap.addEventListener('click',e=>{if(e.target===wrap)closeCrmSectorContent()});
-    document.getElementById('crm-sector-form')?.addEventListener('submit',saveCrmSectorContent);
-    document.getElementById('crm-sector-upload')?.addEventListener('change',uploadCrmSectorImages);
+    bindCrmSectorEditor();
   }
 
   let crmSectorGallery=[];
@@ -214,13 +291,14 @@
     ensureSectorContentModal();
     document.getElementById('modal-crm-sectors')?.classList.add('open');
     const box=document.getElementById('crm-sector-list');if(box)box.innerHTML='<div class="empty">A carregar setores…</div>';
-    try{crmSectorContent=await api('/api/crm/prospect-sectors');renderCrmSectorList();if(crmSectorContent[0])await selectCrmSectorContent(0)}
+    try{crmSectorContent=await api('/api/crm/prospect-sectors');renderCrmSectorList()}
     catch(e){if(box)box.innerHTML='<div class="empty">Erro: '+safe(e.message)+'</div>'}
   };
   window.closeCrmSectorContent=()=>document.getElementById('modal-crm-sectors')?.classList.remove('open');
 
   window.selectCrmSectorContent=async index=>{
     const s=crmSectorContent[Number(index)];if(!s)return;
+    crmSectorPopulating=true;
     document.getElementById('crm-sector-empty').style.display='none';
     document.getElementById('crm-sector-fields').style.display='';
     document.getElementById('crm-sector-title').textContent=s.sector||'Setor';
@@ -230,6 +308,7 @@
     [1,2,3,4].forEach(n=>{set('crm-sector-adv-title-'+n,s['advantage_'+n+'_title']);set('crm-sector-adv-text-'+n,s['advantage_'+n+'_text'])});
     try{crmSectorGallery=await api('/api/crm/prospect-sectors/'+encodeURIComponent(s.sector)+'/images')}catch(_){crmSectorGallery=[]}
     renderCrmSectorGallery();renderCrmSectorSelectedImages();
+    crmSectorPopulating=false;
   };
 
   function currentCrmSector(){
@@ -239,9 +318,9 @@
 
   window.assignCrmSectorImage=(id,slot)=>{
     if(!slot)return;const s=currentCrmSector(),img=crmSectorGallery.find(x=>Number(x.id)===Number(id));if(!s||!img)return;
-    s[slot]=img.url;renderCrmSectorSelectedImages();
+    s[slot]=img.url;renderCrmSectorSelectedImages();scheduleCrmSectorAutoSave();
   };
-  window.clearCrmSectorImageSlot=slot=>{const s=currentCrmSector();if(!s)return;s[slot]='';renderCrmSectorSelectedImages()};
+  window.clearCrmSectorImageSlot=slot=>{const s=currentCrmSector();if(!s)return;s[slot]='';renderCrmSectorSelectedImages();scheduleCrmSectorAutoSave()};
 
   async function compressSectorImage(file){
     const bitmap=await createImageBitmap(file);
@@ -281,8 +360,18 @@
     }catch(err){toast(err.message||'Não foi possível apagar a imagem.','cancel')}
   };
 
-  async function saveCrmSectorContent(e){
-    e.preventDefault();
+  function scheduleCrmSectorAutoSave(){
+    if(crmSectorPopulating)return;
+    const sector=String(document.getElementById('crm-sector-name')?.value||'').trim();
+    if(!sector)return;
+    clearTimeout(crmSectorAutoSaveTimer);
+    const state=document.getElementById('crm-sector-save-state');
+    if(state){state.textContent='A guardar…';state.style.color='var(--muted)'}
+    crmSectorAutoSaveTimer=setTimeout(()=>saveCrmSectorContent(null,true),650);
+  }
+
+  async function saveCrmSectorContent(e,silent=false){
+    e?.preventDefault?.();
     const sector=String(document.getElementById('crm-sector-name')?.value||'').trim(),s=currentCrmSector();if(!sector||!s)return;
     const body={
       headline:document.getElementById('crm-sector-headline')?.value||'',
@@ -291,12 +380,18 @@
       hero_image:s.hero_image||'',image_1:s.image_1||'',image_2:s.image_2||'',image_3:s.image_3||'',image_4:s.image_4||''
     };
     [1,2,3,4].forEach(n=>{body['advantage_'+n+'_title']=document.getElementById('crm-sector-adv-title-'+n)?.value||'';body['advantage_'+n+'_text']=document.getElementById('crm-sector-adv-text-'+n)?.value||''});
+    const state=document.getElementById('crm-sector-save-state');
     try{
       await api('/api/crm/prospect-sectors/'+encodeURIComponent(sector),{method:'PUT',body});
-      toast('Conteúdo da área guardado.','check');
-      crmSectorContent=await api('/api/crm/prospect-sectors');renderCrmSectorList();
-      const idx=crmSectorContent.findIndex(x=>String(x.sector).toLowerCase()===sector.toLowerCase());if(idx>=0)await selectCrmSectorContent(idx);if(document.getElementById('modal-crm-prospect')?.classList.contains('open'))crmRefreshEmailPreview();
-    }catch(err){toast(err.message||'Não foi possível guardar o setor.','cancel')}
+      Object.assign(s,body);
+      if(state){state.textContent='Guardado';state.style.color='var(--ok, #2d8a4e)'}
+      if(!silent)toast('Conteúdo da área guardado.','check');
+      renderCrmSectorPageList();
+      if(document.getElementById('modal-crm-prospect')?.classList.contains('open'))crmRefreshEmailPreview();
+    }catch(err){
+      if(state){state.textContent='Erro ao guardar';state.style.color='var(--danger, #c33)'}
+      if(!silent)toast(err.message||'Não foi possível guardar a área.','cancel');
+    }
   }
 
   function crmSectorOptions(selected=''){
