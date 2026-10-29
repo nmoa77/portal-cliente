@@ -84,6 +84,33 @@ function ensureTable(){
     for(const x of starters)if(!exists.get(x.name))ins.run(x.name,x.description,x.subject,x.body,x.dm);
   }catch(_){}
 
+  /* DUIT_SET_UNSENT_TO_SECTOR_EMAIL_20261029
+   * Prospects sem qualquer envio passam para a abordagem "Email por sector".
+   * Não toca em prospects que já tiveram um envio.
+   */
+  try{
+    const sectorTpl=db.prepare("SELECT id FROM prospect_email_templates WHERE lower(TRIM(name))=lower('Email por sector') AND is_active=1 ORDER BY id ASC LIMIT 1").get();
+    if(sectorTpl){
+      const crmCols=new Set(db.prepare('PRAGMA table_info(prospect_crm)').all().map(x=>x.name));
+      const hasSentAt=crmCols.has('email_sent_at');
+      const hasFirstSentAt=crmCols.has('email_first_sent_at');
+      const hasSendCount=crmCols.has('email_send_count');
+
+      const unsentChecks=[
+        hasSentAt ? 'email_sent_at IS NULL' : '1=1',
+        hasFirstSentAt ? 'email_first_sent_at IS NULL' : '1=1',
+        hasSendCount ? 'COALESCE(email_send_count,0)=0' : '1=1'
+      ].join(' AND ');
+
+      db.prepare(`UPDATE prospect_crm
+        SET email_template_id=?, updated_at=datetime('now')
+        WHERE ${unsentChecks}
+          AND COALESCE(email_template_id,0)<>?`).run(sectorTpl.id,sectorTpl.id);
+    }
+  }catch(e){
+    console.warn('[crm] abordagem Email por sector nos não enviados:',e.message);
+  }
+
   /* DUIT_RENAME_VISUAL_EMAIL_CTA */
   try{
     const rows=db.prepare("SELECT id,html_body FROM prospect_email_templates WHERE html_body IS NOT NULL AND TRIM(html_body)!=''").all();
