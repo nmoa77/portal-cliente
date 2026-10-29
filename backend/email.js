@@ -282,6 +282,31 @@ async function deliver(db, { to, subject, body, html, user_id = null, kind = 'ge
 
 /* ---------- Templates (tratamento formal — você) ---------- */
 const T = {
+  designLeadConfirmation: (name, lpLabel='DUIT Design') => {
+    const first=String(name||'').trim().split(/\s+/)[0]||'';
+    const label=String(lpLabel||'DUIT Design').trim();
+    const subject='Recebemos o seu pedido — '+label;
+    const body=[
+      'Olá'+(first?' '+first:'')+',',
+      '',
+      'Recebemos o seu pedido através da '+label+'.',
+      'Vou analisar a informação enviada e entrarei em contacto consigo para perceber melhor o que precisa.',
+      '',
+      'Até breve,',
+      'Nuno · DUIT'
+    ].join('\n');
+    const html=layout({
+      eyebrow: label,
+      title: 'Pedido recebido.',
+      greeting: 'Olá'+(first?' '+first:'')+',',
+      paragraphs: [
+        'Recebemos o seu pedido através da <strong>'+escapeHtml(label)+'</strong>.',
+        'Vou analisar a informação enviada e entrarei em contacto consigo para perceber melhor o que precisa.'
+      ]
+    });
+    return {subject,body,html};
+  },
+
   prospectOptOut: (name) => {
     const first = String(name || '').trim().split(/\s+/)[0] || '';
     const subject = 'Confirmação de remoção — DUIT';
