@@ -289,7 +289,7 @@ const T = {
     const body=[
       'Olá'+(first?' '+first:'')+',',
       '',
-      'Recebemos o seu pedido através da '+label+'.',
+      'Recebi o seu pedido.',
       'Vou analisar a informação enviada e entrarei em contacto consigo para perceber melhor o que precisa.',
       '',
       'Até breve,',
@@ -300,7 +300,7 @@ const T = {
       title: 'Pedido recebido.',
       greeting: 'Olá'+(first?' '+first:'')+',',
       paragraphs: [
-        'Recebemos o seu pedido através da <strong>'+escapeHtml(label)+'</strong>.',
+        'Recebi o seu pedido.',
         'Vou analisar a informação enviada e entrarei em contacto consigo para perceber melhor o que precisa.'
       ]
     });
