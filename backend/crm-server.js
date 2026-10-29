@@ -107,6 +107,10 @@ CREATE TABLE IF NOT EXISTS prospect_sector_images (
   created_at TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_prospect_sector_images_sector ON prospect_sector_images(sector,id);
+CREATE TABLE IF NOT EXISTS crm_data_migrations (
+  key TEXT PRIMARY KEY,
+  applied_at TEXT DEFAULT (datetime('now'))
+);
 `);
 const sectorContentCols=db.prepare(`PRAGMA table_info(prospect_sector_content)`).all().map(c=>c.name);
 if(!sectorContentCols.includes('landing_page_id')) db.exec(`ALTER TABLE prospect_sector_content ADD COLUMN landing_page_id INTEGER`);
@@ -180,6 +184,56 @@ function effectiveEmailArea(sector,emailArea){
   const area=String(emailArea||'').trim();
   if(!area||area==='Saúde & Bem-estar')return emailAreaForSector(sector);
   return area;
+}
+
+function landingPageForEmailArea(area){
+  const row=db.prepare(`
+    SELECT psc.landing_page_id
+      FROM prospect_sector_content psc
+      JOIN landing_pages lp ON lp.id=psc.landing_page_id AND lp.is_active=1
+     WHERE lower(TRIM(psc.sector))=lower(TRIM(?))
+     LIMIT 1
+  `).get(String(area||'').trim());
+  return Number(row?.landing_page_id||0)||null;
+}
+
+function reconcileExistingProspectAreasAndLandingPagesOnce(){
+  const key='20261029_reconcile_prospect_area_lp_v1';
+  const done=db.prepare('SELECT 1 ok FROM crm_data_migrations WHERE key=?').get(key);
+  if(done)return;
+
+  const rows=db.prepare(`
+    SELECT c.user_id,c.sector,c.email_area,c.landing_page_id
+      FROM prospect_crm c
+      JOIN users u ON u.id=c.user_id
+     WHERE u.role='client' AND u.is_prospect=1
+  `).all();
+
+  const update=db.prepare(`
+    UPDATE prospect_crm
+       SET email_area=?,
+           landing_page_id=?,
+           updated_at=datetime('now')
+     WHERE user_id=?
+  `);
+
+  const tx=db.transaction(()=>{
+    for(const row of rows){
+      const area=emailAreaForSector(row.sector);
+      const lpId=landingPageForEmailArea(area);
+      update.run(area,lpId,row.user_id);
+    }
+    db.prepare('INSERT INTO crm_data_migrations(key) VALUES(?)').run(key);
+  });
+
+  tx();
+  console.log('[crm] reconciliação áreas/LP concluída:',rows.length,'prospects');
+}
+
+try{
+  reconcileExistingProspectAreasAndLandingPagesOnce();
+}catch(e){
+  console.warn('[crm] reconciliação áreas/LP:',e.message);
 }
 
 function defaultSectorContent(sector){
@@ -526,7 +580,12 @@ capturedApp.post('/api/crm/prospects', requireAdmin, (req, res) => {
   const status = allowedStatuses.has(body.lead_status) ? body.lead_status : 'por_contactar';
   const priority = allowedPriorities.has(body.priority) ? body.priority : 'possivel';
   const plan = allowedPlans.has(body.recommended_plan || '') ? (body.recommended_plan || '') : '';
-  const ebookPageId=validEbookPageId(body.ebook_page_id);const landingPageId=Number(body.landing_page_id||0)||null;const emailTemplateId=Number(body.email_template_id||0)||null;
+  const ebookPageId=validEbookPageId(body.ebook_page_id);
+  const derivedEmailArea=clean(body.email_area,120)||emailAreaForSector(body.sector);
+  const landingPageId=body.landing_page_id===undefined
+    ? landingPageForEmailArea(derivedEmailArea)
+    : (Number(body.landing_page_id||0)||null);
+  const emailTemplateId=Number(body.email_template_id||0)||null;
 
   const tx = db.transaction(() => {
     const u = db.prepare(`
@@ -542,7 +601,7 @@ capturedApp.post('/api/crm/prospects', requireAdmin, (req, res) => {
       ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))
     `).run(
       u.lastInsertRowid,
-      clean(body.sector, 120), clean(body.email_area,120)||emailAreaForSector(body.sector), clean(body.location, 120), clean(body.website, 500), clean(body.instagram, 500),
+      clean(body.sector, 120), derivedEmailArea, clean(body.location, 120), clean(body.website, 500), clean(body.instagram, 500),
       clean(body.opportunity), clean(body.idea), plan, clean(body.solution_text),
       asMoney(body.monthly_value), asMoney(body.offer_value), status, priority,
       clean(body.first_contact_at, 30), clean(body.follow_up_at, 30), clean(body.notes), clean(body.proposal_email, 12000),clean(body.email_observation,1200),ebookPageId,landingPageId,emailTemplateId
@@ -575,7 +634,15 @@ capturedApp.patch('/api/crm/prospects/:id', requireAdmin, (req, res) => {
   const plan = body.recommended_plan === undefined
     ? (current.recommended_plan || '')
     : (allowedPlans.has(body.recommended_plan || '') ? (body.recommended_plan || '') : (current.recommended_plan || ''));
-  const ebookPageId=body.ebook_page_id===undefined?current.ebook_page_id:validEbookPageId(body.ebook_page_id);const landingPageId=body.landing_page_id===undefined?current.landing_page_id:(Number(body.landing_page_id||0)||null);const emailTemplateId=body.email_template_id===undefined?current.email_template_id:(Number(body.email_template_id||0)||null);
+  const ebookPageId=body.ebook_page_id===undefined?current.ebook_page_id:validEbookPageId(body.ebook_page_id);
+  const nextSector=body.sector===undefined?current.sector:clean(body.sector,120);
+  const nextEmailArea=body.email_area===undefined
+    ? (current.email_area||emailAreaForSector(nextSector))
+    : (clean(body.email_area,120)||emailAreaForSector(nextSector));
+  const landingPageId=body.landing_page_id===undefined
+    ? ((body.sector!==undefined||body.email_area!==undefined)?landingPageForEmailArea(nextEmailArea):current.landing_page_id)
+    : (Number(body.landing_page_id||0)||null);
+  const emailTemplateId=body.email_template_id===undefined?current.email_template_id:(Number(body.email_template_id||0)||null);
 
   const tx = db.transaction(() => {
     db.prepare(`
@@ -605,8 +672,8 @@ capturedApp.patch('/api/crm/prospects/:id', requireAdmin, (req, res) => {
         updated_at=datetime('now')
       WHERE user_id=?
     `).run(
-      body.sector === undefined ? current.sector : clean(body.sector, 120),
-      body.email_area === undefined ? (current.email_area||emailAreaForSector(body.sector===undefined?current.sector:body.sector)) : (clean(body.email_area,120)||emailAreaForSector(body.sector===undefined?current.sector:body.sector)),
+      nextSector,
+      nextEmailArea,
       body.location === undefined ? current.location : clean(body.location, 120),
       body.website === undefined ? current.website : clean(body.website, 500),
       body.instagram === undefined ? current.instagram : clean(body.instagram, 500),
