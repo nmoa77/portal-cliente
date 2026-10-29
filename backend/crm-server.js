@@ -157,13 +157,15 @@ const EMAIL_AREAS=[
   'Agricultura & Agroalimentar',
   'Desporto & Fitness',
   'Aventura',
-  'Centro de Estudos'
+  'Centro de Estudos',
+  'Saúde Mental'
 ];
 
 function emailAreaForSector(value){
   const s=String(value||'').trim().toLowerCase();
   if(!s)return 'Serviços Profissionais';
-  if(/fisioter|clínic|clinica|saúde|saude|médic|medic|dent|farm|osteop|podolog|psicolog|nutri|exame|anális|analise|laborat|radiolog|ecograf|resson|tac|cardiolog|dermatolog/.test(s))return 'Saúde';
+  if(/psicolog|psicoterap|psiquiatr|saúde mental|saude mental|terapia psicol|terapia cognitiv|terapia comportamental|terapeuta familiar|terapia de casal|neuropsicolog|aconselhamento psicológico|aconselhamento psicologico/.test(s))return 'Saúde Mental';
+  if(/fisioter|clínic|clinica|saúde|saude|médic|medic|dent|farm|osteop|podolog|nutri|exame|anális|analise|laborat|radiolog|ecograf|resson|tac|cardiolog|dermatolog/.test(s))return 'Saúde';
   if(/bem-estar|wellness|massag|reiki|mindful|medita|yoga|pilates|relax|spa/.test(s))return 'Bem-estar';
   if(/beleza|estét|estet|cabele|barbear|spa|unhas|cosmét|cosmet/.test(s))return 'Beleza & Estética';
   if(/constru|obra|arquitet|engenh|remodel|instala|eletric|canaliz|climat|avac/.test(s))return 'Construção & Engenharia';
@@ -204,7 +206,8 @@ function landingPageForEmailArea(area){
 function ensureSpecialAreaInfrastructure(){
   const specs=[
     {area:'Aventura',slug:'aventura',title:'DUIT Design · Aventura'},
-    {area:'Centro de Estudos',slug:'centro-de-estudos',title:'DUIT Design · Centro de Estudos'}
+    {area:'Centro de Estudos',slug:'centro-de-estudos',title:'DUIT Design · Centro de Estudos'},
+    {area:'Saúde Mental',slug:'saude-mental',title:'DUIT Design · Saúde Mental'}
   ];
 
   const insertContent=db.prepare(`
@@ -261,7 +264,7 @@ try{
 }
 
 function reconcileNewSpecialAreasForUnsentProspectsOnce(){
-  const key='20261029_aventura_centro_estudos_unsent_v1';
+  const key='20261029_aventura_centro_estudos_saude_mental_unsent_v1';
   if(db.prepare('SELECT 1 FROM crm_data_migrations WHERE key=?').get(key))return;
 
   const cols=new Set(db.prepare('PRAGMA table_info(prospect_crm)').all().map(x=>x.name));
@@ -288,7 +291,7 @@ function reconcileNewSpecialAreasForUnsentProspectsOnce(){
   const tx=db.transaction(()=>{
     for(const row of rows){
       const area=emailAreaForSector(row.sector);
-      if(area!=='Aventura' && area!=='Centro de Estudos')continue;
+      if(area!=='Aventura' && area!=='Centro de Estudos' && area!=='Saúde Mental')continue;
       upd.run(area,landingPageForEmailArea(area),row.user_id);
     }
     db.prepare('INSERT INTO crm_data_migrations(key) VALUES(?)').run(key);
@@ -387,6 +390,15 @@ function defaultSectorContent(sector){
       ['Mais confiança','Mostre método, acompanhamento e proximidade.'],
       ['Mais visibilidade local','Chegue a famílias e alunos na sua zona.'],
       ['Mais diferenciação','Comunique aquilo que distingue o seu centro de estudos.']
+    ];
+  }else if(s==='saúde mental'){
+    headline='Confiança começa antes da primeira conversa.';
+    subheadline='Mostre abordagem, especialização e acompanhamento de forma humana e profissional para reduzir barreiras e facilitar o primeiro contacto.';
+    advantages=[
+      ['Mais confiança','Uma comunicação clara e humana ajuda a criar segurança antes da primeira consulta.'],
+      ['Mais pedidos de contacto','Explique áreas de acompanhamento e facilite o primeiro passo.'],
+      ['Mais proximidade','Transmita empatia, escuta e acompanhamento de forma credível.'],
+      ['Mais diferenciação','Mostre especializações, método e experiência profissional.']
     ];
   }else if(/constru|obra|arquitet|engenh|remodel|instala/.test(s)){
     headline='Mostre melhor a qualidade do trabalho que já faz.';
@@ -531,7 +543,8 @@ const SECTOR_AREA_SLUGS={
   'agricultura-agroalimentar':'Agricultura & Agroalimentar',
   'desporto-fitness':'Desporto & Fitness',
   'aventura':'Aventura',
-  'centro-de-estudos':'Centro de Estudos'
+  'centro-de-estudos':'Centro de Estudos',
+  'saude-mental':'Saúde Mental'
 };
 
 capturedApp.get('/api/public/sector-area/:slug',(req,res)=>{
