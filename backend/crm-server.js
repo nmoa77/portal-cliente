@@ -578,6 +578,7 @@ const SECTOR_AREA_SLUGS={
   'tecnologia-digital':'Tecnologia & Digital',
   'agricultura-agroalimentar':'Agricultura & Agroalimentar',
   'desporto-fitness':'Desporto & Fitness',
+  'estudios-de-danca':'Estúdios de Dança',
   'aventura':'Aventura',
   'centro-de-estudos':'Centro de Estudos',
   'saude-mental':'Saúde Mental',
