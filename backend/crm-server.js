@@ -272,6 +272,96 @@ try{
   console.warn('[crm] novas áreas/LP:',e.message);
 }
 
+function slugifyArea(value){
+  return String(value||'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/&/g,' e ')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+
+function reconcileAllAreaLandingPages(){
+  const duitStart=db.prepare("SELECT id FROM landing_pages WHERE slug='duit-start' LIMIT 1").get();
+  const startId=Number(duitStart?.id||0)||null;
+
+  const ensureContent=db.prepare(`
+    INSERT OR IGNORE INTO prospect_sector_content(sector,headline,subheadline)
+    VALUES(?,?,?)
+  `);
+
+  for(const area of EMAIL_AREAS){
+    const d=defaultSectorContent(area);
+    ensureContent.run(area,d.headline,d.subheadline);
+
+    const current=db.prepare(`
+      SELECT psc.landing_page_id,lp.slug
+      FROM prospect_sector_content psc
+      LEFT JOIN landing_pages lp ON lp.id=psc.landing_page_id
+      WHERE lower(trim(psc.sector))=lower(trim(?))
+      LIMIT 1
+    `).get(area);
+
+    const currentId=Number(current?.landing_page_id||0)||null;
+    const currentIsWrong=!currentId || String(current?.slug||'').toLowerCase()==='duit-start';
+    if(!currentIsWrong)continue;
+
+    const desiredTitle='DUIT Design · '+area;
+    const desiredSlug='duit-design-'+slugifyArea(area);
+    const lp=db.prepare(`
+      SELECT id,title,slug
+      FROM landing_pages
+      WHERE is_active=1
+        AND (
+          lower(trim(title))=lower(trim(?))
+          OR lower(trim(slug))=lower(trim(?))
+        )
+      ORDER BY CASE WHEN lower(trim(title))=lower(trim(?)) THEN 0 ELSE 1 END,id ASC
+      LIMIT 1
+    `).get(desiredTitle,desiredSlug,desiredTitle);
+
+    if(lp?.id){
+      db.prepare(`
+        UPDATE prospect_sector_content
+        SET landing_page_id=?,updated_at=datetime('now')
+        WHERE lower(trim(sector))=lower(trim(?))
+      `).run(lp.id,area);
+    }
+  }
+
+  const rows=db.prepare(`
+    SELECT c.user_id,c.sector,c.email_area,c.landing_page_id,lp.slug current_lp_slug
+    FROM prospect_crm c
+    JOIN users u ON u.id=c.user_id
+    LEFT JOIN landing_pages lp ON lp.id=c.landing_page_id
+    WHERE u.role='client' AND u.is_prospect=1
+      AND c.email_sent_at IS NULL
+      AND c.email_first_sent_at IS NULL
+      AND COALESCE(c.email_send_count,0)=0
+  `).all();
+
+  const upd=db.prepare(`
+    UPDATE prospect_crm
+    SET email_area=?,landing_page_id=?,updated_at=datetime('now')
+    WHERE user_id=?
+  `);
+
+  const tx=db.transaction(()=>{
+    for(const row of rows){
+      const area=effectiveEmailArea(row.sector,row.email_area);
+      const mapped=landingPageForEmailArea(area);
+      if(!mapped)continue;
+      const currentWrong=!row.landing_page_id || String(row.current_lp_slug||'').toLowerCase()==='duit-start';
+      if(currentWrong)upd.run(area,mapped,row.user_id);
+    }
+  });
+  tx();
+}
+
+try{
+  reconcileAllAreaLandingPages();
+}catch(e){
+  console.warn('[crm] reconciliação geral de LPs:',e.message);
+}
+
 function reconcileNewSpecialAreasForUnsentProspectsOnce(){
   const key='20261029_aventura_centro_estudos_saude_mental_fisioterapia_dentistas_estudios_danca_unsent_v2';
   if(db.prepare('SELECT 1 FROM crm_data_migrations WHERE key=?').get(key))return;
