@@ -3,58 +3,6 @@ const fs=require('fs'),path=require('path'),crypto=require('crypto'),bcrypt=requ
 const db=require('./db'),{wasDeleted}=require('./prospect-deleted-guard');
 const L=[
   {
-    "company": "PCBEM — Informática",
-    "sector": "Comércio de informática e assistência técnica",
-    "email_area": "Tecnologia & Digital",
-    "location": "Ponta Delgada, Açores",
-    "website": "https://www.pcbem.pt/",
-    "email": "geral@pcbem.pt",
-    "phone": "296 654 500",
-    "source": "https://www.pcbem.pt/contatos/",
-    "observation": "Loja de informática com dois espaços em Ponta Delgada.",
-    "opportunity": "Criar peças de apresentação de produtos e assistência técnica.",
-    "service": "design"
-  },
-  {
-    "company": "Carlos Sebastião — Materiais de Construção",
-    "sector": "Comércio de materiais de construção",
-    "email_area": "Comércio & Retalho",
-    "location": "Relva, Ponta Delgada, Açores",
-    "website": "https://carlossebastiao.eu/",
-    "email": "geral@carlossebastiao.pt",
-    "phone": "296 683 658",
-    "source": "https://carlossebastiao.eu/",
-    "observation": "Loja de ferramentas, ferragens, revestimentos e materiais de construção.",
-    "opportunity": "Preparar catálogos e suportes promocionais por gama de produtos.",
-    "service": "design"
-  },
-  {
-    "company": "NAVEL Açores",
-    "sector": "Máquinas e ferramentas industriais",
-    "email_area": "Indústria & Produção",
-    "location": "Pico da Pedra e Ponta Delgada, Açores",
-    "website": "https://mail.navel.pt/",
-    "email": "comercial@navel.pt",
-    "phone": "296 630 120",
-    "source": "https://mail.navel.pt/",
-    "observation": "Comercialização e assistência de máquinas e equipamentos industriais nos Açores.",
-    "opportunity": "Criar fichas comerciais e materiais para divulgação de equipamentos.",
-    "service": "design"
-  },
-  {
-    "company": "JAMÉ Surf Shop",
-    "sector": "Loja de surf e desporto",
-    "email_area": "Comércio & Retalho",
-    "location": "Ponta Delgada, Açores",
-    "website": "https://jame.pt/",
-    "email": "geral@jame.pt",
-    "phone": "296 282 229",
-    "source": "https://www.solmaravenidacenter.com/lojas/jame-surf-shop/",
-    "observation": "Loja de surf no Solmar Avenida Center, em Ponta Delgada.",
-    "opportunity": "Criar peças de divulgação de artigos e novidades da loja.",
-    "service": "ambas"
-  },
-  {
     "company": "Brignor — Revestimentos e Isolamentos",
     "sector": "Isolamentos e revestimentos",
     "email_area": "Construção & Engenharia",
@@ -131,45 +79,6 @@ const L=[
     "observation": "Empresa de construção e reabilitação registada no diretório empresarial da AICCOPN.",
     "opportunity": "Criar materiais de apresentação de serviços e intervenções.",
     "service": "design"
-  },
-  {
-    "company": "FXC",
-    "sector": "Construção civil e reabilitação",
-    "email_area": "Construção & Engenharia",
-    "location": "Funchal, Madeira",
-    "website": "https://fxc.pt/",
-    "email": "geral@fxc.pt",
-    "phone": "291 230 225",
-    "source": "https://fxc.pt/alvara-da-empresa/",
-    "observation": "Empresa de construção com alvará e sede na Rua da Mouraria, Funchal.",
-    "opportunity": "Preparar materiais de apresentação de áreas de obra e especialidades.",
-    "service": "design"
-  },
-  {
-    "company": "Rectificadora",
-    "sector": "Metalomecânica e retificação de motores",
-    "email_area": "Indústria & Produção",
-    "location": "Funchal, Madeira",
-    "website": "https://rectificadora.pt/",
-    "email": "geral@rectificadora.com.pt",
-    "phone": "291 764 130",
-    "source": "https://rectificadora.pt/",
-    "observation": "Oficina de metalomecânica e retificação de motores no Funchal.",
-    "opportunity": "Criar suportes técnicos e comerciais sobre serviços de oficina.",
-    "service": "design"
-  },
-  {
-    "company": "Charme Rent",
-    "sector": "Aluguer de automóveis",
-    "email_area": "Turismo & Alojamento",
-    "location": "Funchal, Madeira",
-    "website": "https://charmerent.com/",
-    "email": "geral@charmerent.com",
-    "phone": "291 610 303",
-    "source": "https://charmerent.com/",
-    "observation": "Rent-a-car no Funchal com frota e reservas online.",
-    "opportunity": "Criar materiais digitais de apresentação de viaturas e reservas.",
-    "service": "ambas"
   },
   {
     "company": "Neutrão — Imagiologia",
