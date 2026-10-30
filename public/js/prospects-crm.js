@@ -424,11 +424,22 @@
   async function loadProspects(){const [prospects,statuses,lps,emailTemplates,socialRows,sectors]=await Promise.all([api('/api/crm/prospects'),api('/api/crm/prospects/email-status'),api('/api/admin/landing-pages'),api('/api/admin/prospect-email-templates').catch(()=>[]),api('/api/crm/prospects/social').catch(()=>[]),api('/api/crm/prospect-sectors').catch(()=>[])]);crmLandingPages=lps||[];crmEmailTemplates=emailTemplates||[];crmSectorContent=sectors||[];const sm=new Map((statuses||[]).map(s=>[Number(s.user_id),s])),soc=new Map((socialRows||[]).map(s=>[Number(s.user_id),s]));crmProspects=(prospects||[]).map(p=>({...p,...(sm.get(Number(p.id))||{}),...(soc.get(Number(p.id))||{})}));window.duitCrmProspectsCache=crmProspects;window.duitCrmLandingPagesCache=crmLandingPages;window.duitCrmEmailTemplatesCache=crmEmailTemplates;return crmProspects}
   function filteredProspects(){const q=crmFilter.q.trim().toLowerCase();const list=crmProspects.filter(p=>{if(crmSocialFilter!=='all'&&crmSocialState(p)!==crmSocialFilter)return false;if(crmFilter.status!=='all'){if(crmFilter.status==='falta_contactar'&&p.lead_status!=='por_contactar')return false;if(crmFilter.status==='contactado'&&p.lead_status!=='contactado')return false;if(crmFilter.status==='nao_abriu'&&(!p.email_sent_at||p.email_first_opened_at))return false;if(crmFilter.status==='email_visto'&&(!p.email_sent_at||(!p.email_first_opened_at&&Number(p.email_open_count||0)<=0)))return false;if(crmFilter.status==='nao_respondeu'&&(!p.email_sent_at||p.outreach_response))return false}if(crmFilter.priority!=='all'&&p.priority!==crmFilter.priority)return false;if(crmFilter.proposal==='vista'&&Number(p.proposal_view_count||0)<=0)return false;if(crmFilter.proposal==='por_abrir'&&(!p.email_sent_at||Number(p.proposal_view_count||0)>0))return false;if(!q)return true;return[p.company,p.name,p.email,p.phone,p.sector,p.email_area,p.location,p.opportunity,p.idea,p.notes].filter(Boolean).join(' ').toLowerCase().includes(q)});const stamp=(p,field)=>{const raw=field==='activity'?(p.email_sent_at||p.email_first_sent_at):(field==='first'?p.email_first_sent_at:p.email_sent_at);return raw?new Date(String(raw).replace(' ','T')+'Z').getTime():0};return list.sort((a,b)=>{const av=stamp(a,crmDateSortField),bv=stamp(b,crmDateSortField);if(av===bv)return Number(b.id)-Number(a.id);if(!av)return 1;if(!bv)return -1;return crmDateSort==='asc'?av-bv:bv-av})}
   function crmEffectiveLandingPage(p){
+    const templateName=crmTemplateName(p).trim().toLowerCase();
+    const area=String(p?.email_area||'').trim().toLowerCase();
+
+    if(templateName==='email por sector' && area){
+      const sector=(crmSectorContent||[]).find(s=>String(s.sector||'').trim().toLowerCase()===area);
+      if(sector?.landing_page_id){
+        const inherited=crmLandingPages.find(lp=>Number(lp.id)===Number(sector.landing_page_id));
+        if(inherited)return inherited;
+      }
+    }
+
     if(p?.landing_page_id){
       const direct=crmLandingPages.find(lp=>Number(lp.id)===Number(p.landing_page_id));
       if(direct)return direct;
     }
-    const area=String(p?.email_area||'').trim().toLowerCase();
+
     if(area){
       const sector=(crmSectorContent||[]).find(s=>String(s.sector||'').trim().toLowerCase()===area);
       if(sector?.landing_page_id){
@@ -649,8 +660,10 @@
 const areaName=String(p?.email_area||'').trim();
 const areaContent=(crmSectorContent||[]).find(x=>String(x.sector||'').trim().toLowerCase()===areaName.toLowerCase());
 const sectorApproach=(crmEmailTemplates||[]).find(x=>Number(x.is_active)===1&&String(x.name||'').trim().toLowerCase()==='email por sector');
-const inferredTemplateId=p?.email_template_id||(!p?.email_sent_at?sectorApproach?.id:'')||'';
-const inferredLandingPageId=(!p?.email_sent_at&&sectorApproach&&Number(inferredTemplateId)===Number(sectorApproach.id))?(areaContent?.landing_page_id||p?.landing_page_id||''):(p?.landing_page_id||areaContent?.landing_page_id||'');
+const inferredTemplateId=p?.email_template_id||sectorApproach?.id||'';
+const selectedTemplate=(crmEmailTemplates||[]).find(x=>Number(x.id)===Number(inferredTemplateId));
+const isSectorTemplate=String(selectedTemplate?.name||'').trim().toLowerCase()==='email por sector';
+const inferredLandingPageId=isSectorTemplate?(areaContent?.landing_page_id||p?.landing_page_id||''):(p?.landing_page_id||areaContent?.landing_page_id||'');
 
 set('crm-id',p?.id);set('crm-company',p?.company);set('crm-name',p?.name);set('crm-email',p?.email);set('crm-phone',p?.phone);refreshCrmSectorSelect(p?.sector);refreshCrmEmailAreaSelect(p?.email_area);set('crm-sector',p?.sector);set('crm-email-area',p?.email_area);set('crm-location',p?.location);set('crm-website',p?.website);set('crm-instagram',p?.instagram);set('crm-opportunity',p?.opportunity);set('crm-idea',p?.idea);set('crm-priority',p?.priority||'possivel');set('crm-status',p?.lead_status||'por_contactar');set('crm-plan',p?.recommended_plan||planFromValues(p?.monthly_value));set('crm-monthly',p?.monthly_value);set('crm-email-template',inferredTemplateId);set('crm-landing-page',inferredLandingPageId);set('crm-first-contact',p?.first_contact_at?String(p.first_contact_at).slice(0,10):'');set('crm-followup',p?.follow_up_at?String(p.follow_up_at).slice(0,10):'');set('crm-notes',p?.notes);set('crm-dm-status',p?.dm_status||'por_enviar');set('crm-dm-message',p?.dm_message||crmDefaultDm(p||{}));const dmHint=document.getElementById('crm-dm-hint'),dmOpen=document.getElementById('crm-open-dm'),daily=crmDmDailyInfo();if(dmHint)dmHint.textContent=daily.blocked?'⛔ Limite diário atingido. Retome amanhã.':(p?.instagram?'Instagram validado: '+p.instagram:(p?.instagram_checked_at?'Instagram não encontrado na pesquisa automática.':'Instagram ainda por verificar.'));if(dmOpen){dmOpen.disabled=!!daily.blocked;dmOpen.textContent=daily.blocked?'⛔ Limite diário atingido':'Abrir Instagram + copiar DM';}document.getElementById('crm-delete').style.display=p?'':'none';document.getElementById('crm-optout').style.display=p?'':'none';document.getElementById('crm-save-button').style.display=p?'none':'';document.getElementById('crm-save-state').textContent=p?'Alterações guardadas automaticamente':'';crmApplyPlan(false);document.getElementById('modal-crm-prospect').classList.add('open');if(p)crmRefreshEmailPreview();setTimeout(()=>loadingForm=false,0)};
   window.closeCrmProspect=()=>document.getElementById('modal-crm-prospect')?.classList.remove('open');
