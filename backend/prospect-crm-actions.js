@@ -358,6 +358,64 @@ module.exports = function installProspectCrmActions(app) {
     return {p,subject,body,lp,targetUrl,html,text};
   }
 
+  function validateProspectSend(id,selectedLpId=0,selectedTemplateId=0){
+    const current=db.prepare(`SELECT u.id,u.email,u.company,c.email_sent_at,c.lead_status
+      FROM users u JOIN prospect_crm c ON c.user_id=u.id
+      WHERE u.id=? AND u.is_prospect=1`).get(Number(id));
+    if(!current)return {ok:false,error:'Prospect não encontrado.'};
+    if(current.email_sent_at)return {ok:false,error:'Este prospect já recebeu um email.'};
+    if(String(current.lead_status||'')==='sem_interesse')return {ok:false,error:'Prospect marcado como sem interesse.'};
+    if(!String(current.email||'').trim())return {ok:false,error:'Prospect sem email.'};
+
+    try{
+      const unsub=db.prepare(`SELECT 1 FROM email_unsubscribes WHERE lower(trim(email))=lower(trim(?)) LIMIT 1`).get(current.email);
+      if(unsub)return {ok:false,error:'Contacto com unsubscribe ativo.'};
+    }catch(_){}
+    try{
+      const blocked=db.prepare(`SELECT 1 FROM deleted_prospects WHERE lower(trim(email))=lower(trim(?)) LIMIT 1`).get(current.email);
+      if(blocked)return {ok:false,error:'Contacto marcado como não contactar.'};
+    }catch(_){}
+
+    const resolved=resolveProspectEmail(Number(id),Number(selectedLpId||0),Number(selectedTemplateId||0));
+    const approach=resolveProspectApproach(Number(id),Number(selectedTemplateId||0));
+    if(!resolved)return {ok:false,error:'Não foi possível gerar o email.'};
+    if(resolved.error)return {ok:false,error:resolved.error};
+
+    const composed=composeProspectEmail(resolved,approach,'validation',false);
+    const subject=String(composed.subject||'').trim();
+    const text=String(composed.text||'').trim();
+    const html=String(composed.html||'').trim();
+    if(!subject)return {ok:false,error:'Assunto vazio.'};
+    if(!text&&!html)return {ok:false,error:'Conteúdo do email vazio.'};
+
+    const source=[subject,String(resolved.body||''),String(resolved.email_html||'')].join('\n');
+    const unresolved=source.match(/\{(?:empresa|nome|observacao|oportunidade|problema|ideia|setor|area_email|sector_[a-z0-9_]+|hero|imagem_[1-4]|vantagem_[1-4](?:_texto)?|lp_url|landing_page_url)\}/i);
+    if(unresolved)return {ok:false,error:'Campo por preencher: '+unresolved[0]};
+
+    if(/(?:^|[\s>])(undefined|null)(?:[\s<.,;:]|$)/i.test(source))return {ok:false,error:'O email contém um valor inválido (undefined/null).'};
+    if(/src=["']\s*["']/i.test(html))return {ok:false,error:'Existe uma imagem sem origem definida.'};
+    if(/href=["']\s*["']/i.test(html))return {ok:false,error:'Existe uma ligação vazia.'};
+
+    return {ok:true,resolved,approach,composed};
+  }
+
+  app.post('/api/crm/prospects/validate-pending',requireAdmin,(req,res)=>{
+    const rows=db.prepare(`SELECT u.id,u.company,u.email,c.landing_page_id,c.email_template_id
+      FROM users u JOIN prospect_crm c ON c.user_id=u.id
+      WHERE u.is_prospect=1
+        AND c.email_sent_at IS NULL
+        AND COALESCE(c.lead_status,'por_contactar')<>'sem_interesse'
+        AND u.email IS NOT NULL AND TRIM(u.email)<>''
+      ORDER BY u.id ASC`).all();
+    const ready=[],errors=[];
+    for(const row of rows){
+      const check=validateProspectSend(row.id,row.landing_page_id,row.email_template_id);
+      if(check.ok)ready.push({id:row.id,company:row.company,email:row.email,landing_page_id:row.landing_page_id||null,email_template_id:row.email_template_id||null});
+      else errors.push({id:row.id,company:row.company,email:row.email,error:check.error});
+    }
+    res.json({ok:true,total:rows.length,ready_count:ready.length,error_count:errors.length,ready,errors});
+  });
+
   app.post('/api/crm/prospects/:id/email-preview-final',requireAdmin,(req,res)=>{
     const id=Number(req.params.id);
     const selectedLpId=Number(req.body?.landing_page_id||0);
@@ -385,13 +443,11 @@ module.exports = function installProspectCrmActions(app) {
     const id=Number(req.params.id);
     const selectedLpId=Number(req.body?.landing_page_id||0);
     const selectedTemplateId=Number(req.body?.email_template_id||0);
-    const resolved=resolveProspectEmail(id,selectedLpId,selectedTemplateId);
-    const approach=resolveProspectApproach(id,selectedTemplateId);
-    if(!resolved)return res.status(404).json({error:'Prospect não encontrado.'});
-    if(resolved.error)return res.status(400).json({error:resolved.error});
-
+    const check=validateProspectSend(id,selectedLpId,selectedTemplateId);
+    if(!check.ok)return res.status(400).json({error:check.error});
+    const resolved=check.resolved;
+    const approach=check.approach;
     const p=resolved.prospect;
-    if(!p.email)return res.status(400).json({error:'Este prospect não tem email.'});
 
     const token=crypto.randomBytes(24).toString('hex');
     const composed=composeProspectEmail(resolved,approach,token,true);
