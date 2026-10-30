@@ -358,6 +358,33 @@ module.exports = function installProspectCrmActions(app) {
     return {p,subject,body,lp,targetUrl,html,text};
   }
 
+  function preferredPendingLandingPageId(id,selectedLpId=0,selectedTemplateId=0){
+    const row=db.prepare(`SELECT c.email_sent_at,c.email_area,c.sector,c.email_template_id
+      FROM prospect_crm c WHERE c.user_id=?`).get(Number(id));
+    if(!row||row.email_sent_at)return Number(selectedLpId||0)||null;
+
+    const tplId=Number(selectedTemplateId||row.email_template_id||0);
+    let isSectorApproach=false;
+    if(tplId){
+      const tpl=db.prepare(`SELECT name FROM prospect_email_templates WHERE id=? AND is_active=1`).get(tplId);
+      isSectorApproach=String(tpl?.name||'').trim().toLowerCase()==='email por sector';
+    }else{
+      const def=db.prepare(`SELECT name FROM prospect_email_templates WHERE is_default=1 AND is_active=1 ORDER BY id LIMIT 1`).get();
+      isSectorApproach=String(def?.name||'').trim().toLowerCase()==='email por sector';
+    }
+    if(!isSectorApproach)return Number(selectedLpId||0)||null;
+
+    const area=String(row.email_area||row.sector||'').trim();
+    const sectorLp=db.prepare(`
+      SELECT psc.landing_page_id
+      FROM prospect_sector_content psc
+      JOIN landing_pages lp ON lp.id=psc.landing_page_id AND lp.is_active=1
+      WHERE lower(trim(psc.sector))=lower(trim(?))
+      LIMIT 1
+    `).get(area);
+    return Number(sectorLp?.landing_page_id||selectedLpId||0)||null;
+  }
+
   function validateProspectSend(id,selectedLpId=0,selectedTemplateId=0){
     const current=db.prepare(`SELECT u.id,u.email,u.company,c.email_sent_at,c.lead_status
       FROM users u JOIN prospect_crm c ON c.user_id=u.id
@@ -376,7 +403,8 @@ module.exports = function installProspectCrmActions(app) {
       if(blocked)return {ok:false,error:'Contacto marcado como não contactar.'};
     }catch(_){}
 
-    const resolved=resolveProspectEmail(Number(id),Number(selectedLpId||0),Number(selectedTemplateId||0));
+    const effectiveLpId=preferredPendingLandingPageId(id,selectedLpId,selectedTemplateId);
+    const resolved=resolveProspectEmail(Number(id),Number(effectiveLpId||0),Number(selectedTemplateId||0));
     const approach=resolveProspectApproach(Number(id),Number(selectedTemplateId||0));
     if(!resolved)return {ok:false,error:'Não foi possível gerar o email.'};
     if(resolved.error)return {ok:false,error:resolved.error};
