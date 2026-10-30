@@ -328,15 +328,21 @@ function reconcileAllAreaLandingPages(){
   }
 
   const rows=db.prepare(`
-    SELECT c.user_id,c.sector,c.email_area,c.landing_page_id,lp.slug current_lp_slug
+    SELECT c.user_id,c.sector,c.email_area,c.landing_page_id,c.email_template_id,
+           lp.slug current_lp_slug,
+           pet.name template_name
     FROM prospect_crm c
     JOIN users u ON u.id=c.user_id
     LEFT JOIN landing_pages lp ON lp.id=c.landing_page_id
+    LEFT JOIN prospect_email_templates pet ON pet.id=c.email_template_id
     WHERE u.role='client' AND u.is_prospect=1
-      AND c.email_sent_at IS NULL
-      AND c.email_first_sent_at IS NULL
-      AND COALESCE(c.email_send_count,0)=0
   `).all();
+
+  const defaultTemplate=db.prepare(`
+    SELECT id,name FROM prospect_email_templates
+    WHERE is_default=1 AND is_active=1
+    ORDER BY id LIMIT 1
+  `).get();
 
   const upd=db.prepare(`
     UPDATE prospect_crm
@@ -346,11 +352,14 @@ function reconcileAllAreaLandingPages(){
 
   const tx=db.transaction(()=>{
     for(const row of rows){
+      const templateName=String(row.template_name||defaultTemplate?.name||'').trim().toLowerCase();
+      if(templateName!=='email por sector')continue;
+
       const area=effectiveEmailArea(row.sector,row.email_area);
       const mapped=landingPageForEmailArea(area);
       if(!mapped)continue;
-      const currentWrong=!row.landing_page_id || String(row.current_lp_slug||'').toLowerCase()==='duit-start';
-      if(currentWrong)upd.run(area,mapped,row.user_id);
+
+      upd.run(area,mapped,row.user_id);
     }
   });
   tx();
