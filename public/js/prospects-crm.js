@@ -650,7 +650,7 @@ const areaName=String(p?.email_area||'').trim();
 const areaContent=(crmSectorContent||[]).find(x=>String(x.sector||'').trim().toLowerCase()===areaName.toLowerCase());
 const sectorApproach=(crmEmailTemplates||[]).find(x=>Number(x.is_active)===1&&String(x.name||'').trim().toLowerCase()==='email por sector');
 const inferredTemplateId=p?.email_template_id||(!p?.email_sent_at?sectorApproach?.id:'')||'';
-const inferredLandingPageId=p?.landing_page_id||areaContent?.landing_page_id||'';
+const inferredLandingPageId=(!p?.email_sent_at&&sectorApproach&&Number(inferredTemplateId)===Number(sectorApproach.id))?(areaContent?.landing_page_id||p?.landing_page_id||''):(p?.landing_page_id||areaContent?.landing_page_id||'');
 
 set('crm-id',p?.id);set('crm-company',p?.company);set('crm-name',p?.name);set('crm-email',p?.email);set('crm-phone',p?.phone);refreshCrmSectorSelect(p?.sector);refreshCrmEmailAreaSelect(p?.email_area);set('crm-sector',p?.sector);set('crm-email-area',p?.email_area);set('crm-location',p?.location);set('crm-website',p?.website);set('crm-instagram',p?.instagram);set('crm-opportunity',p?.opportunity);set('crm-idea',p?.idea);set('crm-priority',p?.priority||'possivel');set('crm-status',p?.lead_status||'por_contactar');set('crm-plan',p?.recommended_plan||planFromValues(p?.monthly_value));set('crm-monthly',p?.monthly_value);set('crm-email-template',inferredTemplateId);set('crm-landing-page',inferredLandingPageId);set('crm-first-contact',p?.first_contact_at?String(p.first_contact_at).slice(0,10):'');set('crm-followup',p?.follow_up_at?String(p.follow_up_at).slice(0,10):'');set('crm-notes',p?.notes);set('crm-dm-status',p?.dm_status||'por_enviar');set('crm-dm-message',p?.dm_message||crmDefaultDm(p||{}));const dmHint=document.getElementById('crm-dm-hint'),dmOpen=document.getElementById('crm-open-dm'),daily=crmDmDailyInfo();if(dmHint)dmHint.textContent=daily.blocked?'⛔ Limite diário atingido. Retome amanhã.':(p?.instagram?'Instagram validado: '+p.instagram:(p?.instagram_checked_at?'Instagram não encontrado na pesquisa automática.':'Instagram ainda por verificar.'));if(dmOpen){dmOpen.disabled=!!daily.blocked;dmOpen.textContent=daily.blocked?'⛔ Limite diário atingido':'Abrir Instagram + copiar DM';}document.getElementById('crm-delete').style.display=p?'':'none';document.getElementById('crm-optout').style.display=p?'':'none';document.getElementById('crm-save-button').style.display=p?'none':'';document.getElementById('crm-save-state').textContent=p?'Alterações guardadas automaticamente':'';crmApplyPlan(false);document.getElementById('modal-crm-prospect').classList.add('open');if(p)crmRefreshEmailPreview();setTimeout(()=>loadingForm=false,0)};
   window.closeCrmProspect=()=>document.getElementById('modal-crm-prospect')?.classList.remove('open');
@@ -720,7 +720,7 @@ set('crm-id',p?.id);set('crm-company',p?.company);set('crm-name',p?.name);set('c
         await api('/api/crm/prospects/'+p.id+'/send-email',{
           method:'POST',
           body:{
-            landing_page_id:Number(p.landing_page_id||0)||null,
+            landing_page_id:Number(crmEffectiveLandingPage(p)?.id||p.landing_page_id||0)||null,
             email_template_id:Number(p.email_template_id||0)||null
           }
         });
