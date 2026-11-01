@@ -1,0 +1,685 @@
+// DUIT — prospeção Portugal continental 2026-11-01. Email confirmado na URL source por registo.
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),bcrypt=require('bcryptjs');
+const db=require('./db'),{wasDeleted}=require('./prospect-deleted-guard');
+const L=[
+  {
+    "company": "Sucenor",
+    "sector": "Engenharia civil e construção",
+    "email_area": "Construção & Engenharia",
+    "location": "Vila Marim, Vila Real",
+    "website": "https://sucenor.com/",
+    "email": "geral@sucenor.com",
+    "phone": "961 381 400",
+    "source": "https://sucenor.com/",
+    "observation": "Atividade pública identificada: engenharia civil e construção; localização: Vila Marim, Vila Real.",
+    "opportunity": "Criar materiais de apresentação de serviços e projetos.",
+    "service": "design"
+  },
+  {
+    "company": "Eborae Fisio",
+    "sector": "Fisioterapia e reabilitação",
+    "email_area": "Fisioterapia",
+    "location": "Évora, Évora",
+    "website": "https://eboraefisio.pt/",
+    "email": "eboraefisio@eboraefisio.pt",
+    "phone": "",
+    "source": "https://physioindex.com/pt/perfil/eborae-fisio-centro-terapeutico-evora",
+    "observation": "Atividade pública identificada: fisioterapia e reabilitação; localização: Évora, Évora.",
+    "opportunity": "Criar suportes informativos sobre serviços e consultas.",
+    "service": "design"
+  },
+  {
+    "company": "Projenor",
+    "sector": "Projetos e engenharia",
+    "email_area": "Construção & Engenharia",
+    "location": "Vila Real, Vila Real",
+    "website": "https://projenor.pt/",
+    "email": "geral@projenor.pt",
+    "phone": "259 098 093",
+    "source": "https://projenor.pt/pt/contactos/",
+    "observation": "Atividade pública identificada: projetos e engenharia; localização: Vila Real, Vila Real.",
+    "opportunity": "Criar materiais de apresentação de serviços e projetos.",
+    "service": "design"
+  },
+  {
+    "company": "WOU Coimbra",
+    "sector": "Aulas de dança",
+    "email_area": "Estúdios de Dança",
+    "location": "Coimbra, Coimbra",
+    "website": "https://wou.pt/",
+    "email": "info@wou.pt",
+    "phone": "918 136 805",
+    "source": "https://wou.pt/coimbra/danca",
+    "observation": "Atividade pública identificada: aulas de dança; localização: Coimbra, Coimbra.",
+    "opportunity": "Criar peças de divulgação de modalidades e horários.",
+    "service": "ambas"
+  },
+  {
+    "company": "SBC Carpintaria",
+    "sector": "Carpintaria e mobiliário",
+    "email_area": "Indústria & Produção",
+    "location": "Mundão, Viseu",
+    "website": "https://www.sbc-carpintaria.com/",
+    "email": "info@sbc-carpintaria.com",
+    "phone": "232 921 834",
+    "source": "https://www.sbc-carpintaria.com/contactos/",
+    "observation": "Atividade pública identificada: carpintaria e mobiliário; localização: Mundão, Viseu.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "Janela Redonda",
+    "sector": "Centro de explicações",
+    "email_area": "Centro de Estudos",
+    "location": "Leiria, Leiria",
+    "website": "https://www.janelaredonda.pt/",
+    "email": "geral@janelaredonda.pt",
+    "phone": "244 852 305",
+    "source": "https://www.janelaredonda.pt/",
+    "observation": "Atividade pública identificada: centro de explicações; localização: Leiria, Leiria.",
+    "opportunity": "Criar peças de divulgação de explicações e inscrições.",
+    "service": "ambas"
+  },
+  {
+    "company": "SchoolCenter",
+    "sector": "Formação profissional",
+    "email_area": "Educação & Formação",
+    "location": "Viseu, Viseu",
+    "website": "https://schoolcenter.pt/",
+    "email": "info@schoolcenter.pt",
+    "phone": "232 431 176",
+    "source": "https://schoolcenter.pt/",
+    "observation": "Atividade pública identificada: formação profissional; localização: Viseu, Viseu.",
+    "opportunity": "Criar materiais para divulgação de cursos e inscrições.",
+    "service": "design"
+  },
+  {
+    "company": "A Tecla",
+    "sector": "Formação profissional",
+    "email_area": "Educação & Formação",
+    "location": "Viseu, Viseu",
+    "website": "https://www.tecla.pt/",
+    "email": "geral@tecla.pt",
+    "phone": "232 092 234",
+    "source": "https://www.tecla.pt/a-tecla/",
+    "observation": "Atividade pública identificada: formação profissional; localização: Viseu, Viseu.",
+    "opportunity": "Criar materiais para divulgação de cursos e inscrições.",
+    "service": "design"
+  },
+  {
+    "company": "Clínica CMM Medifides",
+    "sector": "Medicina dentária",
+    "email_area": "Dentistas",
+    "location": "Santarém, Santarém",
+    "website": "https://medifides.pt/",
+    "email": "clinicacmm@medifides.pt",
+    "phone": "243 352 429",
+    "source": "https://stage.medifides.pt/clinica/clinica-cmm/",
+    "observation": "Atividade pública identificada: medicina dentária; localização: Santarém, Santarém.",
+    "opportunity": "Criar suportes informativos de tratamentos e consultas.",
+    "service": "design"
+  },
+  {
+    "company": "FisioNunes",
+    "sector": "Fisioterapia e osteoetiopatia",
+    "email_area": "Fisioterapia",
+    "location": "Castelo Branco, Castelo Branco",
+    "website": "https://fisionunes.pt/",
+    "email": "fisioterapia@fisionunes.pt",
+    "phone": "961 929 618",
+    "source": "https://fisionunes.pt/",
+    "observation": "Atividade pública identificada: fisioterapia e osteoetiopatia; localização: Castelo Branco, Castelo Branco.",
+    "opportunity": "Criar suportes informativos sobre serviços e consultas.",
+    "service": "design"
+  },
+  {
+    "company": "Fisioalbi",
+    "sector": "Fisioterapia e material ortopédico",
+    "email_area": "Fisioterapia",
+    "location": "Castelo Branco, Castelo Branco",
+    "website": "https://fisioalbi.pt/",
+    "email": "geral@fisioalbi.pt",
+    "phone": "272 085 986",
+    "source": "https://fisioalbi.pt/",
+    "observation": "Atividade pública identificada: fisioterapia e material ortopédico; localização: Castelo Branco, Castelo Branco.",
+    "opportunity": "Criar suportes informativos sobre serviços e consultas.",
+    "service": "design"
+  },
+  {
+    "company": "Clínica VerCrescer",
+    "sector": "Serviços clínicos",
+    "email_area": "Saúde",
+    "location": "Castelo Branco, Castelo Branco",
+    "website": "https://www.vercrescer.pt/",
+    "email": "geral@vercrescer.pt",
+    "phone": "272 326 057",
+    "source": "https://www.vercrescer.pt/contacto.php",
+    "observation": "Atividade pública identificada: serviços clínicos; localização: Castelo Branco, Castelo Branco.",
+    "opportunity": "Criar materiais de informação sobre serviços clínicos.",
+    "service": "design"
+  },
+  {
+    "company": "Aurum Nostrum",
+    "sector": "Produção de azeite biológico",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Vale de Prados, Bragança",
+    "website": "https://aurumnostrum.pt/",
+    "email": "geral@aurumnostrum.pt",
+    "phone": "914 206 425",
+    "source": "https://aurumnostrum.pt/",
+    "observation": "Atividade pública identificada: produção de azeite biológico; localização: Vale de Prados, Bragança.",
+    "opportunity": "Criar materiais de apresentação de produtos e produtores.",
+    "service": "design"
+  },
+  {
+    "company": "Leopack Embalagens",
+    "sector": "Comércio de embalagens",
+    "email_area": "Comércio & Retalho",
+    "location": "Leiria, Leiria",
+    "website": "https://leopack.pt/",
+    "email": "geral@leopack.pt",
+    "phone": "244 723 036",
+    "source": "https://leopack.pt/policies/contact-information",
+    "observation": "Atividade pública identificada: comércio de embalagens; localização: Leiria, Leiria.",
+    "opportunity": "Criar peças de apresentação de produtos e serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Sacos 88",
+    "sector": "Produção de embalagens plásticas",
+    "email_area": "Indústria & Produção",
+    "location": "Ortigosa, Leiria",
+    "website": "https://www.sacos88.pt/",
+    "email": "geral@sacos88.pt",
+    "phone": "244 860 330",
+    "source": "https://www.sacos88.pt/en/",
+    "observation": "Atividade pública identificada: produção de embalagens plásticas; localização: Ortigosa, Leiria.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "Carepack",
+    "sector": "Soluções de embalagens",
+    "email_area": "Comércio & Retalho",
+    "location": "Pousos, Leiria",
+    "website": "https://www.carepack.pt/",
+    "email": "info@carepack.pt",
+    "phone": "244 095 210",
+    "source": "https://www.carepack.pt/pt/contactos",
+    "observation": "Atividade pública identificada: soluções de embalagens; localização: Pousos, Leiria.",
+    "opportunity": "Criar peças de apresentação de produtos e serviços.",
+    "service": "design"
+  },
+  {
+    "company": "PontoVIP",
+    "sector": "Cabeleireiro e estética",
+    "email_area": "Beleza & Estética",
+    "location": "Bragança, Bragança",
+    "website": "https://pontovip.pt/",
+    "email": "geral@pontovip.pt",
+    "phone": "273 098 344",
+    "source": "https://pontovip.pt/",
+    "observation": "Atividade pública identificada: cabeleireiro e estética; localização: Bragança, Bragança.",
+    "opportunity": "Criar suportes de divulgação de serviços e marcações.",
+    "service": "ambas"
+  },
+  {
+    "company": "BS Plásticos",
+    "sector": "Produção de embalagens plásticas",
+    "email_area": "Indústria & Produção",
+    "location": "Barosa, Leiria",
+    "website": "https://www.bsplasticos.com/",
+    "email": "info@bsplasticos.com",
+    "phone": "244 830 510",
+    "source": "https://www.bsplasticos.com/contactos",
+    "observation": "Atividade pública identificada: produção de embalagens plásticas; localização: Barosa, Leiria.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "Herdade da Ventosa",
+    "sector": "Produção de azeite",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Elvas, Portalegre",
+    "website": "https://herdadedaventosa.pt/",
+    "email": "geral@herdadedaventosa.pt",
+    "phone": "268 622 326",
+    "source": "https://herdadedaventosa.pt/contactos/",
+    "observation": "Atividade pública identificada: produção de azeite; localização: Elvas, Portalegre.",
+    "opportunity": "Criar materiais de apresentação de produtos e produtores.",
+    "service": "design"
+  },
+  {
+    "company": "NMArquitetos",
+    "sector": "Arquitetura e reabilitação",
+    "email_area": "Construção & Engenharia",
+    "location": "Azeitão, Setúbal",
+    "website": "https://www.nmarquitetos.pt/",
+    "email": "info@nmarquitetos.pt",
+    "phone": "211 806 717",
+    "source": "https://www.nmarquitetos.pt/contatos",
+    "observation": "Atividade pública identificada: arquitetura e reabilitação; localização: Azeitão, Setúbal.",
+    "opportunity": "Criar materiais de apresentação de serviços e projetos.",
+    "service": "design"
+  },
+  {
+    "company": "Sadobil Construções",
+    "sector": "Construção civil",
+    "email_area": "Construção & Engenharia",
+    "location": "Setúbal, Setúbal",
+    "website": "https://sadobil.pt/",
+    "email": "info@sadobil.pt",
+    "phone": "265 011 606",
+    "source": "https://sadobil.pt/",
+    "observation": "Atividade pública identificada: construção civil; localização: Setúbal, Setúbal.",
+    "opportunity": "Criar materiais de apresentação de serviços e projetos.",
+    "service": "design"
+  },
+  {
+    "company": "LGEX",
+    "sector": "Manutenção industrial",
+    "email_area": "Indústria & Produção",
+    "location": "Setúbal, Setúbal",
+    "website": "https://www.lgex.pt/",
+    "email": "info@lgex.com",
+    "phone": "265 097 443",
+    "source": "https://www.lgex.pt/contacts.html",
+    "observation": "Atividade pública identificada: manutenção industrial; localização: Setúbal, Setúbal.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "Restaurante Nacional",
+    "sector": "Restauração e catering",
+    "email_area": "Restauração",
+    "location": "Coimbra, Coimbra",
+    "website": "https://www.restaurantenacional.pt/",
+    "email": "info@restaurantenacional.pt",
+    "phone": "239 829 420",
+    "source": "https://www.restaurantenacional.pt/pages/landing-page",
+    "observation": "Atividade pública identificada: restauração e catering; localização: Coimbra, Coimbra.",
+    "opportunity": "Criar materiais de apresentação da oferta gastronómica.",
+    "service": "ambas"
+  },
+  {
+    "company": "Tritécnica",
+    "sector": "Climatização e equipamentos",
+    "email_area": "Construção & Engenharia",
+    "location": "Faro, Faro",
+    "website": "https://tritecnica.pt/",
+    "email": "geral@tritecnica.pt",
+    "phone": "289 898 520",
+    "source": "https://tritecnica.pt/contactos/",
+    "observation": "Atividade pública identificada: climatização e equipamentos; localização: Faro, Faro.",
+    "opportunity": "Criar materiais de apresentação de serviços e projetos.",
+    "service": "design"
+  },
+  {
+    "company": "LPstudio",
+    "sector": "Escola de dança e Pilates",
+    "email_area": "Estúdios de Dança",
+    "location": "Aveiro, Aveiro",
+    "website": "https://lpstudio.pt/",
+    "email": "lpstudio@lpstudio.pt",
+    "phone": "234 338 394",
+    "source": "https://lpstudio.pt/contactos/",
+    "observation": "Atividade pública identificada: escola de dança e pilates; localização: Aveiro, Aveiro.",
+    "opportunity": "Criar peças de divulgação de modalidades e horários.",
+    "service": "ambas"
+  },
+  {
+    "company": "Alveirão Sociedade Agrícola",
+    "sector": "Produção agrícola",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Olaia, Santarém",
+    "website": "",
+    "email": "jav@alveirao.com",
+    "phone": "249 011 283",
+    "source": "https://compronoribatejo.pt/empresa/alveirao-sociedade-agricola-lda",
+    "observation": "Atividade pública identificada: produção agrícola; localização: Olaia, Santarém.",
+    "opportunity": "Criar materiais de apresentação de produtos e produtores.",
+    "service": "design"
+  },
+  {
+    "company": "Agência de Viagens Barbosa",
+    "sector": "Agência de viagens",
+    "email_area": "Turismo & Alojamento",
+    "location": "Viseu, Viseu",
+    "website": "https://www.agenciabarbosa.com/",
+    "email": "geral@agenciabarbosa.com",
+    "phone": "232 425 242",
+    "source": "https://www.agenciabarbosa.com/contactos",
+    "observation": "Atividade pública identificada: agência de viagens; localização: Viseu, Viseu.",
+    "opportunity": "Criar suportes de divulgação de experiências e serviços.",
+    "service": "ambas"
+  },
+  {
+    "company": "Academia R&D",
+    "sector": "Escola de danças urbanas",
+    "email_area": "Estúdios de Dança",
+    "location": "Aveiro, Aveiro",
+    "website": "https://academiard.com/",
+    "email": "geral@academiard.com",
+    "phone": "914 381 327",
+    "source": "https://academiard.com/",
+    "observation": "Atividade pública identificada: escola de danças urbanas; localização: Aveiro, Aveiro.",
+    "opportunity": "Criar peças de divulgação de modalidades e horários.",
+    "service": "ambas"
+  },
+  {
+    "company": "DYM",
+    "sector": "Fabrico de mobiliário por medida",
+    "email_area": "Indústria & Produção",
+    "location": "Braga, Braga",
+    "website": "https://dym.pt/",
+    "email": "geral@dym.pt",
+    "phone": "253 785 593",
+    "source": "https://dym.pt/contactos/",
+    "observation": "Atividade pública identificada: fabrico de mobiliário por medida; localização: Braga, Braga.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "J. C. Peixoto",
+    "sector": "Carpintaria e mobiliário",
+    "email_area": "Indústria & Produção",
+    "location": "Braga, Braga",
+    "website": "https://www.jcpeixoto.com/",
+    "email": "comercial@jcpeixoto.com",
+    "phone": "253 215 220",
+    "source": "https://www.jcpeixoto.com/",
+    "observation": "Atividade pública identificada: carpintaria e mobiliário; localização: Braga, Braga.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "Transportes RFH",
+    "sector": "Transporte de mercadorias",
+    "email_area": "Transportes & Logística",
+    "location": "Benavente, Santarém",
+    "website": "https://transportes-rfh.pt/",
+    "email": "geral@rfh.pt",
+    "phone": "263 035 107",
+    "source": "https://transportes-rfh.pt/elementor-73/",
+    "observation": "Atividade pública identificada: transporte de mercadorias; localização: Benavente, Santarém.",
+    "opportunity": "Criar materiais comerciais de apresentação dos serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Transnil",
+    "sector": "Transportes e logística",
+    "email_area": "Transportes & Logística",
+    "location": "Portalegre, Portalegre",
+    "website": "https://www.transnil.pt/",
+    "email": "transnil@transnil.pt",
+    "phone": "245 300 600",
+    "source": "https://www.transnil.pt/contactos/",
+    "observation": "Atividade pública identificada: transportes e logística; localização: Portalegre, Portalegre.",
+    "opportunity": "Criar materiais comerciais de apresentação dos serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Electrogandra",
+    "sector": "Instalações elétricas e automação",
+    "email_area": "Construção & Engenharia",
+    "location": "Setúbal, Setúbal",
+    "website": "https://www.electrogandra.com/",
+    "email": "electrogandra@electrogandra.com",
+    "phone": "265 087 420",
+    "source": "https://www.electrogandra.com/",
+    "observation": "Atividade pública identificada: instalações elétricas e automação; localização: Setúbal, Setúbal.",
+    "opportunity": "Criar materiais de apresentação de serviços e projetos.",
+    "service": "design"
+  },
+  {
+    "company": "Queijaria Vale da Estrela",
+    "sector": "Produção de queijo",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Mangualde, Viseu",
+    "website": "https://www.valedaestrela.pt/",
+    "email": "info@valedaestrela.pt",
+    "phone": "232 247 644",
+    "source": "https://www.confrariaqueijoserradaestrela.com/produtores",
+    "observation": "Atividade pública identificada: produção de queijo; localização: Mangualde, Viseu.",
+    "opportunity": "Criar materiais de apresentação de produtos e produtores.",
+    "service": "design"
+  },
+  {
+    "company": "Lactoceleiro",
+    "sector": "Produção de laticínios",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Fornos de Algodres, Guarda",
+    "website": "",
+    "email": "geral@lactoceleiro.pt",
+    "phone": "271 700 140",
+    "source": "https://www.confrariaqueijoserradaestrela.com/produtores",
+    "observation": "Atividade pública identificada: produção de laticínios; localização: Fornos de Algodres, Guarda.",
+    "opportunity": "Criar materiais de apresentação de produtos e produtores.",
+    "service": "design"
+  },
+  {
+    "company": "Queijaria Prado da Sicó",
+    "sector": "Produção de queijo",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Ansião, Leiria",
+    "website": "",
+    "email": "geral@pradodasico.pt",
+    "phone": "236 678 307",
+    "source": "https://www.queijoscentrodeportugal.pt/en/dpo-cheese-tour/",
+    "observation": "Atividade pública identificada: produção de queijo; localização: Ansião, Leiria.",
+    "opportunity": "Criar materiais de apresentação de produtos e produtores.",
+    "service": "design"
+  },
+  {
+    "company": "DAMAR Produtora de Queijos",
+    "sector": "Produção de queijo",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Fundão, Castelo Branco",
+    "website": "https://damar.pt/",
+    "email": "comercial@damar.pt",
+    "phone": "275 776 032",
+    "source": "https://www.queijoscentrodeportugal.pt/en/dpo-cheese-tour/",
+    "observation": "Atividade pública identificada: produção de queijo; localização: Fundão, Castelo Branco.",
+    "opportunity": "Criar materiais de apresentação de produtos e produtores.",
+    "service": "design"
+  },
+  {
+    "company": "Queijaria Lourenço & Filhos",
+    "sector": "Produção de queijo",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Vila Velha de Ródão, Castelo Branco",
+    "website": "https://www.queijarialourenco.com/",
+    "email": "queijaria@queijarialourenco.com",
+    "phone": "272 541 233",
+    "source": "https://www.queijoscentrodeportugal.pt/en/dpo-cheese-tour/",
+    "observation": "Atividade pública identificada: produção de queijo; localização: Vila Velha de Ródão, Castelo Branco.",
+    "opportunity": "Criar materiais de apresentação de produtos e produtores.",
+    "service": "design"
+  },
+  {
+    "company": "Queijaria Quinta da Lagoa",
+    "sector": "Produção de queijo",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Canas de Senhorim, Viseu",
+    "website": "https://www.queijoquintadalagoa.com.pt/",
+    "email": "serradaestrela@queijoquintadalagoa.com.pt",
+    "phone": "966 796 448",
+    "source": "https://www.queijoscentrodeportugal.pt/en/dpo-cheese-tour/",
+    "observation": "Atividade pública identificada: produção de queijo; localização: Canas de Senhorim, Viseu.",
+    "opportunity": "Criar materiais de apresentação de produtos e produtores.",
+    "service": "design"
+  },
+  {
+    "company": "Quantal",
+    "sector": "Metalomecânica",
+    "email_area": "Indústria & Produção",
+    "location": "Rio Mau, Porto",
+    "website": "https://www.quantal.pt/",
+    "email": "geral@quantal.pt",
+    "phone": "252 298 090",
+    "source": "https://www.quantal.pt/en/contact/",
+    "observation": "Atividade pública identificada: metalomecânica; localização: Rio Mau, Porto.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "MCM Metal",
+    "sector": "Produção de componentes metálicos",
+    "email_area": "Indústria & Produção",
+    "location": "Macieira da Maia, Porto",
+    "website": "https://mcm-metal.com/",
+    "email": "geral@mcm-metal.com",
+    "phone": "252 661 155",
+    "source": "https://mcm-metal.com/contactos/",
+    "observation": "Atividade pública identificada: produção de componentes metálicos; localização: Macieira da Maia, Porto.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "Octalimpa",
+    "sector": "Serviços de limpeza",
+    "email_area": "Serviços Profissionais",
+    "location": "Regueira de Pontes, Leiria",
+    "website": "https://octalimpa.pt/",
+    "email": "geral@octalimpa.pt",
+    "phone": "914 044 456",
+    "source": "https://octalimpa.pt/pt/contactos",
+    "observation": "Atividade pública identificada: serviços de limpeza; localização: Regueira de Pontes, Leiria.",
+    "opportunity": "Criar apresentações de serviços para potenciais clientes.",
+    "service": "design"
+  },
+  {
+    "company": "VivaLimpezas",
+    "sector": "Serviços de limpeza",
+    "email_area": "Serviços Profissionais",
+    "location": "Leiria, Leiria",
+    "website": "https://www.vivalimpezas.pt/",
+    "email": "geral@vivalimpezas.pt",
+    "phone": "911 061 463",
+    "source": "https://www.vivalimpezas.pt/",
+    "observation": "Atividade pública identificada: serviços de limpeza; localização: Leiria, Leiria.",
+    "opportunity": "Criar apresentações de serviços para potenciais clientes.",
+    "service": "design"
+  },
+  {
+    "company": "ALC Dance Studios",
+    "sector": "Escola de dança",
+    "email_area": "Estúdios de Dança",
+    "location": "Vila Nova de Gaia, Porto",
+    "website": "https://www.alcdance.pt/",
+    "email": "geral@alcdance.pt",
+    "phone": "227 138 727",
+    "source": "https://www.alcdance.pt/pages/contactos",
+    "observation": "Atividade pública identificada: escola de dança; localização: Vila Nova de Gaia, Porto.",
+    "opportunity": "Criar peças de divulgação de modalidades e horários.",
+    "service": "ambas"
+  },
+  {
+    "company": "Physiohub Faro",
+    "sector": "Fisioterapia",
+    "email_area": "Fisioterapia",
+    "location": "Faro, Faro",
+    "website": "https://physiohub.pt/",
+    "email": "faro@physiohub.pt",
+    "phone": "",
+    "source": "https://www.medicare.pt/rede-medica/physiohub-faro",
+    "observation": "Atividade pública identificada: fisioterapia; localização: Faro, Faro.",
+    "opportunity": "Criar suportes informativos sobre serviços e consultas.",
+    "service": "design"
+  },
+  {
+    "company": "EXPLICAS Centro de Estudos",
+    "sector": "Centro de estudos",
+    "email_area": "Centro de Estudos",
+    "location": "Torre da Marinha, Setúbal",
+    "website": "https://explicas.pt/",
+    "email": "centro@explicas.pt",
+    "phone": "913 443 721",
+    "source": "https://explicas.pt/",
+    "observation": "Atividade pública identificada: centro de estudos; localização: Torre da Marinha, Setúbal.",
+    "opportunity": "Criar peças de divulgação de explicações e inscrições.",
+    "service": "ambas"
+  },
+  {
+    "company": "ID Machinery",
+    "sector": "Comércio de máquinas industriais",
+    "email_area": "Indústria & Produção",
+    "location": "Cortegaça, Aveiro",
+    "website": "https://www.idmachinery.pt/",
+    "email": "spares@idmachinery.pt",
+    "phone": "227 440 086",
+    "source": "https://www.idmachinery.pt/",
+    "observation": "Atividade pública identificada: comércio de máquinas industriais; localização: Cortegaça, Aveiro.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "Candigrés",
+    "sector": "Produção de cerâmica",
+    "email_area": "Indústria & Produção",
+    "location": "Anadia, Aveiro",
+    "website": "https://www.candigres.com/",
+    "email": "comercial@candigres.com",
+    "phone": "231 504 000",
+    "source": "https://www.candigres.com/contactos/",
+    "observation": "Atividade pública identificada: produção de cerâmica; localização: Anadia, Aveiro.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "Lafec",
+    "sector": "Equipamentos industriais",
+    "email_area": "Indústria & Produção",
+    "location": "Recarei, Porto",
+    "website": "https://www.lafec.pt/",
+    "email": "geral@lafec.pt",
+    "phone": "224 337 310",
+    "source": "https://www.lafec.pt/en/contact/",
+    "observation": "Atividade pública identificada: equipamentos industriais; localização: Recarei, Porto.",
+    "opportunity": "Criar fichas comerciais de produtos e capacidades.",
+    "service": "design"
+  },
+  {
+    "company": "Queijaria Quinta da Estaca",
+    "sector": "Produção de queijo e visitas pedagógicas",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Vilar Seco, Viseu",
+    "website": "https://www.quintadaestaca.pt/",
+    "email": "turismoserradaestrela@quintadaestaca.pt",
+    "phone": "961 614 719",
+    "source": "https://www.confrariaqueijoserradaestrela.com/produtores",
+    "observation": "Atividade pública identificada: produção de queijo e visitas pedagógicas; localização: Vilar Seco, Viseu.",
+    "opportunity": "Criar materiais de apresentação de produtos e produtores.",
+    "service": "design"
+  }
+];
+try {
+ const cols=db.prepare('PRAGMA table_info(prospect_crm)').all().map(c=>c.name);
+ for(const col of ['email_area','email_observation','instagram','outreach_channel'])if(!cols.includes(col))db.exec('ALTER TABLE prospect_crm ADD COLUMN '+col+' TEXT');
+ const normSite=s=>{try{return new URL(s).hostname.toLowerCase().replace(/^www\./,'')}catch(_){return ''}};
+ const oldEmails=new Set(),oldCompanies=new Set(),oldSites=new Set();
+ for(const f of fs.readdirSync(__dirname).filter(n=>/^prospect-seed-.*\.js$/i.test(n)&&n!==path.basename(__filename))){
+  const txt=fs.readFileSync(path.join(__dirname,f),'utf8');
+  for(const m of txt.matchAll(/["']email["']\s*:\s*["']([^"']+)["']/g))oldEmails.add(m[1].trim().toLowerCase());
+  for(const m of txt.matchAll(/["']company["']\s*:\s*["']([^"']+)["']/g))oldCompanies.add(m[1].trim().toLowerCase());
+  for(const m of txt.matchAll(/["']website["']\s*:\s*["']([^"']+)["']/g)){const site=normSite(m[1]);if(site)oldSites.add(site)}
+ }
+ const sites=new Set(db.prepare("SELECT website FROM prospect_crm WHERE website IS NOT NULL AND trim(website)<>''").all().map(x=>normSite(x.website)).filter(Boolean));
+ const deletedCompany=db.prepare("SELECT 1 FROM deleted_prospects WHERE lower(trim(company))=? LIMIT 1");
+ const hasEmail=db.prepare('SELECT 1 FROM users WHERE lower(trim(email))=? LIMIT 1'),hasCompany=db.prepare('SELECT 1 FROM users WHERE is_prospect=1 AND lower(trim(company))=? LIMIT 1');
+ const addUser=db.prepare('INSERT INTO users(name,email,password_hash,role,company,phone,is_prospect,is_active) VALUES(?,?,?,?,?,?,1,0)');
+ const addCrm=db.prepare("INSERT INTO prospect_crm(user_id,sector,email_area,location,website,instagram,opportunity,idea,email_observation,recommended_plan,solution_text,monthly_value,offer_value,lead_status,priority,notes,proposal_email,outreach_channel,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))");
+ const pwd=bcrypt.hashSync(crypto.randomBytes(24).toString('hex'),10),seenE=new Set(),seenC=new Set(),seenS=new Set();
+ let added=0,skipped=0;
+ db.transaction(()=>{for(const x of L){
+  const email=x.email.trim().toLowerCase(),company=x.company.trim().toLowerCase(),domain=email.split('@')[1],site=normSite(x.website);
+  if(!domain||/^(gmail\.com|hotmail\.com|outlook\.com|yahoo\.[a-z.]+|icloud\.com|sapo\.pt)$/i.test(domain)||/^no-?reply@/i.test(email)||!x.source||!x.email_area||wasDeleted(email)||deletedCompany.get(company)||oldEmails.has(email)||oldCompanies.has(company)||(site&&oldSites.has(site))||seenE.has(email)||seenC.has(company)||(site&&seenS.has(site))||hasEmail.get(email)||hasCompany.get(company)||(site&&sites.has(site))){skipped++;continue}
+  seenE.add(email);seenC.add(company);if(site)seenS.add(site);
+  const service=x.service==='design'?'design gráfico e materiais comerciais':x.service==='redes'?'gestão de redes sociais':'design gráfico e comunicação nas redes sociais';
+  const proposal='Olá, sou o Nuno, da DUIT. Estive a conhecer a '+x.company+'. Posso ajudar com '+service+', nomeadamente com '+x.opportunity.toLowerCase()+' Se fizer sentido para si, terei gosto em conversar consigo. Cumprimentos, Nuno.';
+  const id=Number(addUser.run(x.company,email,pwd,'client',x.company,x.phone||'').lastInsertRowid);
+  addCrm.run(id,x.sector,x.email_area,x.location,x.website||'','',x.opportunity,x.opportunity,x.source+' — email profissional publicado na fonte indicada (verificado em 2026-11-01).','intermedio',service,200,100,'por_contactar','normal',x.observation+' Fonte: '+x.source+'; serviço sugerido: '+x.service,proposal,'email');
+  added++;
+ }})();
+ console.log('[crm] seed 2026-11-01:',added,'adicionados,',skipped,'ignorados');
+}catch(e){console.warn('[crm] seed 2026-11-01:',e.message)}
