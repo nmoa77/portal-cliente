@@ -1,0 +1,685 @@
+// DUIT — Portugal continental, 2026-11-02. Emails públicos verificados nas fontes indicadas.
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),bcrypt=require('bcryptjs');
+const db=require('./db'),{wasDeleted}=require('./prospect-deleted-guard');
+const L=[
+  {
+    "company": "Morgado & Pinto Contabilidade",
+    "sector": "Contabilidade e fiscalidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Bragança, Bragança",
+    "website": "https://www.mpcontabilidade.pt/",
+    "email": "geral@mpcontabilidade.pt",
+    "phone": "273 098 510",
+    "source": "https://www.mpcontabilidade.pt/Contate-nos/",
+    "observation": "A fonte identifica a atividade de contabilidade e fiscalidade em Bragança, Bragança.",
+    "opportunity": "Criar materiais comerciais de apresentação dos serviços.",
+    "service": "design"
+  },
+  {
+    "company": "MGF Engenharia",
+    "sector": "Estudos e projetos de engenharia",
+    "email_area": "Construção & Engenharia",
+    "location": "Vila Real, Vila Real",
+    "website": "https://www.mgf-engenharia.com/",
+    "email": "geral@mgf-engenharia.com",
+    "phone": "937 147 135",
+    "source": "https://www.mgf-engenharia.com/contactos/",
+    "observation": "A fonte identifica a atividade de estudos e projetos de engenharia em Vila Real, Vila Real.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "Auto4You Motor Group",
+    "sector": "Comércio e assistência automóvel",
+    "email_area": "Automóvel",
+    "location": "Neiva, Viana do Castelo",
+    "website": "https://auto4you.pt/",
+    "email": "geral@auto4you.pt",
+    "phone": "253 777 558",
+    "source": "https://auto4you.pt/",
+    "observation": "A fonte identifica a atividade de comércio e assistência automóvel em Neiva, Viana do Castelo.",
+    "opportunity": "Criar materiais de apresentação dos serviços e produtos automóveis.",
+    "service": "design"
+  },
+  {
+    "company": "TOP Informática",
+    "sector": "Software para engenharia e arquitetura",
+    "email_area": "Tecnologia & Digital",
+    "location": "Braga, Braga",
+    "website": "https://www.topinformatica.pt/",
+    "email": "geral@topinformatica.pt",
+    "phone": "253 209 430",
+    "source": "https://www.topinformatica.pt/",
+    "observation": "A fonte identifica a atividade de software para engenharia e arquitetura em Braga, Braga.",
+    "opportunity": "Criar apresentações comerciais das soluções tecnológicas.",
+    "service": "design"
+  },
+  {
+    "company": "NeuroImprove",
+    "sector": "Psicologia e neurofeedback",
+    "email_area": "Saúde Mental",
+    "location": "Porto, Porto",
+    "website": "https://www.neuroimprove.pt/",
+    "email": "geral@neuroimprove.pt",
+    "phone": "221 451 676",
+    "source": "https://www.neuroimprove.pt/quem-somos",
+    "observation": "A fonte identifica a atividade de psicologia e neurofeedback em Porto, Porto.",
+    "opportunity": "Criar suportes informativos dos serviços de acompanhamento.",
+    "service": "design"
+  },
+  {
+    "company": "MPS Metalomecânica e Sistemas de Alumínio",
+    "sector": "Metalomecânica e sistemas de alumínio",
+    "email_area": "Indústria & Produção",
+    "location": "Sever do Vouga, Aveiro",
+    "website": "https://www.mpsmetal.pt/",
+    "email": "geral@mpsmetal.pt",
+    "phone": "234 552 758",
+    "source": "https://www.mpsmetal.pt/pt_pt/contacts",
+    "observation": "A fonte identifica a atividade de metalomecânica e sistemas de alumínio em Sever do Vouga, Aveiro.",
+    "opportunity": "Criar fichas de produtos e apresentações de capacidades técnicas.",
+    "service": "design"
+  },
+  {
+    "company": "EMOV",
+    "sector": "Fisioterapia especializada",
+    "email_area": "Fisioterapia",
+    "location": "Viseu, Viseu",
+    "website": "https://espacoemov.pt/",
+    "email": "geral@espacoemov.pt",
+    "phone": "964 558 184",
+    "source": "https://espacoemov.pt/",
+    "observation": "A fonte identifica a atividade de fisioterapia especializada em Viseu, Viseu.",
+    "opportunity": "Criar materiais informativos sobre tratamentos e serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Clínica Dentária Marlene Marques",
+    "sector": "Medicina dentária",
+    "email_area": "Dentistas",
+    "location": "Guarda, Guarda",
+    "website": "https://www.marlenemarques.pt/",
+    "email": "geral@marlenemarques.pt",
+    "phone": "968 144 594",
+    "source": "https://www.marlenemarques.pt/clinica-dentaria-guarda/pt-pt/geral/contactos",
+    "observation": "A fonte identifica a atividade de medicina dentária em Guarda, Guarda.",
+    "opportunity": "Criar materiais informativos das especialidades dentárias.",
+    "service": "design"
+  },
+  {
+    "company": "Quinta dos Carvalhos",
+    "sector": "Turismo em espaço rural",
+    "email_area": "Turismo & Alojamento",
+    "location": "Castelo Branco, Castelo Branco",
+    "website": "http://quintadoscarvalhos.net/pt/",
+    "email": "reservas@quintadoscarvalhos.net",
+    "phone": "912 753 256",
+    "source": "https://www.cm-castelobranco.pt/visitante/descanse-no-nosso-concelho/turismo-espaco-rural/",
+    "observation": "A fonte identifica a atividade de turismo em espaço rural em Castelo Branco, Castelo Branco.",
+    "opportunity": "Criar suportes digitais de apresentação do alojamento e das reservas.",
+    "service": "ambas"
+  },
+  {
+    "company": "Ibereng Engenharia e Construção",
+    "sector": "Engenharia e construção",
+    "email_area": "Construção & Engenharia",
+    "location": "Leiria, Leiria",
+    "website": "https://www.ibereng.pt/",
+    "email": "engenharia@ibereng.pt",
+    "phone": "964 108 715",
+    "source": "https://www.ibereng.pt/contato",
+    "observation": "A fonte identifica a atividade de engenharia e construção em Leiria, Leiria.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "Remote IT",
+    "sector": "Assistência e reparação informática",
+    "email_area": "Tecnologia & Digital",
+    "location": "Lousã, Coimbra",
+    "website": "https://remoteit.pt/",
+    "email": "geral@remoteit.pt",
+    "phone": "915 292 770",
+    "source": "https://remoteit.pt/",
+    "observation": "A fonte identifica a atividade de assistência e reparação informática em Lousã, Coimbra.",
+    "opportunity": "Criar apresentações comerciais das soluções tecnológicas.",
+    "service": "design"
+  },
+  {
+    "company": "Custódio Martins Transportes",
+    "sector": "Transportes rodoviários de mercadorias",
+    "email_area": "Transportes & Logística",
+    "location": "Ferreira do Zêzere, Santarém",
+    "website": "https://www.custodiomartinstransportes.com/",
+    "email": "geral@custodiomartinstransportes.com",
+    "phone": "917 307 214",
+    "source": "https://www.custodiomartinstransportes.com/",
+    "observation": "A fonte identifica a atividade de transportes rodoviários de mercadorias em Ferreira do Zêzere, Santarém.",
+    "opportunity": "Criar apresentações comerciais dos serviços de transporte.",
+    "service": "design"
+  },
+  {
+    "company": "Quinta dos Ribeiros",
+    "sector": "Turismo rural",
+    "email_area": "Turismo & Alojamento",
+    "location": "Alpalhão, Portalegre",
+    "website": "https://www.quintadosribeiros.com",
+    "email": "info@quintadosribeiros.com",
+    "phone": "961 444 039",
+    "source": "https://www.naturtejo.com/conteudos/visitar/planear/alojamento/",
+    "observation": "A fonte identifica a atividade de turismo rural em Alpalhão, Portalegre.",
+    "opportunity": "Criar suportes digitais de apresentação do alojamento e das reservas.",
+    "service": "ambas"
+  },
+  {
+    "company": "Conpac",
+    "sector": "Consultoria agrícola",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Évora, Évora",
+    "website": "https://conpac.pt/",
+    "email": "geral@conpac.pt",
+    "phone": "926 844 416",
+    "source": "https://conpac.pt/",
+    "observation": "A fonte identifica a atividade de consultoria agrícola em Évora, Évora.",
+    "opportunity": "Criar fichas de produtos e apresentações comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "CLIMAGOMES",
+    "sector": "Climatização e refrigeração",
+    "email_area": "Construção & Engenharia",
+    "location": "Setúbal, Setúbal",
+    "website": "https://www.climagomes.com/",
+    "email": "geral@climagomes.com",
+    "phone": "265 234 074",
+    "source": "https://www.climagomes.com/contactos/",
+    "observation": "A fonte identifica a atividade de climatização e refrigeração em Setúbal, Setúbal.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "Medform",
+    "sector": "Clínica de estética e bem-estar",
+    "email_area": "Beleza & Estética",
+    "location": "Faro, Faro",
+    "website": "https://www.medform.pt/",
+    "email": "geral@medform.pt",
+    "phone": "289 803 284",
+    "source": "https://www.medform.pt/estetica",
+    "observation": "A fonte identifica a atividade de clínica de estética e bem-estar em Faro, Faro.",
+    "opportunity": "Criar suportes de divulgação dos serviços de estética.",
+    "service": "ambas"
+  },
+  {
+    "company": "Centro de Radiologia de Beja",
+    "sector": "Radiologia e exames médicos",
+    "email_area": "Saúde",
+    "location": "Beja, Beja",
+    "website": "https://www.crb.pt/",
+    "email": "geral@crb.pt",
+    "phone": "284 313 330",
+    "source": "https://www.crb.pt/pt/contactos",
+    "observation": "A fonte identifica a atividade de radiologia e exames médicos em Beja, Beja.",
+    "opportunity": "Criar materiais informativos sobre consultas e especialidades.",
+    "service": "design"
+  },
+  {
+    "company": "JJ Dental Clinic",
+    "sector": "Medicina dentária",
+    "email_area": "Dentistas",
+    "location": "Lisboa, Lisboa",
+    "website": "https://jjdentalclinic.pt/",
+    "email": "geral@jjdentalclinic.pt",
+    "phone": "215 906 669",
+    "source": "https://jjdentalclinic.pt/contactos/",
+    "observation": "A fonte identifica a atividade de medicina dentária em Lisboa, Lisboa.",
+    "opportunity": "Criar materiais informativos das especialidades dentárias.",
+    "service": "design"
+  },
+  {
+    "company": "CONTABRI Serviços e Contabilidades Brigantinos",
+    "sector": "Contabilidade e consultoria fiscal",
+    "email_area": "Serviços Profissionais",
+    "location": "Bragança, Bragança",
+    "website": "",
+    "email": "aristides@contabri.pt",
+    "phone": "273 331 885",
+    "source": "https://nerba.pt/site/project/contabri/",
+    "observation": "A fonte identifica a atividade de contabilidade e consultoria fiscal em Bragança, Bragança.",
+    "opportunity": "Criar materiais comerciais de apresentação dos serviços.",
+    "service": "design"
+  },
+  {
+    "company": "TTB Engenharia e Construção",
+    "sector": "Engenharia e construção civil",
+    "email_area": "Construção & Engenharia",
+    "location": "Vila Real, Vila Real",
+    "website": "https://ttbconstrucoes.pt/",
+    "email": "geral@ttbconstrucoes.pt",
+    "phone": "918 202 073",
+    "source": "https://ttbconstrucoes.pt/contactos/",
+    "observation": "A fonte identifica a atividade de engenharia e construção civil em Vila Real, Vila Real.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "Oficina Automóvel Manuel Matos",
+    "sector": "Manutenção e reparação automóvel",
+    "email_area": "Automóvel",
+    "location": "Meadela, Viana do Castelo",
+    "website": "",
+    "email": "geral@oficinamatos.pt",
+    "phone": "258 841 018",
+    "source": "https://www.portugalplease.com/viana-do-castelo/viana-do-castelo/servicos/oficinas-de-reparacao/oficina-automovel-manuel-matos",
+    "observation": "A fonte identifica a atividade de manutenção e reparação automóvel em Meadela, Viana do Castelo.",
+    "opportunity": "Criar materiais de apresentação dos serviços e produtos automóveis.",
+    "service": "design"
+  },
+  {
+    "company": "Psingular",
+    "sector": "Psicologia clínica e saúde mental",
+    "email_area": "Saúde Mental",
+    "location": "Braga, Braga",
+    "website": "https://www.psiqueinform.pt/",
+    "email": "geral@psingular.pt",
+    "phone": "960 319 944",
+    "source": "https://www.psiqueinform.pt/",
+    "observation": "A fonte identifica a atividade de psicologia clínica e saúde mental em Braga, Braga.",
+    "opportunity": "Criar suportes informativos dos serviços de acompanhamento.",
+    "service": "design"
+  },
+  {
+    "company": "Brasague",
+    "sector": "Contabilidade e consultoria",
+    "email_area": "Serviços Profissionais",
+    "location": "Pedroso, Porto",
+    "website": "https://www.brasague.com/",
+    "email": "geral@brasague.com",
+    "phone": "227 449 144",
+    "source": "https://www.brasague.com/contatos",
+    "observation": "A fonte identifica a atividade de contabilidade e consultoria em Pedroso, Porto.",
+    "opportunity": "Criar materiais comerciais de apresentação dos serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Eurogalva",
+    "sector": "Galvanização e metalomecânica",
+    "email_area": "Indústria & Produção",
+    "location": "Fiães, Aveiro",
+    "website": "https://eurogalva.pt/",
+    "email": "geral@eurogalva.pt",
+    "phone": "256 919 080",
+    "source": "https://eurogalva.pt/contactos/",
+    "observation": "A fonte identifica a atividade de galvanização e metalomecânica em Fiães, Aveiro.",
+    "opportunity": "Criar fichas de produtos e apresentações de capacidades técnicas.",
+    "service": "design"
+  },
+  {
+    "company": "JMA Construções",
+    "sector": "Construção e reabilitação",
+    "email_area": "Construção & Engenharia",
+    "location": "Guarda, Guarda",
+    "website": "",
+    "email": "geral@jma.com.pt",
+    "phone": "271 222 930",
+    "source": "https://ruis.aiccopn.pt/empresas/jma-construcoes/",
+    "observation": "A fonte identifica a atividade de construção e reabilitação em Guarda, Guarda.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "Xisto Sentido",
+    "sector": "Turismo em espaço rural",
+    "email_area": "Turismo & Alojamento",
+    "location": "Almaceda, Castelo Branco",
+    "website": "http://www.xistosentido.pt",
+    "email": "info@xistosentido.pt",
+    "phone": "964 659 714",
+    "source": "https://www.cm-castelobranco.pt/visitante/descanse-no-nosso-concelho/turismo-espaco-rural/",
+    "observation": "A fonte identifica a atividade de turismo em espaço rural em Almaceda, Castelo Branco.",
+    "opportunity": "Criar suportes digitais de apresentação do alojamento e das reservas.",
+    "service": "ambas"
+  },
+  {
+    "company": "Escavaterra Engenharia",
+    "sector": "Engenharia e obras",
+    "email_area": "Construção & Engenharia",
+    "location": "Monte Redondo, Leiria",
+    "website": "https://www.escavaterra.pt/",
+    "email": "geral@escavaterra.pt",
+    "phone": "244 685 128",
+    "source": "https://www.escavaterra.pt/contactos",
+    "observation": "A fonte identifica a atividade de engenharia e obras em Monte Redondo, Leiria.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "CCSI",
+    "sector": "Informática e comunicações",
+    "email_area": "Tecnologia & Digital",
+    "location": "Coimbra, Coimbra",
+    "website": "https://www.ccsi.pt/",
+    "email": "geral@ccsi.pt",
+    "phone": "239 441 082",
+    "source": "https://www.ccsi.pt/",
+    "observation": "A fonte identifica a atividade de informática e comunicações em Coimbra, Coimbra.",
+    "opportunity": "Criar apresentações comerciais das soluções tecnológicas.",
+    "service": "design"
+  },
+  {
+    "company": "Gromm",
+    "sector": "Soldadura e manutenção industrial",
+    "email_area": "Indústria & Produção",
+    "location": "Santarém, Santarém",
+    "website": "https://gromm.pt/",
+    "email": "geral@gromm.pt",
+    "phone": "915 779 829",
+    "source": "https://gromm.pt/",
+    "observation": "A fonte identifica a atividade de soldadura e manutenção industrial em Santarém, Santarém.",
+    "opportunity": "Criar fichas de produtos e apresentações de capacidades técnicas.",
+    "service": "design"
+  },
+  {
+    "company": "Negócio Orientado",
+    "sector": "Contabilidade e consultoria empresarial",
+    "email_area": "Serviços Profissionais",
+    "location": "Portalegre, Portalegre",
+    "website": "https://www.negociorientado.com/",
+    "email": "info@negociorientado.com",
+    "phone": "966 403 721",
+    "source": "https://www.negociorientado.com/contactos/",
+    "observation": "A fonte identifica a atividade de contabilidade e consultoria empresarial em Portalegre, Portalegre.",
+    "opportunity": "Criar materiais comerciais de apresentação dos serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Luís Nobre Electricistas",
+    "sector": "Instalações elétricas",
+    "email_area": "Construção & Engenharia",
+    "location": "Évora, Évora",
+    "website": "https://www.luisnobre.pt/",
+    "email": "geral@luisnobre.pt",
+    "phone": "266 771 318",
+    "source": "https://www.luisnobre.pt/contactos.html",
+    "observation": "A fonte identifica a atividade de instalações elétricas em Évora, Évora.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "Climasado",
+    "sector": "Instalação e manutenção de climatização",
+    "email_area": "Construção & Engenharia",
+    "location": "Setúbal, Setúbal",
+    "website": "",
+    "email": "geral@climasado.pt",
+    "phone": "265 790 470",
+    "source": "https://www.oportaldaconstrucao.com/empresa/59/climasado--sociedade-climatiza%C3%A7%C3%A3o-lda/",
+    "observation": "A fonte identifica a atividade de instalação e manutenção de climatização em Setúbal, Setúbal.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "Domus Suus",
+    "sector": "Mediação imobiliária",
+    "email_area": "Imobiliário",
+    "location": "Faro, Faro",
+    "website": "https://www.domussuus.pt/",
+    "email": "geral@domussuus.pt",
+    "phone": "289 091 853",
+    "source": "https://www.domussuus.pt/contactos",
+    "observation": "A fonte identifica a atividade de mediação imobiliária em Faro, Faro.",
+    "opportunity": "Criar materiais gráficos de apresentação dos imóveis e serviços.",
+    "service": "ambas"
+  },
+  {
+    "company": "AgroPeças",
+    "sector": "Comércio de peças agrícolas",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Beja, Beja",
+    "website": "https://agropecas.pt/",
+    "email": "geral@agropecas.pt",
+    "phone": "284 389 290",
+    "source": "https://agropecas.pt/contactos/",
+    "observation": "A fonte identifica a atividade de comércio de peças agrícolas em Beja, Beja.",
+    "opportunity": "Criar fichas de produtos e apresentações comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Clínica Patrão",
+    "sector": "Medicina dentária",
+    "email_area": "Dentistas",
+    "location": "Amadora, Lisboa",
+    "website": "https://www.clinicapatrao.pt/",
+    "email": "geral@clinicapatrao.pt",
+    "phone": "214 915 768",
+    "source": "https://www.clinicapatrao.pt/contactos.html",
+    "observation": "A fonte identifica a atividade de medicina dentária em Amadora, Lisboa.",
+    "opportunity": "Criar materiais informativos das especialidades dentárias.",
+    "service": "design"
+  },
+  {
+    "company": "Cascata de Números",
+    "sector": "Consultoria e formação empresarial",
+    "email_area": "Serviços Profissionais",
+    "location": "Bragança, Bragança",
+    "website": "",
+    "email": "geral@cascatadenumeros.com",
+    "phone": "800 209 905",
+    "source": "https://nerba.pt/site/project/cascata-de-numeros/",
+    "observation": "A fonte identifica a atividade de consultoria e formação empresarial em Bragança, Bragança.",
+    "opportunity": "Criar materiais comerciais de apresentação dos serviços.",
+    "service": "design"
+  },
+  {
+    "company": "AgroAguiar",
+    "sector": "Produção de frutos e vegetais ultracongelados",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Vila Pouca de Aguiar, Vila Real",
+    "website": "https://agroaguiar.store/pt",
+    "email": "geral@agroaguiar.pt",
+    "phone": "259 468 032",
+    "source": "https://agroaguiar.store/pt/contactos",
+    "observation": "A fonte identifica a atividade de produção de frutos e vegetais ultracongelados em Vila Pouca de Aguiar, Vila Real.",
+    "opportunity": "Criar fichas de produtos e apresentações comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Luziauto Acessórios",
+    "sector": "Comércio de acessórios automóveis",
+    "email_area": "Automóvel",
+    "location": "Viana do Castelo, Viana do Castelo",
+    "website": "https://luziauto.com/",
+    "email": "geral@luziauto.com",
+    "phone": "258 806 410",
+    "source": "https://luziauto.com/",
+    "observation": "A fonte identifica a atividade de comércio de acessórios automóveis em Viana do Castelo, Viana do Castelo.",
+    "opportunity": "Criar materiais de apresentação dos serviços e produtos automóveis.",
+    "service": "design"
+  },
+  {
+    "company": "Portela Clínica",
+    "sector": "Clínica de saúde",
+    "email_area": "Saúde",
+    "location": "Braga, Braga",
+    "website": "https://www.portelaclinica.pt/",
+    "email": "geral@portelaclinica.pt",
+    "phone": "253 213 203",
+    "source": "https://www.portelaclinica.pt/contactos/",
+    "observation": "A fonte identifica a atividade de clínica de saúde em Braga, Braga.",
+    "opportunity": "Criar materiais informativos sobre consultas e especialidades.",
+    "service": "design"
+  },
+  {
+    "company": "InteriorÚnico",
+    "sector": "Construção e remodelação",
+    "email_area": "Construção & Engenharia",
+    "location": "Guarda, Guarda",
+    "website": "https://www.interiorunico.pt/",
+    "email": "geral@interiorunico.pt",
+    "phone": "967 384 139",
+    "source": "https://www.interiorunico.pt/contactos/",
+    "observation": "A fonte identifica a atividade de construção e remodelação em Guarda, Guarda.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "Casa 3",
+    "sector": "Alojamento turístico",
+    "email_area": "Turismo & Alojamento",
+    "location": "Castelo Branco, Castelo Branco",
+    "website": "https://casa3.pt/",
+    "email": "geral@casa3.pt",
+    "phone": "272 247 690",
+    "source": "https://casa3.pt/",
+    "observation": "A fonte identifica a atividade de alojamento turístico em Castelo Branco, Castelo Branco.",
+    "opportunity": "Criar suportes digitais de apresentação do alojamento e das reservas.",
+    "service": "ambas"
+  },
+  {
+    "company": "CAIS137",
+    "sector": "Projetos e fiscalização de engenharia",
+    "email_area": "Construção & Engenharia",
+    "location": "Leiria, Leiria",
+    "website": "https://cais137.com/",
+    "email": "geral@cais137.com",
+    "phone": "939 732 451",
+    "source": "https://cais137.com/servicos/",
+    "observation": "A fonte identifica a atividade de projetos e fiscalização de engenharia em Leiria, Leiria.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "PSIC Programação e Sistemas Informáticos",
+    "sector": "Programação e software empresarial",
+    "email_area": "Tecnologia & Digital",
+    "location": "Coimbra, Coimbra",
+    "website": "https://www.psic.pt/",
+    "email": "geral@psic.pt",
+    "phone": "239 721 826",
+    "source": "https://www.psic.pt/contact/contact.html",
+    "observation": "A fonte identifica a atividade de programação e software empresarial em Coimbra, Coimbra.",
+    "opportunity": "Criar apresentações comerciais das soluções tecnológicas.",
+    "service": "design"
+  },
+  {
+    "company": "Matos Indústria e Comércio Alimentar",
+    "sector": "Produção de condimentos e temperos",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Samora Correia, Santarém",
+    "website": "",
+    "email": "geral@matos-ical.pt",
+    "phone": "263 655 040",
+    "source": "https://compronoribatejo.pt/empresa/matos-lda",
+    "observation": "A fonte identifica a atividade de produção de condimentos e temperos em Samora Correia, Santarém.",
+    "opportunity": "Criar fichas de produtos e apresentações comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Clínica da Atalaia",
+    "sector": "Medicina dentária",
+    "email_area": "Dentistas",
+    "location": "Montijo, Setúbal",
+    "website": "https://clinicadaatalaia.com/",
+    "email": "geral@clinicadaatalaia.com",
+    "phone": "212 308 097",
+    "source": "https://clinicadaatalaia.com/contactos/",
+    "observation": "A fonte identifica a atividade de medicina dentária em Montijo, Setúbal.",
+    "opportunity": "Criar materiais informativos das especialidades dentárias.",
+    "service": "design"
+  },
+  {
+    "company": "Nova Clínica",
+    "sector": "Clínica médica",
+    "email_area": "Saúde",
+    "location": "Beja, Beja",
+    "website": "https://novaclinica.pt/",
+    "email": "geral@novaclinica.pt",
+    "phone": "284 328 100",
+    "source": "https://novaclinica.pt/contactos/",
+    "observation": "A fonte identifica a atividade de clínica médica em Beja, Beja.",
+    "opportunity": "Criar materiais informativos sobre consultas e especialidades.",
+    "service": "design"
+  },
+  {
+    "company": "JG Instalações Elétricas",
+    "sector": "Instalações elétricas e telecomunicações",
+    "email_area": "Construção & Engenharia",
+    "location": "Mós, Bragança",
+    "website": "https://www.jgie.net/",
+    "email": "geral@jgie.net",
+    "phone": "273 331 491",
+    "source": "https://www.jgie.net/",
+    "observation": "A fonte identifica a atividade de instalações elétricas e telecomunicações em Mós, Bragança.",
+    "opportunity": "Criar apresentações de serviços e projetos executados.",
+    "service": "design"
+  },
+  {
+    "company": "Metalome",
+    "sector": "Fabricação de componentes metalúrgicos",
+    "email_area": "Indústria & Produção",
+    "location": "Chaves, Vila Real",
+    "website": "https://metalome.com/",
+    "email": "geral@metalome.com",
+    "phone": "",
+    "source": "https://metalome.com/contactos/",
+    "observation": "A fonte identifica a atividade de fabricação de componentes metalúrgicos em Chaves, Vila Real.",
+    "opportunity": "Criar fichas de produtos e apresentações de capacidades técnicas.",
+    "service": "design"
+  },
+  {
+    "company": "Caminhos Interiores",
+    "sector": "Psicologia e desenvolvimento pessoal",
+    "email_area": "Saúde Mental",
+    "location": "Braga, Braga",
+    "website": "https://caminhosinteriores-pt6.webnode.pt/",
+    "email": "geral@caminhosinteriores.pt",
+    "phone": "253 053 888",
+    "source": "https://caminhosinteriores-pt6.webnode.pt/",
+    "observation": "A fonte identifica a atividade de psicologia e desenvolvimento pessoal em Braga, Braga.",
+    "opportunity": "Criar suportes informativos dos serviços de acompanhamento.",
+    "service": "design"
+  },
+  {
+    "company": "LA Contabilidades",
+    "sector": "Contabilidade e apoio financeiro",
+    "email_area": "Serviços Profissionais",
+    "location": "Guarda, Guarda",
+    "website": "https://www.lacontabilidades.pt/",
+    "email": "geral@lacontabilidades.pt",
+    "phone": "271 082 109",
+    "source": "https://www.lacontabilidades.pt/contact",
+    "observation": "A fonte identifica a atividade de contabilidade e apoio financeiro em Guarda, Guarda.",
+    "opportunity": "Criar materiais comerciais de apresentação dos serviços.",
+    "service": "design"
+  }
+];
+try {
+ const cols=db.prepare('PRAGMA table_info(prospect_crm)').all().map(c=>c.name);
+ for(const col of ['email_area','email_observation','instagram','outreach_channel'])if(!cols.includes(col))db.exec('ALTER TABLE prospect_crm ADD COLUMN '+col+' TEXT');
+ const normSite=s=>{try{return new URL(s).hostname.toLowerCase().replace(/^www\./,'')}catch(_){return ''}};
+ const oldEmails=new Set(),oldCompanies=new Set(),oldSites=new Set();
+ for(const f of fs.readdirSync(__dirname).filter(n=>/^prospect-seed-.*\.js$/i.test(n)&&n!==path.basename(__filename))){
+  const txt=fs.readFileSync(path.join(__dirname,f),'utf8');
+  for(const m of txt.matchAll(/["']email["']\s*:\s*["']([^"']+)["']/g))oldEmails.add(m[1].trim().toLowerCase());
+  for(const m of txt.matchAll(/["']company["']\s*:\s*["']([^"']+)["']/g))oldCompanies.add(m[1].trim().toLowerCase());
+  for(const m of txt.matchAll(/["']website["']\s*:\s*["']([^"']+)["']/g)){const site=normSite(m[1]);if(site)oldSites.add(site)}
+ }
+ const sites=new Set(db.prepare("SELECT website FROM prospect_crm WHERE website IS NOT NULL AND trim(website)<>''").all().map(x=>normSite(x.website)).filter(Boolean));
+ const deletedCompany=db.prepare("SELECT 1 FROM deleted_prospects WHERE lower(trim(company))=? LIMIT 1");
+ const hasEmail=db.prepare('SELECT 1 FROM users WHERE lower(trim(email))=? LIMIT 1'),hasCompany=db.prepare('SELECT 1 FROM users WHERE is_prospect=1 AND lower(trim(company))=? LIMIT 1');
+ const addUser=db.prepare('INSERT INTO users(name,email,password_hash,role,company,phone,is_prospect,is_active) VALUES(?,?,?,?,?,?,1,0)');
+ const addCrm=db.prepare("INSERT INTO prospect_crm(user_id,sector,email_area,location,website,instagram,opportunity,idea,email_observation,recommended_plan,solution_text,monthly_value,offer_value,lead_status,priority,notes,proposal_email,outreach_channel,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))");
+ const pwd=bcrypt.hashSync(crypto.randomBytes(24).toString('hex'),10),seenE=new Set(),seenC=new Set(),seenS=new Set();
+ let added=0,skipped=0;
+ db.transaction(()=>{for(const x of L){
+  const email=x.email.trim().toLowerCase(),company=x.company.trim().toLowerCase(),domain=email.split('@')[1],site=normSite(x.website);
+  if(!domain||/^(gmail\.com|hotmail\.com|outlook\.com|yahoo\.[a-z.]+|icloud\.com|sapo\.pt)$/i.test(domain)||/^no-?reply@/i.test(email)||!x.source||!x.email_area||wasDeleted(email)||deletedCompany.get(company)||oldEmails.has(email)||oldCompanies.has(company)||(site&&oldSites.has(site))||seenE.has(email)||seenC.has(company)||(site&&seenS.has(site))||hasEmail.get(email)||hasCompany.get(company)||(site&&sites.has(site))){skipped++;continue}
+  seenE.add(email);seenC.add(company);if(site)seenS.add(site);
+  const service=x.service==='design'?'design gráfico e materiais comerciais':x.service==='redes'?'gestão de redes sociais':'design gráfico e comunicação nas redes sociais';
+  const proposal='Olá, sou o Nuno, da DUIT. Estive a conhecer a '+x.company+'. Posso ajudar com '+service+', nomeadamente com '+x.opportunity.toLowerCase()+' Se fizer sentido para si, terei gosto em conversar consigo. Cumprimentos, Nuno.';
+  const id=Number(addUser.run(x.company,email,pwd,'client',x.company,x.phone||'').lastInsertRowid);
+  addCrm.run(id,x.sector,x.email_area,x.location,x.website||'','',x.opportunity,x.opportunity,x.source+' — email profissional publicado na fonte indicada (verificado em 2026-11-02).','intermedio',service,200,100,'por_contactar','normal',x.observation+' Fonte: '+x.source+'; serviço sugerido: '+x.service,proposal,'email');
+  added++;
+ }})();
+ console.log('[crm] seed 2026-11-02:',added,'adicionados,',skipped,'ignorados');
+}catch(e){console.warn('[crm] seed 2026-11-02:',e.message)}
