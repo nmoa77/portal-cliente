@@ -116,7 +116,7 @@ module.exports=function installMetaReportAutomation(app){
       '<div class="section" style="border-top:0;margin-top:8mm;padding-top:0"><div class="eyebrow" style="letter-spacing:.08em">AVALIAÇÃO GERAL</div><h3 style="font-size:30px;margin:3mm 0 7mm">'+esc(a.grade)+'</h3>'+
       '<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">O QUE SIGNIFICA PARA A MARCA</div><p style="font-size:18px;line-height:1.48;margin:0 0 7mm">'+esc(a.meaning)+'</p>'+
       (a.comparison?'<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">COMPARAÇÃO COM O PERÍODO ANTERIOR</div><p style="font-size:14px;line-height:1.3;margin:0 0 4mm">'+esc(a.comparison)+'</p>':'')+
-      (a.evolution?'<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">EVOLUÇÃO DESDE AGOSTO</div><p style="font-size:14px;line-height:1.3;margin:0 0 4mm">'+esc(a.evolution)+'</p>':'')+
+      (a.evolution?'<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">EVOLUÇÃO HISTÓRICA</div><p style="font-size:14px;line-height:1.3;margin:0 0 4mm">'+esc(a.evolution)+'</p>':'')+
       '<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">PRÓXIMO PASSO</div><p style="font-size:17px;line-height:1.45;margin:0 0 7mm">'+esc(a.action)+'</p>'+
       '<p style="font-size:11px;color:#777;line-height:1.45;border-top:1px solid #ddd;padding-top:4mm">'+esc(a.note)+'</p></div></section>';
   }
