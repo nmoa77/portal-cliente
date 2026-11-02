@@ -217,7 +217,6 @@
         <div class="duit-analytics-card" data-kpi-click="interested"><div class="k-label">Interessados</div><div class="k-value">${interested}</div><div class="k-sub">${pct(interested,sent)} dos enviados</div></div>
         <div class="duit-analytics-card" data-kpi-click="proposals"><div class="k-label">Propostas</div><div class="k-value">${proposals}</div><div class="k-sub">${proposalViews} vista(s)</div></div>
         <div class="duit-analytics-card highlight" data-kpi-click="accepted"><div class="k-label">Taxa de sucesso</div><div class="k-value">${pct(accepted,sent)}</div><div class="k-sub">${accepted} aceite(s)</div></div>
-        <div class="duit-analytics-card money" data-kpi-click="all"><div class="k-label">Potencial / mês</div><div class="k-value">${money(potential)}</div><div class="k-sub">pipeline atual</div></div>
         <div class="duit-analytics-card money" data-kpi-click="accepted"><div class="k-label">Ganho / mês</div><div class="k-value">${money(wonValue)}</div><div class="k-sub">propostas aceites</div></div>
       </div>
 
