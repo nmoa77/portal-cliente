@@ -113,7 +113,8 @@ module.exports=function installMetaReportAutomation(app){
       meaning='Os '+n(count)+' conteúdos registaram '+n(interactions)+' interações ('+n(avg.toFixed(1))+' por publicação, em média). '+(comments+shares+saves>0?'Além das reações, existiram sinais de participação através de comentários, partilhas'+(ig?' ou guardados':'')+'. ':'')+'Há resposta do público, embora estes números, isoladamente, não permitam classificar o mês como crescimento.'+reachText;
       action='Manter os temas e formatos que geraram melhor resposta, monitorizando a consistência entre publicações e comparando com o período anterior.';
     }
-    const comparison=historyComparison(d,network);\n    return {grade,meaning,action,comparison:comparison?.text||null,note:comparison?'A comparação usa os totais guardados dos relatórios anteriores. Mudanças no número de publicações ou na disponibilidade das métricas podem afetar a leitura. Sem dados comerciais, não é possível atribuir vendas a estes resultados.':'Não foi encontrado um relatório anterior com totais guardados para esta rede. Esta avaliação não permite concluir evolução mensal nem impacto comercial.'};
+    const comparison=historyComparison(d,network);
+    return {grade,meaning,action,comparison:comparison?.text||null,note:comparison?'A comparação usa os totais guardados dos relatórios anteriores. Mudanças no número de publicações ou na disponibilidade das métricas podem afetar a leitura. Sem dados comerciais, não é possível atribuir vendas a estes resultados.':'Não foi encontrado um relatório anterior com totais guardados para esta rede. Esta avaliação não permite concluir evolução mensal nem impacto comercial.'};
   }
   function assessmentPage(d,network,month){
     const a=networkAssessment(d,network);
