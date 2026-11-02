@@ -46,35 +46,29 @@ module.exports=function installMetaReportAutomation(app){
 
   // Interpretação contextual baseada apenas nas métricas efetivamente recolhidas.
 
-  function previousReport(userId,y,m){
-    const row=db.prepare(`SELECT ref_year,ref_month,totals_json FROM meta_monthly_reports WHERE user_id=? AND (ref_year<? OR (ref_year=? AND ref_month<?)) AND status IN ('ready','sent') AND totals_json IS NOT NULL ORDER BY ref_year DESC,ref_month DESC LIMIT 1`).get(userId,y,y,m);
-    if(!row)return null;
-    try{return {year:row.ref_year,month:row.ref_month,totals:JSON.parse(row.totals_json)};}catch(_){return null;}
+
+  function reportHistory(userId,y,m){
+    const rows=db.prepare(`SELECT ref_year,ref_month,totals_json FROM meta_monthly_reports WHERE user_id=? AND status IN ('ready','sent') AND totals_json IS NOT NULL AND (ref_year>2026 OR (ref_year=2026 AND ref_month>=8)) AND (ref_year<? OR (ref_year=? AND ref_month<?)) ORDER BY ref_year,ref_month`).all(userId,y,y,m);
+    return rows.flatMap(r=>{try{return [{year:r.ref_year,month:r.ref_month,totals:JSON.parse(r.totals_json)}];}catch(_){return [];}});
   }
   function historyComparison(d,network){
-    const key=network==='Instagram'?'instagram':'facebook',p=d.previousReport;
-    const old=p?.totals?.[key],current=d[key]?.totals;
-    if(!old||!current)return null;
-    const priorDate=new Date(Date.UTC(p.year,p.month-1,1)),currentDate=new Date(Date.UTC(d.period.year,d.period.month-1,1));
-    const diffMonths=(currentDate.getUTCFullYear()-priorDate.getUTCFullYear())*12+currentDate.getUTCMonth()-priorDate.getUTCMonth();
-    const currentPosts=Number(current.posts),previousPosts=Number(old.posts);
-    if(!Number.isFinite(currentPosts)||!Number.isFinite(previousPosts))return null;
-    const interactions=t=>key==='instagram'
-      ?Number(t.likes||0)+Number(t.comments||0)+Number(t.shares||0)+Number(t.saved||0)
-      :Number(t.reactions||0)+Number(t.comments||0)+Number(t.shares||0);
-    const a=interactions(current),b=interactions(old);
-    const label=months[p.month-1]+' '+p.year;
-    const span=diffMonths===1?'mês anterior':'último período disponível ('+label+')';
-    let trend;
-    if(b===0)trend=a===0?'mantiveram-se em zero':'passaram de zero para '+n(a);
-    else {
-      const delta=(a-b)/b*100;
-      trend=Math.abs(delta)<0.5?'mantiveram-se praticamente iguais':(delta>0?'aumentaram ':'diminuíram ')+Math.abs(delta).toFixed(1).replace('.',',')+'%';
-    }
-    const averageNow=currentPosts?a/currentPosts:null,averageOld=previousPosts?b/previousPosts:null;
-    const average=averageNow!==null&&averageOld!==null?
-      ' A média de interações por publicação foi de '+averageNow.toFixed(1).replace('.',',')+', contra '+averageOld.toFixed(1).replace('.',',')+' no período de comparação.':'';
-    return {text:'Face ao '+span+', as interações '+trend+' ('+n(b)+' para '+n(a)+'). Foram publicados '+n(currentPosts)+' conteúdos, face a '+n(previousPosts)+' anteriormente.'+average,span};
+    const key=network==='Instagram'?'instagram':'facebook';
+    const prior=(d.reportHistory||[]).filter(x=>x.totals?.[key]&&Number.isFinite(Number(x.totals[key].posts)));
+    const current=d[key]?.totals;
+    if(!prior.length||!current)return null;
+    const get=t=>key==='instagram'?Number(t.likes||0)+Number(t.comments||0)+Number(t.shares||0)+Number(t.saved||0):Number(t.reactions||0)+Number(t.comments||0)+Number(t.shares||0);
+    const points=[...prior.map(p=>({year:p.year,month:p.month,t:p.totals[key]})),{year:d.period.year,month:d.period.month,t:current}];
+    const prev=points[points.length-2],first=points[0],last=points[points.length-1];
+    const label=p=>months[p.month-1]+' '+p.year,fmt=v=>v.toFixed(1).replace('.',',');
+    const change=(from,to)=>from===0?(to===0?'mantiveram-se em zero':'passaram de zero para '+n(to)):Math.abs((to-from)/from*100)<.5?'mantiveram-se estáveis':(to>from?'subiram ':'desceram ')+fmt(Math.abs((to-from)/from*100))+'%';
+    const previous=get(prev.t),now=get(last.t);
+    const comparison='Face a '+label(prev)+', as interações '+change(previous,now)+' ('+n(previous)+' para '+n(now)+'). Foram publicados '+n(Number(last.t.posts||0))+' conteúdos contra '+n(Number(prev.t.posts||0))+' anteriormente.';
+    const rate1=Number(first.t.posts)>0?get(first.t)/Number(first.t.posts):null;
+    const rate2=Number(last.t.posts)>0?get(last.t)/Number(last.t.posts):null;
+    const rateTrend=rate1===null||rate2===null?'Não foi possível comparar médias por publicação.':'A média de interações por publicação passou de '+fmt(rate1)+' para '+fmt(rate2)+'.';
+    const missing=((last.year-first.year)*12+last.month-first.month+1)>points.length;
+    const evolution='De '+label(first)+' a '+label(last)+', foram registadas '+n(points.reduce((v,p)=>v+get(p.t),0))+' interações em '+n(points.length)+' períodos disponíveis. '+rateTrend+(missing?' Existem meses sem histórico completo; a série não é contínua.':'');
+    return {comparison,evolution};
   }
   function networkAssessment(d,network){
     const ig=network==='Instagram', data=ig?d.instagram:d.facebook;
@@ -88,7 +82,7 @@ module.exports=function installMetaReportAutomation(app){
     const max=Math.max(0,...vals), concentration=interactions>0?max/interactions:0;
     const hasReach=items.some(p=>ig?p.metrics?.reach!==undefined:p.metrics?.post_impressions_unique!==undefined);
     const reach=Number(t.reach||0);
-    if(!count)return {grade:'Sem atividade avaliável',comparison:historyComparison(d,network)?.text||null,meaning:'Não foram identificadas publicações para analisar neste período. Assim, não é possível avaliar a resposta do público com os dados disponíveis.',action:'Confirmar se os dados foram recolhidos integralmente e analisar um período com conteúdos publicados.',note:'A ausência de publicações recolhidas não confirma, por si só, ausência de atividade na conta.'};
+    if(!count)return {grade:'Sem atividade avaliável',comparison:historyComparison(d,network)?.comparison||null,evolution:historyComparison(d,network)?.evolution||null,meaning:'Não foram identificadas publicações para analisar neste período. Assim, não é possível avaliar a resposta do público com os dados disponíveis.',action:'Confirmar se os dados foram recolhidos integralmente e analisar um período com conteúdos publicados.',note:'A ausência de publicações recolhidas não confirma, por si só, ausência de atividade na conta.'};
     const plural=count===1?'publicação':'publicações';
     const reachText=hasReach&&reach>0?' O alcance acumulado dos conteúdos foi de '+n(reach)+'.':' Não existem dados válidos de alcance suficientes para avaliar a visibilidade.';
     let grade,meaning,action;
@@ -114,13 +108,15 @@ module.exports=function installMetaReportAutomation(app){
       action='Manter os temas e formatos que geraram melhor resposta, monitorizando a consistência entre publicações e comparando com o período anterior.';
     }
     const comparison=historyComparison(d,network);
-    return {grade,meaning,action,comparison:comparison?.text||null,note:comparison?'A comparação usa os totais guardados dos relatórios anteriores. Mudanças no número de publicações ou na disponibilidade das métricas podem afetar a leitura. Sem dados comerciais, não é possível atribuir vendas a estes resultados.':'Não foi encontrado um relatório anterior com totais guardados para esta rede. Esta avaliação não permite concluir evolução mensal nem impacto comercial.'};
+    return {grade,meaning,action,comparison:comparison?.comparison||null,evolution:comparison?.evolution||null,note:comparison?'A comparação usa os totais guardados dos relatórios anteriores. Mudanças no número de publicações ou na disponibilidade das métricas podem afetar a leitura. Sem dados comerciais, não é possível atribuir vendas a estes resultados.':'Não foi encontrado um relatório anterior com totais guardados para esta rede. Esta avaliação não permite concluir evolução mensal nem impacto comercial.'};
   }
   function assessmentPage(d,network,month){
     const a=networkAssessment(d,network);
     return '<section class="page"><div class="head"><div><div class="network">'+network+'</div><div class="title" style="font-size:43px">O que dizem os resultados?</div></div><div class="eyebrow">'+esc(month)+'</div></div>'+
       '<div class="section" style="border-top:0;margin-top:8mm;padding-top:0"><div class="eyebrow" style="letter-spacing:.08em">AVALIAÇÃO GERAL</div><h3 style="font-size:30px;margin:3mm 0 7mm">'+esc(a.grade)+'</h3>'+
       '<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">O QUE SIGNIFICA PARA A MARCA</div><p style="font-size:18px;line-height:1.48;margin:0 0 7mm">'+esc(a.meaning)+'</p>'+
+      (a.comparison?'<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">COMPARAÇÃO COM O PERÍODO ANTERIOR</div><p style="font-size:14px;line-height:1.3;margin:0 0 4mm">'+esc(a.comparison)+'</p>':'')+
+      (a.evolution?'<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">EVOLUÇÃO DESDE AGOSTO</div><p style="font-size:14px;line-height:1.3;margin:0 0 4mm">'+esc(a.evolution)+'</p>':'')+
       '<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">PRÓXIMO PASSO</div><p style="font-size:17px;line-height:1.45;margin:0 0 7mm">'+esc(a.action)+'</p>'+
       '<p style="font-size:11px;color:#777;line-height:1.45;border-top:1px solid #ddd;padding-top:4mm">'+esc(a.note)+'</p></div></section>';
   }
@@ -142,7 +138,7 @@ ${assessmentPage(d,'Facebook',month)}
   async function makePdf(data,file){let puppeteer;try{puppeteer=require('puppeteer-core');}catch(_){throw new Error('puppeteer-core não instalado.');}const browser=await puppeteer.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage']});try{const page=await browser.newPage();await page.setContent(html(data),{waitUntil:'networkidle0',timeout:60000});await page.pdf({path:file,printBackground:true,preferCSSPageSize:true});}finally{await browser.close();}}
   function reportRow(userId,y,m){return db.prepare(`SELECT * FROM meta_monthly_reports WHERE user_id=? AND ref_year=? AND ref_month=?`).get(userId,y,m);}
   function upsert(userId,y,m,status){db.prepare(`INSERT INTO meta_monthly_reports(user_id,ref_year,ref_month,status,updated_at) VALUES(?,?,?,?,datetime('now')) ON CONFLICT(user_id,ref_year,ref_month) DO UPDATE SET status=excluded.status,error_message=NULL,updated_at=datetime('now')`).run(userId,y,m,status);return reportRow(userId,y,m);}
-  async function generate(userId,y,m,{send=false}={}){upsert(userId,y,m,'collecting');try{const data=await collect(userId,y,m);data.previousReport=previousReport(userId,y,m);const row=reportRow(userId,y,m),filename=`meta-${userId}-${y}-${String(m).padStart(2,'0')}-${row.id}.pdf`,file=path.join(reportsDir(),filename),summary=`Relatório ${months[m-1]} ${y} - ${data.client.name}`;await makePdf(data,file);db.prepare(`UPDATE meta_monthly_reports SET status='ready',totals_json=?,posts_json=?,summary_text=?,pdf_path=?,generated_at=datetime('now'),error_message=NULL,updated_at=datetime('now') WHERE id=?`).run(JSON.stringify({facebook:data.facebook.totals,instagram:data.instagram.totals}),JSON.stringify({facebook:data.facebook.posts,instagram:data.instagram.media}),summary,filename,row.id);if(send)await sendReport(row.id);return{report:reportRow(userId,y,m),data};}catch(e){db.prepare(`UPDATE meta_monthly_reports SET status='error',error_message=?,updated_at=datetime('now') WHERE user_id=? AND ref_year=? AND ref_month=?`).run(e.message,userId,y,m);throw e;}}
+  async function generate(userId,y,m,{send=false}={}){upsert(userId,y,m,'collecting');try{const data=await collect(userId,y,m);data.reportHistory=reportHistory(userId,y,m);const row=reportRow(userId,y,m),filename=`meta-${userId}-${y}-${String(m).padStart(2,'0')}-${row.id}.pdf`,file=path.join(reportsDir(),filename),summary=`Relatório ${months[m-1]} ${y} - ${data.client.name}`;await makePdf(data,file);db.prepare(`UPDATE meta_monthly_reports SET status='ready',totals_json=?,posts_json=?,summary_text=?,pdf_path=?,generated_at=datetime('now'),error_message=NULL,updated_at=datetime('now') WHERE id=?`).run(JSON.stringify({facebook:data.facebook.totals,instagram:data.instagram.totals}),JSON.stringify({facebook:data.facebook.posts,instagram:data.instagram.media}),summary,filename,row.id);if(send)await sendReport(row.id);return{report:reportRow(userId,y,m),data};}catch(e){db.prepare(`UPDATE meta_monthly_reports SET status='error',error_message=?,updated_at=datetime('now') WHERE user_id=? AND ref_year=? AND ref_month=?`).run(e.message,userId,y,m);throw e;}}
   async function sendReport(id){
     const r=db.prepare(`SELECT r.*,u.name,u.company,u.email FROM meta_monthly_reports r JOIN users u ON u.id=r.user_id WHERE r.id=?`).get(id);
     if(!r||r.status!=='ready'||!r.pdf_path)throw new Error('Relatório ainda não está pronto.');
