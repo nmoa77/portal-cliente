@@ -74,6 +74,7 @@
 
   document.addEventListener('change',e=>{if(e.target.id==='report-month-filter'){archiveMonth=e.target.value;renderArchive()}if(e.target.id==='report-year-filter'){archiveYear=e.target.value;renderArchive()}});
   document.addEventListener('click',e=>{
+    const verify=e.target.closest?.('[data-check-report-storage]');if(verify){e.preventDefault();checkArchiveStorage(verify);return;}
     const b=e.target.closest?.('[data-manual-generate]');if(b){e.preventDefault();run(b);return;}
     const sc=e.target.closest?.('[data-report-schedule-client]');if(sc){e.preventDefault();openSchedulePanel(sc);return;}
     const ss=e.target.closest?.('[data-save-report-schedule]');if(ss){e.preventDefault();saveSchedule(ss);return;}
