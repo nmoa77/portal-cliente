@@ -45,46 +45,54 @@ module.exports=function installMetaReportAutomation(app){
   function logoData(){try{return `data:image/png;base64,${fs.readFileSync(path.join(process.cwd(),'public','logo-branco.png')).toString('base64')}`;}catch(_){return'';}}
 
   // Interpretação contextual baseada apenas nas métricas efetivamente recolhidas.
+
   function networkAssessment(d,network){
-    const isIg=network==='Instagram',data=isIg?d.instagram:d.facebook;
-    const items=isIg?(data.media||[]):(data.posts||[]);
-    const totals=data.totals||{},count=items.length;
-    const reactions=isIg?Number(totals.likes||0):Number(totals.reactions||0);
-    const comments=Number(totals.comments||0),shares=Number(totals.shares||0);
-    const saves=isIg?Number(totals.saved||0):0;
+    const ig=network==='Instagram', data=ig?d.instagram:d.facebook;
+    const items=ig?(data.media||[]):(data.posts||[]), t=data.totals||{};
+    const count=items.length;
+    const reactions=Number(ig?t.likes||0:t.reactions||0);
+    const comments=Number(t.comments||0), shares=Number(t.shares||0), saves=ig?Number(t.saved||0):0;
     const interactions=reactions+comments+shares+saves;
-    const reach=Number(totals.reach||0);
     const avg=count?interactions/count:0;
-    const values=items.map(p=>isIg?
-      Number(p.like_count||0)+Number(p.comments_count||0)+Number(p.metrics?.shares||0)+Number(p.metrics?.saved||0):
-      Number(p.reactions_count||0)+Number(p.comments_count||0)+Number(p.shares_count||0));
-    const top=Math.max(0,...values);
-    const concentration=interactions>0?top/interactions:0;
-    const hasReach=items.some(p=>isIg?p.metrics?.reach!==undefined:p.metrics?.post_impressions_unique!==undefined);
-    const rate=hasReach&&reach>0?100*interactions/reach:null;
-    const lines=[];
-    if(!count)return {grade:'Dados insuficientes',lines:['Não foram identificados conteúdos publicados nesta rede durante o período. Sem publicações e métricas comparáveis, não é possível classificar o desempenho.','Confirmar se a recolha está completa e definir um período com atividade antes de avaliar resultados.']};
-    lines.push('Foram analisados '+n(count)+' conteúdos, com '+n(interactions)+' interações observadas ('+n(avg.toFixed(1))+' por conteúdo, em média).');
-    if(hasReach&&reach>0)lines.push('O alcance acumulado dos conteúdos foi de '+n(reach)+'. A relação entre interações observadas e alcance acumulado é de '+rate.toFixed(1).replace('.',',')+'%; este indicador não equivale à taxa oficial de envolvimento da conta.');
-    else lines.push('Não existe alcance válido suficiente para calcular uma relação entre visibilidade e interação.');
-    if(interactions===0)lines.push('Não foram registadas interações nos conteúdos recolhidos. Importa verificar a disponibilidade das métricas antes de concluir que o público não reagiu.');
-    else {
-      if(concentration>=.6&&count>=3)lines.push('O conteúdo com mais interações concentrou '+Math.round(concentration*100)+'% das interações observadas: o desempenho dependeu bastante de uma publicação.');
-      else if(count>=3)lines.push('As interações estiveram distribuídas por vários conteúdos, sem dependência de uma única publicação dominante.');
-      if(comments+shares+saves===0)lines.push('As interações registadas concentraram-se em gostos/reações; não há evidência de conversa, partilha ou conteúdos guardados neste conjunto.');
-      else lines.push('Além de gostos/reações, registaram-se '+n(comments)+' comentários e '+n(shares)+' partilhas'+(isIg?' e '+n(saves)+' guardados':'')+'.');
+    const vals=items.map(p=>ig?Number(p.like_count||0)+Number(p.comments_count||0)+Number(p.metrics?.shares||0)+Number(p.metrics?.saved||0):Number(p.reactions_count||0)+Number(p.comments_count||0)+Number(p.shares_count||0));
+    const max=Math.max(0,...vals), concentration=interactions>0?max/interactions:0;
+    const hasReach=items.some(p=>ig?p.metrics?.reach!==undefined:p.metrics?.post_impressions_unique!==undefined);
+    const reach=Number(t.reach||0);
+    if(!count)return {grade:'Sem atividade avaliável',meaning:'Não foram identificadas publicações para analisar neste período. Assim, não é possível avaliar a resposta do público com os dados disponíveis.',action:'Confirmar se os dados foram recolhidos integralmente e analisar um período com conteúdos publicados.',note:'A ausência de publicações recolhidas não confirma, por si só, ausência de atividade na conta.'};
+    const plural=count===1?'publicação':'publicações';
+    const reachText=hasReach&&reach>0?' O alcance acumulado dos conteúdos foi de '+n(reach)+'.':' Não existem dados válidos de alcance suficientes para avaliar a visibilidade.';
+    let grade,meaning,action;
+    if(interactions===0){
+      grade='Envolvimento muito reduzido';
+      meaning='Foram analisadas '+n(count)+' '+plural+', sem interações registadas nos indicadores disponíveis. A comunicação publicada não apresentou sinais mensuráveis de participação do público.'+reachText;
+      action='Verificar primeiro se as métricas estão completas. Depois, testar temas mais próximos dos interesses do público e formatos que convidem à participação.';
+    }else if(avg<1){
+      grade='Envolvimento abaixo do desejável';
+      meaning='Apesar de terem sido publicados '+n(count)+' conteúdos, registaram-se apenas '+n(interactions)+' interações, uma média de '+n(avg.toFixed(1))+' por conteúdo. Isto revela uma resposta reduzida do público nos indicadores disponíveis.'+(concentration>=.6&&count>=3?' Uma única publicação concentrou '+Math.round(concentration*100)+'% das interações, pelo que a maioria dos conteúdos teve pouca resposta.':'')+reachText;
+      action='Identificar o tema e o formato do conteúdo que melhor funcionou, experimentar novas abordagens e acompanhar se mais publicações começam a gerar interações.';
+    }else if(concentration>=.6&&count>=3){
+      grade='Resultados pouco consistentes';
+      meaning='Foram registadas '+n(interactions)+' interações em '+n(count)+' conteúdos, mas uma única publicação representou '+Math.round(concentration*100)+'% desse total. Existe um conteúdo que se destacou, enquanto os restantes tiveram uma resposta bastante inferior.'+reachText;
+      action='Analisar o conteúdo que se destacou e testar abordagens semelhantes, procurando distribuir o envolvimento por mais publicações.';
+    }else if(avg<3 && comments+shares+saves===0){
+      grade='Participação limitada';
+      meaning='Os '+n(count)+' conteúdos reuniram '+n(interactions)+' interações, sobretudo gostos ou reações, sem comentários, partilhas'+(ig?' ou guardados':'')+' registados. A marca está a receber alguma resposta, mas ainda pouco envolvimento ativo.'+reachText;
+      action='Apostar em conteúdos úteis e perguntas relevantes que facilitem comentários e partilhas, medindo a resposta por publicação.';
+    }else{
+      grade='Sinais de envolvimento';
+      meaning='Os '+n(count)+' conteúdos registaram '+n(interactions)+' interações ('+n(avg.toFixed(1))+' por publicação, em média). '+(comments+shares+saves>0?'Além das reações, existiram sinais de participação através de comentários, partilhas'+(ig?' ou guardados':'')+'. ':'')+'Há resposta do público, embora estes números, isoladamente, não permitam classificar o mês como crescimento.'+reachText;
+      action='Manter os temas e formatos que geraram melhor resposta, monitorizando a consistência entre publicações e comparando com o período anterior.';
     }
-    const grade=interactions===0?'Requer atenção':(count>=3&&concentration>=.6?'Desempenho concentrado':(comments+shares+saves>0?'Sinais positivos de envolvimento':'Envolvimento limitado'));
-    lines.push('Esta avaliação descreve apenas o período analisado. Sem dados equivalentes do mês anterior, metas comerciais ou resultados de conversão, não é possível afirmar crescimento, quebra ou retorno para o negócio.');
-    return {grade,lines};
+    return {grade,meaning,action,note:'Avaliação baseada nas interações observadas, não nas vendas ou na evolução mensal. Sem histórico comparável ou metas definidas, não se pode concluir se houve crescimento nem qual foi o impacto comercial.'};
   }
   function assessmentPage(d,network,month){
     const a=networkAssessment(d,network);
-    return '<section class="page"><div class="head"><div><div class="network">'+network+'</div><div class="title" style="font-size:43px">Leitura dos resultados</div></div><div class="eyebrow">'+esc(month)+'</div></div>'+
-      '<div class="section" style="border-top:0;margin-top:7mm;padding-top:0"><div class="eyebrow">AVALIAÇÃO DO PERÍODO</div><h3 style="font-size:29px;margin:3mm 0 8mm">'+esc(a.grade)+'</h3>'+
-      a.lines.map(line=>'<p style="font-size:17px;line-height:1.5;max-width:245mm;margin:0 0 5mm">'+esc(line)+'</p>').join('')+'</div></section>';
+    return '<section class="page"><div class="head"><div><div class="network">'+network+'</div><div class="title" style="font-size:43px">O que dizem os resultados?</div></div><div class="eyebrow">'+esc(month)+'</div></div>'+
+      '<div class="section" style="border-top:0;margin-top:8mm;padding-top:0"><div class="eyebrow" style="letter-spacing:.08em">AVALIAÇÃO GERAL</div><h3 style="font-size:30px;margin:3mm 0 7mm">'+esc(a.grade)+'</h3>'+
+      '<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">O QUE SIGNIFICA PARA A MARCA</div><p style="font-size:18px;line-height:1.48;margin:0 0 7mm">'+esc(a.meaning)+'</p>'+
+      '<div class="eyebrow" style="letter-spacing:.08em;margin-bottom:2mm">PRÓXIMO PASSO</div><p style="font-size:17px;line-height:1.45;margin:0 0 7mm">'+esc(a.action)+'</p>'+
+      '<p style="font-size:11px;color:#777;line-height:1.45;border-top:1px solid #ddd;padding-top:4mm">'+esc(a.note)+'</p></div></section>';
   }
-
   function html(d){const i=d.instagram.totals,f=d.facebook.totals,client=d.client.name,month=`${months[d.period.month-1]} ${d.period.year}`,ig=[...d.instagram.media].sort((a,b)=>Number(b.metrics?.views||b.metrics?.reach||0)-Number(a.metrics?.views||a.metrics?.reach||0)),fb=[...d.facebook.posts].sort((a,b)=>(Number(b.video_views||0)||Number(b.reactions_count||0)+Number(b.comments_count||0)+Number(b.shares_count||0))-(Number(a.video_views||0)||Number(a.reactions_count||0)+Number(a.comments_count||0)+Number(a.shares_count||0)));const logo=logoData();return `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A4 landscape;margin:0}*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#111}.page{width:297mm;height:210mm;padding:16mm 18mm;page-break-after:always;position:relative;overflow:hidden}.black{background:#0d0d0d;color:#fff}.eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#969691}.title{font-size:48px;line-height:.95;margin:8px 0 20px}.cover h1{font-size:74px;line-height:.9;margin:0 0 18px;max-width:235mm}.cover .main{position:absolute;left:18mm;right:18mm;top:68mm}.cover .bottom,.closing .bottom{position:absolute;left:18mm;right:18mm;bottom:16mm;border-top:1px solid #333;padding-top:10mm;display:flex;justify-content:space-between;align-items:end}.logo{width:44mm}.head{display:flex;justify-content:space-between;border-bottom:1px solid #ddd;padding-bottom:8mm}.network{font-size:18px;font-weight:700}.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:16mm;margin-top:13mm;align-items:end}.big{font-size:68px;font-weight:800;letter-spacing:-.05em}.kpis{display:grid;grid-template-columns:1fr 1fr}.kpi{padding:8mm;border:1px solid #ddd}.kpi strong{display:block;font-size:30px}.kpi span,.metric small,.toprow small{display:block;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:#888}.section{margin-top:12mm;border-top:1px solid #ddd;padding-top:8mm}.section h3{font-size:24px;margin:0 0 6mm}.chart{width:100%;height:58mm}.toprow{display:grid;grid-template-columns:14mm 22mm 1fr 34mm;gap:5mm;align-items:center;padding:4mm 0;border-top:1px solid #eee}.thumb{width:22mm;height:22mm;background:#f2f2ef;overflow:hidden;border-radius:3mm}.thumb img{width:100%;height:100%;object-fit:cover}.rank{font-size:20px;color:#aaa}.toprow strong{display:block;font-size:12px;margin-top:2mm}.metric{text-align:right;font-size:19px;font-weight:800}.barrow{margin:5mm 0}.barrow>div:first-child{display:flex;justify-content:space-between}.track{height:4mm;background:#eee;border-radius:9mm;overflow:hidden;margin-top:2mm}.fill{height:100%;background:#111}.divider{display:flex;flex-direction:column;justify-content:center}.divider h2{font-size:84px;margin:0}.closing .main{position:absolute;left:18mm;right:18mm;top:68mm}.closing .main img{width:75mm}.closing .contacts{position:absolute;left:18mm;right:18mm;bottom:34mm;display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #333;border-bottom:1px solid #333;padding:8mm 0}.muted{color:#888}.summary{font-size:20px;line-height:1.5;max-width:240mm}.empty{padding:10mm;color:#888;background:#fafafa}</style></head><body>
 <section class="page black cover"><div class="eyebrow">RELATÓRIO DE REDES SOCIAIS · ${month.toUpperCase()}</div><div class="main"><div class="eyebrow">FACEBOOK · INSTAGRAM</div><h1>${esc(client)}</h1><p class="summary muted">Análise mensal de desempenho, interação e conteúdos com maior destaque nas redes sociais.</p></div><div class="bottom">${logo?`<img class="logo" src="${logo}">`:''}<div class="eyebrow">RESULTADOS · ANÁLISE · CONTEÚDOS</div></div></section>
 <section class="page black divider"><div class="eyebrow">RESULTADOS · ANÁLISE · CONTEÚDOS</div><h2>Instagram</h2><p class="muted">Desempenho e conteúdos publicados no Instagram.</p></section>
