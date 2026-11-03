@@ -1,0 +1,118 @@
+/* DUIT · Portal — identidade da página de acesso.
+   Estilos confinados a .duit-entry: não alteram dashboard, clientes ou CRM. */
+.duit-entry {
+  --duit-yellow: #ffd200;
+  --duit-black: #0d0d0d;
+  --duit-paper: #f7f7f2;
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: minmax(0, 55fr) minmax(420px, 45fr);
+  background: var(--duit-paper);
+  color: var(--duit-black);
+}
+.duit-entry .login-hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  isolation: isolate;
+  background: #0b0b0b;
+  color: #f8f8f3;
+  padding: clamp(28px, 3.6vw, 64px);
+}
+.duit-entry .login-hero::before { display:none; }
+.duit-entry .login-hero::after {
+  content:""; position:absolute; width:clamp(240px, 34vw, 540px);
+  height:clamp(240px, 34vw, 540px); border:1px solid rgba(255,210,0,.18);
+  border-radius:50%; right:-22%; top:27%; pointer-events:none; z-index:0;
+  box-shadow: 0 0 0 45px rgba(255,210,0,.014),0 0 0 95px rgba(255,210,0,.014),0 0 0 145px rgba(255,210,0,.014);
+}
+.duit-entry .duit-hero-top,.duit-entry .duit-hero-main,.duit-entry .duit-hero-bottom { z-index:2; position:relative; }
+.duit-entry .duit-hero-top,.duit-entry .duit-hero-bottom {
+  display:flex; align-items:center; justify-content:space-between; gap:20px;
+}
+.duit-entry .duit-wordmark {font-family:'Clash Display','Space Grotesk',sans-serif;font-size:clamp(28px,2.8vw,44px);font-weight:700;letter-spacing:-.075em;line-height:1;color:#fff;text-decoration:none;}
+.duit-entry .duit-mark-dot,.duit-entry .duit-title-dot{color:var(--duit-yellow);}
+.duit-entry .duit-hero-topline,.duit-entry .duit-hero-bottom,.duit-entry .duit-form-kicker,.duit-entry .duit-small-label,.duit-entry .duit-eyebrow,.duit-entry .duit-form-bottom{
+  font-size:10px;letter-spacing:.16em;font-weight:600;
+}
+.duit-entry .duit-hero-topline{color:#aaa;}
+.duit-entry .duit-hero-topline span{color:var(--duit-yellow);margin-left:6px;font-size:17px;}
+.duit-entry .duit-hero-main{max-width:710px;margin:70px 0 90px;}
+.duit-entry .duit-eyebrow {display:flex;gap:12px;align-items:center;color:var(--duit-yellow);margin-bottom:30px;}
+.duit-entry .duit-status-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--duit-yellow);box-shadow:0 0 0 5px rgba(255,210,0,.13);}
+.duit-entry .duit-hero-title {
+  font-family:'Clash Display','Space Grotesk',sans-serif;
+  color:#f8f8f3;font-size:clamp(66px,8.3vw,146px);font-weight:600;
+  line-height:.85;letter-spacing:-.09em;margin:0 0 38px;text-wrap:balance;
+}
+.duit-entry .duit-hero-title em{color:var(--duit-yellow);font-style:normal;}
+.duit-entry .duit-hero-desc{max-width:370px;color:#b4b4b0;font-size:clamp(14px,1.15vw,17px);line-height:1.65;}
+.duit-entry .duit-hero-line{width:100%;max-width:300px;height:1px;background:#363632;margin-top:36px;}
+.duit-entry .duit-hero-line span{display:block;width:32%;height:2px;background:var(--duit-yellow);}
+.duit-entry .duit-hero-bottom {font-size:9px;color:#969692;}
+.duit-entry .duit-separator{color:var(--duit-yellow);padding:0 8px;}
+.duit-entry .duit-decor-word {position:absolute;bottom:15%;right:-5%;font-size:clamp(120px,19vw,300px);font-family:'Clash Display',sans-serif;font-weight:700;letter-spacing:-.1em;color:rgba(255,255,255,.025);white-space:nowrap;pointer-events:none;z-index:0;}
+.duit-entry .duit-decor-word span{color:rgba(255,210,0,.045);}
+.duit-entry .duit-decor-plus {position:absolute;right:8%;top:18%;font-size:80px;font-weight:300;color:var(--duit-yellow);opacity:.8;z-index:1;}
+.duit-entry .login-form-wrap {background:var(--duit-paper);padding:clamp(28px,4.5vw,84px);display:flex;align-items:stretch;justify-content:center;}
+.duit-entry .duit-access {width:100%;max-width:480px;min-height:100%;display:flex;flex-direction:column;justify-content:space-between;gap:45px;}
+.duit-entry .duit-form-top,.duit-entry .duit-form-bottom{display:flex;align-items:center;justify-content:space-between;gap:14px;}
+.duit-entry .duit-form-kicker{color:#777871;letter-spacing:.1em;}
+.duit-entry .duit-form-kicker span{color:#b1b1a9;}
+.duit-entry .duit-site-link{text-decoration:none;font-size:12px;font-weight:600;border-bottom:1px solid #bdbdb4;padding-bottom:4px;}
+.duit-entry .duit-site-link span{margin-left:5px;}
+.duit-entry .login-form{max-width:none;width:100%;animation:none;}
+.duit-entry .duit-form-head{margin-bottom:36px;}
+.duit-entry .duit-small-label{color:#72736d;display:block;margin-bottom:18px;}
+.duit-entry .login-form h2{font-family:'Clash Display','Space Grotesk',sans-serif;font-size:clamp(48px,4.3vw,76px);font-weight:600;letter-spacing:-.065em;line-height:.99;color:var(--duit-black);margin:0 0 20px;}
+.duit-entry .login-form .sub{color:#777871;font-size:14px;line-height:1.7;margin:0;max-width:340px;}
+.duit-entry .login-form .field{margin-bottom:20px;}
+.duit-entry .login-form label{color:#464741;font-size:11px;letter-spacing:.1em;margin-bottom:9px;}
+.duit-entry .login-form input{
+  width:100%;min-height:58px;border:1px solid #ddded5;background:#fff;
+  border-radius:4px;padding:15px 18px;color:#131313;font-size:14px;
+  box-shadow:none;transition:border-color .18s,box-shadow .18s;
+}
+.duit-entry .login-form input::placeholder{color:#999b95;}
+.duit-entry .login-form input:focus{outline:none;border-color:#111;box-shadow:0 0 0 3px rgba(255,210,0,.45);}
+.duit-entry .duit-submit{
+  margin-top:12px;min-height:60px;border-radius:4px;background:var(--duit-yellow);color:#0b0b0b;
+  display:flex;align-items:center;justify-content:space-between;padding:0 21px;
+  font-size:14px;font-weight:700;transition:background .15s,transform .15s;
+}
+.duit-entry .duit-submit:hover{background:#efc400;transform:translateY(-1px);}
+.duit-entry .duit-submit .ico{width:22px;height:22px;}
+.duit-entry .duit-form-assist{text-align:right;margin-top:25px;}
+.duit-entry .duit-form-assist a{font-size:12px;color:#666962;text-decoration:none;border-bottom:1px solid #bcbdb5;padding-bottom:5px;}
+.duit-entry .duit-form-assist a:hover{color:#111;border-color:#111;}
+.duit-entry .duit-form-bottom{border-top:1px solid #deded5;padding-top:20px;color:#8b8d85;font-size:9px;}
+.duit-entry .duit-mini-spark{color:#caa600;}
+.duit-entry .login-err{border-radius:4px;}
+@media(max-width:1050px){
+  .duit-entry{grid-template-columns:minmax(0,1fr) minmax(380px,1fr);}
+  .duit-entry .duit-hero-title{font-size:clamp(60px,8vw,100px);}
+  .duit-entry .duit-hero-topline{display:none;}
+}
+@media(max-width:760px){
+  .duit-entry{display:flex;flex-direction:column;min-height:100svh;}
+  .duit-entry .login-hero{min-height:0;padding:27px 27px 32px;}
+  .duit-entry .duit-hero-main{margin:47px 0 16px;}
+  .duit-entry .duit-hero-title{font-size:clamp(54px,13vw,90px);margin-bottom:22px;}
+  .duit-entry .duit-hero-desc{font-size:13px;}
+  .duit-entry .duit-hero-line,.duit-entry .duit-decor-word,.duit-entry .duit-decor-plus{display:none;}
+  .duit-entry .duit-hero-bottom{margin-top:22px;flex-wrap:wrap;gap:8px;}
+  .duit-entry .login-form-wrap{padding:30px 27px 26px;flex:1;}
+  .duit-entry .duit-access{gap:38px;}
+  .duit-entry .login-form h2{font-size:clamp(44px,10vw,60px);}
+  .duit-entry .duit-form-head{margin-bottom:28px;}
+}
+@media(max-width:380px){
+  .duit-entry .duit-hero-title{font-size:51px;}
+  .duit-entry .duit-form-kicker span{display:none;}
+}
+@media(prefers-reduced-motion:reduce){
+  .duit-entry *, .duit-entry *::before,.duit-entry *::after{animation:none!important;transition:none!important;}
+}
