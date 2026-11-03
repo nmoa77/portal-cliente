@@ -111,7 +111,33 @@
     return '<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start"><span class="pill '+v[0]+'"'+(tooltip?' title="'+safe(tooltip)+'"':'')+'>'+safe(v[1])+'</span>'+(title?'<span style="font-size:10px;color:var(--muted);line-height:1.25;max-width:150px">'+safe(title)+'</span>':'')+'</div>';
   }
 
-  function contactState(p){const parts=[];if(!p.email_sent_at)parts.push('<span class="pill muted">⚪ Não enviado</span>');else if(!p.email_first_opened_at)parts.push('<span class="pill warn">🟡 Enviado · por abrir</span>');else parts.push(`<span class="pill ok">🟢 Email visto · ${Number(p.email_open_count||0)}x</span>`);if(p.email_sent_at){const cc=Number(p.cta_click_count||0);if(cc>0)parts.push(`<span class="pill ok" title="${safe(p.cta_last_clicked_at?'Último clique: '+fmtDateTime(p.cta_last_clicked_at):'CTA clicado')}">🔗 CTA clicado · ${cc}x</span>`);const pv=Number(p.proposal_view_count||0);parts.push(pv?`<span class="pill ok">👁 Proposta vista · ${pv}x</span>`:'<span class="pill muted">Proposta · por abrir</span>');if(Number(p.guide_open_count||0)>0)parts.push(`<span class="pill ok">📖 Ebook visto · ${Number(p.guide_open_count||0)}x</span>`);if(p.outreach_response==='accepted')parts.push('<span class="pill ok">✓ Aceitou</span>');else if(p.outreach_response==='rejected')parts.push('<span class="pill err">✕ Rejeitou</span>')}return `<div style="display:flex;gap:5px;flex-wrap:wrap;min-width:180px">${parts.join('')}</div>`}
+  function contactState(p){
+    const parts=[];
+    const rs=String(p.resend_status||'').toLowerCase();
+    const hardFail=['suppressed','failed','bounced','complained'].includes(rs);
+    const confirmedOpen=['opened','clicked'].includes(rs)||Number(p.cta_click_count||0)>0||Number(p.proposal_view_count||0)>0||String(p.outreach_response||'')!=='';
+    if(!p.email_sent_at){
+      parts.push('<span class="pill muted">⚪ Não enviado</span>');
+    }else if(hardFail){
+      const label=rs==='suppressed'?'Suprimido':rs==='bounced'?'Bounce':rs==='failed'?'Falhou':'Reclamação';
+      parts.push('<span class="pill err">🔴 '+safe(label)+'</span>');
+    }else if(confirmedOpen){
+      const count=Math.max(1,Number(p.email_open_count||0));
+      parts.push('<span class="pill ok">🟢 Email visto · '+count+'x</span>');
+    }else{
+      parts.push('<span class="pill warn">🟡 Enviado · por abrir</span>');
+    }
+    if(p.email_sent_at){
+      const cc=Number(p.cta_click_count||0);
+      if(cc>0)parts.push('<span class="pill ok">🔗 CTA clicado · '+cc+'x</span>');
+      const pv=Number(p.proposal_view_count||0);
+      parts.push(pv?'<span class="pill ok">👁 Proposta vista · '+pv+'x</span>':'<span class="pill muted">Proposta · por abrir</span>');
+      if(Number(p.guide_open_count||0)>0)parts.push('<span class="pill ok">📖 Ebook visto · '+Number(p.guide_open_count||0)+'x</span>');
+      if(p.outreach_response==='accepted')parts.push('<span class="pill ok">✓ Aceitou</span>');
+      else if(p.outreach_response==='rejected')parts.push('<span class="pill err">✕ Rejeitou</span>');
+    }
+    return '<div style="display:flex;gap:5px;flex-wrap:wrap;min-width:180px">'+parts.join('')+'</div>';
+  }
   function buildProposal(p){const company=(p.company||p.name||'a sua empresa').trim();return `Assunto: ${company} — as redes ficaram para depois?\n\nOlá,\n\nJá publicou com frequência, depois parou… ou vai publicando quando consegue?\n\nNão se desgaste com mais uma tarefa que precisa de acompanhamento diário para dar resultados.\n\nA DUIT ajuda a aliviar essa tarefa e trata das suas redes sociais por si.\n\nPor isso criámos o DUIT Start: uma forma simples de experimentar primeiro e perceber como podemos trabalhar a comunicação da sua empresa.\n\nVeja como podemos tornar isto mais simples para si. 🙂`}
   function landingPageOptions(){return `<option value="">— sem Landing Page —</option>${crmLandingPages.filter(p=>p.is_active&&p.slug!=='site-duit').map(p=>`<option value="${p.id}">${safe(p.title)}</option>`).join('')}`}
   function emailTemplateOptions(){const active=crmEmailTemplates.filter(t=>Number(t.is_active)===1),def=active.find(t=>Number(t.is_default)===1);return `<option value="">— usar predefinido${def?' · '+safe(def.name):''} —</option>${active.map(t=>`<option value="${t.id}">${safe(t.name)}${Number(t.is_default)===1?' · predefinida':''}</option>`).join('')}`}
@@ -492,7 +518,7 @@
       if(['delivered','opened','clicked'].includes(rs)) g.delivered++;
       if(rs==='clicked') g.clicked++;
 
-      if(p.email_first_opened_at||Number(p.email_open_count||0)>0)g.opened++;
+      const hardFail=['suppressed','failed','bounced','complained'].includes(rs); const confirmedOpen=['opened','clicked'].includes(rs)||Number(p.cta_click_count||0)>0||Number(p.proposal_view_count||0)>0; if(!hardFail&&confirmedOpen)g.opened++;
       if(Number(p.proposal_view_count||0)>0)g.proposal++;
       if(['respondeu','interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||''))g.replied++;
       if(['interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||'')==='accepted')g.interested++;
