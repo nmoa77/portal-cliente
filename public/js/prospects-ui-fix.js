@@ -11,6 +11,7 @@
     rows: [],
     loaded: false,
     loading: false,
+    sendLimit: null,
     filters: { period: 'all', sector: 'all', plan: 'all' }
   };
 
@@ -69,6 +70,14 @@
       #main .duit-analytics{margin:2px 0 18px}
       #main .duit-analytics-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
       #main .duit-analytics-toolbar select{flex:0 1 230px;width:auto!important;min-width:180px;min-height:38px;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+      #main .duit-send-quota{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px}
+      #main .duit-send-quota-card{padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--bg-2)}
+      #main .duit-send-quota-card .quota-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+      #main .duit-send-quota-card .quota-value{font-family:'Clash Display';font-size:28px;font-weight:650;line-height:1;margin-top:7px}
+      #main .duit-send-quota-card .quota-sub{font-size:11px;color:var(--muted);margin-top:5px}
+      #main .duit-send-quota-card.warning{border-color:#eab308;background:#fff9db}
+      #main .duit-send-quota-card.critical{border-color:#dc2626;background:#fff0f0}
+
       #main .duit-analytics-summary{display:grid;grid-template-columns:1.15fr 1fr 1fr 1fr;gap:10px;margin-bottom:10px}
       #main .duit-analytics-secondary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
       #main .duit-analytics-card{position:relative;padding:16px 16px 14px;border:1px solid var(--line);border-radius:15px;background:var(--card);min-width:0;cursor:pointer;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
@@ -104,12 +113,12 @@
         #main .duit-analytics-summary{grid-template-columns:repeat(2,minmax(0,1fr))}#main .duit-analytics-secondary{grid-template-columns:repeat(3,minmax(0,1fr))}
       }
       @media(max-width:900px){
-        #main .duit-analytics-summary,#main .duit-analytics-secondary{grid-template-columns:1fr 1fr}
+        #main .duit-analytics-summary,#main .duit-analytics-secondary,#main .duit-send-quota{grid-template-columns:1fr 1fr}
         #main .duit-analytics-sections{grid-template-columns:1fr}
       }
       @media(max-width:620px){
         #main .duit-analytics-toolbar select{flex:1 1 100%;width:100%!important}
-        #main .duit-analytics-summary,#main .duit-analytics-secondary{grid-template-columns:1fr}
+        #main .duit-analytics-summary,#main .duit-analytics-secondary,#main .duit-send-quota{grid-template-columns:1fr}
         #main .funnel-row{grid-template-columns:100px 1fr 50px}
       }
     `;
@@ -204,6 +213,26 @@
         <select data-analytics-filter="sector" aria-label="Setor"><option value="all" ${analyticsState.filters.sector==='all'?'selected':''}>Todos os setores</option>${sectorOptions}</select>
         <select data-analytics-filter="plan" aria-label="Serviço"><option value="all" ${analyticsState.filters.plan==='all'?'selected':''}>Todos os serviços</option>${planOptions}</select>
       </div>
+
+      ${(()=>{
+        const l=analyticsState.sendLimit;
+        if(!l)return '';
+        const dailyLeft=Math.max(0,Number(l.daily_remaining??(Number(l.daily_limit||100)-Number(l.today||0))));
+        const monthlyLeft=Math.max(0,Number(l.monthly_remaining??(Number(l.monthly_limit||3000)-Number(l.month||0))));
+        const cls=l.warning_level==='critical'?'critical':l.warning_level==='warning'?'warning':'';
+        return `<div class="duit-send-quota">
+          <div class="duit-send-quota-card ${cls}">
+            <div class="quota-label">Emails disponíveis hoje</div>
+            <div class="quota-value">${dailyLeft}</div>
+            <div class="quota-sub">${Number(l.today||0)}/${Number(l.daily_limit||100)} enviados hoje</div>
+          </div>
+          <div class="duit-send-quota-card ${cls}">
+            <div class="quota-label">Emails disponíveis no mês</div>
+            <div class="quota-value">${monthlyLeft}</div>
+            <div class="quota-sub">${Number(l.month||0)}/${Number(l.monthly_limit||3000)} enviados este mês</div>
+          </div>
+        </div>`;
+      })()}
 
       <div class="duit-analytics-summary">
         <div class="duit-analytics-card primary" data-kpi-click="all"><div class="k-label">Prospects</div><div class="k-value">${total}</div><div class="k-sub">no filtro atual</div></div>
@@ -308,11 +337,18 @@
     analyticsState.loading=true;
     root.innerHTML='<div class="card"><div class="empty" style="padding:20px 0">A calcular métricas comerciais…</div></div>';
     try{
-      if(Array.isArray(window.duitCrmProspectsCache)) analyticsState.rows=window.duitCrmProspectsCache.slice();
-      else {
-        const [prospects,statuses]=await Promise.all([api('/api/crm/prospects'),api('/api/crm/prospects/email-status')]);
+      if(Array.isArray(window.duitCrmProspectsCache)){
+        analyticsState.rows=window.duitCrmProspectsCache.slice();
+        analyticsState.sendLimit=await api('/api/crm/prospects/send-limit').catch(()=>null);
+      } else {
+        const [prospects,statuses,sendLimit]=await Promise.all([
+          api('/api/crm/prospects'),
+          api('/api/crm/prospects/email-status'),
+          api('/api/crm/prospects/send-limit').catch(()=>null)
+        ]);
         const map=new Map((statuses||[]).map(s=>[Number(s.user_id),s]));
         analyticsState.rows=(prospects||[]).map(p=>({...p,...(map.get(Number(p.id))||{})}));
+        analyticsState.sendLimit=sendLimit||null;
       }
       analyticsState.loaded=true;
       renderAnalytics();
