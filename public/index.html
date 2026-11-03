@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/login-brand.css">
   <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,77 +20,93 @@
 </head>
 <body>
 
-<section class="login">
+<section class="login duit-entry" aria-label="Entrada no portal DUIT">
   <aside class="login-hero">
-    <div class="top">
-      <div class="brand"><span class="d">DUIT</span><span class="dot">.</span></div>
+    <div class="duit-hero-top">
+      <a class="duit-wordmark" href="https://duit.pt/" aria-label="DUIT — visitar o website">
+        DUIT<span class="duit-mark-dot">.</span>
+      </a>
+      <span class="duit-hero-topline">ESTÚDIO CRIATIVO <span aria-hidden="true">↗</span></span>
     </div>
-    <div class="copy">
-      <span class="tag" style="display:inline-block; margin-bottom:24px; color:var(--yellow); border-color:#4a4200">Portal do cliente · 2026</span>
-      <h1>Design<br>com método.<sup>★</sup></h1>
-      <p class="lede">Identidade, websites, social e alojamento — geridos num só portal. O cliente foca-se no negócio, a DUIT trata do resto.</p>
-      <div class="tags">
-        <span class="tag">Branding</span>
-        <span class="tag">Web</span>
-        <span class="tag">Social</span>
-        <span class="tag">Alojamento</span>
-      </div>
+
+    <div class="duit-hero-main">
+      <span class="duit-eyebrow"><span class="duit-status-dot"></span> O SEU ESPAÇO DUIT</span>
+      <h1 class="duit-hero-title">IDEIAS<br>QUE SE<br><em>FAZEM.</em></h1>
+      <p class="duit-hero-desc">Um lugar para acompanhar projetos, organizar conteúdos e dar vida às próximas ideias.</p>
+      <div class="duit-hero-line" aria-hidden="true"><span></span></div>
     </div>
-    <div class="foot">
-      <span>© 2026 DUIT · Lisboa</span>
-      <span>v2.0</span>
+
+    <div class="duit-hero-bottom">
+      <span>DESIGN <span class="duit-separator">/</span> SOCIAL <span class="duit-separator">/</span> DIGITAL</span>
+      <span>MAKE IT SIMPLE. DUIT.</span>
     </div>
+    <span class="duit-decor-word" aria-hidden="true">DO<span>IT.</span></span>
+    <span class="duit-decor-plus" aria-hidden="true">+</span>
   </aside>
 
-  <div class="login-form-wrap">
-    <form class="login-form" id="loginForm">
-      <h2>Entrar</h2>
-      <p class="sub">Bem-vindo de volta.</p>
-
-      <div class="login-err" id="err"></div>
-
-      <div class="field">
-        <label for="email">Email</label>
-        <input type="email" id="email" required autocomplete="username" placeholder="nome@empresa.pt">
-      </div>
-      <div class="field">
-        <label for="password">Palavra-passe</label>
-        <input type="password" id="password" required autocomplete="current-password" placeholder="••••••••">
+  <main class="login-form-wrap">
+    <div class="duit-access">
+      <div class="duit-form-top">
+        <span class="duit-form-kicker">PORTAL DE CLIENTE <span>— 01 / ACESSO</span></span>
+        <a href="https://duit.pt/" class="duit-site-link" aria-label="Visitar duit.pt">duit.pt <span aria-hidden="true">↗</span></a>
       </div>
 
-      <button class="btn btn-yellow btn-block" type="submit">
-        Entrar
-        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-      </button>
+      <form class="login-form" id="loginForm">
+        <div class="duit-form-head">
+          <span class="duit-small-label">OLÁ, BEM-VINDO.</span>
+          <h2>Bom ter<br>você aqui<span class="duit-title-dot">.</span></h2>
+          <p class="sub">Entre na sua área reservada e continue de onde ficou.</p>
+        </div>
 
-      <div style="text-align:center; margin-top:18px;">
-        <a href="#" id="forgotLink" style="color:var(--muted); font-size:13px; text-decoration:none; border-bottom:1px solid var(--line);">Esqueci-me da palavra-passe</a>
+        <div class="login-err" id="err" role="alert" aria-live="polite"></div>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" required autocomplete="username" inputmode="email" placeholder="nome@empresa.pt">
+        </div>
+        <div class="field">
+          <label for="password">Palavra-passe</label>
+          <input type="password" id="password" required autocomplete="current-password" placeholder="Introduza a sua palavra-passe">
+        </div>
+
+        <button class="btn btn-yellow btn-block duit-submit" type="submit">
+          <span>Entrar no portal</span>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M13 5l7 7-7 7"/></svg>
+        </button>
+
+        <div class="duit-form-assist">
+          <a href="#" id="forgotLink">Esqueceu-se da palavra-passe? <span aria-hidden="true">↗</span></a>
+        </div>
+      </form>
+
+      <form class="login-form" id="forgotForm" style="display:none;">
+        <div class="duit-form-head">
+          <span class="duit-small-label">VAMOS RESOLVER.</span>
+          <h2>Recuperar<br>acesso<span class="duit-title-dot">.</span></h2>
+          <p class="sub">Indique o email associado à sua conta. Enviaremos uma ligação para definir uma nova palavra-passe.</p>
+        </div>
+
+        <div class="login-err" id="forgotErr" role="alert" aria-live="polite"></div>
+        <div class="login-ok" id="forgotOk" role="status" aria-live="polite" style="display:none; padding:12px 14px; border-radius:10px; background:#fff8d6; border:1px solid #ecd96a; color:#5a4a00; font-size:13px; margin-bottom:14px;"></div>
+
+        <div class="field">
+          <label for="forgotEmail">Email</label>
+          <input type="email" id="forgotEmail" required autocomplete="email" placeholder="nome@empresa.pt">
+        </div>
+        <button class="btn btn-yellow btn-block duit-submit" type="submit">
+          <span>Enviar ligação</span>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12h16M13 5l7 7-7 7"/></svg>
+        </button>
+        <div class="duit-form-assist"><a href="#" id="backToLogin">← Voltar ao início de sessão</a></div>
+      </form>
+
+      <div class="duit-form-bottom">
+        <span>© 2026 DUIT</span>
+        <span>FEITO COM INTENÇÃO<span class="duit-mini-spark"> ✳</span></span>
       </div>
-    </form>
-
-    <form class="login-form" id="forgotForm" style="display:none;">
-      <h2>Recuperar acesso</h2>
-      <p class="sub">Indique o email associado à sua conta. Enviaremos uma ligação para definir uma nova palavra-passe.</p>
-
-      <div class="login-err" id="forgotErr"></div>
-      <div class="login-ok"  id="forgotOk" style="display:none; padding:12px 14px; border-radius:10px; background:#fff8d6; border:1px solid #ecd96a; color:#5a4a00; font-size:13px; margin-bottom:14px;"></div>
-
-      <div class="field">
-        <label for="forgotEmail">Email</label>
-        <input type="email" id="forgotEmail" required autocomplete="email" placeholder="nome@empresa.pt">
-      </div>
-
-      <button class="btn btn-yellow btn-block" type="submit">
-        Enviar ligação de recuperação
-      </button>
-
-      <div style="text-align:center; margin-top:18px;">
-        <a href="#" id="backToLogin" style="color:var(--muted); font-size:13px; text-decoration:none; border-bottom:1px solid var(--line);">← Voltar ao login</a>
-      </div>
-    </form>
-  </div>
+    </div>
+  </main>
 </section>
-
 <script>
   const loginForm  = document.getElementById('loginForm');
   const forgotForm = document.getElementById('forgotForm');
