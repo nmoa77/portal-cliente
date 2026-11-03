@@ -385,12 +385,12 @@ module.exports = function installProspectCrmActions(app) {
     return Number(sectorLp?.landing_page_id||selectedLpId||0)||null;
   }
 
-  function validateProspectSend(id,selectedLpId=0,selectedTemplateId=0){
+  function validateProspectSend(id,selectedLpId=0,selectedTemplateId=0,allowResend=false){
     const current=db.prepare(`SELECT u.id,u.email,u.company,c.email_sent_at,c.lead_status
       FROM users u JOIN prospect_crm c ON c.user_id=u.id
       WHERE u.id=? AND u.is_prospect=1`).get(Number(id));
     if(!current)return {ok:false,error:'Prospect não encontrado.'};
-    if(current.email_sent_at)return {ok:false,error:'Este prospect já recebeu um email.'};
+    if(current.email_sent_at&&!allowResend)return {ok:false,error:'Este prospect já recebeu um email.'};
     if(String(current.lead_status||'')==='sem_interesse')return {ok:false,error:'Prospect marcado como sem interesse.'};
     if(!String(current.email||'').trim())return {ok:false,error:'Prospect sem email.'};
 
@@ -437,7 +437,7 @@ module.exports = function installProspectCrmActions(app) {
       ORDER BY u.id ASC`).all();
     const ready=[],errors=[];
     for(const row of rows){
-      const check=validateProspectSend(row.id,row.landing_page_id,row.email_template_id);
+      const check=validateProspectSend(row.id,row.landing_page_id,row.email_template_id,false);
       if(check.ok)ready.push({id:row.id,company:row.company,email:row.email,landing_page_id:row.landing_page_id||null,email_template_id:row.email_template_id||null});
       else errors.push({id:row.id,company:row.company,email:row.email,error:check.error});
     }
@@ -471,7 +471,8 @@ module.exports = function installProspectCrmActions(app) {
     const id=Number(req.params.id);
     const selectedLpId=Number(req.body?.landing_page_id||0);
     const selectedTemplateId=Number(req.body?.email_template_id||0);
-    const check=validateProspectSend(id,selectedLpId,selectedTemplateId);
+    const allowResend=Boolean(req.body?.allow_resend);
+    const check=validateProspectSend(id,selectedLpId,selectedTemplateId,allowResend);
     if(!check.ok)return res.status(400).json({error:check.error});
     const resolved=check.resolved;
     const approach=check.approach;
