@@ -116,3 +116,22 @@
 @media(prefers-reduced-motion:reduce){
   .duit-entry *, .duit-entry *::before,.duit-entry *::after{animation:none!important;transition:none!important;}
 }
+/* Ajustes de legibilidade e marca: logótipo original em vez de texto. */
+.duit-entry .duit-wordmark {display:inline-flex; align-items:center; width:max-content; max-width:100%;}
+.duit-entry .duit-official-logo {display:block; width:auto; height:clamp(35px,3.25vw,53px); max-width:210px; object-fit:contain; object-position:left center;}
+.duit-entry .duit-hero-title {
+  font-size:clamp(58px,6.6vw,112px);
+  letter-spacing:-.035em;
+  line-height:1.02;
+  font-weight:600;
+}
+@media(max-width:1050px){
+  .duit-entry .duit-hero-title {font-size:clamp(52px,6.9vw,82px);letter-spacing:-.03em;}
+}
+@media(max-width:760px){
+  .duit-entry .duit-hero-title {font-size:clamp(46px,10vw,75px);letter-spacing:-.035em;line-height:1;}
+  .duit-entry .duit-official-logo{height:40px;}
+}
+@media(max-width:380px){
+  .duit-entry .duit-hero-title{font-size:44px;}
+}
