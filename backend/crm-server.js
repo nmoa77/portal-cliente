@@ -166,7 +166,7 @@ const EMAIL_AREAS=[
 
 function emailAreaForSector(value){
   const s=String(value||'').trim().toLowerCase();
-  if(!s)return 'Serviços Profissionais';
+  if(!s)return '';
   if(/psicolog|psicoterap|psiquiatr|saúde mental|saude mental|terapia psicol|terapia cognitiv|terapia comportamental|terapeuta familiar|terapia de casal|neuropsicolog|aconselhamento psicológico|aconselhamento psicologico/.test(s))return 'Saúde Mental';
   if(/fisioter|reabilitaç|reabilitac|terapia manual|terapia física|terapia fisica|fisiatria|pilates clínico|pilates clinico|reabilitação desportiva|reabilitacao desportiva/.test(s))return 'Fisioterapia';
   if(/dentist|dentár|dentar|medicina dentária|medicina dentaria|ortodont|implantolog|higiene oral|odontolog|endodont|periodont|prostodont|clínica dentária|clinica dentaria/.test(s))return 'Dentistas';
@@ -189,7 +189,7 @@ function emailAreaForSector(value){
   if(/tecnolog|software|digital|informát|informat|it\b|web|saas/.test(s))return 'Tecnologia & Digital';
   if(/agric|agro|vinho|vinícola|vinicola|quinta|pecuár|pecuar|alimentar/.test(s))return 'Agricultura & Agroalimentar';
   if(/desporto|fitness|ginás|ginas|personal trainer|crossfit|padel|futebol/.test(s))return 'Desporto & Fitness';
-  return 'Serviços Profissionais';
+  return '';
 }
 
 function effectiveEmailArea(sector,emailArea){
@@ -198,15 +198,38 @@ function effectiveEmailArea(sector,emailArea){
   return area;
 }
 
+function genericDesignLandingPage(){
+  const row=db.prepare(`
+    SELECT id
+      FROM landing_pages
+     WHERE is_active=1
+       AND (
+         lower(trim(title))='duit design'
+         OR lower(trim(slug)) IN ('duit-design','design')
+       )
+     ORDER BY
+       CASE WHEN lower(trim(title))='duit design' THEN 0
+            WHEN lower(trim(slug))='duit-design' THEN 1
+            ELSE 2 END,
+       id ASC
+     LIMIT 1
+  `).get();
+  if(row?.id)return Number(row.id);
+  const fallback=db.prepare("SELECT id FROM landing_pages WHERE slug='duit-start' AND is_active=1 LIMIT 1").get();
+  return Number(fallback?.id||0)||null;
+}
+
 function landingPageForEmailArea(area){
+  const cleanArea=String(area||'').trim();
+  if(!cleanArea)return genericDesignLandingPage();
   const row=db.prepare(`
     SELECT psc.landing_page_id
       FROM prospect_sector_content psc
       JOIN landing_pages lp ON lp.id=psc.landing_page_id AND lp.is_active=1
      WHERE lower(TRIM(psc.sector))=lower(TRIM(?))
      LIMIT 1
-  `).get(String(area||'').trim());
-  return Number(row?.landing_page_id||0)||null;
+  `).get(cleanArea);
+  return Number(row?.landing_page_id||0)||genericDesignLandingPage();
 }
 
 function ensureSpecialAreaInfrastructure(){
@@ -355,13 +378,22 @@ function reconcileAllAreaLandingPages(){
     for(const row of rows){
       // Nunca alterar contactos com qualquer histórico de envio.
       if(row.email_sent_at||row.email_first_sent_at||Number(row.email_send_count||0)>0)continue;
-      // Preservar uma LP ativa já escolhida pelo utilizador.
-      if(row.landing_page_id&&Number(row.current_lp_active)===1)continue;
-      // Aplicar a todos os prospects por enviar, independentemente da abordagem.
-      const area=effectiveEmailArea(row.sector,row.email_area);
-      const mapped=landingPageForEmailArea(area)||landingPageForEmailArea(emailAreaForSector(row.sector));
-      const generic=db.prepare("SELECT id FROM landing_pages WHERE slug='duit-start' AND is_active=1 LIMIT 1").get();
-      const target=Number(mapped||generic?.id||0);
+
+      // Se o setor não encaixa claramente em nenhuma área, não inventar classificação:
+      // fica sem área e usa a LP geral de Design.
+      const inferred=emailAreaForSector(row.sector);
+      if(!inferred){
+        const target=genericDesignLandingPage();
+        if(target)upd.run('',target,row.user_id);
+        continue;
+      }
+
+      // Preservar uma LP ativa já escolhida pelo utilizador quando existe uma área válida.
+      if(row.landing_page_id&&Number(row.current_lp_active)===1&&String(row.email_area||'').trim())continue;
+
+      // Aplicar a área/LP correspondente aos restantes prospects por enviar.
+      const area=effectiveEmailArea(row.sector,row.email_area)||inferred;
+      const target=landingPageForEmailArea(area);
       if(!target)continue;
       upd.run(area,target,row.user_id);
     }
