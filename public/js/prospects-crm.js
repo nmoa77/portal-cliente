@@ -115,7 +115,8 @@
     const parts=[];
     const rs=String(p.resend_status||'').toLowerCase();
     const hardFail=['suppressed','failed','bounced','complained'].includes(rs);
-    const confirmedOpen=['opened','clicked'].includes(rs)||Number(p.cta_click_count||0)>0||Number(p.proposal_view_count||0)>0||String(p.outreach_response||'')!=='';
+    const pixelOpen=Boolean(p.email_first_opened_at)||Number(p.email_open_count||0)>0;
+    const confirmedOpen=pixelOpen||['opened','clicked'].includes(rs);
     if(!p.email_sent_at){
       parts.push('<span class="pill muted">⚪ Não enviado</span>');
     }else if(hardFail){
@@ -518,7 +519,7 @@
       if(['delivered','opened','clicked'].includes(rs)) g.delivered++;
       if(rs==='clicked') g.clicked++;
 
-      const hardFail=['suppressed','failed','bounced','complained'].includes(rs); const confirmedOpen=['opened','clicked'].includes(rs)||Number(p.cta_click_count||0)>0||Number(p.proposal_view_count||0)>0; if(!hardFail&&confirmedOpen)g.opened++;
+      const hardFail=['suppressed','failed','bounced','complained'].includes(rs); const pixelOpen=Boolean(p.email_first_opened_at)||Number(p.email_open_count||0)>0; const confirmedOpen=pixelOpen||['opened','clicked'].includes(rs); if(!hardFail&&confirmedOpen)g.opened++;
       if(Number(p.proposal_view_count||0)>0)g.proposal++;
       if(['respondeu','interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||''))g.replied++;
       if(['interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||'')==='accepted')g.interested++;
