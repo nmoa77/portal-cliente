@@ -203,16 +203,55 @@ module.exports = function installProspectCrmActions(app) {
         }
       }
     }catch(e){console.warn('[crm] resend status:',e.message);}
-    let history=new Map();
+    let sendHistory=new Map();
     try{
-      const sent=db.prepare(`SELECT user_id,MIN(created_at) first_sent_at,MAX(created_at) last_sent_at,COUNT(*) send_count FROM notifications WHERE kind='prospect_outreach' AND user_id IS NOT NULL GROUP BY user_id`).all();
-      history=new Map(sent.map(x=>[Number(x.user_id),x]));
+      const sent=db.prepare(`
+        SELECT user_id,
+               MIN(sent_at) first_sent_at,
+               MAX(sent_at) last_sent_at,
+               COUNT(*) send_count,
+               MIN(first_opened_at) first_opened_at,
+               MAX(last_opened_at) last_opened_at,
+               COALESCE(SUM(open_count),0) open_count,
+               MIN(cta_first_clicked_at) cta_first_clicked_at,
+               MAX(cta_last_clicked_at) cta_last_clicked_at,
+               COALESCE(SUM(cta_click_count),0) cta_click_count
+        FROM prospect_email_sends
+        GROUP BY user_id
+      `).all();
+      sendHistory=new Map(sent.map(x=>[Number(x.user_id),x]));
     }catch(_){}
+
+    let legacyHistory=new Map();
+    try{
+      const sent=db.prepare(`SELECT user_id,MIN(created_at) first_sent_at,MAX(created_at) last_sent_at,COUNT(*) send_count FROM notifications WHERE kind='prospect_outreach' AND user_id IS NOT NULL AND subject NOT LIKE '[SUPRIMIDO] %' GROUP BY user_id`).all();
+      legacyHistory=new Map(sent.map(x=>[Number(x.user_id),x]));
+    }catch(_){}
+
     res.json(rows.map(r=>{
-      const h=history.get(Number(r.user_id));
-      if(!h)return r;
-      const count=Number(h.send_count||0);
-      return {...r,email_first_sent_at:h.first_sent_at||r.email_first_sent_at||r.email_sent_at,email_sent_at:h.last_sent_at||r.email_sent_at,email_send_count:count};
+      const h=sendHistory.get(Number(r.user_id));
+      if(h){
+        return {
+          ...r,
+          email_first_sent_at:h.first_sent_at||r.email_first_sent_at||r.email_sent_at,
+          email_sent_at:h.last_sent_at||r.email_sent_at,
+          email_send_count:Number(h.send_count||0),
+          email_first_opened_at:h.first_opened_at||r.email_first_opened_at,
+          email_last_opened_at:h.last_opened_at||r.email_last_opened_at,
+          email_open_count:Number(h.open_count||0),
+          cta_first_clicked_at:h.cta_first_clicked_at||r.cta_first_clicked_at,
+          cta_last_clicked_at:h.cta_last_clicked_at||r.cta_last_clicked_at,
+          cta_click_count:Number(h.cta_click_count||0)
+        };
+      }
+      const legacy=legacyHistory.get(Number(r.user_id));
+      if(!legacy)return r;
+      return {
+        ...r,
+        email_first_sent_at:legacy.first_sent_at||r.email_first_sent_at||r.email_sent_at,
+        email_sent_at:legacy.last_sent_at||r.email_sent_at,
+        email_send_count:Number(legacy.send_count||0)
+      };
     }));
   });
   app.post('/api/public/resend-webhook',(req,res)=>{
@@ -222,6 +261,9 @@ module.exports = function installProspectCrmActions(app) {
       if(!emailId)return res.status(200).json({ok:true,ignored:true});
       const status=type.startsWith('email.')?type.slice(6):type;
       const bounce=data.bounce||{};
+      db.prepare(`UPDATE prospect_email_sends
+        SET resend_status=?
+        WHERE resend_email_id=?`).run(status||null,emailId);
       db.prepare(`UPDATE prospect_crm
         SET resend_status=?,
             resend_status_at=datetime('now'),
