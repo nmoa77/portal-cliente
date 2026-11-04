@@ -329,7 +329,8 @@ function reconcileAllAreaLandingPages(){
 
   const rows=db.prepare(`
     SELECT c.user_id,c.sector,c.email_area,c.landing_page_id,c.email_template_id,
-           lp.slug current_lp_slug,
+           c.email_sent_at,c.email_first_sent_at,COALESCE(c.email_send_count,0) email_send_count,
+           lp.slug current_lp_slug,lp.is_active current_lp_active,
            pet.name template_name
     FROM prospect_crm c
     JOIN users u ON u.id=c.user_id
@@ -352,14 +353,19 @@ function reconcileAllAreaLandingPages(){
 
   const tx=db.transaction(()=>{
     for(const row of rows){
+      // Nunca alterar contactos com qualquer histórico de envio.
+      if(row.email_sent_at||row.email_first_sent_at||Number(row.email_send_count||0)>0)continue;
+      // Preservar uma LP ativa já escolhida pelo utilizador.
+      if(row.landing_page_id&&Number(row.current_lp_active)===1)continue;
       const templateName=String(row.template_name||defaultTemplate?.name||'').trim().toLowerCase();
       if(templateName!=='email por sector')continue;
 
       const area=effectiveEmailArea(row.sector,row.email_area);
-      const mapped=landingPageForEmailArea(area);
-      if(!mapped)continue;
-
-      upd.run(area,mapped,row.user_id);
+      const mapped=landingPageForEmailArea(area)||landingPageForEmailArea(emailAreaForSector(row.sector));
+      const generic=db.prepare("SELECT id FROM landing_pages WHERE slug='duit-start' AND is_active=1 LIMIT 1").get();
+      const target=Number(mapped||generic?.id||0);
+      if(!target)continue;
+      upd.run(area,target,row.user_id);
     }
   });
   tx();
