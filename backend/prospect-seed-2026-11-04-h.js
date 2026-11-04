@@ -1,0 +1,698 @@
+// DUIT — 2026-11-04; emails empresariais publicados em fontes indicadas.
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),bcrypt=require('bcryptjs');
+const db=require('./db'),{wasDeleted}=require('./prospect-deleted-guard');
+const L=[
+  {
+    "company": "GLS Portalegre",
+    "sector": "Comércio",
+    "email_area": "Comércio & Indústria",
+    "location": "Portalegre",
+    "website": "https://glsportalegre.com",
+    "email": "geral@glsportalegre.com",
+    "phone": "",
+    "source": "https://glsportalegre.com/contacto/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Forma Preferida",
+    "sector": "Serviços",
+    "email_area": "Serviços Profissionais",
+    "location": "Beja",
+    "website": "https://formapreferida.pt",
+    "email": "geral@formapreferida.pt",
+    "phone": "",
+    "source": "https://formapreferida.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Botelho e Filhos",
+    "sector": "Automóvel",
+    "email_area": "Comércio & Indústria",
+    "location": "Beja",
+    "website": "https://botelhoefilho.pt",
+    "email": "atendimento@botelhoefilho.pt",
+    "phone": "",
+    "source": "https://www.botelhoefilho.pt/contactos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Uniga",
+    "sector": "Serviços",
+    "email_area": "Serviços Profissionais",
+    "location": "Moura, Beja",
+    "website": "https://uniga.pt",
+    "email": "geral@uniga.pt",
+    "phone": "",
+    "source": "https://www.uniga.pt/contactos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "HigieneArt",
+    "sector": "Produtos de limpeza",
+    "email_area": "Comércio & Indústria",
+    "location": "Bragança",
+    "website": "https://higieneart.com",
+    "email": "geral@higieneart.com",
+    "phone": "",
+    "source": "https://higieneart.com/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Leiribeja",
+    "sector": "Transportes",
+    "email_area": "Comércio & Indústria",
+    "location": "Beja",
+    "website": "https://leiribeja.pt",
+    "email": "geral@leiribeja.pt",
+    "phone": "",
+    "source": "https://leiribeja.pt/?page_id=1321",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "MaisBrindes",
+    "sector": "Brindes promocionais",
+    "email_area": "Comércio & Indústria",
+    "location": "Bragança",
+    "website": "https://maisbrindes.pt",
+    "email": "geral@maisbrindes.pt",
+    "phone": "",
+    "source": "https://www.maisbrindes.pt/pt/contatos-e-localizacao",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Alumipax",
+    "sector": "Caixilharia",
+    "email_area": "Comércio & Indústria",
+    "location": "Beja",
+    "website": "https://alumipax.pt",
+    "email": "geral@alumipax.pt",
+    "phone": "",
+    "source": "https://alumipax.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Damião e Belo",
+    "sector": "Construção",
+    "email_area": "Comércio & Indústria",
+    "location": "Portalegre",
+    "website": "https://damiaoebelo.pt",
+    "email": "geral@d-b.pt",
+    "phone": "",
+    "source": "https://damiaoebelo.pt/contactos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "ES Clima",
+    "sector": "Climatização",
+    "email_area": "Comércio & Indústria",
+    "location": "Bragança",
+    "website": "https://esclima.pt",
+    "email": "geral@esclima.pt",
+    "phone": "",
+    "source": "https://www.esclima.pt/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Centro Escritórios",
+    "sector": "Arrendamento de escritórios",
+    "email_area": "Comércio & Indústria",
+    "location": "Santarém",
+    "website": "https://centroescritorios.pt",
+    "email": "geral@centroescritorios.pt",
+    "phone": "",
+    "source": "https://centroescritorios.pt/sobre-nos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Scalconta",
+    "sector": "Contabilidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Santarém",
+    "website": "https://scalconta.pt",
+    "email": "geral@scalconta.pt",
+    "phone": "",
+    "source": "https://www.scalconta.pt/contactos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Informex",
+    "sector": "Contabilidade e seguros",
+    "email_area": "Serviços Profissionais",
+    "location": "Viseu",
+    "website": "https://informexviseu.com",
+    "email": "geral@informexviseu.com",
+    "phone": "",
+    "source": "https://informexviseu.com/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "IWS",
+    "sector": "Serviços",
+    "email_area": "Serviços Profissionais",
+    "location": "Santarém",
+    "website": "https://iws.pt",
+    "email": "geral@iws.pt",
+    "phone": "",
+    "source": "https://www.iws.pt/contactos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Vianês",
+    "sector": "Indústria alimentar",
+    "email_area": "Comércio & Indústria",
+    "location": "Viana do Castelo",
+    "website": "https://vianes.pt",
+    "email": "geral@vianes.pt",
+    "phone": "",
+    "source": "https://vianes.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Gabinete CS",
+    "sector": "Contabilidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Viana do Castelo",
+    "website": "https://gabinetecs.com",
+    "email": "geral@gabinete.pt",
+    "phone": "",
+    "source": "https://gabinetecs.com/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "HEN",
+    "sector": "Eficiência energética",
+    "email_area": "Comércio & Indústria",
+    "location": "Guarda",
+    "website": "https://hen.pt",
+    "email": "geral@hen.pt",
+    "phone": "",
+    "source": "https://www.hen.pt/pt/quem-somos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "FiscoViana",
+    "sector": "Contabilidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Viana do Castelo",
+    "website": "https://fiscoviana.pt",
+    "email": "geral@fiscoviana.pt",
+    "phone": "",
+    "source": "https://fiscoviana.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Quimialbi",
+    "sector": "Equipamentos de limpeza",
+    "email_area": "Comércio & Indústria",
+    "location": "Castelo Branco",
+    "website": "https://quimialbi.pt",
+    "email": "geral@quimialbi.pt",
+    "phone": "",
+    "source": "https://www.quimialbi.pt/sobre-nos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Viseugest",
+    "sector": "Contabilidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Viseu",
+    "website": "https://viseugest.pt",
+    "email": "geral@viseugest.pt",
+    "phone": "",
+    "source": "https://www.viseugest.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Contiviseu",
+    "sector": "Contabilidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Viseu",
+    "website": "https://contiviseu.pt",
+    "email": "geral@contiviseu.pt",
+    "phone": "",
+    "source": "https://www.contiviseu.pt/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Universalcare",
+    "sector": "Limpeza técnica",
+    "email_area": "Comércio & Indústria",
+    "location": "Guarda",
+    "website": "https://universalcare.pt",
+    "email": "geral@universalcare.pt",
+    "phone": "",
+    "source": "https://universalcare.pt/a-universalcare/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "AGF Formação",
+    "sector": "Formação",
+    "email_area": "Serviços Profissionais",
+    "location": "Leiria",
+    "website": "https://agf-formacao.pt",
+    "email": "geral@agf-formacao.pt",
+    "phone": "",
+    "source": "https://agf-formacao.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Herdade Vale d'Évora",
+    "sector": "Agricultura",
+    "email_area": "Comércio & Indústria",
+    "location": "Mértola, Beja",
+    "website": "https://herdadevaledevora.pt",
+    "email": "geral@herdadevaledevora.pt",
+    "phone": "",
+    "source": "https://herdadevaledevora.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Factor H",
+    "sector": "Formação",
+    "email_area": "Serviços Profissionais",
+    "location": "Leiria",
+    "website": "https://factorh.pt",
+    "email": "geral@factorh.pt",
+    "phone": "",
+    "source": "https://www.factorh.pt/sobre/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Agrovisul",
+    "sector": "Agricultura",
+    "email_area": "Comércio & Indústria",
+    "location": "Évora",
+    "website": "https://agrovisul.pt",
+    "email": "geral@agrovisul.pt",
+    "phone": "",
+    "source": "https://agrovisul.pt/contacte-nos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "PRO eLearning Institute",
+    "sector": "Formação",
+    "email_area": "Serviços Profissionais",
+    "location": "Leiria",
+    "website": "https://proinstitute.pt",
+    "email": "geral@proinstitute.pt",
+    "phone": "",
+    "source": "https://proinstitute.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Microplant",
+    "sector": "Biotecnologia vegetal",
+    "email_area": "Comércio & Indústria",
+    "location": "Évora",
+    "website": "https://microplant.pt",
+    "email": "geral@microplant.pt",
+    "phone": "",
+    "source": "https://microplant.pt/contacto/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Isauro",
+    "sector": "Ferramentas industriais",
+    "email_area": "Comércio & Indústria",
+    "location": "Aveiro",
+    "website": "https://isauro.pt",
+    "email": "geral@isauro.pt",
+    "phone": "",
+    "source": "https://isauro.pt/quem-somos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Unisolda",
+    "sector": "Equipamentos industriais",
+    "email_area": "Comércio & Indústria",
+    "location": "Aveiro",
+    "website": "https://unisolda.pt",
+    "email": "geral@unisolda.pt",
+    "phone": "",
+    "source": "https://unisolda.pt/contactos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "JSC",
+    "sector": "Serviços industriais",
+    "email_area": "Serviços Profissionais",
+    "location": "Aveiro",
+    "website": "https://jsc.pt",
+    "email": "geral@jsc.pt",
+    "phone": "",
+    "source": "https://www.jsc.pt/contactos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Exsepi",
+    "sector": "Automação industrial",
+    "email_area": "Comércio & Indústria",
+    "location": "Anadia, Aveiro",
+    "website": "https://exsepi.com",
+    "email": "geral@exsepi.com",
+    "phone": "",
+    "source": "https://exsepi.com/language/pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Filosoft",
+    "sector": "Software",
+    "email_area": "Comércio & Indústria",
+    "location": "Leiria",
+    "website": "https://filosoft.pt",
+    "email": "geral@filosoft.pt",
+    "phone": "",
+    "source": "https://www.filosoft.pt/contactos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Metaveiro",
+    "sector": "Indústria",
+    "email_area": "Comércio & Indústria",
+    "location": "Albergaria-a-Velha, Aveiro",
+    "website": "https://metaveirogrupo.com",
+    "email": "geral@metaveiro.com",
+    "phone": "",
+    "source": "https://www.metaveirogrupo.com/contact",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Ibereno",
+    "sector": "Equipamentos alimentares",
+    "email_area": "Comércio & Indústria",
+    "location": "Aveiro",
+    "website": "https://ibereno.pt",
+    "email": "geral@ibereno.pt",
+    "phone": "",
+    "source": "https://www.ibereno.pt/quem-somos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "TCG Contabilidade",
+    "sector": "Contabilidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Faro",
+    "website": "https://tcgcontabilidade.pt",
+    "email": "geral@tcglda.pt",
+    "phone": "",
+    "source": "https://www.tcgcontabilidade.pt/contactos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Sinervita",
+    "sector": "Consultoria",
+    "email_area": "Serviços Profissionais",
+    "location": "Vila Real",
+    "website": "https://sinervita.pt",
+    "email": "geral@sinervita.pt",
+    "phone": "",
+    "source": "https://www.upindustrytool.pt/pt/startups/sinervita",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Ivagarbe",
+    "sector": "Contabilidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Faro",
+    "website": "https://ivagarbe.pt",
+    "email": "geral@ivagarbe.pt",
+    "phone": "",
+    "source": "https://ivagarbe.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Outsupport",
+    "sector": "Consultoria e formação",
+    "email_area": "Serviços Profissionais",
+    "location": "Coimbra",
+    "website": "https://outsupport.pt",
+    "email": "geral@outsupport.pt",
+    "phone": "",
+    "source": "https://outsupport.pt/contatos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "J M Santos e Neto",
+    "sector": "Equipamento escritório",
+    "email_area": "Comércio & Indústria",
+    "location": "Faro",
+    "website": "https://jmsantosneto.pt",
+    "email": "geral@jmsantosneto.pt",
+    "phone": "",
+    "source": "https://occ.pt/pt-pt/protocolos/jm-santos-neto",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Alto Fuste",
+    "sector": "Consultoria agrária",
+    "email_area": "Serviços Profissionais",
+    "location": "Vila Real",
+    "website": "https://altofuste.pt",
+    "email": "geral@altofuste.pt",
+    "phone": "",
+    "source": "https://diretorio.fiz.co/alto-fuste-consultoria-e-gestao-agraria-lda-504564161",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Calculus",
+    "sector": "Contabilidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Faro",
+    "website": "https://calculus.pt",
+    "email": "geral@calculus.pt",
+    "phone": "",
+    "source": "https://calculus.pt/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Forma Z",
+    "sector": "Serviços",
+    "email_area": "Serviços Profissionais",
+    "location": "Coimbra",
+    "website": "https://formaz.pt",
+    "email": "geral@formaz.pt",
+    "phone": "",
+    "source": "https://formaz.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Assistab",
+    "sector": "Contabilidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Faro",
+    "website": "https://assistab.com",
+    "email": "geral@assistab.com",
+    "phone": "",
+    "source": "https://diretorio.fiz.co/assistab-contabilidade-e-assistencia-fiscal-lda-506376826",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Engisun",
+    "sector": "Energia",
+    "email_area": "Comércio & Indústria",
+    "location": "Vila Real",
+    "website": "https://engisun.pt",
+    "email": "geral@engisun.pt",
+    "phone": "",
+    "source": "https://engisun.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Traçoinox",
+    "sector": "Equipamentos hotelaria",
+    "email_area": "Comércio & Indústria",
+    "location": "Guarda",
+    "website": "https://tracoinox.com",
+    "email": "geral@tracoinox.com",
+    "phone": "",
+    "source": "https://www.tracoinox.com/contactos",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Centro Competências",
+    "sector": "Formação",
+    "email_area": "Serviços Profissionais",
+    "location": "Coimbra",
+    "website": "https://centrocompetencias.pt",
+    "email": "geral@centrocompetencias.pt",
+    "phone": "",
+    "source": "https://centrocompetencias.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "D'Excelência",
+    "sector": "Contabilidade",
+    "email_area": "Serviços Profissionais",
+    "location": "Faro",
+    "website": "https://dexcelencia.com",
+    "email": "geral@dexcelencia.com",
+    "phone": "",
+    "source": "https://dexcelencia.com/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Comprova",
+    "sector": "Consultoria alimentar",
+    "email_area": "Serviços Profissionais",
+    "location": "Portalegre",
+    "website": "https://comprova.pt",
+    "email": "geral@comprova.pt",
+    "phone": "",
+    "source": "https://comprova.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Alentejo XXI",
+    "sector": "Desenvolvimento local",
+    "email_area": "Comércio & Indústria",
+    "location": "Beja",
+    "website": "https://alentejoxxi.pt",
+    "email": "geral@alentejoxxi.com",
+    "phone": "",
+    "source": "https://alentejoxxi.pt/contactos/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  },
+  {
+    "company": "Kayac",
+    "sector": "Logística",
+    "email_area": "Comércio & Indústria",
+    "location": "Guarda",
+    "website": "https://kayac.pt",
+    "email": "geral@kayac.pt",
+    "phone": "",
+    "source": "https://www.kayac.pt/",
+    "observation": "Empresa e email profissional identificados na fonte pública indicada.",
+    "opportunity": "Apresentação visual de serviços e conteúdos comerciais.",
+    "service": "design"
+  }
+];
+try {
+ const cols=db.prepare('PRAGMA table_info(prospect_crm)').all().map(c=>c.name);
+ for(const col of ['email_area','email_observation','instagram','outreach_channel'])if(!cols.includes(col))db.exec('ALTER TABLE prospect_crm ADD COLUMN '+col+' TEXT');
+ const normSite=s=>{try{return new URL(s).hostname.toLowerCase().replace(/^www\./,'')}catch(_){return ''}};
+ const oldEmails=new Set(),oldCompanies=new Set(),oldSites=new Set();
+ for(const f of fs.readdirSync(__dirname).filter(n=>/^prospect-seed-.*\.js$/i.test(n)&&n!==path.basename(__filename))){
+  const txt=fs.readFileSync(path.join(__dirname,f),'utf8');
+  for(const m of txt.matchAll(/["']email["']\s*:\s*["']([^"']+)["']/g))oldEmails.add(m[1].trim().toLowerCase());
+  for(const m of txt.matchAll(/["']company["']\s*:\s*["']([^"']+)["']/g))oldCompanies.add(m[1].trim().toLowerCase());
+  for(const m of txt.matchAll(/["']website["']\s*:\s*["']([^"']+)["']/g)){const site=normSite(m[1]);if(site)oldSites.add(site)}
+ }
+ const sites=new Set(db.prepare("SELECT website FROM prospect_crm WHERE website IS NOT NULL AND trim(website)<>''").all().map(x=>normSite(x.website)).filter(Boolean));
+ const deletedCompany=db.prepare("SELECT 1 FROM deleted_prospects WHERE lower(trim(company))=? LIMIT 1");
+ const hasEmail=db.prepare('SELECT 1 FROM users WHERE lower(trim(email))=? LIMIT 1'),hasCompany=db.prepare('SELECT 1 FROM users WHERE is_prospect=1 AND lower(trim(company))=? LIMIT 1');
+ const addUser=db.prepare('INSERT INTO users(name,email,password_hash,role,company,phone,is_prospect,is_active) VALUES(?,?,?,?,?,?,1,0)');
+ const addCrm=db.prepare("INSERT INTO prospect_crm(user_id,sector,email_area,location,website,instagram,opportunity,idea,email_observation,recommended_plan,solution_text,monthly_value,offer_value,lead_status,priority,notes,proposal_email,outreach_channel,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))");
+ const pwd=bcrypt.hashSync(crypto.randomBytes(24).toString('hex'),10),seenE=new Set(),seenC=new Set(),seenS=new Set();
+ let added=0,skipped=0;
+ db.transaction(()=>{for(const x of L){
+  const email=x.email.trim().toLowerCase(),company=x.company.trim().toLowerCase(),domain=email.split('@')[1],site=normSite(x.website);
+  if(!domain||/^(gmail\.com|hotmail\.com|outlook\.com|yahoo\.[a-z.]+|icloud\.com|sapo\.pt)$/i.test(domain)||/^no-?reply@/i.test(email)||!x.source||!x.email_area||wasDeleted(email)||deletedCompany.get(company)||oldEmails.has(email)||oldCompanies.has(company)||(site&&oldSites.has(site))||seenE.has(email)||seenC.has(company)||(site&&seenS.has(site))||hasEmail.get(email)||hasCompany.get(company)||(site&&sites.has(site))){skipped++;continue}
+  seenE.add(email);seenC.add(company);if(site)seenS.add(site);
+  const service=x.service==='design'?'design gráfico e materiais comerciais':x.service==='redes'?'gestão de redes sociais':'design gráfico e comunicação nas redes sociais';
+  const proposal='Olá, sou o Nuno, da DUIT. Estive a conhecer a '+x.company+'. Posso ajudar com '+service+', nomeadamente com '+x.opportunity.toLowerCase()+' Se fizer sentido para si, terei gosto em conversar consigo. Cumprimentos, Nuno.';
+  const id=Number(addUser.run(x.company,email,pwd,'client',x.company,x.phone||'').lastInsertRowid);
+  addCrm.run(id,x.sector,x.email_area,x.location,x.website||'','',x.opportunity,x.opportunity,x.source+' — email profissional publicado na fonte indicada (verificado em 2026-11-04).','intermedio',service,200,100,'por_contactar','normal',x.observation+' Fonte: '+x.source+'; serviço sugerido: '+x.service,proposal,'email');
+  added++;
+ }})();
+ console.log('[crm] seed 2026-11-04:',added,'adicionados,',skipped,'ignorados');
+}catch(e){console.warn('[crm] seed 2026-11-04:',e.message)}
