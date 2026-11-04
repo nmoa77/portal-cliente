@@ -527,12 +527,12 @@
 
     const MIN_SAMPLE=30;
     const pct=(n,d)=>d?Math.round(n/d*100):0;
-    const rows=[...groups.values()].filter(g=>g.sent>0).sort((a,b)=>{
+    const rows=[...groups.values()].filter(g=>g.total>0).sort((a,b)=>{
       const ar=a.sent?a.opened/a.sent:0,br=b.sent?b.opened/b.sent:0;
       return br-ar||b.sent-a.sent;
     });
 
-    if(!rows.length)return '<div class="card" style="padding:18px;margin-bottom:16px"><div class="eyebrow">Performance por abordagem</div><strong>Ainda não existem envios suficientes para comparar abordagens.</strong></div>';
+    if(!rows.length)return '<div class="card" style="padding:18px;margin-bottom:16px"><div class="eyebrow">Performance por abordagem</div><strong>Ainda não existem abordagens associadas a prospects.</strong></div>';
 
     const eligible=rows.filter(g=>g.sent>=MIN_SAMPLE);
     const best=eligible.length?eligible[0]:null;
