@@ -525,6 +525,26 @@
       if(['interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||'')==='accepted')g.interested++;
     }
 
+    const lpGroups=new Map();
+    for(const p of crmProspects){
+      const lp=crmEffectiveLandingPage(p);
+      if(!lp||String(lp.slug||'').toLowerCase()==='site-duit')continue;
+      const key=Number(lp.id)||String(lp.slug||lp.title||'lp');
+      if(!lpGroups.has(key))lpGroups.set(key,{name:lp.title||lp.slug||'Landing Page',slug:lp.slug||'',total:0,sent:0,opened:0,clicked:0,replied:0,interested:0});
+      const g=lpGroups.get(key);
+      g.total++;
+      const rs=String(p.resend_status||'').toLowerCase();
+      const hardFail=['suppressed','failed','bounced','complained'].includes(rs);
+      const confirmedSent=!!p.resend_email_id||['sent','delivered','opened','clicked','delivery_delayed'].includes(rs);
+      if(!confirmedSent)continue;
+      g.sent++;
+      const pixelOpen=Boolean(p.email_first_opened_at)||Number(p.email_open_count||0)>0;
+      if(!hardFail&&(pixelOpen||['opened','clicked'].includes(rs)))g.opened++;
+      if(Number(p.cta_click_count||0)>0||rs==='clicked')g.clicked++;
+      if(['respondeu','interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||''))g.replied++;
+      if(['interessado','proposta'].includes(String(p.lead_status||''))||String(p.outreach_response||'')==='accepted')g.interested++;
+    }
+
     const MIN_SAMPLE=30;
     const pct=(n,d)=>d?Math.round(n/d*100):0;
     const rows=[...groups.values()].filter(g=>g.total>0).sort((a,b)=>{
@@ -614,6 +634,17 @@
 
       <div style="font-size:10px;color:var(--muted);margin-top:10px;line-height:1.5">
         Entregues e cliques usam estados confirmados pelo Resend. Quando a cobertura Resend é inferior a 80%, a taxa de entrega não é apresentada para evitar conclusões erradas sobre envios históricos.
+      </div>
+
+      <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--line)">
+        <div class="eyebrow">Performance por Landing Page</div>
+        <h3 style="margin:3px 0 4px">Que página está a gerar mais atenção</h3>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Compara a LP associada ao prospect desde o envio até ao interesse.</div>
+        ${(()=>{
+          const lpRows=[...lpGroups.values()].filter(g=>g.total>0).sort((a,b)=>{const ar=a.sent?a.opened/a.sent:0,br=b.sent?b.opened/b.sent:0;return br-ar||b.sent-a.sent});
+          if(!lpRows.length)return '<div style="padding:14px 0;color:var(--muted)">Ainda não existem Landing Pages associadas a prospects.</div>';
+          return `<div style="overflow-x:auto"><table class="table" style="min-width:900px"><thead><tr><th>Landing Page</th><th>Enviados</th><th>Abertos</th><th>Taxa abertura</th><th>Cliques</th><th>Responderam</th><th>Interesse</th></tr></thead><tbody>${lpRows.map(g=>`<tr><td><strong>${safe(g.name)}</strong><div style="font-size:11px;color:var(--muted)">${g.total} prospect${g.total===1?'':'s'} associados${g.slug?' · '+safe(g.slug):''}</div></td><td><strong>${g.sent}</strong></td><td><strong>${g.opened}</strong></td><td>${rateCell(g.opened,g.sent,g.sent<MIN_SAMPLE?'amostra baixa':'')}</td><td><strong>${g.clicked}</strong><div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(g.clicked,g.sent)}% dos enviados</div></td><td><strong>${g.replied}</strong><div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(g.replied,g.sent)}% dos enviados</div></td><td><strong>${g.interested}</strong><div style="font-size:10px;color:var(--muted);margin-top:2px">${pct(g.interested,g.sent)}% dos enviados</div></td></tr>`).join('')}</tbody></table></div>`;
+        })()}
       </div>
     </div>`;
   }
