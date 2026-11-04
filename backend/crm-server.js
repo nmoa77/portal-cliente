@@ -357,9 +357,7 @@ function reconcileAllAreaLandingPages(){
       if(row.email_sent_at||row.email_first_sent_at||Number(row.email_send_count||0)>0)continue;
       // Preservar uma LP ativa já escolhida pelo utilizador.
       if(row.landing_page_id&&Number(row.current_lp_active)===1)continue;
-      const templateName=String(row.template_name||defaultTemplate?.name||'').trim().toLowerCase();
-      if(templateName!=='email por sector')continue;
-
+      // Aplicar a todos os prospects por enviar, independentemente da abordagem.
       const area=effectiveEmailArea(row.sector,row.email_area);
       const mapped=landingPageForEmailArea(area)||landingPageForEmailArea(emailAreaForSector(row.sector));
       const generic=db.prepare("SELECT id FROM landing_pages WHERE slug='duit-start' AND is_active=1 LIMIT 1").get();
@@ -456,6 +454,13 @@ try{
   reconcileExistingProspectAreasAndLandingPagesOnce();
 }catch(e){
   console.warn('[crm] reconciliação áreas/LP:',e.message);
+}
+
+// Reconciliar novamente após migrações antigas, que podem deixar LPs vazias.
+try{
+  reconcileAllAreaLandingPages();
+}catch(e){
+  console.warn('[crm] reconciliação final de LPs pendentes:',e.message);
 }
 
 function defaultSectorContent(sector){
