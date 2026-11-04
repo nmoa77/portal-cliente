@@ -547,14 +547,21 @@ module.exports = function installProspectCrmActions(app) {
     const id=Number(req.params.id);
     const selectedLpId=Number(req.body?.landing_page_id||0);
     const selectedTemplateId=Number(req.body?.email_template_id||0);
-    const resolved=resolveProspectEmail(id,selectedLpId,selectedTemplateId);
-    const approach=resolveProspectApproach(id,selectedTemplateId);
-    if(!resolved)return res.status(404).json({error:'Prospect não encontrado.'});
-    if(resolved.error)return res.status(400).json({error:resolved.error});
-    const p=resolved.prospect;
-    if(!p.email)return res.status(400).json({error:'Este prospect não tem email.'});
-    const composed=composeProspectEmail(resolved,approach,'preview',false);
-    res.json({subject:composed.subject,html:composed.html});
+
+    // O preview usa exatamente o mesmo pipeline do envio:
+    // LP efetiva -> resolução -> abordagem -> normalização -> validação -> composição final.
+    // allowResend=true apenas evita bloquear o preview de contactos já enviados.
+    const check=validateProspectSend(id,selectedLpId,selectedTemplateId,true);
+    if(!check.ok)return res.status(400).json({error:check.error});
+
+    const composed=check.composed;
+    res.json({
+      subject:composed.subject,
+      html:composed.html,
+      landing_page_id:composed.lp?.id||null,
+      landing_page_title:composed.lp?.title||null,
+      target_url:composed.targetUrl||null
+    });
   });
 
   app.post('/api/crm/prospects/:id/send-email',requireAdmin,async(req,res)=>{
