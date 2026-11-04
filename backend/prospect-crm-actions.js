@@ -335,6 +335,10 @@ module.exports = function installProspectCrmActions(app) {
     // em vez de gerar HTML inválido e bloquear a validação do envio.
     out=out.replace(/<img\b[^>]*\bsrc=(["'])\s*\1[^>]*>/gi,'');
 
+    // Links opcionais vazios também não devem invalidar todo o email.
+    // Mantém o conteúdo visual, removendo apenas a âncora sem destino.
+    out=out.replace(/<a\b([^>]*?)\bhref=(["'])\s*\2([^>]*)>([\s\S]*?)<\/a>/gi,'$4');
+
     // DUIT: apenas preto + amarelo no bloco visual.
     out=out
       .replace(/background:#16B3B1/gi,'background:#FFD200')
