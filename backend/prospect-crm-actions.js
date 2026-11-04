@@ -24,6 +24,29 @@ module.exports = function installProspectCrmActions(app) {
         AND COALESCE(email_send_count,0)=0`).run();
   } catch (e) { console.warn('[crm] cleanup landing_page_id sem envio:', e.message); }
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS prospect_email_sends (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      tracking_token TEXT NOT NULL UNIQUE,
+      resend_email_id TEXT,
+      resend_status TEXT,
+      sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+      first_opened_at TEXT,
+      last_opened_at TEXT,
+      open_count INTEGER NOT NULL DEFAULT 0,
+      landing_page_id INTEGER,
+      email_template_id INTEGER,
+      cta_target_url TEXT,
+      cta_first_clicked_at TEXT,
+      cta_last_clicked_at TEXT,
+      cta_click_count INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_prospect_email_sends_user ON prospect_email_sends(user_id,sent_at);
+    CREATE INDEX IF NOT EXISTS idx_prospect_email_sends_resend ON prospect_email_sends(resend_email_id);
+  `);
+
   const pixel = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
   const portal = (process.env.PORTAL_URL || 'https://cliente.duit.pt').replace(/\/+$/, '');
@@ -222,10 +245,44 @@ module.exports = function installProspectCrmActions(app) {
   });
 
   app.get('/api/crm/prospects/send-limit',requireAdmin,(req,res)=>res.json(sendingState()));
-  app.get('/api/crm/prospects/email-open/:token.png',(req,res)=>{try{const token=String(req.params.token||'');if(token)db.prepare(`UPDATE prospect_crm SET email_first_opened_at=COALESCE(email_first_opened_at,datetime('now')),email_last_opened_at=datetime('now'),email_open_count=COALESCE(email_open_count,0)+1 WHERE email_tracking_token=?`).run(token);}catch(e){console.warn('[crm] tracking email:',e.message);}res.set('Content-Type','image/png');res.set('Cache-Control','no-store, no-cache, must-revalidate, private');res.send(pixel);});
+  app.get('/api/crm/prospects/email-open/:token.png',(req,res)=>{
+    try{
+      const token=String(req.params.token||'');
+      if(token){
+        const send=db.prepare('SELECT id,user_id FROM prospect_email_sends WHERE tracking_token=?').get(token);
+        if(send){
+          db.prepare(`UPDATE prospect_email_sends
+            SET first_opened_at=COALESCE(first_opened_at,datetime('now')),
+                last_opened_at=datetime('now'),
+                open_count=COALESCE(open_count,0)+1
+            WHERE id=?`).run(send.id);
+          const agg=db.prepare(`SELECT MIN(first_opened_at) first_opened_at,MAX(last_opened_at) last_opened_at,SUM(open_count) open_count
+            FROM prospect_email_sends WHERE user_id=?`).get(send.user_id);
+          db.prepare(`UPDATE prospect_crm SET
+            email_first_opened_at=?,
+            email_last_opened_at=?,
+            email_open_count=?
+            WHERE user_id=?`).run(agg?.first_opened_at||null,agg?.last_opened_at||null,Number(agg?.open_count||0),send.user_id);
+        }else{
+          db.prepare(`UPDATE prospect_crm SET email_first_opened_at=COALESCE(email_first_opened_at,datetime('now')),email_last_opened_at=datetime('now'),email_open_count=COALESCE(email_open_count,0)+1 WHERE email_tracking_token=?`).run(token);
+        }
+      }
+    }catch(e){console.warn('[crm] tracking email:',e.message);}
+    res.set('Content-Type','image/png');
+    res.set('Cache-Control','no-store, no-cache, must-revalidate, private');
+    res.send(pixel);
+  });
   app.post('/api/public/prospect-outreach/:token/view',(req,res)=>{const token=String(req.params.token||'');const p=db.prepare(`SELECT user_id FROM prospect_crm WHERE email_tracking_token=?`).get(token);if(!p)return res.status(404).json({error:'Ligação inválida ou expirada.'});db.prepare(`UPDATE prospect_crm SET proposal_first_viewed_at=COALESCE(proposal_first_viewed_at,datetime('now')),proposal_last_viewed_at=datetime('now'),proposal_view_count=COALESCE(proposal_view_count,0)+1,updated_at=datetime('now') WHERE email_tracking_token=?`).run(token);res.json({ok:true});});
   app.get('/api/public/prospect-cta/:token',(req,res)=>{
     const token=String(req.params.token||'');
+    const send=db.prepare('SELECT id,user_id,cta_target_url FROM prospect_email_sends WHERE tracking_token=?').get(token);
+    if(send&&send.cta_target_url){
+      db.prepare(`UPDATE prospect_email_sends SET cta_first_clicked_at=COALESCE(cta_first_clicked_at,datetime('now')),cta_last_clicked_at=datetime('now'),cta_click_count=COALESCE(cta_click_count,0)+1 WHERE id=?`).run(send.id);
+      const agg=db.prepare(`SELECT MIN(cta_first_clicked_at) first_clicked_at,MAX(cta_last_clicked_at) last_clicked_at,SUM(cta_click_count) click_count FROM prospect_email_sends WHERE user_id=?`).get(send.user_id);
+      db.prepare(`UPDATE prospect_crm SET cta_first_clicked_at=?,cta_last_clicked_at=?,cta_click_count=?,updated_at=datetime('now') WHERE user_id=?`).run(agg?.first_clicked_at||null,agg?.last_clicked_at||null,Number(agg?.click_count||0),send.user_id);
+      res.set('Cache-Control','no-store');
+      return res.redirect(302,send.cta_target_url);
+    }
     const p=db.prepare(`SELECT cta_target_url FROM prospect_crm WHERE email_tracking_token=?`).get(token);
     if(!p||!p.cta_target_url)return res.status(404).send('Ligação inválida ou expirada.');
     db.prepare(`UPDATE prospect_crm SET cta_first_clicked_at=COALESCE(cta_first_clicked_at,datetime('now')),cta_last_clicked_at=datetime('now'),cta_click_count=COALESCE(cta_click_count,0)+1,updated_at=datetime('now') WHERE email_tracking_token=?`).run(token);
@@ -483,7 +540,9 @@ module.exports = function installProspectCrmActions(app) {
     const {subject,body,lp,targetUrl,html,text}=composed;
     const delivery=await deliver(db,{to:p.email,subject,body:text,html,user_id:id,kind:'prospect_outreach',force:true});
     if(delivery?.sent){
-      db.prepare(`UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,email_tracking_token=?,email_first_sent_at=COALESCE(email_first_sent_at,datetime('now')),email_sent_at=datetime('now'),email_send_count=COALESCE(email_send_count,0)+1,email_first_opened_at=NULL,email_last_opened_at=NULL,email_open_count=0,cta_first_clicked_at=NULL,cta_last_clicked_at=NULL,cta_click_count=0,cta_target_url=?,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),resend_email_id=?,resend_status=?,resend_status_at=datetime('now'),resend_error=NULL,updated_at=datetime('now') WHERE user_id=?`)
+      db.prepare(`INSERT INTO prospect_email_sends(user_id,tracking_token,resend_email_id,resend_status,landing_page_id,email_template_id,cta_target_url)
+        VALUES(?,?,?,?,?,?,?)`).run(id,token,delivery?.id||null,delivery?.status||'sent',lp?lp.id:null,approach?.template?.id||resolved.template?.id||null,targetUrl);
+      db.prepare(`UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,email_tracking_token=?,email_first_sent_at=COALESCE(email_first_sent_at,datetime('now')),email_sent_at=datetime('now'),email_send_count=COALESCE(email_send_count,0)+1,cta_target_url=?,lead_status='contactado',first_contact_at=COALESCE(first_contact_at,date('now')),resend_email_id=?,resend_status=?,resend_status_at=datetime('now'),resend_error=NULL,updated_at=datetime('now') WHERE user_id=?`)
         .run(lp?lp.id:null,approach?.template?.id||resolved.template?.id||null,token,targetUrl,delivery?.id||null,delivery?.status||'sent',id);
     }else{
       db.prepare(`UPDATE prospect_crm SET resend_email_id=?,resend_status=?,resend_status_at=datetime('now'),resend_error=?,updated_at=datetime('now') WHERE user_id=?`)
