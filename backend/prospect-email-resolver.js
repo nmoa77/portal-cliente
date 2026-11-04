@@ -377,7 +377,7 @@ function prospectRow(userId){
     s.advantage_4_title sector_advantage_4_title,s.advantage_4_text sector_advantage_4_text,
     s.landing_page_id sector_landing_page_id, alp.public_key sector_landing_page_key, alp.title sector_landing_page_title
     FROM users u LEFT JOIN prospect_crm c ON c.user_id=u.id
-    LEFT JOIN prospect_sector_content s ON lower(TRIM(s.sector))=lower(TRIM(COALESCE(NULLIF(c.email_area,''),c.sector)))
+    LEFT JOIN prospect_sector_content s ON lower(TRIM(s.sector))=lower(TRIM(NULLIF(c.email_area,'')))
     LEFT JOIN landing_pages alp ON alp.id=s.landing_page_id AND alp.is_active=1
     WHERE u.id=? AND u.is_prospect=1`).get(Number(userId));
 }
@@ -407,10 +407,39 @@ function resolveProspectEmail(userId,landingPageId,emailTemplateId){
 
   const lpId=Number(landingPageId||p.landing_page_id||0);
   const selectedTemplateId=Number(emailTemplateId||p.email_template_id||0);
+  const hasEmailArea=Boolean(String(p.email_area||'').trim());
 
-  // Quando existe uma abordagem selecionada/gravadа no prospect (ex.: "Email por sector"),
-  // essa abordagem define SEMPRE o conteúdo do email. A Landing Page serve
-  // apenas como destino do CTA e não precisa de ter texto/HTML de email próprio.
+  // Regra DUIT:
+  // sem Área do email definida, a Landing Page associada é a fonte principal
+  // do preview e do envio. Não se tenta inferir conteúdo pelo setor.
+  if(!hasEmailArea&&lpId){
+    const lp=db.prepare('SELECT * FROM landing_pages WHERE id=? AND is_active=1').get(lpId);
+    if(!lp)return {error:'Landing Page não encontrada ou inativa.'};
+
+    const pForLp={...p,sector_landing_page_key:lp.public_key,sector_landing_page_title:lp.title,sector_landing_page_id:lp.id};
+    const subject=fill(lp.email_subject,pForLp)||('DUIT — '+lp.title);
+    const body=fill(lp.email_body,pForLp);
+    const emailHtml=fill(lp.email_html,pForLp);
+    const emailFormat=String(lp.email_format||'text')==='html'&&emailHtml.trim()?'html':'text';
+
+    if(emailFormat==='html'&&!emailHtml.trim())return {error:'A Landing Page associada está em modo HTML mas ainda não tem HTML configurado.'};
+    if(emailFormat==='text'&&!body.trim())return {error:'A Landing Page associada ainda não tem texto de email configurado.'};
+
+    return {
+      prospect:pForLp,
+      source_type:'landing_page_no_area',
+      source_name:lp.title,
+      landing_page:lp,
+      template:null,
+      subject,
+      body,
+      email_html:emailHtml,
+      email_format:emailFormat
+    };
+  }
+
+  // Quando existe Área do email, a abordagem selecionada pode definir o conteúdo
+  // e a Landing Page funciona como destino do CTA.
   if(selectedTemplateId){
     const tpl=getTemplate(selectedTemplateId);
     if(!tpl)return {error:'A abordagem selecionada não existe ou está inativa.'};
