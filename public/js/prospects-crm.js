@@ -432,7 +432,7 @@
   function crmEmailAreaOptions(selected=''){
     const current=String(selected||'').trim();
     const names=(crmSectorContent||[]).map(x=>String(x.sector||'').trim()).filter(Boolean);
-    return '<option value="">— escolher área —</option>'+names.map(name=>`<option value="${safe(name)}" ${name===current?'selected':''}>${safe(name)}</option>`).join('');
+    return '<option value="">— sem área · LP Design —</option>'+names.map(name=>`<option value="${safe(name)}" ${name===current?'selected':''}>${safe(name)}</option>`).join('');
   }
   function refreshCrmSectorSelect(selected){
     const el=document.getElementById('crm-sector');if(!el)return;
@@ -629,8 +629,26 @@
   window.viewProspects=async main=>{installStyles();ensureModal();try{await loadProspects();renderCrmTable(main)}catch(e){main.innerHTML=`<div class="empty">Erro: ${safe(e.message)}</div>`}};
   window.crmSetFilter=(key,value)=>{crmFilter[key]=value;renderCrmTable(document.getElementById('main'));if(key==='q'){const el=document.getElementById('crm-search');if(el){el.focus();el.setSelectionRange(el.value.length,el.value.length)}}}; window.crmSetSocialFilter=value=>{crmSocialFilter=value;renderCrmTable(document.getElementById('main'))};
   window.crmToggleDateSort=(field='last')=>{if(crmDateSortField!==field){crmDateSortField=field;crmDateSort='desc'}else{crmDateSort=crmDateSort==='none'?'desc':crmDateSort==='desc'?'asc':'desc'}renderCrmTable(document.getElementById('main'))};
+  function crmGeneralDesignLp(){
+    return (crmLandingPages||[]).find(lp=>{
+      const title=String(lp.title||'').trim().toLowerCase();
+      const slug=String(lp.slug||'').trim().toLowerCase();
+      return Number(lp.is_active)!==0&&(title==='duit design'||slug==='duit-design'||slug==='design');
+    })||null;
+  }
   window.crmEmailAreaChanged=async function(){
     try{
+      const area=String(document.getElementById('crm-email-area')?.value||'').trim().toLowerCase();
+      const lpSelect=document.getElementById('crm-landing-page');
+      if(lpSelect){
+        if(area){
+          const row=(crmSectorContent||[]).find(x=>String(x.sector||'').trim().toLowerCase()===area);
+          lpSelect.value=row?.landing_page_id||'';
+        }else{
+          const generic=crmGeneralDesignLp();
+          lpSelect.value=generic?.id||'';
+        }
+      }
       await autoSaveCurrent();
       await crmReloadAreasForPreview();
       await crmRefreshEmailPreview();
