@@ -158,32 +158,68 @@
   function buildAnalyticsHtml(){
     const rows = currentAnalyticsRows();
     const total = rows.length;
-    const sentRows = rows.filter(p => {
+    const hardFailStates = new Set(['suppressed','failed','bounced','complained']);
+    const providerAcceptedStates = new Set(['sent','delivered','opened','clicked','delivery_delayed']);
+    const deliveredStates = new Set(['delivered','opened','clicked']);
+
+    const attemptedRows = rows.filter(p => {
       const rs=String(p.resend_status||'').toLowerCase();
-      return !!p.resend_email_id || ['sent','delivered','opened','clicked','delivery_delayed'].includes(rs);
+      return !!p.email_sent_at || !!p.resend_email_id || !!rs;
     });
-    const sent = sentRows.length;
-    const openedRows = sentRows.filter(p => !!p.email_first_opened_at || Number(p.email_open_count || 0) > 0);
+    const attempted = attemptedRows.length;
+
+    const contactedRows = rows.filter(p => {
+      const rs=String(p.resend_status||'').toLowerCase();
+      if(hardFailStates.has(rs)) return false;
+      return !!p.email_sent_at || providerAcceptedStates.has(rs);
+    });
+    const contacted = contactedRows.length;
+
+    const failedRows = attemptedRows.filter(p => hardFailStates.has(String(p.resend_status||'').toLowerCase()));
+    const failed = failedRows.length;
+
+    const deliveredRows = contactedRows.filter(p => {
+      const rs=String(p.resend_status||'').toLowerCase();
+      const pixelOpen=!!p.email_first_opened_at || Number(p.email_open_count||0)>0;
+      return deliveredStates.has(rs) || pixelOpen;
+    });
+    const delivered = deliveredRows.length;
+
+    const delayedRows = contactedRows.filter(p => String(p.resend_status||'').toLowerCase()==='delivery_delayed');
+    const delayed = delayedRows.length;
+
+    const openedRows = contactedRows.filter(p => {
+      const rs=String(p.resend_status||'').toLowerCase();
+      const pixelOpen=!!p.email_first_opened_at || Number(p.email_open_count||0)>0;
+      return pixelOpen || ['opened','clicked'].includes(rs);
+    });
     const opened = openedRows.length;
-    const reads = sentRows.reduce((n,p) => n + Number(p.email_open_count || 0), 0);
-    const respondedRows = sentRows.filter(p => !!p.outreach_response || ['respondeu','interessado','proposta'].includes(p.lead_status));
+
+    const reads = contactedRows.reduce((n,p) => n + Number(p.email_open_count || 0), 0);
+    const ctaRows = contactedRows.filter(p => Number(p.cta_click_count||0)>0 || String(p.resend_status||'').toLowerCase()==='clicked');
+    const cta = ctaRows.length;
+    const ctaClicks = contactedRows.reduce((n,p)=>n+Number(p.cta_click_count||0),0);
+
+    const respondedRows = contactedRows.filter(p => !!p.outreach_response || ['respondeu','interessado','proposta'].includes(p.lead_status));
     const responded = respondedRows.length;
-    const interested = rows.filter(p => ['interessado','proposta'].includes(p.lead_status)).length;
+    const interestedRows = rows.filter(p => ['interessado','proposta'].includes(p.lead_status) || p.outreach_response==='accepted');
+    const interested = interestedRows.length;
     const proposalRows = rows.filter(p => p.lead_status === 'proposta' || Number(p.proposal_view_count || 0) > 0);
     const proposals = proposalRows.length;
     const proposalViews = rows.filter(p => Number(p.proposal_view_count || 0) > 0).length;
     const acceptedRows = rows.filter(p => p.outreach_response === 'accepted');
     const accepted = acceptedRows.length;
     const rejected = rows.filter(p => p.outreach_response === 'rejected' || p.lead_status === 'sem_interesse').length;
-    const noReply = Math.max(0, sent - responded);
     const potential = rows.reduce((n,p) => n + Number(p.monthly_value || 0), 0);
     const wonValue = acceptedRows.reduce((n,p) => n + Number(p.monthly_value || 0), 0);
     const ebookOpened = rows.filter(p => Number(p.guide_open_count || 0) > 0).length;
 
-    const unopened = Math.max(0, sent - opened);
+    const unopened = Math.max(0, contacted - opened);
+    const openedNoClick = openedRows.filter(p => Number(p.cta_click_count||0)<=0 && String(p.resend_status||'').toLowerCase()!=='clicked').length;
     const openedNoReply = openedRows.filter(p => !p.outreach_response && !['respondeu','interessado','proposta'].includes(p.lead_status)).length;
     const repliedNoProgress = respondedRows.filter(p => p.outreach_response !== 'accepted' && !['interessado','proposta'].includes(p.lead_status)).length;
     const proposalNoWin = Math.max(0, proposals - accepted);
+    const noReply = Math.max(0, contacted - responded);
 
     const sectors = [...new Set(analyticsState.rows.map(p => sectorGroup(p.sector)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt'));
     const plans = [...new Set(analyticsState.rows.map(p => String(p.recommended_plan || planFromMonthly(p.monthly_value) || '').trim()).filter(Boolean))].sort();
@@ -191,12 +227,13 @@
     const planOptions = plans.map(v => `<option value="${safeText(v)}" ${norm(analyticsState.filters.plan)===norm(v)?'selected':''}>${safeText(planLabel(v))}</option>`).join('');
 
     const funnel = [
-      ['Enviados', sent, sent],
-      ['Abertos', opened, sent],
-      ['Responderam', responded, sent],
-      ['Interessados', interested, sent],
-      ['Propostas', proposals, sent],
-      ['Aceites', accepted, sent]
+      ['Contactados', contacted, contacted],
+      ['Entregues', delivered, contacted],
+      ['Abertos', opened, contacted],
+      ['CTA', cta, contacted],
+      ['Responderam', responded, contacted],
+      ['Interessados', interested, contacted],
+      ['Aceites', accepted, contacted]
     ].map(([label,value,base]) => {
       const width = base > 0 ? Math.max(2, Math.round((value / base) * 100)) : 0;
       return `<div class="funnel-row"><span>${label}</span><div class="funnel-track"><div class="funnel-fill" style="width:${width}%"></div></div><strong>${value}</strong></div>`;
@@ -222,50 +259,58 @@
         const cls=l.warning_level==='critical'?'critical':l.warning_level==='warning'?'warning':'';
         return `<div class="duit-send-quota">
           <div class="duit-send-quota-card ${cls}">
-            <div class="quota-label">Emails disponíveis hoje</div>
+            <div class="quota-label">Capacidade disponível hoje</div>
             <div class="quota-value">${dailyLeft}</div>
-            <div class="quota-sub">${Number(l.today||0)}/${Number(l.daily_limit||100)} enviados hoje</div>
+            <div class="quota-sub">${Number(l.today||0)}/${Number(l.daily_limit||100)} registos de envio hoje</div>
           </div>
           <div class="duit-send-quota-card ${cls}">
-            <div class="quota-label">Emails disponíveis no mês</div>
+            <div class="quota-label">Capacidade disponível no mês</div>
             <div class="quota-value">${monthlyLeft}</div>
-            <div class="quota-sub">${Number(l.month||0)}/${Number(l.monthly_limit||3000)} enviados este mês</div>
+            <div class="quota-sub">${Number(l.month||0)}/${Number(l.monthly_limit||3000)} registos de envio este mês</div>
           </div>
         </div>`;
       })()}
 
       <div class="duit-analytics-summary">
         <div class="duit-analytics-card primary" data-kpi-click="all"><div class="k-label">Prospects</div><div class="k-value">${total}</div><div class="k-sub">no filtro atual</div></div>
-        <div class="duit-analytics-card primary" data-kpi-click="sent"><div class="k-label">Emails enviados</div><div class="k-rate">${pct(sent,total)}</div><div class="k-value">${sent}</div><div class="k-sub">envios confirmados</div></div>
-        <div class="duit-analytics-card primary" data-kpi-click="opened"><div class="k-label">Abertos</div><div class="k-rate">${pct(opened,sent)}</div><div class="k-value">${opened}</div><div class="k-sub">prospects que abriram</div></div>
-        <div class="duit-analytics-card primary success" data-kpi-click="responded"><div class="k-label">Responderam</div><div class="k-rate">${pct(responded,sent)}</div><div class="k-value">${responded}</div><div class="k-sub">respostas recebidas</div></div>
+        <div class="duit-analytics-card primary" data-kpi-click="sent"><div class="k-label">Contactados</div><div class="k-rate">${pct(contacted,total)}</div><div class="k-value">${contacted}</div><div class="k-sub">prospects com envio válido</div></div>
+        <div class="duit-analytics-card primary"><div class="k-label">Entregues</div><div class="k-rate">${pct(delivered,contacted)}</div><div class="k-value">${delivered}</div><div class="k-sub">entrega confirmada ou abertura detetada</div></div>
+        <div class="duit-analytics-card primary" data-kpi-click="opened"><div class="k-label">Abertos</div><div class="k-rate">${pct(opened,contacted)}</div><div class="k-value">${opened}</div><div class="k-sub">prospects com abertura detetada</div></div>
       </div>
 
       <div class="duit-analytics-secondary">
-        <div class="duit-analytics-card" data-kpi-click="opened"><div class="k-label">Leituras</div><div class="k-value">${reads}</div><div class="k-sub">inclui reaberturas</div></div>
-        <div class="duit-analytics-card" data-kpi-click="interested"><div class="k-label">Interessados</div><div class="k-value">${interested}</div><div class="k-sub">${pct(interested,sent)} dos enviados</div></div>
-        <div class="duit-analytics-card" data-kpi-click="proposals"><div class="k-label">Propostas</div><div class="k-value">${proposals}</div><div class="k-sub">${proposalViews} vista(s)</div></div>
-        <div class="duit-analytics-card highlight" data-kpi-click="accepted"><div class="k-label">Taxa de sucesso</div><div class="k-value">${pct(accepted,sent)}</div><div class="k-sub">${accepted} aceite(s)</div></div>
+        <div class="duit-analytics-card"><div class="k-label">Tentativas</div><div class="k-value">${attempted}</div><div class="k-sub">prospects com tentativa registada</div></div>
+        <div class="duit-analytics-card"><div class="k-label">Falhas</div><div class="k-value">${failed}</div><div class="k-sub">${pct(failed,attempted)} das tentativas · bounce/suprimido/falhou/spam</div></div>
+        <div class="duit-analytics-card"><div class="k-label">Entrega atrasada</div><div class="k-value">${delayed}</div><div class="k-sub">${pct(delayed,contacted)} dos contactados</div></div>
+        <div class="duit-analytics-card" data-kpi-click="opened"><div class="k-label">Leituras totais</div><div class="k-value">${reads}</div><div class="k-sub">inclui reaberturas do email</div></div>
+        <div class="duit-analytics-card"><div class="k-label">CTA clicado</div><div class="k-value">${cta}</div><div class="k-sub">${ctaClicks} clique(s) · ${pct(cta,opened)} dos que abriram</div></div>
+        <div class="duit-analytics-card success" data-kpi-click="responded"><div class="k-label">Responderam</div><div class="k-value">${responded}</div><div class="k-sub">${pct(responded,contacted)} dos contactados</div></div>
+        <div class="duit-analytics-card" data-kpi-click="interested"><div class="k-label">Interessados</div><div class="k-value">${interested}</div><div class="k-sub">${pct(interested,contacted)} dos contactados</div></div>
+        <div class="duit-analytics-card" data-kpi-click="proposals"><div class="k-label">Propostas</div><div class="k-value">${proposals}</div><div class="k-sub">${proposalViews} vista(s) pelo prospect</div></div>
+        <div class="duit-analytics-card highlight" data-kpi-click="accepted"><div class="k-label">Conversão</div><div class="k-value">${pct(accepted,contacted)}</div><div class="k-sub">${accepted} aceite(s) em ${contacted} contactados</div></div>
         <div class="duit-analytics-card money" data-kpi-click="accepted"><div class="k-label">Ganho / mês</div><div class="k-value">${money(wonValue)}</div><div class="k-sub">propostas aceites</div></div>
+        <div class="duit-analytics-card money"><div class="k-label">Potencial / mês</div><div class="k-value">${money(potential)}</div><div class="k-sub">pipeline no filtro atual</div></div>
       </div>
 
       <div class="duit-analytics-sections">
         <div class="duit-analytics-panel">
           <h3>Funil comercial</h3>
           ${funnel}
-          <div class="analytics-note">As percentagens são calculadas sobre emails enviados. “Abertos” significa abertura detetada; não garante leitura integral do email.</div>
+          <div class="analytics-note">As percentagens usam prospects contactados como base. “Abertos” é abertura detetada pelo tracking; “Entregues” exige confirmação do fornecedor ou uma abertura real detetada.</div>
         </div>
         <div class="duit-analytics-panel">
           <h3>Onde estamos a perder?</h3>
           <div class="loss-grid">
-            <div class="loss-item"><span>Não abriu</span><b>${unopened}</b><span>${pct(unopened,sent)} dos enviados</span></div>
+            <div class="loss-item"><span>Falha de envio</span><b>${failed}</b><span>${pct(failed,attempted)} das tentativas</span></div>
+            <div class="loss-item"><span>Não abriu</span><b>${unopened}</b><span>${pct(unopened,contacted)} dos contactados</span></div>
+            <div class="loss-item"><span>Abriu, não clicou</span><b>${openedNoClick}</b><span>${pct(openedNoClick,opened)} dos abertos</span></div>
             <div class="loss-item"><span>Abriu, não respondeu</span><b>${openedNoReply}</b><span>${pct(openedNoReply,opened)} dos abertos</span></div>
+            <div class="loss-item"><span>Sem resposta</span><b>${noReply}</b><span>${pct(noReply,contacted)} dos contactados</span></div>
             <div class="loss-item"><span>Respondeu, não avançou</span><b>${repliedNoProgress}</b><span>${pct(repliedNoProgress,responded)} das respostas</span></div>
             <div class="loss-item"><span>Proposta sem sucesso</span><b>${proposalNoWin}</b><span>${pct(proposalNoWin,proposals)} das propostas</span></div>
-            <div class="loss-item"><span>Sem resposta</span><b>${noReply}</b><span>${pct(noReply,sent)} dos enviados</span></div>
-            <div class="loss-item"><span>Sem interesse / rejeitados</span><b>${rejected}</b><span>${pct(rejected,sent)} dos enviados</span></div>
-            <div class="loss-item"><span>Ebook aberto</span><b>${ebookOpened}</b><span>${pct(ebookOpened,sent)} dos enviados</span></div>
-            <div class="loss-item"><span>Aceites</span><b>${accepted}</b><span>${pct(accepted,proposals || sent)} conversão final</span></div>
+            <div class="loss-item"><span>Sem interesse / rejeitados</span><b>${rejected}</b><span>${pct(rejected,contacted)} dos contactados</span></div>
+            <div class="loss-item"><span>Ebook aberto</span><b>${ebookOpened}</b><span>${pct(ebookOpened,contacted)} dos contactados</span></div>
+            <div class="loss-item"><span>Aceites</span><b>${accepted}</b><span>${pct(accepted,contacted)} conversão final</span></div>
           </div>
         </div>
       </div>
