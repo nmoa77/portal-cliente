@@ -194,10 +194,10 @@ async function viewHome(main) {
   const openTickets=(tickets||[]).filter(t=>t.status!=='closed');
   const unreadNotes=(clientNotes||[]).filter(n=>!n.read_by_admin_at);
   const activeProjects=Number(s.openProjects||0);
+  const activeClients=(state.clients||[]).filter(c=>c.is_active!==0).length;
   const interested=crm.filter(p=>['respondeu','interessado','proposta'].includes(p.lead_status));
   const viewedNoReply=crm.filter(p=>Number(p.proposal_view_count||0)>0&&!p.outreach_response&&!['sem_interesse','convertido'].includes(p.lead_status));
   const pipeline=crm.filter(p=>Number(p.email_open_count||0)>0&&!['sem_interesse','convertido'].includes(p.lead_status));
-  const potential=pipeline.reduce((a,p)=>a+Number(p.monthly_value||0),0);
   const sent=crm.filter(p=>p.email_sent_at).length, opened=crm.filter(p=>Number(p.email_open_count||0)>0).length;
   const ds=(duitStart||[]), dsProduction=ds.filter(o=>o.payment_status==='paid'&&!['ready','completed','cancelled'].includes(o.status)&&o.lead_status!=='sem_interesse');
   const dsPending=ds.filter(o=>o.payment_status!=='paid'&&!['cancelled'].includes(o.status));
@@ -211,8 +211,8 @@ async function viewHome(main) {
     <div class="page-head"><div><div class="eyebrow">Painel DUIT</div><h1>Olá, ${escapeHtml((state.me.name||'').split(' ')[0])}.</h1><p class="lede">Negócio, comercial e produção num só lugar · ${fmtDate(new Date().toISOString(),true)}.</p></div><div class="page-head-actions"><button class="btn btn-ghost" onclick="openNewClient()">${svg('plus')} Novo cliente</button><button class="btn btn-yellow" onclick="openNewQuote()">${svg('quote')} Novo orçamento</button></div></div>
 
     <div class="grid g-4">
-      <div class="card stat y"><div class="eyebrow">Receita recorrente</div><div class="value">${fmtMoney(s.monthlyRevenue||0)}</div><div class="delta">avenças mensais ativas</div></div>
-      <div class="card stat dark" style="cursor:pointer" onclick="go('prospects')"><div class="eyebrow">Pipeline comercial</div><div class="value">${fmtMoney(potential)}</div><div class="delta">${pipeline.length} abriram o email · trabalhar estes contactos</div></div>
+      <div class="card stat y"><div class="eyebrow">Clientes ativos</div><div class="value">${activeClients}</div><div class="delta">clientes com acesso ativo ao portal</div></div>
+      <div class="card stat dark" style="cursor:pointer" onclick="go('prospects')"><div class="eyebrow">Pipeline comercial</div><div class="value">${pipeline.length}</div><div class="delta">${opened} abriram o email · ${interested.length} em conversa/interesse</div></div>
       <div class="card stat" style="cursor:pointer" onclick="go('duit-start')"><div class="eyebrow">DUIT Start em produção</div><div class="value">${dsProduction.length}</div><div class="delta">${dsPending.length} pagamento(s) pendente(s)</div></div>
       <div class="card stat"><div class="eyebrow">A precisar de atenção</div><div class="value">${attention}</div><div class="delta">ações que merecem acompanhamento</div></div>
     </div>
@@ -232,7 +232,7 @@ async function viewHome(main) {
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:18px">
           ${[['Prospects',crm.length],['Contactados',sent],['Email visto',opened],['Interessados',interested.length],['DUIT Start',ds.length]].map(([l,v])=>`<div style="padding:14px 10px;background:#f7f6f2;border-radius:10px"><b style="font-size:22px">${v}</b><div style="font-size:11px;color:var(--muted);margin-top:4px">${l}</div></div>`).join('')}
         </div>
-        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2);display:flex;justify-content:space-between;gap:15px"><span><small style="color:var(--muted)">Valor potencial / mês</small><b style="display:block;font-size:20px">${fmtMoney(potential)}</b></span><span style="text-align:right"><small style="color:var(--muted)">Apresentações DUIT Start vistas</small><b style="display:block;font-size:20px">${dsViewed}</b></span></div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--line-2);display:flex;justify-content:space-between;gap:15px"><span><small style="color:var(--muted)">Taxa de abertura</small><b style="display:block;font-size:20px">${sent?Math.round((opened/sent)*100):0}%</b></span><span style="text-align:right"><small style="color:var(--muted)">Apresentações DUIT Start vistas</small><b style="display:block;font-size:20px">${dsViewed}</b></span></div>
       </div>
       <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="eyebrow">Produção</div><h3 style="margin-top:4px">Trabalho em curso</h3></div></div>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:18px">
