@@ -331,6 +331,10 @@ module.exports = function installProspectCrmActions(app) {
   function normalizeVisualEmailHtml(html){
     let out=String(html||'');
 
+    // Imagens de área são opcionais. Se uma origem ficou vazia, remove o <img>
+    // em vez de gerar HTML inválido e bloquear a validação do envio.
+    out=out.replace(/<img\b[^>]*\bsrc=(["'])\s*\1[^>]*>/gi,'');
+
     // DUIT: apenas preto + amarelo no bloco visual.
     out=out
       .replace(/background:#16B3B1/gi,'background:#FFD200')
