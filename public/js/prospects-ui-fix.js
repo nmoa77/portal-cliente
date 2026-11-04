@@ -210,8 +210,6 @@
     const acceptedRows = rows.filter(p => p.outreach_response === 'accepted');
     const accepted = acceptedRows.length;
     const rejected = rows.filter(p => p.outreach_response === 'rejected' || p.lead_status === 'sem_interesse').length;
-    const potential = rows.reduce((n,p) => n + Number(p.monthly_value || 0), 0);
-    const wonValue = acceptedRows.reduce((n,p) => n + Number(p.monthly_value || 0), 0);
     const ebookOpened = rows.filter(p => Number(p.guide_open_count || 0) > 0).length;
 
     const unopened = Math.max(0, contacted - opened);
@@ -288,8 +286,6 @@
         <div class="duit-analytics-card" data-kpi-click="interested"><div class="k-label">Interessados</div><div class="k-value">${interested}</div><div class="k-sub">${pct(interested,contacted)} dos contactados</div></div>
         <div class="duit-analytics-card" data-kpi-click="proposals"><div class="k-label">Propostas</div><div class="k-value">${proposals}</div><div class="k-sub">${proposalViews} vista(s) pelo prospect</div></div>
         <div class="duit-analytics-card highlight" data-kpi-click="accepted"><div class="k-label">Conversão</div><div class="k-value">${pct(accepted,contacted)}</div><div class="k-sub">${accepted} aceite(s) em ${contacted} contactados</div></div>
-        <div class="duit-analytics-card money" data-kpi-click="accepted"><div class="k-label">Ganho / mês</div><div class="k-value">${money(wonValue)}</div><div class="k-sub">propostas aceites</div></div>
-        <div class="duit-analytics-card money"><div class="k-label">Potencial / mês</div><div class="k-value">${money(potential)}</div><div class="k-sub">pipeline no filtro atual</div></div>
       </div>
 
       <div class="duit-analytics-sections">
