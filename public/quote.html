@@ -101,7 +101,7 @@
 <div class="pq-reject-modal" id="rejectModal">
   <div class="pq-modal-inner">
     <h3>Rejeitar orçamento</h3>
-    <p>Indique brevemente o motivo. A informação ajuda a equipa DUIT a preparar uma alternativa adequada.</p>
+    <p>Indique o motivo da rejeição. Este campo é obrigatório e a resposta fica registada no orçamento.</p>
     <textarea id="rejectReason" placeholder="Ex.: o valor está acima do orçamento previsto, gostaria de uma proposta com âmbito reduzido, etc." required></textarea>
     <div class="pq-modal-actions">
       <button class="btn btn-ghost" onclick="closeReject()">Voltar</button>
@@ -162,7 +162,7 @@
   }
 
   function render(q) {
-    const isLive = !preview && (q.status === 'sent' || q.status === 'revised');
+    const isLive = q.status === 'sent' || q.status === 'revised' || (preview && q.status === 'draft');
     const decidedHtml = !isLive ? renderDecided(q) : '';
     const itemsHtml = (q.items || []).map(it => `
       <div class="pq-item">
@@ -231,6 +231,10 @@
   }
 
   async function acceptQuote() {
+    if (preview) {
+      alert('Pré-visualização: no acesso real do cliente, este botão regista a aceitação do orçamento.');
+      return;
+    }
     if (!confirm('Confirma a aceitação deste orçamento?')) return;
     try {
       const r = await fetch(`/api/public/quotes/${encodeURIComponent(token)}/respond`, {
@@ -258,6 +262,11 @@
   async function submitReject() {
     const reason = document.getElementById('rejectReason').value.trim();
     if (!reason) { alert('Indique o motivo da rejeição.'); return; }
+    if (preview) {
+      alert('Pré-visualização: no acesso real do cliente, este motivo fica guardado no orçamento.');
+      closeReject();
+      return;
+    }
     try {
       const r = await fetch(`/api/public/quotes/${encodeURIComponent(token)}/respond`, {
         method: 'POST',
