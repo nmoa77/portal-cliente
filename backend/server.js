@@ -4,7 +4,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const db = require('./db');
-const { deliver, T } = require('./email');
+const { deliver, T, listResendEmails } = require('./email');
 const {
   signToken, setAuthCookie, clearAuthCookie,
   requireAuth, requireAdmin
@@ -1330,20 +1330,90 @@ function fmtIsoDate(d) {
   return `${d.slice(8,10)}/${d.slice(5,7)}/${d.slice(0,4)}`;
 }
 
-app.get('/api/quotes', requireAuth, (req, res) => {
+async function sendQuoteEmail(quoteId, kind='quote_sent') {
+  const q = db.prepare(`
+    SELECT q.*, u.name client_name, u.email client_email, u.is_prospect
+      FROM quotes q JOIN users u ON u.id=q.user_id
+     WHERE q.id=?
+  `).get(quoteId);
+  if (!q) return { sent:false, error:'Orçamento não encontrado.' };
+
+  let publicToken = q.public_token;
+  if (!publicToken) {
+    publicToken = crypto.randomBytes(24).toString('base64url');
+    db.prepare('UPDATE quotes SET public_token=? WHERE id=?').run(publicToken, q.id);
+  }
+
+  const subtotal = Number(db.prepare('SELECT COALESCE(SUM(amount),0) s FROM quote_items WHERE quote_id=?').get(q.id).s || 0);
+  const iva = +(subtotal * IVA_RATE).toFixed(2);
+  const total = +(subtotal + iva).toFixed(2);
+
+  if (!q.client_email) return { sent:false, error:'Cliente sem email.' };
+
+  // Todos os orçamentos passam a poder abrir exatamente a mesma vista pública.
+  const tpl = T.quoteSentProspect(
+    q.client_name, q.title, q.number, subtotal, iva, total,
+    fmtIsoDate(q.valid_until), publicToken
+  );
+  const delivery = await deliver(db, {
+    to:q.client_email, subject:tpl.subject, body:tpl.body, html:tpl.html,
+    user_id:q.user_id, kind, force:q.is_prospect===1
+  });
+
+  db.prepare(`
+    UPDATE quotes SET
+      status=CASE WHEN status='draft' THEN 'sent' ELSE status END,
+      sent_at=datetime('now'),
+      email_resend_id=?,
+      email_status=?,
+      email_status_at=datetime('now')
+    WHERE id=?
+  `).run(delivery?.id||null, delivery?.status||(delivery?.sent?'sent':'failed'), q.id);
+
+  return { ...delivery, public_token:publicToken };
+}
+
+app.get('/api/quotes', requireAuth, async (req, res) => {
   const where = req.user.role === 'admin' ? '' : 'WHERE q.user_id=?';
   const params = req.user.role === 'admin' ? [] : [req.user.id];
+
+  // Garantir link público para pré-visualização e acesso do cliente.
+  if (req.user.role === 'admin') {
+    const missing=db.prepare("SELECT id FROM quotes WHERE public_token IS NULL OR trim(public_token)=''").all();
+    const upd=db.prepare('UPDATE quotes SET public_token=? WHERE id=?');
+    for(const row of missing) upd.run(crypto.randomBytes(24).toString('base64url'),row.id);
+  }
+
+  // Sincroniza o último estado conhecido no Resend.
+  if (req.user.role === 'admin') {
+    try {
+      const remote=await listResendEmails(300);
+      const byId=new Map((remote||[]).map(x=>[String(x.id||''),x]));
+      const tracked=db.prepare("SELECT id,email_resend_id,email_status FROM quotes WHERE email_resend_id IS NOT NULL AND trim(email_resend_id)<>''").all();
+      const upd=db.prepare("UPDATE quotes SET email_status=?,email_status_at=datetime('now') WHERE id=?");
+      for(const q of tracked){
+        const rr=byId.get(String(q.email_resend_id||''));
+        const st=String(rr?.last_event||rr?.status||'').trim();
+        if(st && st!==q.email_status) upd.run(st,q.id);
+      }
+    } catch(e) { console.warn('quote email status sync:',e.message); }
+  }
+
   const quotes = db.prepare(
     `SELECT q.*, u.name client_name, u.company client_company,
-            (SELECT COALESCE(SUM(amount),0) FROM quote_items WHERE quote_id=q.id) subtotal
+            (SELECT COALESCE(SUM(amount),0) FROM quote_items WHERE quote_id=q.id) subtotal,
+            (SELECT COALESCE(SUM(amount),0) FROM quote_payments WHERE quote_id=q.id) paid_total,
+            (SELECT COUNT(*) FROM quote_payments WHERE quote_id=q.id) payment_count
        FROM quotes q JOIN users u ON u.id=q.user_id ${where}
-      ORDER BY q.sent_at DESC`
+      ORDER BY COALESCE(q.sent_at,'') DESC, q.id DESC`
   ).all(...params);
-  // Acrescenta IVA e total
+
   const enriched = quotes.map(q => {
-    const iva = +(q.subtotal * IVA_RATE).toFixed(2);
-    const total = +(q.subtotal + iva).toFixed(2);
-    return { ...q, iva, total, unseen_response: !!(q.responded_at && !q.seen_by_admin_at) };
+    const iva = +(Number(q.subtotal||0) * IVA_RATE).toFixed(2);
+    const total = +(Number(q.subtotal||0) + iva).toFixed(2);
+    const paid=+Number(q.paid_total||0).toFixed(2);
+    const balance=+Math.max(0,total-paid).toFixed(2);
+    return { ...q, iva, total, paid_total:paid, balance, unseen_response: !!(q.responded_at && !q.seen_by_admin_at) };
   });
   res.json(enriched);
 });
@@ -1369,7 +1439,10 @@ app.get('/api/quotes/:id', requireAuth, (req, res) => {
   const items = db.prepare(`SELECT * FROM quote_items WHERE quote_id=? ORDER BY id`).all(req.params.id);
   const iva = +(q.subtotal * IVA_RATE).toFixed(2);
   const total = +(q.subtotal + iva).toFixed(2);
-  res.json({ ...q, items, iva, total });
+  const payments=db.prepare(`SELECT * FROM quote_payments WHERE quote_id=? ORDER BY paid_at DESC,id DESC`).all(req.params.id);
+  const paid_total=+payments.reduce((s,p)=>s+Number(p.amount||0),0).toFixed(2);
+  const balance=+Math.max(0,total-paid_total).toFixed(2);
+  res.json({ ...q, items, iva, total, payments, paid_total, balance });
 });
 
 app.post('/api/quotes', requireAdmin, (req, res) => {
@@ -1409,10 +1482,10 @@ app.post('/api/quotes', requireAdmin, (req, res) => {
 
   if (!recipientUserId) return res.status(400).json({ error: 'Não foi possível identificar o destinatário.' });
 
-  const publicToken = isProspectQuote ? crypto.randomBytes(24).toString('base64url') : null;
+  const publicToken = crypto.randomBytes(24).toString('base64url');
   const info = db.prepare(
-    `INSERT INTO quotes (number, user_id, title, description, valid_until, status, public_token)
-     VALUES (?, ?, ?, ?, ?, 'sent', ?)`
+    `INSERT INTO quotes (number, user_id, title, description, valid_until, status, public_token, sent_at)
+     VALUES (?, ?, ?, ?, ?, 'draft', ?, NULL)`
   ).run(number, recipientUserId, title, description || null, valid_until || null, publicToken);
   const quoteId = info.lastInsertRowid;
 
@@ -1421,25 +1494,40 @@ app.post('/api/quotes', requireAdmin, (req, res) => {
   );
   (items || []).forEach(it => insertItem.run(quoteId, it.label, it.detail || '', Number(it.amount) || 0));
 
-  // Notifica destinatário (cliente normal OU prospect com link público)
-  try {
-    const subtotal = (items || []).reduce((s, it) => s + (Number(it.amount) || 0), 0);
-    const iva = +(subtotal * IVA_RATE).toFixed(2);
-    const total = +(subtotal + iva).toFixed(2);
-    const client = db.prepare(`SELECT name, email FROM users WHERE id=?`).get(recipientUserId);
-    if (client && client.email) {
-      const tpl = isProspectQuote
-        ? T.quoteSentProspect(client.name, title, number, subtotal, iva, total, fmtIsoDate(valid_until), publicToken)
-        : T.quoteSent(client.name, title, number, subtotal, iva, total, fmtIsoDate(valid_until));
-      deliver(db, {
-        to: client.email, subject: tpl.subject, body: tpl.body, html: tpl.html,
-        user_id: recipientUserId, kind: isProspectQuote ? 'quote_sent_prospect' : 'quote_sent',
-        force: isProspectQuote,  // o prospect ainda não pode gerir preferências, força entrega
-      });
-    }
-  } catch (e) { console.warn('quoteSent notify:', e.message); }
+  // Guardar primeiro. O envio é feito explicitamente a partir da listagem.
 
   res.status(201).json({ id: quoteId, public_token: publicToken });
+});
+
+app.post('/api/quotes/:id/send', requireAdmin, async (req,res)=>{
+  const q=db.prepare('SELECT id,status FROM quotes WHERE id=?').get(req.params.id);
+  if(!q)return res.status(404).json({error:'Orçamento não encontrado'});
+  const out=await sendQuoteEmail(q.id,'quote_sent');
+  if(!out?.sent)return res.status(502).json({error:out?.error||'Não foi possível enviar o orçamento.'});
+  res.json({ok:true,public_token:out.public_token,email_status:out.status||'sent'});
+});
+
+app.get('/api/quotes/:id/payments', requireAdmin, (req,res)=>{
+  res.json(db.prepare('SELECT * FROM quote_payments WHERE quote_id=? ORDER BY paid_at DESC,id DESC').all(req.params.id));
+});
+
+app.post('/api/quotes/:id/payments', requireAdmin, (req,res)=>{
+  const q=db.prepare('SELECT id,status FROM quotes WHERE id=?').get(req.params.id);
+  if(!q)return res.status(404).json({error:'Orçamento não encontrado'});
+  if(q.status!=='accepted')return res.status(409).json({error:'Só pode registar pagamentos depois do orçamento ser aceite.'});
+  const amount=Number(req.body?.amount||0);
+  if(!Number.isFinite(amount)||amount<=0)return res.status(400).json({error:'Indique um valor de pagamento válido.'});
+  const paidAt=String(req.body?.paid_at||'').trim()||null;
+  const method=String(req.body?.method||'').trim()||null;
+  const note=String(req.body?.note||'').trim()||null;
+  const info=db.prepare(`INSERT INTO quote_payments(quote_id,amount,paid_at,method,note)
+    VALUES(?,?,COALESCE(?,datetime('now')),?,?)`).run(q.id,+amount.toFixed(2),paidAt,method,note);
+  res.status(201).json({id:Number(info.lastInsertRowid)});
+});
+
+app.delete('/api/quotes/:quoteId/payments/:paymentId', requireAdmin, (req,res)=>{
+  db.prepare('DELETE FROM quote_payments WHERE id=? AND quote_id=?').run(req.params.paymentId,req.params.quoteId);
+  res.json({ok:true});
 });
 
 app.patch('/api/quotes/:id', requireAuth, (req, res) => {
@@ -1584,7 +1672,7 @@ app.patch('/api/quotes/:id', requireAuth, (req, res) => {
 
 // Reenviar orçamento (transforma um rejected/accepted/draft em 'sent' de novo,
 // limpa motivo de rejeição e notifica o cliente).
-app.post('/api/quotes/:id/resend', requireAdmin, (req, res) => {
+app.post('/api/quotes/:id/resend', requireAdmin, async (req, res) => {
   const q = db.prepare(
     `SELECT q.*, u.name client_name, u.email client_email, u.is_prospect
        FROM quotes q JOIN users u ON u.id=q.user_id WHERE q.id=?`
@@ -1614,23 +1702,8 @@ app.post('/api/quotes/:id/resend', requireAdmin, (req, res) => {
     db.prepare(`UPDATE quotes SET sent_at=datetime('now') WHERE id=?`).run(q.id);
   }
 
-  // Notifica destinatário — usa o template apropriado consoante seja prospect (link público)
-  // ou cliente normal (vai ao portal).
-  try {
-    const subtotal = db.prepare(`SELECT COALESCE(SUM(amount),0) s FROM quote_items WHERE quote_id=?`).get(q.id).s;
-    const iva = +(subtotal * IVA_RATE).toFixed(2);
-    const total = +(subtotal + iva).toFixed(2);
-    if (q.client_email) {
-      const tpl = (q.is_prospect === 1 && publicToken)
-        ? T.quoteSentProspect(q.client_name, q.title, q.number, subtotal, iva, total, fmtIsoDate(q.valid_until), publicToken)
-        : T.quoteResent(q.client_name, q.title, q.number, subtotal, iva, total, fmtIsoDate(q.valid_until));
-      deliver(db, {
-        to: q.client_email, subject: tpl.subject, body: tpl.body, html: tpl.html,
-        user_id: q.user_id, kind: 'quote_resent',
-        force: q.is_prospect === 1,
-      });
-    }
-  } catch (e) { console.warn('quoteResent notify:', e.message); }
+  const delivery=await sendQuoteEmail(q.id,'quote_resent');
+  if(!delivery?.sent)return res.status(502).json({error:delivery?.error||'Não foi possível reenviar o orçamento.'});
 
   res.json({ ok: true });
 });
