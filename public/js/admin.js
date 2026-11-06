@@ -1473,7 +1473,8 @@ async function viewQuotes(main) {
   const emailState=q=>{
     if(q.status==='draft')return '<span class="pill muted">Não enviado</span>';
     const st=String(q.email_status||'').toLowerCase();
-    if(['delivered','opened','clicked'].includes(st))return '<span class="pill ok">Entregue</span>';
+    if(['opened','clicked'].includes(st))return '<span class="pill ok">Email aberto</span>';
+    if(st==='delivered')return '<span class="pill ok">Entregue</span>';
     if(['bounced','failed','complained','suppressed'].includes(st))return '<span class="pill err">Falhou</span>';
     return '<span class="pill accent">Enviado</span>';
   };
