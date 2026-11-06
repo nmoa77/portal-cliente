@@ -1732,9 +1732,11 @@ app.get('/api/public/quotes/:token', (req, res) => {
   const q = loadPublicQuote(req.params.token);
   if (!q) return res.status(404).json({ error: 'Orçamento não encontrado ou ligação expirada.' });
 
-  // Regista que o prospect abriu o orçamento — primeira vez e cada novo acesso.
-  // Notifica o admin no primeiro acesso por email.
+  const isPreview = String(req.query?.preview||'') === '1';
+
+  // Regista apenas visitas reais do cliente. O preview do admin não conta.
   try {
+    if (!isPreview) {
     const isFirstView = !q.first_viewed_at;
     db.prepare(
       `UPDATE quotes
@@ -1766,6 +1768,7 @@ app.get('/api/public/quotes/:token', (req, res) => {
           }
         }
       } catch (e) { console.warn('quoteFirstViewed notify:', e.message); }
+    }
     }
   } catch (e) { console.warn('public quote view tracking:', e.message); }
 
