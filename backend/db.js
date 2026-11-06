@@ -177,6 +177,18 @@ CREATE TABLE IF NOT EXISTS quote_items (
   FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS quote_payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  quote_id INTEGER NOT NULL,
+  amount REAL NOT NULL,
+  paid_at TEXT DEFAULT (datetime('now')),
+  method TEXT,
+  note TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (quote_id) REFERENCES quotes(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_quote_payments_quote ON quote_payments(quote_id, paid_at);
+
 CREATE TABLE IF NOT EXISTS invoices (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   number TEXT UNIQUE NOT NULL,
@@ -428,6 +440,18 @@ try {
     if (!cols.find(c => c.name === 'description')) {
       db.exec(`ALTER TABLE quotes ADD COLUMN description TEXT`);
       console.log('✓ Migration: quotes.description adicionada.');
+    }
+    if (!cols.find(c => c.name === 'email_resend_id')) {
+      db.exec(`ALTER TABLE quotes ADD COLUMN email_resend_id TEXT`);
+      console.log('✓ Migration: quotes.email_resend_id adicionada.');
+    }
+    if (!cols.find(c => c.name === 'email_status')) {
+      db.exec(`ALTER TABLE quotes ADD COLUMN email_status TEXT`);
+      console.log('✓ Migration: quotes.email_status adicionada.');
+    }
+    if (!cols.find(c => c.name === 'email_status_at')) {
+      db.exec(`ALTER TABLE quotes ADD COLUMN email_status_at TEXT`);
+      console.log('✓ Migration: quotes.email_status_at adicionada.');
     }
     // Índice idempotente — corre sempre, mas só cria efectivamente se a coluna
     // já existir (que existe sempre depois do bloco acima).
