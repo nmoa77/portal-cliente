@@ -1486,8 +1486,9 @@ async function viewQuotes(main) {
   const paymentState=q=>{
     if(q.status!=='accepted')return '<span style="color:var(--muted)">—</span>';
     const paid=Number(q.paid_total||0),balance=Number(q.balance||0);
-    if(balance<=0)return `<span class="pill ok">Pago</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${fmtMoney(paid)}</div>`;
-    if(paid>0)return `<strong>${fmtMoney(paid)}</strong><div style="font-size:11px;color:var(--muted)">Falta ${fmtMoney(balance)}</div>`;
+    const pct=Number(q.total||0)>0?Math.min(100,Math.round((paid/Number(q.total))*100)):0;
+    if(balance<=0)return `<span class="pill ok">100% pago</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${fmtMoney(paid)}</div>`;
+    if(paid>0)return `<strong>${pct}% pago</strong><div style="font-size:11px;color:var(--muted)">${fmtMoney(paid)} · falta ${fmtMoney(balance)}</div>`;
     return `<span class="pill warn">Por pagar</span><div style="font-size:11px;color:var(--muted);margin-top:3px">Falta ${fmtMoney(q.total)}</div>`;
   };
 
@@ -1569,7 +1570,7 @@ async function openQuotePayments(id){
     </div>
     <div class="grid g-3" style="margin:18px 0">
       <div class="card" style="padding:14px"><small style="color:var(--muted)">Total</small><b style="display:block;font-size:20px">${fmtMoney(q.total)}</b></div>
-      <div class="card" style="padding:14px"><small style="color:var(--muted)">Pago</small><b style="display:block;font-size:20px">${fmtMoney(q.paid_total)}</b></div>
+      <div class="card" style="padding:14px"><small style="color:var(--muted)">Pago</small><b style="display:block;font-size:20px">${Number(q.total||0)>0?Math.min(100,Math.round((Number(q.paid_total||0)/Number(q.total))*100)):0}%</b><div style="font-size:11px;color:var(--muted);margin-top:3px">${fmtMoney(q.paid_total)}</div></div>
       <div class="card" style="padding:14px"><small style="color:var(--muted)">Em falta</small><b style="display:block;font-size:20px">${fmtMoney(q.balance)}</b></div>
     </div>
     <form id="quotePaymentForm">
