@@ -123,6 +123,7 @@
 
   const params = new URLSearchParams(window.location.search);
   const token = params.get('token');
+  const preview = params.get('preview') === '1';
   const root = document.getElementById('pq-root');
   let currentQuote = null;
 
@@ -138,7 +139,7 @@
 
   async function loadQuote() {
     try {
-      const r = await fetch(`/api/public/quotes/${encodeURIComponent(token)}`);
+      const r = await fetch(`/api/public/quotes/${encodeURIComponent(token)}${preview?'?preview=1':''}`);
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         showError(err.error || 'Não foi possível carregar o orçamento.');
@@ -161,7 +162,7 @@
   }
 
   function render(q) {
-    const isLive = q.status === 'sent' || q.status === 'revised';
+    const isLive = !preview && (q.status === 'sent' || q.status === 'revised');
     const decidedHtml = !isLive ? renderDecided(q) : '';
     const itemsHtml = (q.items || []).map(it => `
       <div class="pq-item">
@@ -175,7 +176,7 @@
 
     root.innerHTML = `
       <div class="pq-card">
-        <div class="pq-eyebrow">Proposta DUIT</div>
+        <div class="pq-eyebrow">${preview?'Pré-visualização · ':''}Proposta DUIT</div>
         <h1 class="pq-title">${escapeHtml(q.title)}</h1>
         <div class="pq-meta">
           Nº ${escapeHtml(q.number)} · Enviado ${fmtDatePT(q.sent_at)}${q.valid_until ? ' · Válido até ' + fmtDatePT(q.valid_until) : ''}
