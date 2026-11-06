@@ -1,11 +1,11 @@
 /* DUIT Portal — Service Worker */
-const VERSION = 'duit-v13';
+const VERSION = 'duit-v14';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
 const PRECACHE_URLS = [
-  '/', '/index.html', '/cliente.html', '/admin.html', '/reset.html', '/quote.html',
-  '/css/styles.css', '/js/common.js?v=20261104b', '/js/cliente.js', '/js/admin.js?v=20261106q1',
+  '/', '/index.html', '/cliente.html', '/admin.html', '/reset.html', '/quote.html?v=20261106q2',
+  '/css/styles.css', '/js/common.js?v=20261104b', '/js/cliente.js', '/js/admin.js?v=20261106q2',
   '/js/prospects-crm.js', '/js/prospects-actions.js', '/js/prospects-legacy-bridge.js',
   '/js/prospects-ui-fix.js', '/js/prospects-pagination.js', '/js/prospects-sector-chart.js',
   '/js/prospects-table-fit.js',
