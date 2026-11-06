@@ -1574,11 +1574,17 @@ async function openQuotePayments(id){
     </div>
     <form id="quotePaymentForm">
       <div class="grid g-3" style="gap:10px">
-        <div class="field"><label>Valor</label><input id="qp-amount" type="number" step="0.01" min="0.01" required></div>
+        <div class="field"><label>Percentagem paga</label><input id="qp-percent" type="number" step="0.01" min="0.01" max="100" placeholder="Ex.: 50"></div>
+        <div class="field"><label>Valor</label><input id="qp-amount" type="number" step="0.01" min="0.01" placeholder="Calculado automaticamente"></div>
         <div class="field"><label>Data</label><input id="qp-date" type="date"></div>
-        <div class="field"><label>Meio</label><select id="qp-method"><option value="">—</option><option>Transferência</option><option>MB Way</option><option>Numerário</option><option>Outro</option></select></div>
       </div>
-      <div class="field"><label>Nota</label><input id="qp-note" placeholder="Ex.: 50% adjudicação"></div>
+      <div class="grid g-2" style="gap:10px">
+        <div class="field"><label>Meio</label><select id="qp-method"><option value="">—</option><option>Transferência</option><option>MB Way</option><option>Numerário</option><option>Outro</option></select></div>
+        <div class="field"><label>Nota</label><input id="qp-note" placeholder="Ex.: 50% adjudicação"></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:-2px;margin-bottom:12px">
+        Pode indicar percentagem ou valor. O outro campo é calculado automaticamente sobre o total do orçamento.
+      </div>
       <div class="modal-actions"><button class="btn btn-yellow" type="submit">Registar pagamento</button></div>
     </form>
     <div style="margin-top:18px;border-top:1px solid var(--line-2);padding-top:12px">
@@ -1590,11 +1596,28 @@ async function openQuotePayments(id){
   </div>`;
   document.body.appendChild(wrap);
   document.getElementById('qp-date').value=new Date().toISOString().slice(0,10);
+  const pctEl=document.getElementById('qp-percent');
+  const amtEl=document.getElementById('qp-amount');
+  let syncingPayment=false;
+  pctEl?.addEventListener('input',()=>{
+    if(syncingPayment)return;
+    syncingPayment=true;
+    const pct=Number(pctEl.value||0);
+    amtEl.value=pct>0?((Number(q.total||0)*pct)/100).toFixed(2):'';
+    syncingPayment=false;
+  });
+  amtEl?.addEventListener('input',()=>{
+    if(syncingPayment)return;
+    syncingPayment=true;
+    const amt=Number(amtEl.value||0),total=Number(q.total||0);
+    pctEl.value=amt>0&&total>0?((amt/total)*100).toFixed(2):'';
+    syncingPayment=false;
+  });
   document.getElementById('quotePaymentForm').addEventListener('submit',async e=>{
     e.preventDefault();
     try{
       await api(`/api/quotes/${id}/payments`,{method:'POST',body:{
-        amount:Number(document.getElementById('qp-amount').value),
+        amount:Number(document.getElementById('qp-amount').value||0),
         paid_at:document.getElementById('qp-date').value||null,
         method:document.getElementById('qp-method').value||null,
         note:document.getElementById('qp-note').value.trim()||null
