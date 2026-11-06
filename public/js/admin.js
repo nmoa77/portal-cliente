@@ -1468,14 +1468,34 @@ function openGenPosts() {
 async function viewQuotes(main) {
   const rows = await api('/api/quotes');
   state.quotes = rows;
-  const responded = rows.filter(q => q.responded_at);
   const unseen = rows.filter(q => q.unseen_response);
+
+  const emailState=q=>{
+    if(q.status==='draft')return '<span class="pill muted">Não enviado</span>';
+    const st=String(q.email_status||'').toLowerCase();
+    if(['delivered','opened','clicked'].includes(st))return '<span class="pill ok">Entregue</span>';
+    if(['bounced','failed','complained','suppressed'].includes(st))return '<span class="pill err">Falhou</span>';
+    return '<span class="pill accent">Enviado</span>';
+  };
+  const viewState=q=>{
+    if(Number(q.view_count||0)>0)return `<span class="pill ok">Visto · ${Number(q.view_count)}x</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${fmtDateTime(q.first_viewed_at)}</div>`;
+    if(q.status==='draft')return '<span class="pill muted">—</span>';
+    return '<span class="pill muted">Por abrir</span>';
+  };
+  const paymentState=q=>{
+    if(q.status!=='accepted')return '<span style="color:var(--muted)">—</span>';
+    const paid=Number(q.paid_total||0),balance=Number(q.balance||0);
+    if(balance<=0)return `<span class="pill ok">Pago</span><div style="font-size:11px;color:var(--muted);margin-top:3px">${fmtMoney(paid)}</div>`;
+    if(paid>0)return `<strong>${fmtMoney(paid)}</strong><div style="font-size:11px;color:var(--muted)">Falta ${fmtMoney(balance)}</div>`;
+    return `<span class="pill warn">Por pagar</span><div style="font-size:11px;color:var(--muted);margin-top:3px">Falta ${fmtMoney(q.total)}</div>`;
+  };
+
   main.innerHTML = `
     <div class="page-head">
       <div>
         <div class="eyebrow">Propostas</div>
         <h1>Orçamentos</h1>
-        <p class="lede">Acompanhe cada proposta até à decisão do cliente. Os totais incluem IVA à taxa de 23%.</p>
+        <p class="lede">Guarde primeiro, reveja como o cliente verá, envie quando estiver pronto e acompanhe entrega, abertura, decisão e pagamentos.</p>
       </div>
       <div class="page-head-actions">
         <button class="btn btn-yellow" onclick="openNewQuote()">${svg('plus')} Novo orçamento</button>
@@ -1483,42 +1503,117 @@ async function viewQuotes(main) {
     </div>
 
     ${unseen.length ? `
-      <div class="card" style="margin-bottom:14px; border-left:3px solid #ff3b30;">
-        <div class="eyebrow" style="margin-bottom:6px;">Respostas por consultar</div>
-        <p style="margin:0; color:var(--text); font-size:14px;">
-          ${unseen.length} orçamento(s) com resposta do cliente ainda por consultar. Clique em editar para ver o detalhe.
-        </p>
-      </div>
-    ` : ''}
+      <div class="card" style="margin-bottom:14px;border-left:3px solid #ff3b30">
+        <div class="eyebrow" style="margin-bottom:6px">Respostas por consultar</div>
+        <p style="margin:0;font-size:14px">${unseen.length} orçamento(s) com resposta do cliente ainda por consultar.</p>
+      </div>` : ''}
 
     <div class="card table-card">
-      ${rows.length === 0 ? `<div class="empty">Sem orçamentos.</div>` : `
+      ${rows.length===0?'<div class="empty">Sem orçamentos.</div>':`
         <table class="table">
-          <thead><tr><th>Nº</th><th>Cliente</th><th>Título</th><th>Enviado</th><th>Válido até</th><th>Total c/ IVA</th><th>Estado</th><th></th></tr></thead>
+          <thead><tr>
+            <th>Orçamento</th><th>Cliente</th><th>Total</th>
+            <th>Email</th><th>Cliente viu</th><th>Estado</th><th>Pagamento</th><th></th>
+          </tr></thead>
           <tbody>
-            ${rows.map(q => `
-              <tr ${q.unseen_response ? 'style="background:rgba(255,59,48,0.06);"' : ''}>
-                <td>
-                  <strong>${q.number}</strong>
-                  ${q.unseen_response ? '<span class="badge-alert" style="margin-left:6px;">novo</span>' : ''}
-                </td>
-                <td>${escapeHtml(q.client_name)}</td>
-                <td>${escapeHtml(q.title)}</td>
-                <td>${fmtDate(q.sent_at)}</td>
-                <td>${fmtDate(q.valid_until)}</td>
-                <td><strong>${fmtMoney(q.total)}</strong>${q.iva ? `<div style="font-size:11px; color:var(--muted);">subtotal ${fmtMoney(q.subtotal)} + IVA ${fmtMoney(q.iva)}</div>` : ''}</td>
-                <td>${statusPill(q.status)}${q.responded_at ? `<div style="font-size:11px; color:var(--muted); margin-top:2px;">resposta ${fmtDate(q.responded_at)}</div>` : ''}</td>
-                <td style="text-align:right; white-space:nowrap;">
-                  ${q.status !== 'draft' ? `<button class="btn btn-icon" title="${q.status === 'rejected' ? 'Reenviar (limpa motivo de rejeição)' : 'Reenviar email do orçamento'}" onclick="resendQuote(${q.id})">${svg('arrow')}</button>` : ''}
-                  <button class="btn btn-icon" title="Editar" onclick="openEditQuote(${q.id})">${svg('edit')}</button>
-                </td>
-              </tr>
-            `).join('')}
+          ${rows.map(q=>{
+            const preview=q.public_token?`${window.location.origin}/quote.html?token=${encodeURIComponent(q.public_token)}&preview=1`:'';
+            return `<tr ${q.unseen_response?'style="background:rgba(255,59,48,.06)"':''}>
+              <td>
+                <strong>${escapeHtml(q.number)}</strong>
+                <div style="font-size:12px;margin-top:3px">${escapeHtml(q.title)}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">${q.sent_at?'Enviado '+fmtDate(q.sent_at):'Rascunho'}${q.valid_until?' · válido até '+fmtDate(q.valid_until):''}</div>
+              </td>
+              <td>${escapeHtml(q.client_name)}<div style="font-size:11px;color:var(--muted)">${escapeHtml(q.client_company||'')}</div></td>
+              <td><strong>${fmtMoney(q.total)}</strong><div style="font-size:11px;color:var(--muted)">c/ IVA</div></td>
+              <td>${emailState(q)}</td>
+              <td>${viewState(q)}</td>
+              <td>${statusPill(q.status)}${q.responded_at?`<div style="font-size:11px;color:var(--muted);margin-top:3px">${fmtDate(q.responded_at)}</div>`:''}</td>
+              <td>${paymentState(q)}</td>
+              <td style="text-align:right;white-space:nowrap">
+                ${preview?`<button class="btn btn-icon" title="Ver como cliente" onclick="window.open('${preview}','_blank')">👁</button>`:''}
+                ${q.status==='draft'
+                  ?`<button class="btn btn-yellow btn-sm" onclick="sendQuote(${q.id})">Enviar</button>`
+                  :`<button class="btn btn-icon" title="Reenviar email" onclick="resendQuote(${q.id})">${svg('arrow')}</button>`}
+                ${q.status==='accepted'?`<button class="btn btn-icon" title="Pagamentos" onclick="openQuotePayments(${q.id})">€</button>`:''}
+                <button class="btn btn-icon" title="Editar" onclick="openEditQuote(${q.id})">${svg('edit')}</button>
+              </td>
+            </tr>`;
+          }).join('')}
           </tbody>
-        </table>
-      `}
+        </table>`}
     </div>
   `;
+}
+
+async function sendQuote(id){
+  if(!confirm('Enviar este orçamento ao cliente agora?'))return;
+  try{
+    await api(`/api/quotes/${id}/send`,{method:'POST'});
+    toast('Orçamento enviado ao cliente.','check');
+    go('quotes');
+  }catch(err){toast(err.message,'cancel')}
+}
+
+async function openQuotePayments(id){
+  let q;
+  try{q=await api(`/api/quotes/${id}`)}catch(err){toast(err.message,'cancel');return}
+  document.getElementById('modal-quote-payments')?.remove();
+  const wrap=document.createElement('div');
+  wrap.className='overlay open';wrap.id='modal-quote-payments';
+  wrap.innerHTML=`<div class="modal" style="max-width:720px">
+    <div style="display:flex;justify-content:space-between;gap:14px;align-items:start">
+      <div><div class="eyebrow">Pagamentos</div><h3 style="margin:4px 0">${escapeHtml(q.number)} · ${escapeHtml(q.title)}</h3></div>
+      <button class="btn btn-icon" onclick="document.getElementById('modal-quote-payments').remove()">✕</button>
+    </div>
+    <div class="grid g-3" style="margin:18px 0">
+      <div class="card" style="padding:14px"><small style="color:var(--muted)">Total</small><b style="display:block;font-size:20px">${fmtMoney(q.total)}</b></div>
+      <div class="card" style="padding:14px"><small style="color:var(--muted)">Pago</small><b style="display:block;font-size:20px">${fmtMoney(q.paid_total)}</b></div>
+      <div class="card" style="padding:14px"><small style="color:var(--muted)">Em falta</small><b style="display:block;font-size:20px">${fmtMoney(q.balance)}</b></div>
+    </div>
+    <form id="quotePaymentForm">
+      <div class="grid g-3" style="gap:10px">
+        <div class="field"><label>Valor</label><input id="qp-amount" type="number" step="0.01" min="0.01" required></div>
+        <div class="field"><label>Data</label><input id="qp-date" type="date"></div>
+        <div class="field"><label>Meio</label><select id="qp-method"><option value="">—</option><option>Transferência</option><option>MB Way</option><option>Numerário</option><option>Outro</option></select></div>
+      </div>
+      <div class="field"><label>Nota</label><input id="qp-note" placeholder="Ex.: 50% adjudicação"></div>
+      <div class="modal-actions"><button class="btn btn-yellow" type="submit">Registar pagamento</button></div>
+    </form>
+    <div style="margin-top:18px;border-top:1px solid var(--line-2);padding-top:12px">
+      ${(q.payments||[]).length?(q.payments||[]).map(p=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line-2)">
+        <div><strong>${fmtMoney(p.amount)}</strong><div style="font-size:11px;color:var(--muted)">${fmtDate(p.paid_at)}${p.method?' · '+escapeHtml(p.method):''}${p.note?' · '+escapeHtml(p.note):''}</div></div>
+        <button class="btn btn-icon" onclick="deleteQuotePayment(${q.id},${p.id})">${svg('trash')}</button>
+      </div>`).join(''):'<div class="empty">Ainda não há pagamentos registados.</div>'}
+    </div>
+  </div>`;
+  document.body.appendChild(wrap);
+  document.getElementById('qp-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('quotePaymentForm').addEventListener('submit',async e=>{
+    e.preventDefault();
+    try{
+      await api(`/api/quotes/${id}/payments`,{method:'POST',body:{
+        amount:Number(document.getElementById('qp-amount').value),
+        paid_at:document.getElementById('qp-date').value||null,
+        method:document.getElementById('qp-method').value||null,
+        note:document.getElementById('qp-note').value.trim()||null
+      }});
+      toast('Pagamento registado.','check');
+      document.getElementById('modal-quote-payments')?.remove();
+      await openQuotePayments(id);
+      go('quotes');
+    }catch(err){toast(err.message,'cancel')}
+  });
+}
+
+async function deleteQuotePayment(quoteId,paymentId){
+  if(!confirm('Apagar este pagamento?'))return;
+  try{
+    await api(`/api/quotes/${quoteId}/payments/${paymentId}`,{method:'DELETE'});
+    document.getElementById('modal-quote-payments')?.remove();
+    await openQuotePayments(quoteId);
+    go('quotes');
+  }catch(err){toast(err.message,'cancel')}
 }
 
 async function resendQuote(id) {
@@ -1536,7 +1631,7 @@ function openNewQuote() {
   sel.disabled = false;
   const today = new Date(); const thirty = new Date(Date.now() + 30*86400000);
   document.getElementById('modal-quote-title').textContent = 'Novo orçamento';
-  document.getElementById('q-submit').textContent = 'Criar & enviar';
+  document.getElementById('q-submit').textContent = 'Guardar orçamento';
   document.getElementById('q-id').value = '';
   document.getElementById('q-number').value = `${today.getFullYear()}-${String(Math.floor(Math.random()*900+100))}`;
   document.getElementById('q-valid').value = thirty.toISOString().slice(0,10);
@@ -3256,9 +3351,9 @@ document.addEventListener('submit', async (e) => {
       } else {
         const r = await api('/api/quotes', { method: 'POST', body });
         if (r.public_token) {
-          toast('Orçamento criado e enviado ao prospect por email.', 'check');
+          toast('Orçamento guardado. Pode revê-lo e enviar quando estiver pronto.', 'check');
         } else {
-          toast('Orçamento criado e enviado.', 'check');
+          toast('Orçamento guardado. Pode revê-lo e enviar quando estiver pronto.', 'check');
         }
       }
       closeModal('modal-quote'); e.target.reset();
