@@ -1519,7 +1519,7 @@ async function viewQuotes(main) {
           </tr></thead>
           <tbody>
           ${rows.map(q=>{
-            const preview=q.public_token?`${window.location.origin}/quote.html?token=${encodeURIComponent(q.public_token)}&preview=1`:'';
+            const preview=q.public_token?`${window.location.origin}/quote.html?v=20261106q2&token=${encodeURIComponent(q.public_token)}&preview=1`:'';
             return `<tr ${q.unseen_response?'style="background:rgba(255,59,48,.06)"':''}>
               <td>
                 <strong>${escapeHtml(q.number)}</strong>
