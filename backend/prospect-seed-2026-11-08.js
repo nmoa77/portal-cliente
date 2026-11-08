@@ -1,0 +1,685 @@
+// DUIT — Portugal continental, 2026-11-08. Contactos públicos verificados nas fontes indicadas.
+const fs=require('fs'),path=require('path'),crypto=require('crypto'),bcrypt=require('bcryptjs');
+const db=require('./db'),{wasDeleted}=require('./prospect-deleted-guard');
+const L=[
+  {
+    "company": "Carpifárrio",
+    "sector": "Carpintaria",
+    "email_area": "Indústria & Produção",
+    "location": "Fárrio, Santarém",
+    "website": "https://carpifarrio.pt/",
+    "email": "geral@carpifarrio.pt",
+    "phone": "964 818 025",
+    "source": "https://compronoribatejo.pt/empresa/carpifarrio-lda",
+    "observation": "Fabrica cozinhas, portas e roupeiros.",
+    "opportunity": "Catálogo de trabalhos.",
+    "service": "design"
+  },
+  {
+    "company": "Sistel",
+    "sector": "Construção civil",
+    "email_area": "Construção & Engenharia",
+    "location": "Barcelos, Braga",
+    "website": "https://sistel.pt/",
+    "email": "info@sistel.pt",
+    "phone": "253 812 788",
+    "source": "https://sistel.pt/",
+    "observation": "Empresa de construção e obras públicas.",
+    "opportunity": "Portefólio de obras.",
+    "service": "design"
+  },
+  {
+    "company": "Fisio 21",
+    "sector": "Fisioterapia",
+    "email_area": "Fisioterapia",
+    "location": "Lisboa, Lisboa",
+    "website": "https://fisio21.pt/",
+    "email": "geral@fisio21.pt",
+    "phone": "218 471 192",
+    "source": "https://fisio21.pt/contactos/",
+    "observation": "Clínica de fisioterapia em Lisboa.",
+    "opportunity": "Materiais informativos.",
+    "service": "design"
+  },
+  {
+    "company": "Clínica Fisiátrica das Antas",
+    "sector": "Fisioterapia",
+    "email_area": "Fisioterapia",
+    "location": "Porto, Porto",
+    "website": "https://clinicafa.pt/",
+    "email": "geral@clinicafa.pt",
+    "phone": "917 552 923",
+    "source": "https://clinicafa.pt/fale-connosco",
+    "observation": "Disponibiliza atendimento e serviço ao domicílio.",
+    "opportunity": "Peças de informação clínica.",
+    "service": "design"
+  },
+  {
+    "company": "COM CORPUS",
+    "sector": "Fisioterapia",
+    "email_area": "Fisioterapia",
+    "location": "Lisboa, Lisboa",
+    "website": "https://comcorpus.pt/",
+    "email": "info@comcorpus.pt",
+    "phone": "214 010 733",
+    "source": "https://comcorpus.pt/contactos/",
+    "observation": "Clínicas em Marquês de Pombal e Campo Pequeno.",
+    "opportunity": "Apresentação das áreas de tratamento.",
+    "service": "design"
+  },
+  {
+    "company": "FisioNorte",
+    "sector": "Fisioterapia",
+    "email_area": "Fisioterapia",
+    "location": "Vila do Conde, Porto",
+    "website": "https://fisionorte.pt/",
+    "email": "info@fisionorte.pt",
+    "phone": "916 699 998",
+    "source": "https://fisionorte.pt/contactos/",
+    "observation": "Clínica de fisioterapia em Vila do Conde.",
+    "opportunity": "Peças informativas de tratamentos.",
+    "service": "design"
+  },
+  {
+    "company": "Maias Engenharia e Construção",
+    "sector": "Construção",
+    "email_area": "Construção & Engenharia",
+    "location": "Vila Nova de Famalicão, Braga",
+    "website": "https://maias.pt/",
+    "email": "geral@maias.com.pt",
+    "phone": "252 315 087",
+    "source": "https://maias.pt/rh.php",
+    "observation": "Empresa familiar de engenharia e construção.",
+    "opportunity": "Dossiê gráfico de obras.",
+    "service": "design"
+  },
+  {
+    "company": "Latitude Obras",
+    "sector": "Construção",
+    "email_area": "Construção & Engenharia",
+    "location": "Porto, Porto",
+    "website": "https://latitudeobras.pt/",
+    "email": "geral@latitudeobras.pt",
+    "phone": "930 486 730",
+    "source": "https://latitudeobras.pt/contactos/",
+    "observation": "Empresa de construção civil no Porto.",
+    "opportunity": "Portefólio de projetos.",
+    "service": "design"
+  },
+  {
+    "company": "MCS Construtora",
+    "sector": "Construção",
+    "email_area": "Construção & Engenharia",
+    "location": "Lisboa, Lisboa",
+    "website": "https://mcsconstrutora.pt/",
+    "email": "info@mcsconstrutora.pt",
+    "phone": "920 184 450",
+    "source": "https://mcsconstrutora.pt/contact/",
+    "observation": "Realiza obras e remodelações.",
+    "opportunity": "Materiais comerciais de obras.",
+    "service": "design"
+  },
+  {
+    "company": "Crius Engenharia",
+    "sector": "Engenharia e construção",
+    "email_area": "Construção & Engenharia",
+    "location": "Marco de Canaveses, Porto",
+    "website": "https://criusengenharia.pt/",
+    "email": "geral@criusengenharia.pt",
+    "phone": "255 097 629",
+    "source": "https://criusengenharia.pt/contactos/",
+    "observation": "Empresa de engenharia em Constance.",
+    "opportunity": "Apresentação visual de serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Reis da Quinta",
+    "sector": "Agroturismo",
+    "email_area": "Turismo & Alojamento",
+    "location": "Redondo, Évora",
+    "website": "https://reisdaquinta.com/",
+    "email": "geral@reisdaquinta.com",
+    "phone": "965 382 436",
+    "source": "https://reisdaquinta.com/contatos/",
+    "observation": "Empreendimento de agroturismo em Redondo.",
+    "opportunity": "Materiais para estadias.",
+    "service": "design"
+  },
+  {
+    "company": "CELL",
+    "sector": "Centro de estudos",
+    "email_area": "Centro de Estudos",
+    "location": "Vila Nova de Gaia, Porto",
+    "website": "https://centrodeestudos.pt/",
+    "email": "geral@centrodeestudos.pt",
+    "phone": "221 178 915",
+    "source": "https://centrodeestudos.pt/contatos/",
+    "observation": "Centro de estudos em Vila Nova de Gaia.",
+    "opportunity": "Peças de divulgação de atividades.",
+    "service": "design"
+  },
+  {
+    "company": "Autoparque",
+    "sector": "Oficina automóvel",
+    "email_area": "Automóvel",
+    "location": "Paredes, Porto",
+    "website": "https://autoparque.pt/",
+    "email": "geral@autoparque.pt",
+    "phone": "915 769 290",
+    "source": "https://autoparque.pt/contactos/",
+    "observation": "Oficina de reparação e manutenção automóvel.",
+    "opportunity": "Materiais de apresentação de serviços.",
+    "service": "design"
+  },
+  {
+    "company": "GDAuto",
+    "sector": "Automóvel",
+    "email_area": "Automóvel",
+    "location": "Torres Vedras, Lisboa",
+    "website": "https://gdauto.pt/",
+    "email": "geral@gdauto.pt",
+    "phone": "261 249 900",
+    "source": "https://gdauto.pt/contactos/",
+    "observation": "Serviços de venda e após-venda automóvel.",
+    "opportunity": "Peças gráficas de serviços.",
+    "service": "design"
+  },
+  {
+    "company": "LMP Auto",
+    "sector": "Oficina e comércio automóvel",
+    "email_area": "Automóvel",
+    "location": "Arouca, Aveiro",
+    "website": "https://lmpauto.com/",
+    "email": "geral@lmpauto.com",
+    "phone": "256 949 589",
+    "source": "https://lmpauto.com/",
+    "observation": "Oficina e comércio automóvel em Arouca.",
+    "opportunity": "Materiais comerciais de oficina.",
+    "service": "design"
+  },
+  {
+    "company": "Auto Fialho de Almeida",
+    "sector": "Oficina automóvel",
+    "email_area": "Automóvel",
+    "location": "Lisboa, Lisboa",
+    "website": "https://autofialhodealmeida.pt/",
+    "email": "geral@autofialhodealmeida.com",
+    "phone": "969 903 445",
+    "source": "https://www.autofialhodealmeida.pt/contactos/",
+    "observation": "Oficina de reparação automóvel em Lisboa.",
+    "opportunity": "Peças de divulgação de serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Monte da Urze",
+    "sector": "Agroturismo",
+    "email_area": "Turismo & Alojamento",
+    "location": "Aljezur, Faro",
+    "website": "https://montedaurze.com/",
+    "email": "info@montedaurze.com",
+    "phone": "913 800 040",
+    "source": "https://www.montedaurze.com/contate-nos",
+    "observation": "Alojamento rural em Aljezur.",
+    "opportunity": "Materiais de apresentação de estadias.",
+    "service": "design"
+  },
+  {
+    "company": "Auto Alentejana",
+    "sector": "Oficina automóvel",
+    "email_area": "Automóvel",
+    "location": "Santiago do Cacém, Setúbal",
+    "website": "https://autoalentejana.pt/",
+    "email": "geral@auto-alentejana.pt",
+    "phone": "269 822 466",
+    "source": "https://www.autoalentejana.pt/en/contacts",
+    "observation": "Oficina multimarcas em Santiago do Cacém.",
+    "opportunity": "Peças de divulgação de serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Centro Estudo Total",
+    "sector": "Centro de estudos",
+    "email_area": "Centro de Estudos",
+    "location": "Vila Nova de Gaia, Porto",
+    "website": "https://totalestudo.pt/",
+    "email": "geral@totalestudo.pt",
+    "phone": "912 889 180",
+    "source": "https://www.totalestudo.pt/contactos",
+    "observation": "Centro de estudos em Vila Nova de Gaia.",
+    "opportunity": "Materiais para programas de apoio escolar.",
+    "service": "design"
+  },
+  {
+    "company": "Quinta da Riba Má",
+    "sector": "Turismo rural",
+    "email_area": "Turismo & Alojamento",
+    "location": "Vieira do Minho, Braga",
+    "website": "https://ribama.pt/",
+    "email": "reservas@ribama.pt",
+    "phone": "933 122 336",
+    "source": "https://ribama.pt/contact-us",
+    "observation": "Turismo rural em Soutelos, Ruivães.",
+    "opportunity": "Peças de apresentação de alojamento.",
+    "service": "design"
+  },
+  {
+    "company": "Aquénio do Ouriço",
+    "sector": "Turismo rural",
+    "email_area": "Turismo & Alojamento",
+    "location": "Sernancelhe, Viseu",
+    "website": "https://aqueniodoourico.pt/",
+    "email": "geral@aqueniodoourico.pt",
+    "phone": "232 687 293",
+    "source": "https://www.aqueniodoourico.pt/contactos/",
+    "observation": "Turismo rural em Sernancelhe.",
+    "opportunity": "Materiais de divulgação de estadias.",
+    "service": "design"
+  },
+  {
+    "company": "Clínica da Atalaia",
+    "sector": "Medicina dentária",
+    "email_area": "Dentistas",
+    "location": "Montijo, Setúbal",
+    "website": "https://clinicadaatalaia.com/",
+    "email": "geral@clinicadaatalaia.com",
+    "phone": "212 308 097",
+    "source": "https://clinicadaatalaia.com/contactos/",
+    "observation": "Clínica dentária na Atalaia.",
+    "opportunity": "Materiais informativos de tratamentos.",
+    "service": "design"
+  },
+  {
+    "company": "Serralharia O Bota",
+    "sector": "Serralharia",
+    "email_area": "Indústria & Produção",
+    "location": "Cabeceiras de Basto, Braga",
+    "website": "https://serralharia-obota.pt/",
+    "email": "comercial@serralhariaobota.pt",
+    "phone": "253 665 060",
+    "source": "https://www.serralharia-obota.pt/contacto/",
+    "observation": "Serralharia no parque industrial de Olela.",
+    "opportunity": "Catálogo de estruturas e serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Matiz Dental Studio",
+    "sector": "Laboratório dentário",
+    "email_area": "Dentistas",
+    "location": "Gondomar, Porto",
+    "website": "https://matizdental.pt/",
+    "email": "geral@matizdental.pt",
+    "phone": "910 959 061",
+    "source": "https://matizdental.pt/fala-connosco",
+    "observation": "Estúdio dentário em Fânzeres.",
+    "opportunity": "Materiais de apresentação dos serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Cargaquatro",
+    "sector": "Transportes e logística",
+    "email_area": "Transportes & Logística",
+    "location": "Faro, Faro",
+    "website": "https://cargaquatro.com/",
+    "email": "geral@cargaquatro.com",
+    "phone": "289 862 743",
+    "source": "https://cargaquatro.com/contactos",
+    "observation": "Transporte e logística de frio.",
+    "opportunity": "Apresentação gráfica de serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Tornitrofa",
+    "sector": "Metalomecânica",
+    "email_area": "Indústria & Produção",
+    "location": "Trofa, Porto",
+    "website": "https://tornitrofa.com/",
+    "email": "geral@tornitrofa.com",
+    "phone": "252 494 716",
+    "source": "https://www.tornitrofa.com/en/contact.php",
+    "observation": "Empresa de metalomecânica e tornearia.",
+    "opportunity": "Catálogo técnico de serviços.",
+    "service": "design"
+  },
+  {
+    "company": "MOVMETAL",
+    "sector": "Metalomecânica",
+    "email_area": "Indústria & Produção",
+    "location": "Vila Nova de Famalicão, Braga",
+    "website": "https://movmetal.pt/",
+    "email": "orcamentos@movmetal.pt",
+    "phone": "928 498 510",
+    "source": "https://www.movmetal.pt/contacto",
+    "observation": "Fabrico de peças e estruturas metálicas.",
+    "opportunity": "Portefólio de projetos metálicos.",
+    "service": "design"
+  },
+  {
+    "company": "TP Logística",
+    "sector": "Logística",
+    "email_area": "Transportes & Logística",
+    "location": "Vila do Conde, Porto",
+    "website": "https://tp-logistica.com/",
+    "email": "geral@tp-logistica.com",
+    "phone": "915 454 048",
+    "source": "https://tp-logistica.com/contactos/",
+    "observation": "Empresa de logística com armazéns e hubs.",
+    "opportunity": "Apresentação de serviços logísticos.",
+    "service": "design"
+  },
+  {
+    "company": "Clínica São Dente",
+    "sector": "Medicina dentária",
+    "email_area": "Dentistas",
+    "location": "Lisboa, Lisboa",
+    "website": "https://saodente.pt/",
+    "email": "clinica@saodente.pt",
+    "phone": "213 970 096",
+    "source": "https://saodente.pt/clinica-dentaria-sao-dente/contactos/",
+    "observation": "Clínica dentária na Rua Borges Carneiro.",
+    "opportunity": "Materiais informativos de consultas.",
+    "service": "design"
+  },
+  {
+    "company": "THC Transportes e Logística",
+    "sector": "Transportes",
+    "email_area": "Transportes & Logística",
+    "location": "Arruda dos Vinhos, Lisboa",
+    "website": "https://thc.pt/",
+    "email": "geral@thc.pt",
+    "phone": "263 979 180",
+    "source": "https://thc.pt/category/transportes/",
+    "observation": "Empresa de transportes e logística.",
+    "opportunity": "Dossiê comercial de serviços.",
+    "service": "design"
+  },
+  {
+    "company": "LimaLOG",
+    "sector": "Transportes",
+    "email_area": "Transportes & Logística",
+    "location": "Viana do Castelo, Viana do Castelo",
+    "website": "https://limalog.pt/",
+    "email": "info@limalog.pt",
+    "phone": "258 822 178",
+    "source": "https://www.limalog.pt/",
+    "observation": "Transporte rodoviário de mercadorias.",
+    "opportunity": "Materiais gráficos de serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Origem Dental Clinic",
+    "sector": "Medicina dentária",
+    "email_area": "Dentistas",
+    "location": "Braga, Braga",
+    "website": "https://origemdentalclinic.pt/",
+    "email": "geral@origemdentalclinic.pt",
+    "phone": "253 007 500",
+    "source": "https://origemdentalclinic.pt/contacto",
+    "observation": "Clínica dentária em Braga.",
+    "opportunity": "Peças informativas sobre tratamentos.",
+    "service": "design"
+  },
+  {
+    "company": "Clínica Cautela",
+    "sector": "Medicina dentária",
+    "email_area": "Dentistas",
+    "location": "Lisboa, Lisboa",
+    "website": "https://clinicacautela.com/",
+    "email": "geral@clinicacautela.com",
+    "phone": "218 202 320",
+    "source": "https://www.clinicacautela.com/en/contact",
+    "observation": "Clínica dentária na Avenida Conde Valbom.",
+    "opportunity": "Materiais de apresentação clínica.",
+    "service": "design"
+  },
+  {
+    "company": "Quinta do Sardanito de Trás",
+    "sector": "Turismo rural",
+    "email_area": "Turismo & Alojamento",
+    "location": "Zambujeira do Mar, Beja",
+    "website": "https://quintadosardanito.com/",
+    "email": "reservas@quintadosardanito.com",
+    "phone": "926 153 405",
+    "source": "https://www.quintadosardanito.com/SARDANITO_contactos.aspx",
+    "observation": "Casas de campo na Zambujeira do Mar.",
+    "opportunity": "Peças para divulgação de estadias.",
+    "service": "design"
+  },
+  {
+    "company": "Bruno Couto Dental Clinic",
+    "sector": "Medicina dentária",
+    "email_area": "Dentistas",
+    "location": "Trofa, Porto",
+    "website": "https://brunocoutodentalclinic.pt/",
+    "email": "smile@brunocoutodentalclinic.pt",
+    "phone": "223 172 057",
+    "source": "https://www.brunocoutodentalclinic.pt/contactos/",
+    "observation": "Clínica dentária na Trofa.",
+    "opportunity": "Materiais informativos de tratamentos.",
+    "service": "design"
+  },
+  {
+    "company": "ID Machinery",
+    "sector": "Máquinas industriais",
+    "email_area": "Indústria & Produção",
+    "location": "Cortegaça, Aveiro",
+    "website": "https://idmachinery.pt/",
+    "email": "xavier@idmachinery.pt",
+    "phone": "227 440 086",
+    "source": "https://www.idmachinery.pt/contatos/",
+    "observation": "Empresa de equipamentos industriais em Cortegaça.",
+    "opportunity": "Catálogo técnico de equipamentos.",
+    "service": "design"
+  },
+  {
+    "company": "Azeite Olivitta",
+    "sector": "Produção de azeite",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Vila Flor, Bragança",
+    "website": "https://azeiteolivitta.com/",
+    "email": "geral@azeiteolivitta.com",
+    "phone": "936 245 478",
+    "source": "https://azeiteolivitta.com/contact/",
+    "observation": "Marca de azeite em Vila Flor.",
+    "opportunity": "Materiais gráficos de produto.",
+    "service": "design"
+  },
+  {
+    "company": "ValPrime",
+    "sector": "Mediação imobiliária",
+    "email_area": "Imobiliário",
+    "location": "Campo, Valongo, Porto",
+    "website": "https://valprime.pt/",
+    "email": "geral@valprime.pt",
+    "phone": "934 040 277",
+    "source": "https://www.valprime.pt/contactus",
+    "observation": "Mediação imobiliária com licença AMI.",
+    "opportunity": "Materiais para apresentação de imóveis.",
+    "service": "design"
+  },
+  {
+    "company": "Tecnoar",
+    "sector": "Equipamentos industriais",
+    "email_area": "Indústria & Produção",
+    "location": "Porto, Porto",
+    "website": "https://tecnoar.pt/",
+    "email": "geral@tecnoar.pt",
+    "phone": "226 173 644",
+    "source": "https://www.tecnoar.pt/contactos/?lang=en",
+    "observation": "Equipamentos de ar comprimido.",
+    "opportunity": "Catálogo de soluções técnicas.",
+    "service": "design"
+  },
+  {
+    "company": "Lafec",
+    "sector": "Equipamentos industriais",
+    "email_area": "Indústria & Produção",
+    "location": "Paredes, Porto",
+    "website": "https://lafec.pt/",
+    "email": "geral@lafec.pt",
+    "phone": "224 337 310",
+    "source": "https://www.lafec.pt/contacto/",
+    "observation": "Produz linhas e cabinas de pintura industrial.",
+    "opportunity": "Catálogo técnico de equipamentos.",
+    "service": "design"
+  },
+  {
+    "company": "Aurum Nostrum",
+    "sector": "Azeite",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Vale de Prados, Macedo de Cavaleiros, Bragança",
+    "website": "https://aurumnostrum.pt/",
+    "email": "geral@aurumnostrum.pt",
+    "phone": "914 206 425",
+    "source": "https://aurumnostrum.pt/",
+    "observation": "Azeite biológico de Trás-os-Montes.",
+    "opportunity": "Materiais de apresentação de produto.",
+    "service": "design"
+  },
+  {
+    "company": "Herdade da Ventosa",
+    "sector": "Produção de azeite",
+    "email_area": "Agricultura & Agroalimentar",
+    "location": "Elvas, Portalegre",
+    "website": "https://herdadedaventosa.pt/",
+    "email": "geral@herdadedaventosa.pt",
+    "phone": "268 622 326",
+    "source": "https://herdadedaventosa.pt/contactos/",
+    "observation": "Herdade de produção de azeite em Elvas.",
+    "opportunity": "Peças gráficas para produtos.",
+    "service": "design"
+  },
+  {
+    "company": "Reprime",
+    "sector": "Mediação imobiliária",
+    "email_area": "Imobiliário",
+    "location": "Porto, Porto",
+    "website": "https://reprime.pt/",
+    "email": "geral@reprime.pt",
+    "phone": "923 199 062",
+    "source": "https://reprime.pt/",
+    "observation": "Imobiliária com licença AMI 26571.",
+    "opportunity": "Apresentação gráfica de imóveis.",
+    "service": "design"
+  },
+  {
+    "company": "SysOne",
+    "sector": "Consultoria informática",
+    "email_area": "Tecnologia & Digital",
+    "location": "Agualva-Cacém, Lisboa",
+    "website": "https://sysone.pt/",
+    "email": "geral@sysone.pt",
+    "phone": "",
+    "source": "https://sysone.pt/",
+    "observation": "Empresa de consultoria informática.",
+    "opportunity": "Materiais comerciais de serviços.",
+    "service": "design"
+  },
+  {
+    "company": "Garser",
+    "sector": "Equipamentos automóveis",
+    "email_area": "Automóvel",
+    "location": "Valadares, Vila Nova de Gaia, Porto",
+    "website": "https://garser.pt/",
+    "email": "geral@garser.com",
+    "phone": "227 531 684",
+    "source": "https://garser.pt/contacto/",
+    "observation": "Empresa de máquinas e equipamento automóvel.",
+    "opportunity": "Catálogo de equipamentos.",
+    "service": "design"
+  },
+  {
+    "company": "PMR Imobiliária",
+    "sector": "Mediação imobiliária",
+    "email_area": "Imobiliário",
+    "location": "Lisboa, Lisboa",
+    "website": "https://pmrimobiliaria.pt/",
+    "email": "info@pmrimobiliaria.pt",
+    "phone": "217 541 650",
+    "source": "https://www.pmrimobiliaria.pt/pt-PT/Contactos",
+    "observation": "Empresa de mediação imobiliária em Lisboa.",
+    "opportunity": "Materiais para divulgação de imóveis.",
+    "service": "design"
+  },
+  {
+    "company": "White Properties",
+    "sector": "Mediação imobiliária",
+    "email_area": "Imobiliário",
+    "location": "Cascais, Lisboa",
+    "website": "https://whiteproperties.pt/",
+    "email": "imobiliaria@whiteproperties.pt",
+    "phone": "214 864 657",
+    "source": "https://www.whiteproperties.pt/contactos",
+    "observation": "Mediação imobiliária em Cascais.",
+    "opportunity": "Peças gráficas de apresentação de imóveis.",
+    "service": "design"
+  },
+  {
+    "company": "Opinião Plural",
+    "sector": "Mediação imobiliária",
+    "email_area": "Imobiliário",
+    "location": "Vila Nova de Gaia, Porto",
+    "website": "https://opiniaoplural.pt/",
+    "email": "geral@opiniaoplural.pt",
+    "phone": "918 631 964",
+    "source": "https://opiniaoplural.pt/",
+    "observation": "Mediação imobiliária com licença AMI.",
+    "opportunity": "Materiais gráficos de imóveis.",
+    "service": "design"
+  },
+  {
+    "company": "Logica Imobiliária",
+    "sector": "Mediação imobiliária",
+    "email_area": "Imobiliário",
+    "location": "Vila Nova de Gaia, Porto",
+    "website": "https://logicaimobiliaria.pt/",
+    "email": "geral@logicaimobiliaria.pt",
+    "phone": "223 711 627",
+    "source": "https://www.logicaimobiliaria.pt/contacto",
+    "observation": "Mediação imobiliária com licença AMI.",
+    "opportunity": "Materiais de apresentação de imóveis.",
+    "service": "design"
+  },
+  {
+    "company": "Doutor Imóveis",
+    "sector": "Mediação imobiliária",
+    "email_area": "Imobiliário",
+    "location": "Lisboa, Lisboa",
+    "website": "https://doutorimoveis.pt/",
+    "email": "contacto@doutorimoveis.pt",
+    "phone": "928 250 002",
+    "source": "https://www.doutorimoveis.pt/contact",
+    "observation": "Serviços de mediação imobiliária em Lisboa.",
+    "opportunity": "Peças gráficas de imóveis.",
+    "service": "design"
+  }
+];
+try {
+ const cols=db.prepare('PRAGMA table_info(prospect_crm)').all().map(c=>c.name);
+ for(const col of ['email_area','email_observation','instagram','outreach_channel'])if(!cols.includes(col))db.exec('ALTER TABLE prospect_crm ADD COLUMN '+col+' TEXT');
+ const normSite=s=>{try{return new URL(s).hostname.toLowerCase().replace(/^www\./,'')}catch(_){return ''}};
+ const oldEmails=new Set(),oldCompanies=new Set(),oldSites=new Set();
+ for(const f of fs.readdirSync(__dirname).filter(n=>/^prospect-seed-.*\.js$/i.test(n)&&n!==path.basename(__filename))){
+  const txt=fs.readFileSync(path.join(__dirname,f),'utf8');
+  for(const m of txt.matchAll(/["']email["']\s*:\s*["']([^"']+)["']/g))oldEmails.add(m[1].trim().toLowerCase());
+  for(const m of txt.matchAll(/["']company["']\s*:\s*["']([^"']+)["']/g))oldCompanies.add(m[1].trim().toLowerCase());
+  for(const m of txt.matchAll(/["']website["']\s*:\s*["']([^"']+)["']/g)){const site=normSite(m[1]);if(site)oldSites.add(site)}
+ }
+ const sites=new Set(db.prepare("SELECT website FROM prospect_crm WHERE website IS NOT NULL AND trim(website)<>''").all().map(x=>normSite(x.website)).filter(Boolean));
+ const deletedCompany=db.prepare("SELECT 1 FROM deleted_prospects WHERE lower(trim(company))=? LIMIT 1");
+ const hasEmail=db.prepare('SELECT 1 FROM users WHERE lower(trim(email))=? LIMIT 1'),hasCompany=db.prepare('SELECT 1 FROM users WHERE is_prospect=1 AND lower(trim(company))=? LIMIT 1');
+ const addUser=db.prepare('INSERT INTO users(name,email,password_hash,role,company,phone,is_prospect,is_active) VALUES(?,?,?,?,?,?,1,0)');
+ const addCrm=db.prepare("INSERT INTO prospect_crm(user_id,sector,email_area,location,website,instagram,opportunity,idea,email_observation,recommended_plan,solution_text,monthly_value,offer_value,lead_status,priority,notes,proposal_email,outreach_channel,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))");
+ const pwd=bcrypt.hashSync(crypto.randomBytes(24).toString('hex'),10),seenE=new Set(),seenC=new Set(),seenS=new Set();
+ let added=0,skipped=0;
+ db.transaction(()=>{for(const x of L){
+  const email=x.email.trim().toLowerCase(),company=x.company.trim().toLowerCase(),domain=email.split('@')[1],site=normSite(x.website);
+  if(!domain||/^(gmail\.com|hotmail\.com|outlook\.com|yahoo\.[a-z.]+|icloud\.com|sapo\.pt)$/i.test(domain)||/^no-?reply@/i.test(email)||!x.source||!x.email_area||wasDeleted(email)||deletedCompany.get(company)||oldEmails.has(email)||oldCompanies.has(company)||(site&&oldSites.has(site))||seenE.has(email)||seenC.has(company)||(site&&seenS.has(site))||hasEmail.get(email)||hasCompany.get(company)||(site&&sites.has(site))){skipped++;continue}
+  seenE.add(email);seenC.add(company);if(site)seenS.add(site);
+  const service=x.service==='design'?'design gráfico e materiais comerciais':x.service==='redes'?'gestão de redes sociais':'design gráfico e comunicação nas redes sociais';
+  const proposal='Olá, sou o Nuno, da DUIT. Estive a conhecer a '+x.company+'. Posso ajudar com '+service+', nomeadamente com '+x.opportunity.toLowerCase()+' Se fizer sentido para si, terei gosto em conversar consigo. Cumprimentos, Nuno.';
+  const id=Number(addUser.run(x.company,email,pwd,'client',x.company,x.phone||'').lastInsertRowid);
+  addCrm.run(id,x.sector,x.email_area,x.location,x.website||'','',x.opportunity,x.opportunity,x.source+' — email profissional publicado na fonte indicada (verificado em 2026-11-08).','intermedio',service,200,100,'por_contactar','normal',x.observation+' Fonte: '+x.source+'; serviço sugerido: '+x.service,proposal,'email');
+  added++;
+ }})();
+ console.log('[crm] seed 2026-11-08:',added,'adicionados,',skipped,'ignorados');
+}catch(e){console.warn('[crm] seed 2026-11-08:',e.message)}
