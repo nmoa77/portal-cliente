@@ -2026,7 +2026,7 @@ app.get('/api/invoices', requireAuth, (req, res) => {
   const where = req.user.role === 'admin' ? '' : 'WHERE i.user_id=?';
   const params = req.user.role === 'admin' ? [] : [req.user.id];
   res.json(db.prepare(
-    `SELECT i.*, u.name client_name FROM invoices i JOIN users u ON u.id=i.user_id ${where}
+    `SELECT i.*, u.name client_name, u.company client_company FROM invoices i JOIN users u ON u.id=i.user_id ${where}
       ORDER BY i.issued_at DESC`
   ).all(...params));
 });
@@ -2698,7 +2698,7 @@ app.get('/api/notifications', requireAdmin, (req, res) => {
 app.get('/api/tickets', requireAuth, (req, res) => {
   if (req.user.role === 'admin') {
     return res.json(db.prepare(
-      `SELECT t.*, u.name client_name,
+      `SELECT t.*, u.name client_name, u.company client_company,
               (SELECT COUNT(*) FROM messages m WHERE m.ticket_id=t.id) message_count,
               (SELECT COUNT(*) FROM messages m
                  JOIN users u2 ON u2.id = m.user_id
@@ -2738,7 +2738,7 @@ app.post('/api/tickets', requireAuth, (req, res) => {
 
 app.get('/api/tickets/:id', requireAuth, (req, res) => {
   const ticket = db.prepare(
-    `SELECT t.*, u.name client_name, u.email client_email
+    `SELECT t.*, u.name client_name, u.email client_email, u.company client_company
        FROM tickets t JOIN users u ON u.id=t.user_id WHERE t.id=?`
   ).get(req.params.id);
   if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
