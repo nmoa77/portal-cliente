@@ -1278,3 +1278,18 @@ a, code, .file-name, .project-title { overflow-wrap: anywhere; }
     padding-right: 10px;
   }
 }
+
+.client-company-brand{
+  color:#fff;
+  font-family:'Clash Display',sans-serif;
+  font-size:24px;
+  font-weight:700;
+  line-height:1.05;
+  letter-spacing:-.03em;
+  padding:0 8px;
+  margin-bottom:28px;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
