@@ -417,6 +417,7 @@ async function viewClients(main) {
                       <div>
                         <div style="font-weight:500;">${escapeHtml(c.name)}</div>
                         <div style="font-size:12px; color:var(--muted);">${escapeHtml(c.company || '—')}</div>
+                        ${Number(c.subaccounts||0)>0 ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${c.subaccounts} subconta${Number(c.subaccounts)===1?'':'s'}</div>` : ''}
                       </div>
                     </div>
                   </td>
@@ -436,6 +437,7 @@ async function viewClients(main) {
                     ${inactive
                       ? `<button class="btn btn-icon" style="background:var(--yellow); color:var(--black);" title="Ativar conta e enviar credenciais" onclick="event.stopPropagation(); activateClient(${c.id}, '${escapeHtml(c.name).replace(/'/g,"\\'")}')">${svg('check')}</button>`
                       : `<button class="btn btn-icon" title="Desativar (suspender acesso)" onclick="event.stopPropagation(); deactivateClient(${c.id}, '${escapeHtml(c.name).replace(/'/g,"\\'")}')">⏸</button>`}
+                    <button class="btn btn-icon" title="Gerir subcontas" onclick="event.stopPropagation(); openAdminClientTeam(${c.id})">${svg('users')}</button>
                     <button class="btn btn-icon" title="Editar" onclick="event.stopPropagation(); openEditClient(${c.id})">${svg('edit')}</button>
                     <button class="btn btn-icon" title="Apagar" onclick="event.stopPropagation(); deleteClient(${c.id}, '${escapeHtml(c.name).replace(/'/g,"\\'")}')">${svg('trash')}</button>
                   </td>
