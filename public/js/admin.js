@@ -415,9 +415,9 @@ async function viewClients(main) {
                     <div style="display:flex; gap:10px; align-items:center;">
                       <div class="avatar" style="background:${inactive ? 'var(--bg-2)' : 'var(--yellow)'}; color:var(--black); font-size:12px; width:32px; height:32px; border:1px solid var(--line);">${initials(c.name)}</div>
                       <div>
-                        <div style="font-weight:500;">${escapeHtml(c.name)}</div>
-                        <div style="font-size:12px; color:var(--muted);">${escapeHtml(c.company || '—')}</div>
-                        ${Number(c.subaccounts||0)>0 ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${c.subaccounts} subconta${Number(c.subaccounts)===1?'':'s'}</div>` : ''}
+                        <div style="font-weight:700; font-size:14px; line-height:1.2;">${escapeHtml(c.company || c.name || '—')}</div>
+                        <div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(c.name || '—')}</div>
+                        ${Number(c.subaccounts||0)>0 ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">${c.subaccounts} subconta${Number(c.subaccounts)===1?'':'s'}</div>` : ''}
                       </div>
                     </div>
                   </td>
