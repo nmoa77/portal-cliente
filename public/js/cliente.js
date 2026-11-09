@@ -14,6 +14,15 @@ const state = {
   currentProjectId: null,
 };
 
+function canClient(key){
+  if(!state.me) return false;
+  if(Number(state.me.is_account_owner)!==0) return true;
+  return !!(state.me.permissions&&state.me.permissions[key]);
+}
+function isAccountOwner(){
+  return !!state.me && Number(state.me.is_account_owner)!==0;
+}
+
 /* ---- Boot ---- */
 (async function boot() {
   try {
@@ -23,7 +32,8 @@ const state = {
     await refreshSummary();
     renderShell();
     // Restaurar vista após logout por inatividade (?view=xxx).
-    const initial = (new URLSearchParams(window.location.search).get('view')) || 'home';
+    const requested = (new URLSearchParams(window.location.search).get('view')) || '';
+    const initial = requested || (isAccountOwner() ? 'home' : (canClient('calendar_view') ? 'calendar' : canClient('support_view') ? 'support' : 'profile'));
     try { window.history.replaceState({}, document.title, window.location.pathname); } catch (e) {}
     go(initial);
   } catch (e) {
@@ -47,13 +57,14 @@ function renderShell() {
   // Apenas alertas: contam-se itens novos / não lidos / por decidir.
   // Quando o cliente entra na vista correspondente, o servidor marca como visto e o badge desaparece.
   const items = [
-    { id: 'home',      icon: 'home',    label: 'Início' },
-    { id: 'subs',      icon: 'box',     label: 'Subscrições' },
-    { id: 'projects',  icon: 'folder',  label: 'Projetos',    alert: s.unreadProjectNotes,   alertTitle: `${s.unreadProjectNotes || 0} nota(s) nova(s) da DUIT` },
-    { id: 'calendar',  icon: 'cal',     label: 'Calendário' },
-    { id: 'quotes',    icon: 'quote',   label: 'Orçamentos',  alert: s.pendingQuotes,        alertTitle: `${s.pendingQuotes || 0} orçamento(s) por decidir` },
-    { id: 'support',   icon: 'chat',    label: 'Suporte',     alert: s.unreadClientTickets,  alertTitle: `${s.unreadClientTickets || 0} ticket(s) com nova resposta da DUIT` },
-    { id: 'profile',   icon: 'user',    label: 'Perfil' },
+    ...(isAccountOwner() ? [{ id:'home',icon:'home',label:'Início' }] : []),
+    ...(canClient('subs_view') ? [{ id:'subs',icon:'box',label:'Subscrições' }] : []),
+    ...(canClient('projects_view') ? [{ id:'projects',icon:'folder',label:'Projetos',alert:s.unreadProjectNotes,alertTitle:`${s.unreadProjectNotes||0} nota(s) nova(s da DUIT)` }] : []),
+    ...(canClient('calendar_view') ? [{ id:'calendar',icon:'cal',label:'Calendário' }] : []),
+    ...(canClient('quotes_view') ? [{ id:'quotes',icon:'quote',label:'Orçamentos',alert:s.pendingQuotes,alertTitle:`${s.pendingQuotes||0} orçamento(s) por decidir` }] : []),
+    ...(canClient('support_view') ? [{ id:'support',icon:'chat',label:'Apoio',alert:s.unreadClientTickets,alertTitle:`${s.unreadClientTickets||0} pedido(s) com nova resposta da DUIT` }] : []),
+    ...(isAccountOwner() || canClient('users_manage') ? [{ id:'team',icon:'users',label:'Equipa' }] : []),
+    { id:'profile',icon:'user',label:'Perfil' },
   ];
   nav.innerHTML = `
     <div class="nav-section">Área do cliente</div>
@@ -83,13 +94,17 @@ async function go(view) {
   const main = document.getElementById('main');
   main.innerHTML = `<div class="empty">A carregar…</div>`;
   try {
-    if (view === 'home')       await viewHome(main);
+    if (view === 'home') {
+      if(!isAccountOwner()) throw new Error('Sem permissão para esta área.');
+      await viewHome(main);
+    }
     else if (view === 'subs')      await viewSubs(main);
     else if (view === 'projects')  await viewProjects(main);
     else if (view === 'calendar')  await viewCalendar(main);
     else if (view === 'quotes')    await viewQuotes(main);
     else if (view === 'support')   await viewSupport(main);
     else if (view === 'profile')   await viewProfile(main);
+    else if (view === 'team')      await viewTeam(main);
     // views ainda implementadas mas sem entrada no menu:
     else if (view === 'mockups')   await viewMockups(main);
     else if (view === 'invoices')  await viewInvoices(main);
@@ -760,6 +775,7 @@ async function viewCalendar(main) {
         <p class="lede">Consulte o que está agendado e aprove as publicações que precisam da sua validação.</p>
       </div>
       <div class="page-head-actions">
+        ${canClient('calendar_create') ? `<button class="btn btn-yellow btn-sm" onclick="openClientPostEditor()">+ Novo conteúdo</button>` : ''}
         <button class="btn btn-ghost btn-sm" onclick="shiftMonth(-1)">←</button>
         <strong style="font-family:'Clash Display'; font-size:18px; min-width:180px; text-align:center;">${monthLabel(month)}</strong>
         <button class="btn btn-ghost btn-sm" onclick="shiftMonth(1)">→</button>
@@ -803,9 +819,186 @@ async function openPostView(id) {
     const lede = document.getElementById('modal-post-lede');
     if (lede) lede.textContent = p.client_suggestion
       ? `Já enviou uma sugestão anterior: "${p.client_suggestion}". Pode enviar outra se assim o entender.`
-      : 'Consulte o detalhe do post. Se desejar sugerir uma alteração à equipa, escreva em baixo.';
+      : 'Consulte o detalhe do conteúdo.';
+    const actions=document.querySelector('#modal-post .modal-actions');
+    if(actions){
+      const extras=[];
+      if(canClient('calendar_edit')) extras.push(`<button type="button" class="btn btn-ghost" onclick="openClientPostEditor(${p.id})">Editar</button>`);
+      if(canClient('calendar_delete')) extras.push(`<button type="button" class="btn btn-ghost" onclick="deleteClientPost(${p.id})">Apagar</button>`);
+      const submit=actions.querySelector('button[type="submit"]');
+      if(submit) submit.style.display=canClient('calendar_edit')?'none':'';
+      actions.querySelectorAll('.client-post-extra').forEach(x=>x.remove());
+      extras.reverse().forEach(html=>actions.insertAdjacentHTML('afterbegin',html.replace('class="btn','class="client-post-extra btn')));
+    }
     openModal('modal-post');
   } catch (err) { toast(err.message, 'cancel'); }
+}
+
+
+function clientPermissionOptions(current={}){
+  const groups=[
+    ['Calendário',[
+      ['calendar_view','Ver calendário'],
+      ['calendar_create','Inserir conteúdos'],
+      ['calendar_edit','Editar conteúdos'],
+      ['calendar_delete','Apagar conteúdos']]],
+    ['Apoio',[
+      ['support_view','Ver pedidos de apoio'],
+      ['support_create','Criar pedidos de apoio'],
+      ['support_reply','Responder a pedidos de apoio']]],
+    ['Outras áreas',[
+      ['projects_view','Ver projetos'],
+      ['quotes_view','Ver orçamentos'],
+      ['subs_view','Ver subscrições'],
+      ['payments_view','Ver pagamentos']]]
+  ];
+  return groups.map(([title,items])=>`
+    <div class="card" style="padding:14px;margin-bottom:10px">
+      <strong style="display:block;margin-bottom:10px">${title}</strong>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px">
+        ${items.map(([key,label])=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" data-perm="${key}" ${current[key]?'checked':''} style="width:17px;height:17px;accent-color:#ffd60a"> ${label}
+        </label>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+async function viewTeam(main){
+  if(!isAccountOwner()&&!canClient('users_manage')) throw new Error('Sem permissão para gerir utilizadores.');
+  const rows=await api('/api/client-users');
+  main.innerHTML=`
+    <div class="page-head">
+      <div><div class="eyebrow">Conta ${escapeHtml(state.me.account_company||state.me.company||'')}</div><h1>Equipa</h1>
+      <p class="lede">Crie acessos individuais e escolha exatamente o que cada pessoa pode fazer.</p></div>
+      <div class="page-head-actions"><button class="btn btn-yellow" onclick="openTeamUserEditor()">+ Adicionar utilizador</button></div>
+    </div>
+    <div class="card table-card">
+      <table class="table">
+        <thead><tr><th>Utilizador</th><th>Tipo</th><th>Acesso</th><th>Permissões</th><th></th></tr></thead>
+        <tbody>
+          ${rows.map(u=>{
+            const owner=Number(u.is_account_owner)!==0 && !u.parent_user_id;
+            const perms=u.permissions||{};
+            const labels=[];
+            if(perms.calendar_view)labels.push('Calendário');
+            if(perms.calendar_create)labels.push('Criar conteúdos');
+            if(perms.support_view)labels.push('Apoio');
+            if(perms.projects_view)labels.push('Projetos');
+            if(perms.quotes_view)labels.push('Orçamentos');
+            return `<tr>
+              <td><strong>${escapeHtml(u.name)}</strong><div style="font-size:11px;color:var(--muted)">${escapeHtml(u.email)}</div></td>
+              <td>${owner?'<span class="pill accent">Proprietário</span>':'<span class="pill">Utilizador</span>'}</td>
+              <td>${Number(u.is_active)!==0?'<span class="pill ok">Ativo</span>':'<span class="pill err">Suspenso</span>'}</td>
+              <td style="font-size:12px;color:var(--muted)">${owner?'Acesso total':(labels.join(' · ')||'Sem permissões')}</td>
+              <td style="text-align:right;white-space:nowrap">
+                ${owner?'':`<button class="btn btn-icon" onclick='openTeamUserEditor(${JSON.stringify(JSON.stringify(u))})'>✎</button>
+                  <button class="btn btn-sm ${Number(u.is_active)!==0?'btn-ghost':'btn-yellow'}" onclick="toggleTeamUser(${u.id},${Number(u.is_active)!==0?0:1})">${Number(u.is_active)!==0?'Suspender':'Reativar'}</button>`}
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openTeamUserEditor(serialized){
+  let user=null;
+  if(serialized){
+    try{user=JSON.parse(serialized)}catch(_){}
+  }
+  document.getElementById('team-user-editor')?.remove();
+  const overlay=document.createElement('div');
+  overlay.id='team-user-editor'; overlay.className='overlay open';
+  overlay.innerHTML=`<div class="modal" style="max-width:760px">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:start">
+      <div><div class="eyebrow">Subconta</div><h3 style="margin:4px 0">${user?'Editar utilizador':'Novo utilizador'}</h3></div>
+      <button class="btn btn-icon" type="button" onclick="document.getElementById('team-user-editor').remove()">✕</button>
+    </div>
+    <form id="teamUserForm" style="margin-top:16px">
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Nome</label><input id="tu-name" required value="${escapeHtml(user?.name||'')}"></div>
+        <div class="field"><label>Email</label><input id="tu-email" type="email" required value="${escapeHtml(user?.email||'')}" ${user?'disabled':''}></div>
+      </div>
+      <div class="field"><label>Telefone</label><input id="tu-phone" value="${escapeHtml(user?.phone||'')}"></div>
+      <div style="margin:15px 0 8px"><strong>O que este utilizador pode fazer?</strong><div style="font-size:12px;color:var(--muted);margin-top:3px">Pode alterar estas permissões quando quiser.</div></div>
+      ${clientPermissionOptions(user?.permissions||{})}
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('team-user-editor').remove()">Cancelar</button>
+        <button class="btn btn-yellow" type="submit">${user?'Guardar alterações':'Criar acesso'}</button>
+      </div>
+    </form>
+  </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('teamUserForm').onsubmit=async e=>{
+    e.preventDefault();
+    const permissions={};
+    overlay.querySelectorAll('[data-perm]').forEach(el=>permissions[el.dataset.perm]=el.checked);
+    const body={name:document.getElementById('tu-name').value.trim(),phone:document.getElementById('tu-phone').value.trim(),permissions};
+    if(!user)body.email=document.getElementById('tu-email').value.trim();
+    try{
+      if(user)await api(`/api/client-users/${user.id}`,{method:'PATCH',body});
+      else await api('/api/client-users',{method:'POST',body});
+      overlay.remove();
+      toast(user?'Utilizador atualizado.':'Utilizador criado e acesso enviado por email.','check');
+      go('team');
+    }catch(err){toast(err.message,'cancel')}
+  };
+}
+
+async function toggleTeamUser(id,activate){
+  if(!confirm(activate?'Reativar este utilizador?':'Suspender o acesso deste utilizador?'))return;
+  try{
+    await api(`/api/client-users/${id}/${activate?'activate':'suspend'}`,{method:'POST'});
+    toast(activate?'Utilizador reativado.':'Utilizador suspenso.','check');
+    go('team');
+  }catch(err){toast(err.message,'cancel')}
+}
+
+async function openClientPostEditor(id=null){
+  let post=null;
+  if(id){
+    const posts=await api(`/api/social-posts?month=${encodeURIComponent(state.calMonth)}`);
+    post=posts.find(p=>Number(p.id)===Number(id))||null;
+  }
+  document.getElementById('client-post-editor')?.remove();
+  const overlay=document.createElement('div');
+  overlay.id='client-post-editor';overlay.className='overlay open';
+  overlay.innerHTML=`<div class="modal" style="max-width:650px">
+    <div style="display:flex;justify-content:space-between;align-items:start;gap:12px">
+      <div><div class="eyebrow">Calendário</div><h3 style="margin:4px 0">${post?'Editar conteúdo':'Novo conteúdo'}</h3></div>
+      <button class="btn btn-icon" onclick="document.getElementById('client-post-editor').remove()">✕</button>
+    </div>
+    <form id="clientPostForm" style="margin-top:16px">
+      <div class="grid g-2" style="gap:12px">
+        <div class="field"><label>Rede</label><select id="cp-network"><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="linkedin">LinkedIn</option></select></div>
+        <div class="field"><label>Data</label><input id="cp-date" type="date" required></div>
+      </div>
+      <div class="field"><label>Conteúdo / legenda</label><textarea id="cp-text" rows="6" required placeholder="Escreva o conteúdo..."></textarea></div>
+      <div class="field"><label>Estado</label><select id="cp-status"><option value="draft">Rascunho</option><option value="scheduled">Agendado</option></select></div>
+      <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="document.getElementById('client-post-editor').remove()">Cancelar</button><button class="btn btn-yellow" type="submit">Guardar</button></div>
+    </form>
+  </div>`;
+  document.body.appendChild(overlay);
+  if(post){
+    document.getElementById('cp-network').value=post.network||'instagram';
+    document.getElementById('cp-date').value=String(post.date||'').slice(0,10);
+    document.getElementById('cp-text').value=post.text||'';
+    document.getElementById('cp-status').value=['draft','scheduled'].includes(post.status)?post.status:'draft';
+  }else document.getElementById('cp-date').value=todayISO();
+  document.getElementById('clientPostForm').onsubmit=async e=>{
+    e.preventDefault();
+    const body={network:document.getElementById('cp-network').value,date:document.getElementById('cp-date').value,text:document.getElementById('cp-text').value.trim(),status:document.getElementById('cp-status').value};
+    try{
+      if(post)await api(`/api/social-posts/${post.id}`,{method:'PATCH',body});
+      else await api('/api/social-posts',{method:'POST',body});
+      overlay.remove();closeModal('modal-post');toast('Conteúdo guardado.','check');go('calendar');
+    }catch(err){toast(err.message,'cancel')}
+  };
+}
+
+async function deleteClientPost(id){
+  if(!confirm('Apagar este conteúdo do calendário?'))return;
+  try{await api(`/api/social-posts/${id}`,{method:'DELETE'});closeModal('modal-post');toast('Conteúdo apagado.','check');go('calendar')}catch(err){toast(err.message,'cancel')}
 }
 
 /* =========================================================================
@@ -1022,7 +1215,7 @@ async function viewSupport(main) {
         <p class="lede">Abra um pedido para falar diretamente com a equipa DUIT. Em baixo encontra também respostas rápidas a perguntas frequentes.</p>
       </div>
       <div class="page-head-actions">
-        <button class="btn btn-yellow" onclick="openModal('modal-ticket')">${svg('plus')} Novo pedido</button>
+        ${canClient('support_create') ? `<button class="btn btn-yellow" onclick="openModal('modal-ticket')">${svg('plus')} Novo pedido</button>` : ''}
       </div>
     </div>
 
@@ -1105,7 +1298,7 @@ async function openTicket(id) {
           `;
         }).join('')}
       </div>
-      ${t.status !== 'closed' ? `
+      ${t.status !== 'closed' && canClient('support_reply') ? `
         <form id="msgForm" style="margin-top:20px;">
           <div class="field"><label>Nova mensagem</label><textarea id="msg-body" rows="3" required placeholder="Escreva aqui..."></textarea></div>
           <div class="modal-actions"><button class="btn btn-yellow" type="submit">Enviar ${svg('arrow')}</button></div>
