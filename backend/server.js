@@ -2308,6 +2308,7 @@ app.post('/api/ad-vocabularies/reset', requireAdmin, (req, res) => {
 function buildCampaignNomenclature(c) {
   return [
     c.empresa,
+    c.area,
     `${c.produto} | ${c.ref_year}-${c.ref_month}-${c.ref_day} | ${c.objetivo} | ${c.budget || 0} | ${capitalize(c.temperatura)} | ${c.country || ''}`,
   ].filter(Boolean).join(' ::. ');
 }
@@ -2380,7 +2381,7 @@ app.get('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
 });
 
 app.post('/api/ad-campaigns', requireAdmin, (req, res) => {
-  const { user_id, produto, objetivo, temperatura, country,
+  const { user_id, produto, area, objetivo, temperatura, country,
           ref_year, ref_month, ref_day, budget, starts_at, ends_at, notes } = req.body || {};
   if (!user_id || !produto || !objetivo) {
     return res.status(400).json({ error: 'Cliente, produto e objetivo obrigatórios.' });
@@ -2388,11 +2389,11 @@ app.post('/api/ad-campaigns', requireAdmin, (req, res) => {
   const now = new Date();
   const info = db.prepare(
     `INSERT INTO ad_campaigns
-       (user_id, produto, objetivo, temperatura, country,
+       (user_id, produto, area, objetivo, temperatura, country,
         ref_year, ref_month, ref_day, budget, starts_at, ends_at, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
-    user_id, produto.trim(), objetivo.trim(),
+    user_id, produto.trim(), area ? String(area).trim() : null, objetivo.trim(),
     temperatura || 'morno',
     country || 'Portugal',
     Number(ref_year) || now.getFullYear(),
@@ -2408,7 +2409,7 @@ app.post('/api/ad-campaigns', requireAdmin, (req, res) => {
 app.patch('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
   const c = db.prepare(`SELECT id FROM ad_campaigns WHERE id=?`).get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Campanha não encontrada.' });
-  const { produto, objetivo, temperatura, country,
+  const { produto, area, objetivo, temperatura, country,
           ref_year, ref_month, ref_day, budget, starts_at, ends_at,
           impressions, clicks, ctr, cpc, spent, notes } = req.body || {};
 
@@ -2427,6 +2428,7 @@ app.patch('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
   db.prepare(
     `UPDATE ad_campaigns SET
        produto = COALESCE(?, produto),
+       area = COALESCE(?, area),
        objetivo = COALESCE(?, objetivo),
        temperatura = COALESCE(?, temperatura),
        country = COALESCE(?, country),
@@ -2445,7 +2447,7 @@ app.patch('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
        updated_at = datetime('now')
      WHERE id = ?`
   ).run(
-    produto ?? null, objetivo ?? null,
+    produto ?? null, area ?? null, objetivo ?? null,
     temperatura ?? null,
     country ?? null,
     ref_year ?? null, ref_month ?? null, ref_day ?? null,
