@@ -2428,7 +2428,7 @@ app.patch('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
   db.prepare(
     `UPDATE ad_campaigns SET
        produto = COALESCE(?, produto),
-       area = COALESCE(?, area),
+       area = ?,
        objetivo = COALESCE(?, objetivo),
        temperatura = COALESCE(?, temperatura),
        country = COALESCE(?, country),
@@ -2447,7 +2447,7 @@ app.patch('/api/ad-campaigns/:id', requireAdmin, (req, res) => {
        updated_at = datetime('now')
      WHERE id = ?`
   ).run(
-    produto ?? null, area ?? null, objetivo ?? null,
+    produto ?? null, area === undefined ? null : (area || null), objetivo ?? null,
     temperatura ?? null,
     country ?? null,
     ref_year ?? null, ref_month ?? null, ref_day ?? null,
