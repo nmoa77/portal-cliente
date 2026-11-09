@@ -333,6 +333,20 @@ app.get('/api/stats', requireAdmin, (req, res) => {
   const totalProspects = db.prepare(
     `SELECT COUNT(*) c FROM users WHERE role='client' AND is_prospect=1`
   ).get().c;
+  let prospectsToSend = 0;
+  try {
+    prospectsToSend = db.prepare(`
+      SELECT COUNT(*) c
+        FROM users u
+        JOIN prospect_crm pc ON pc.user_id=u.id
+       WHERE u.role='client'
+         AND u.is_prospect=1
+         AND pc.email_sent_at IS NULL
+         AND pc.resend_email_id IS NULL
+         AND COALESCE(lower(pc.resend_status),'') NOT IN
+             ('sent','delivered','opened','clicked','delivery_delayed','failed','bounced','complained','suppressed')
+    `).get().c;
+  } catch (_) { prospectsToSend = 0; }
   // Anúncios ativos (dentro do intervalo de datas, se definido)
   const activeAnnouncements = db.prepare(
     `SELECT COUNT(*) c FROM announcements
@@ -357,7 +371,7 @@ app.get('/api/stats', requireAdmin, (req, res) => {
     pendingCancels, pendingQuotes, pendingSubs,
     unreadClientNotes, unseenQuoteResponses,
     unreadAdminTickets, unreadDuitStart, pendingPostSuggestions, todayDrafts,
-    totalProspects, pendingProspectActions, activeAnnouncements,
+    totalProspects, prospectsToSend, pendingProspectActions, activeAnnouncements,
   });
 });
 
