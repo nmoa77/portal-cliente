@@ -468,12 +468,24 @@ app.get('/api/client-summary', requireAuth, (req, res) => {
         AND m.read_by_client_at IS NULL`
   ).get(uid).c;
 
+  const perms=clientPerms(req.user.id);
+  const me=clientAccountUser(req.user.id);
+  const ownerMode=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
   res.json({
-    activeSubs, openProjects, pendingMockups, pendingQuotes, revisedQuotes,
-    monthTotal, weekPosts, awaitingPosts: draftPosts, draftPosts,
-    hasSocial, socialPostStats,
-    // alertas
-    unreadProjectNotes, unreadClientTickets, upcomingSocialRenewals,
+    activeSubs: ownerMode||perms.subs_view ? activeSubs : 0,
+    openProjects: ownerMode||perms.projects_view ? openProjects : 0,
+    pendingMockups: ownerMode||perms.projects_view ? pendingMockups : 0,
+    pendingQuotes: ownerMode||perms.quotes_view ? pendingQuotes : 0,
+    revisedQuotes: ownerMode||perms.quotes_view ? revisedQuotes : [],
+    monthTotal: ownerMode||perms.subs_view ? monthTotal : 0,
+    weekPosts: ownerMode||perms.calendar_view ? weekPosts : 0,
+    awaitingPosts: ownerMode||perms.calendar_view ? draftPosts : 0,
+    draftPosts: ownerMode||perms.calendar_view ? draftPosts : 0,
+    hasSocial: ownerMode||perms.calendar_view ? hasSocial : false,
+    socialPostStats: ownerMode||perms.calendar_view ? socialPostStats : [],
+    unreadProjectNotes: ownerMode||perms.projects_view ? unreadProjectNotes : 0,
+    unreadClientTickets: ownerMode||perms.support_view ? unreadClientTickets : 0,
+    upcomingSocialRenewals: ownerMode||perms.subs_view ? upcomingSocialRenewals : [],
   });
 });
 
