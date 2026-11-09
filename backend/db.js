@@ -33,7 +33,11 @@ CREATE TABLE IF NOT EXISTS users (
   notifications_enabled INTEGER NOT NULL DEFAULT 1,
   is_prospect INTEGER NOT NULL DEFAULT 0,
   is_active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now'))
+  parent_user_id INTEGER,
+  is_account_owner INTEGER NOT NULL DEFAULT 1,
+  client_permissions TEXT,
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (parent_user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS plans (
@@ -607,6 +611,25 @@ try {
     console.log('✓ Migration: users.is_active adicionada.');
   }
 } catch (e) { console.warn('Migration users.is_active:', e.message); }
+
+try {
+  const cols = db.prepare(`PRAGMA table_info(users)`).all();
+  if (cols.length) {
+    if (!cols.find(c => c.name === 'parent_user_id')) {
+      db.exec(`ALTER TABLE users ADD COLUMN parent_user_id INTEGER`);
+      console.log('✓ Migration: users.parent_user_id adicionada.');
+    }
+    if (!cols.find(c => c.name === 'is_account_owner')) {
+      db.exec(`ALTER TABLE users ADD COLUMN is_account_owner INTEGER NOT NULL DEFAULT 1`);
+      console.log('✓ Migration: users.is_account_owner adicionada.');
+    }
+    if (!cols.find(c => c.name === 'client_permissions')) {
+      db.exec(`ALTER TABLE users ADD COLUMN client_permissions TEXT`);
+      console.log('✓ Migration: users.client_permissions adicionada.');
+    }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_users_parent_user_id ON users(parent_user_id)`);
+  }
+} catch (e) { console.warn('Migration users subcontas:', e.message); }
 
 // Migration: alargar CHECK do status em quotes para incluir 'revised'
 try {
