@@ -3116,9 +3116,14 @@ document.addEventListener('submit', async (e) => {
         await api('/api/ad-campaigns', { method: 'POST', body });
         toast('Campanha criada.', 'check');
       }
+      const editedCampaignId = state._editingCampaignId ? Number(state._editingCampaignId) : null;
       closeAdModal('modal-adcampaign');
-      if (state._editingCampaignId) go('metaads-detail');
-      else go('metaads');
+      if (editedCampaignId) {
+        state._currentCampaignId = editedCampaignId;
+        await openMetaAdDetail(editedCampaignId);
+      } else {
+        go('metaads');
+      }
     } catch (err) { toast(err.message, 'cancel'); }
     return;
   }
