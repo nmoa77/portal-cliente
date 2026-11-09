@@ -234,6 +234,7 @@ CREATE TABLE IF NOT EXISTS ad_campaigns (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,           -- cliente associado (sempre obrigatório)
   produto TEXT NOT NULL,              -- ex: "post redes sociais"
+  area TEXT,                           -- área DUIT associada
   objetivo TEXT NOT NULL,             -- ex: "alcance"
   temperatura TEXT NOT NULL DEFAULT 'morno',
   country TEXT DEFAULT 'Portugal',
@@ -256,6 +257,14 @@ CREATE TABLE IF NOT EXISTS ad_campaigns (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_ad_campaigns_user ON ad_campaigns(user_id);
+
+try {
+  const adCols = db.prepare(`PRAGMA table_info(ad_campaigns)`).all();
+  if (adCols.length && !adCols.find(c => c.name === 'area')) {
+    db.exec(`ALTER TABLE ad_campaigns ADD COLUMN area TEXT`);
+    console.log('✓ Migration: ad_campaigns.area adicionada.');
+  }
+} catch (e) { console.warn('Migration ad_campaigns.area:', e.message); }
 
 CREATE TABLE IF NOT EXISTS ad_sets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
