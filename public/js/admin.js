@@ -2074,6 +2074,30 @@ async function ensureAdVocab() {
   }
   return state.adVocab;
 }
+
+async function ensureAdAreas() {
+  if (!state.adAreas) {
+    try {
+      const rows = await api('/api/crm/prospect-sectors');
+      state.adAreas = Array.isArray(rows) ? rows.map(x => x.sector).filter(Boolean) : [];
+    } catch (e) { state.adAreas = []; }
+  }
+  return state.adAreas;
+}
+function adAreaOptions(selected) {
+  const list = state.adAreas || [];
+  let html = '<option value="">— sem área —</option>';
+  let found = false;
+  for (const area of list) {
+    const sel = area === selected ? 'selected' : '';
+    if (sel) found = true;
+    html += `<option value="${escapeHtml(area)}" ${sel}>${escapeHtml(area)}</option>`;
+  }
+  if (selected && !found) {
+    html = `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} (descontinuada)</option>` + html;
+  }
+  return html;
+}
 function vocabOptions(category, selected) {
   const list = (state.adVocab && state.adVocab[category]) || [];
   if (list.length === 0) return `<option value="">— sem opções (vá a Vocabulário) —</option>`;
@@ -2098,6 +2122,7 @@ async function viewMetaAds(main) {
   state.adCampaigns = rows;
   await ensureClientsLoaded();
   await ensureAdVocab();
+  await ensureAdAreas();
 
   // Totais agregados — apenas campanhas ativas contam para os KPIs do topo.
   const activeRows = rows.filter(c => c.status === 'active');
@@ -2220,7 +2245,7 @@ async function viewMetaAdDetail(main, id) {
       <div>
         <button class="btn btn-ghost btn-sm" onclick="go('metaads')">← Voltar</button>
         <h1 style="margin-top:8px;">${escapeHtml(c.produto)}</h1>
-        <p class="lede">${escapeHtml(c.empresa)} · ${escapeHtml(c.objetivo)} · ${escapeHtml(capitalize(c.temperatura))} · ${escapeHtml(c.country || '')}</p>
+        <p class="lede">${escapeHtml(c.empresa)}${c.area ? ' · ' + escapeHtml(c.area) : ''} · ${escapeHtml(c.objetivo)} · ${escapeHtml(capitalize(c.temperatura))} · ${escapeHtml(c.country || '')}</p>
       </div>
       <div class="page-head-actions">
         <button class="btn btn-ghost btn-sm" onclick="openEditAdCampaign(${c.id})">${svg('edit')} Editar campanha</button>
@@ -2326,11 +2351,13 @@ function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 async function openNewAdCampaign() {
   await ensureClientsLoaded();
   await ensureAdVocab();
+  await ensureAdAreas();
   const now = new Date();
   state._editingCampaignId = null;
   showAdCampaignModal({
     user_id: state.clients[0]?.id || '',
     produto: (state.adVocab.produto || [])[0]?.value || '',
+    area: '',
     objetivo: (state.adVocab.objetivo || [])[0]?.value || '',
     temperatura: (state.adVocab.temperatura || [])[1]?.value || 'morno',
     country: (state.adVocab.pais || [])[0]?.value || 'Portugal',
@@ -2344,6 +2371,7 @@ async function openNewAdCampaign() {
 async function openEditAdCampaign(id) {
   await ensureClientsLoaded();
   await ensureAdVocab();
+  await ensureAdAreas();
   let c;
   try { c = await api(`/api/ad-campaigns/${id}`); }
   catch (err) { toast(err.message, 'cancel'); return; }
@@ -2364,26 +2392,29 @@ function showAdCampaignModal(c) {
                 ${state.clients.map(cl => `<option value="${cl.id}" ${cl.id === c.user_id ? 'selected' : ''}>${escapeHtml(clientOptionLabel(cl))}</option>`).join('')}
               </select>
             </div>
+            <div class="field"><label>Área</label>
+              <select id="adc-area">${adAreaOptions(c.area || '')}</select>
+            </div>
+          </div>
+          <div class="grid g-2" style="gap:12px;">
             <div class="field"><label>Produto / âmbito</label>
               <select id="adc-produto" required>${vocabOptions('produto', c.produto)}</select>
             </div>
-          </div>
-          <div class="grid g-2" style="gap:12px;">
             <div class="field"><label>Objetivo</label>
               <select id="adc-objetivo">${vocabOptions('objetivo', c.objetivo)}</select>
             </div>
+          </div>
+          <div class="grid g-2" style="gap:12px;">
             <div class="field"><label>Temperatura</label>
               <select id="adc-temp">${vocabOptions('temperatura', c.temperatura)}</select>
             </div>
-          </div>
-          <div class="grid g-2" style="gap:12px;">
             <div class="field"><label>País</label>
               <select id="adc-country">${vocabOptions('pais', c.country || 'Portugal')}</select>
             </div>
-            <div class="field"><label>Orçamento previsto (€)</label>
+          </div>
+          <div class="field"><label>Orçamento previsto (€)</label>
               <input id="adc-budget" type="number" step="0.01" value="${Number(c.budget || 0)}">
             </div>
-          </div>
           <div class="grid g-2" style="gap:12px;">
             <div class="field"><label>Data início</label>
               <input id="adc-start" type="date" value="${(c.starts_at || '').slice(0,10)}">
@@ -3059,6 +3090,7 @@ document.addEventListener('submit', async (e) => {
     const body = {
       user_id: Number(document.getElementById('adc-user').value),
       produto: document.getElementById('adc-produto').value,
+      area: document.getElementById('adc-area').value || null,
       objetivo: document.getElementById('adc-objetivo').value,
       temperatura: document.getElementById('adc-temp').value,
       country: document.getElementById('adc-country').value || 'Portugal',
