@@ -596,8 +596,8 @@ async function viewSubs(main) {
             ${subs.map(r => `
               <tr>
                 <td>
-                  <div style="font-weight:500;">${escapeHtml(r.client_name)}</div>
-                  <div style="font-size:12px; color:var(--muted);">${escapeHtml(r.client_company || '')}</div>
+                  <div style="font-weight:700;">${escapeHtml(r.client_company || r.client_name || '—')}</div>
+                  <div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(r.client_name || '—')}</div>
                 </td>
                 <td>
                   <div style="font-weight:500;">${escapeHtml(r.name)}</div>
