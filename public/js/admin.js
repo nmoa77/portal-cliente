@@ -42,6 +42,24 @@ async function refreshClients() {
   try { state.clients = await api('/api/clients'); } catch (e) { state.clients = []; }
 }
 
+function clientAccountLabel(c){
+  if(!c) return '—';
+  const company=String(c.company||c.client_company||'').trim();
+  const name=String(c.name||c.client_name||'').trim();
+  return company || name || '—';
+}
+function clientContactLabel(c){
+  if(!c) return '';
+  const company=String(c.company||c.client_company||'').trim();
+  const name=String(c.name||c.client_name||'').trim();
+  return company && name && company!==name ? name : '';
+}
+function clientOptionLabel(c){
+  const account=clientAccountLabel(c);
+  const contact=clientContactLabel(c);
+  return contact ? account+' · '+contact : account;
+}
+
 /* ---- Shell ---- */
 function renderShell() {
   document.getElementById('side-avatar').textContent = initials(state.me.name);
@@ -644,7 +662,7 @@ async function openNewSub() {
   document.getElementById('s-submit').textContent = 'Criar';
   document.getElementById('s-id').value = '';
   const sel = document.getElementById('s-user');
-  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)} · ${escapeHtml(c.company || '')}</option>`).join('');
+  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   sel.disabled = false;
   document.getElementById('s-status-wrap').style.display = 'none';
   document.getElementById('s-items').innerHTML = '';
@@ -662,7 +680,7 @@ async function openSubEdit(id) {
   document.getElementById('s-submit').textContent = 'Guardar';
   document.getElementById('s-id').value = s.id;
   const sel = document.getElementById('s-user');
-  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)} · ${escapeHtml(c.company || '')}</option>`).join('');
+  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   sel.value = s.user_id;
   sel.disabled = true;
   document.getElementById('s-status-wrap').style.display = '';
@@ -1014,7 +1032,7 @@ function adminProjectRow(p) {
           <span>${escapeHtml(p.name)}</span>
           ${unread > 0 ? `<span class="badge-alert" title="${unread} nota(s) novas de cliente por ler">${unread}</span>` : ''}
         </div>
-        <div class="project-meta">${escapeHtml(p.client_name)} · ${p.deadline ? 'Entrega ' + fmtDate(p.deadline) : 'sem data'}</div>
+        <div class="project-meta">${escapeHtml(p.client_company || p.client_name || '—')}${p.client_company && p.client_name ? ' · ' + escapeHtml(p.client_name) : ''} · ${p.deadline ? 'Entrega ' + fmtDate(p.deadline) : 'sem data'}</div>
       </div>
       <div style="flex:1; min-width:220px;">
         <div class="project-stages">${stages}</div>
@@ -1030,7 +1048,7 @@ function adminProjectRow(p) {
 
 function openNewProject() {
   const sel = document.getElementById('pr-user');
-  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   sel.disabled = false;
   document.getElementById('pr-modal-title').textContent = 'Novo projeto';
   document.getElementById('pr-submit').textContent = 'Criar';
@@ -1050,7 +1068,7 @@ function openProjectEdit(id) {
   const p = (state.projects || []).find(x => x.id === id);
   if (!p) { toast('Projeto não encontrado.', 'cancel'); return; }
   const sel = document.getElementById('pr-user');
-  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   sel.value = p.user_id;
   sel.disabled = true;
   document.getElementById('pr-modal-title').textContent = 'Editar projeto';
@@ -1391,7 +1409,7 @@ function openNewPostForDate(dateStr) {
   document.getElementById('mp-text').value = '';
   document.getElementById('mp-status').value = 'scheduled';
   const sel = document.getElementById('mp-user');
-  sel.innerHTML = state.clients.filter(c => (c.social_subs || 0) > 0).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  sel.innerHTML = state.clients.filter(c => (c.social_subs || 0) > 0).map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   if (state.calClientFilter !== 'all') sel.value = state.calClientFilter;
   document.getElementById('mp-delete-btn').style.display = 'none';
   const sw = document.getElementById('mp-suggestion-wrap');
@@ -1418,7 +1436,7 @@ async function openEditPost(id) {
   // Apenas clientes com plano de redes sociais — mas garante incluir o atual
   // (caso já tenha sido cancelado entretanto, para não desaparecer da edição).
   const eligible = state.clients.filter(c => (c.social_subs || 0) > 0 || c.id === p.user_id);
-  sel.innerHTML = eligible.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  sel.innerHTML = eligible.map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   sel.value = p.user_id;
   document.getElementById('mp-delete-btn').style.display = '';
   const sw = document.getElementById('mp-suggestion-wrap');
@@ -1528,7 +1546,7 @@ async function viewQuotes(main) {
                 <div style="font-size:12px;margin-top:3px">${escapeHtml(q.title)}</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">${q.sent_at?'Enviado '+fmtDate(q.sent_at):'Rascunho'}${q.valid_until?' · válido até '+fmtDate(q.valid_until):''}</div>
               </td>
-              <td>${escapeHtml(q.client_name)}<div style="font-size:11px;color:var(--muted)">${escapeHtml(q.client_company||'')}</div></td>
+              <td><strong>${escapeHtml(q.client_company || q.client_name || '—')}</strong><div style="font-size:11px;color:var(--muted)">${escapeHtml(q.client_company ? (q.client_name || '') : '')}</div></td>
               <td><strong>${fmtMoney(q.total)}</strong><div style="font-size:11px;color:var(--muted)">c/ IVA</div></td>
               <td>${emailState(q)}</td>
               <td>${viewState(q)}</td>
@@ -1654,7 +1672,7 @@ async function resendQuote(id) {
 
 function openNewQuote() {
   const sel = document.getElementById('q-user');
-  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   sel.disabled = false;
   const today = new Date(); const thirty = new Date(Date.now() + 30*86400000);
   document.getElementById('modal-quote-title').textContent = 'Novo orçamento';
@@ -1740,14 +1758,14 @@ async function openEditQuote(id) {
   }
   infoBox.innerHTML = `
     <div class="eyebrow" style="margin-bottom:4px;">${isProspect ? 'Prospect (sem conta ativa)' : 'Cliente'}</div>
-    <div><strong>${escapeHtml(full.client_name || '—')}</strong>${full.client_company ? ' · ' + escapeHtml(full.client_company) : ''}</div>
+    <div><strong>${escapeHtml(full.client_company || full.client_name || '—')}</strong>${full.client_company && full.client_name ? ' · ' + escapeHtml(full.client_name) : ''}</div>
     <div style="color:var(--muted); font-size:12px;">${escapeHtml(full.client_email || '')}${full.client_phone ? ' · ' + escapeHtml(full.client_phone) : ''}</div>
   `;
   infoBox.style.display = '';
 
   // Mantemos um valor "fantasma" no select para não falhar no submit (mesmo que ignorado).
   const sel = document.getElementById('q-user');
-  sel.innerHTML = `<option value="${full.user_id}">${escapeHtml(full.client_name || '')}</option>`;
+  sel.innerHTML = `<option value="${full.user_id}">${escapeHtml(full.client_company || full.client_name || '')}</option>`;
   sel.value = full.user_id;
   sel.disabled = true;
   document.getElementById('modal-quote-title').textContent = `Editar orçamento ${full.number || ''}`.trim();
@@ -1861,7 +1879,7 @@ async function viewInvoices(main) {
             ${rows.map(i => `
               <tr>
                 <td><strong>${i.number}</strong></td>
-                <td>${escapeHtml(i.client_name)}</td>
+                <td><strong>${escapeHtml(i.client_company || i.client_name || '—')}</strong><div style="font-size:11px;color:var(--muted)">${escapeHtml(i.client_company ? (i.client_name || '') : '')}</div></td>
                 <td>${escapeHtml(i.description)}</td>
                 <td>${fmtDate(i.issued_at)}</td>
                 <td><strong>${fmtMoney(i.amount)}</strong></td>
@@ -1877,7 +1895,7 @@ async function viewInvoices(main) {
 
 function openNewInvoice() {
   const sel = document.getElementById('i-user');
-  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  sel.innerHTML = state.clients.map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   const today = new Date();
   document.getElementById('i-number').value = `${today.getFullYear()}/${String(Math.floor(Math.random()*900+100))}`;
   openModal('modal-invoice');
@@ -1905,8 +1923,8 @@ async function viewCancels(main) {
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
             <div style="flex:1; min-width:260px;">
-              <div style="font-family:'Clash Display'; font-size:22px;">${escapeHtml(c.client_name)}</div>
-              <div style="color:var(--muted); font-size:13px; margin-bottom:10px;">${escapeHtml(c.client_company || '')} · ${escapeHtml(c.client_email)}</div>
+              <div style="font-family:'Clash Display'; font-size:22px;">${escapeHtml(c.client_company || c.client_name || '—')}</div>
+              <div style="color:var(--muted); font-size:13px; margin-bottom:10px;">${escapeHtml(c.client_company ? (c.client_name || '') : '')}${c.client_email ? (c.client_company && c.client_name ? ' · ' : '') + escapeHtml(c.client_email) : ''}</div>
 
               <div style="padding:10px 14px; background:var(--bg-2); border-radius:10px; margin-bottom:10px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
@@ -1979,7 +1997,7 @@ async function viewSupport(main) {
               <span>${escapeHtml(t.subject)}</span>
               ${t.unread_count > 0 ? `<span class="badge-alert" title="${t.unread_count} mensagem(ns) por ler">${t.unread_count}</span>` : ''}
             </div>
-            <div class="project-meta">${escapeHtml(t.client_name)} · ${fmtDateTime(t.updated_at)} · ${t.message_count} ${t.message_count === 1 ? 'mensagem' : 'mensagens'}</div>
+            <div class="project-meta">${escapeHtml(t.client_company || t.client_name || '—')}${t.client_company && t.client_name ? ' · ' + escapeHtml(t.client_name) : ''} · ${fmtDateTime(t.updated_at)} · ${t.message_count} ${t.message_count === 1 ? 'mensagem' : 'mensagens'}</div>
           </div>
           ${priorityPill(t.priority)}
           ${statusPill(t.status)}
@@ -1998,7 +2016,7 @@ async function openTicket(id) {
       <div>
         <button class="btn btn-ghost btn-sm" onclick="go('support')">← Voltar</button>
         <h1 style="margin-top:8px;">${escapeHtml(t.subject)}</h1>
-        <p class="lede">${escapeHtml(t.client_name)} · ${escapeHtml(t.client_email)} · ${priorityPill(t.priority)}</p>
+        <p class="lede">${escapeHtml(t.client_company || t.client_name || '—')}${t.client_company && t.client_name ? ' · ' + escapeHtml(t.client_name) : ''} · ${escapeHtml(t.client_email)} · ${priorityPill(t.priority)}</p>
       </div>
       <div style="display:flex; gap:6px;">
         <select onchange="setTicketStatus(${t.id}, this.value)" style="padding:8px; border:1px solid var(--line); border-radius:10px;">
@@ -2343,7 +2361,7 @@ function showAdCampaignModal(c) {
           <div class="grid g-2" style="gap:12px;">
             <div class="field"><label>Cliente</label>
               <select id="adc-user" required>
-                ${state.clients.map(cl => `<option value="${cl.id}" ${cl.id === c.user_id ? 'selected' : ''}>${escapeHtml(cl.name)}${cl.company ? ' · ' + escapeHtml(cl.company) : ''}</option>`).join('')}
+                ${state.clients.map(cl => `<option value="${cl.id}" ${cl.id === c.user_id ? 'selected' : ''}>${escapeHtml(clientOptionLabel(cl))}</option>`).join('')}
               </select>
             </div>
             <div class="field"><label>Produto / âmbito</label>
