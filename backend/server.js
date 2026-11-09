@@ -124,6 +124,12 @@ app.post('/api/auth/login', (req, res) => {
   if (user.is_active === 0) {
     return res.status(403).json({ error: 'A sua conta ainda não foi ativada. Aguarde o email da DUIT com os dados de acesso.' });
   }
+  if (user.parent_user_id) {
+    const owner = db.prepare("SELECT is_active FROM users WHERE id=? AND role='client'").get(user.parent_user_id);
+    if (!owner || Number(owner.is_active) === 0) {
+      return res.status(403).json({ error: 'O acesso da conta principal está suspenso.' });
+    }
+  }
   setAuthCookie(res, signToken(user));
 
   // Regista o acesso na tabela de notificações para o admin acompanhar.
@@ -266,7 +272,7 @@ app.post('/api/auth/change-password', requireAuth, (req, res) => {
    ================================================================ */
 app.get('/api/stats', requireAdmin, (req, res) => {
   // Totais (úteis para a home / cards principais)
-  const clients = db.prepare(`SELECT COUNT(*) c FROM users WHERE role='client'`).get().c;
+  const clients = db.prepare(`SELECT COUNT(*) c FROM users WHERE role='client' AND parent_user_id IS NULL`).get().c;
   const activeSubs = db.prepare(`SELECT COUNT(*) c FROM subscriptions WHERE status='active'`).get().c;
   const openTickets = db.prepare(`SELECT COUNT(*) c FROM tickets WHERE status!='closed'`).get().c;
   const openProjects = db.prepare(`SELECT COUNT(*) c FROM projects WHERE stage NOT IN ('done','cancelled')`).get().c;
@@ -552,6 +558,7 @@ app.get('/api/clients', requireAdmin, (req, res) => {
   const rows = db.prepare(
     `SELECT u.id, u.name, u.email, u.company, u.phone, u.avatar_url, u.created_at,
             u.is_prospect, u.is_active,
+            (SELECT COUNT(*) FROM users su WHERE su.parent_user_id=u.id AND su.role='client') AS subaccounts,
             (SELECT COUNT(*) FROM subscriptions s WHERE s.user_id=u.id) AS subs,
             (SELECT COUNT(*) FROM projects p WHERE p.user_id=u.id AND p.stage NOT IN ('done','cancelled')) AS projects,
             (SELECT COUNT(*) FROM tickets t WHERE t.user_id=u.id AND t.status!='closed') AS open_tickets,
@@ -562,7 +569,7 @@ app.get('/api/clients', requireAdmin, (req, res) => {
               WHERE s.user_id = u.id
                 AND p.category = 'social'
                 AND si.status = 'active') AS social_subs
-       FROM users u WHERE u.role='client' AND u.is_prospect=0 ORDER BY u.is_active ASC, u.name`
+       FROM users u WHERE u.role='client' AND u.is_prospect=0 AND u.parent_user_id IS NULL ORDER BY u.is_active ASC, u.name`
   ).all();
   res.json(rows);
 });
@@ -651,7 +658,8 @@ app.patch('/api/clients/:id', requireAdmin, (req, res) => {
 });
 
 app.delete('/api/clients/:id', requireAdmin, (req, res) => {
-  const info = db.prepare(`DELETE FROM users WHERE id=? AND role='client'`).run(req.params.id);
+  db.prepare(`DELETE FROM users WHERE parent_user_id=? AND role='client'`).run(req.params.id);
+  const info = db.prepare(`DELETE FROM users WHERE id=? AND role='client' AND parent_user_id IS NULL`).run(req.params.id);
   if (!info.changes) return res.status(404).json({ error: 'Cliente não encontrado' });
   res.json({ ok: true });
 });
@@ -661,11 +669,13 @@ app.delete('/api/clients/:id', requireAdmin, (req, res) => {
    SUBCONTAS DE CLIENTE
    ================================================================ */
 app.get('/api/client-users', requireAuth, (req,res)=>{
-  if(req.user.role!=='client') return res.status(403).json({error:'Só para clientes.'});
-  const me=clientAccountUser(req.user.id);
-  const ownerId=clientOwnerId(req.user.id);
-  const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
-  if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão para gerir utilizadores.'});
+  const me=req.user.role==='client'?clientAccountUser(req.user.id):null;
+  const ownerId=req.user.role==='admin'?Number(req.query?.owner_id||0):clientOwnerId(req.user.id);
+  if(!ownerId) return res.status(400).json({error:'Conta principal em falta.'});
+  if(req.user.role!=='admin'){
+    const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
+    if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão para gerir utilizadores.'});
+  }
   const rows=db.prepare(`
     SELECT id,name,email,phone,is_active,parent_user_id,is_account_owner,client_permissions,created_at
       FROM users
@@ -680,12 +690,15 @@ app.get('/api/client-users', requireAuth, (req,res)=>{
 });
 
 app.post('/api/client-users', requireAuth, async (req,res)=>{
-  if(req.user.role!=='client') return res.status(403).json({error:'Só para clientes.'});
-  const me=clientAccountUser(req.user.id);
-  const ownerId=clientOwnerId(req.user.id);
-  const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
-  if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão para criar utilizadores.'});
+  const me=req.user.role==='client'?clientAccountUser(req.user.id):null;
+  const ownerId=req.user.role==='admin'?Number(req.body?.owner_id||0):clientOwnerId(req.user.id);
+  if(!ownerId) return res.status(400).json({error:'Conta principal em falta.'});
+  if(req.user.role!=='admin'){
+    const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
+    if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão para criar utilizadores.'});
+  }
   const owner=clientAccountUser(ownerId);
+  if(!owner || owner.parent_user_id) return res.status(400).json({error:'Conta principal inválida.'});
   const name=String(req.body?.name||'').trim();
   const email=String(req.body?.email||'').trim().toLowerCase();
   const phone=String(req.body?.phone||'').trim();
@@ -708,11 +721,14 @@ app.post('/api/client-users', requireAuth, async (req,res)=>{
 });
 
 app.patch('/api/client-users/:id', requireAuth, (req,res)=>{
-  if(req.user.role!=='client') return res.status(403).json({error:'Só para clientes.'});
-  const ownerId=clientOwnerId(req.user.id);
-  const me=clientAccountUser(req.user.id);
-  const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
-  if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão para gerir utilizadores.'});
+  const targetAny=db.prepare(`SELECT * FROM users WHERE id=? AND role='client' AND parent_user_id IS NOT NULL`).get(req.params.id);
+  if(!targetAny) return res.status(404).json({error:'Utilizador não encontrado.'});
+  const ownerId=req.user.role==='admin'?Number(targetAny.parent_user_id):clientOwnerId(req.user.id);
+  const me=req.user.role==='client'?clientAccountUser(req.user.id):null;
+  if(req.user.role!=='admin'){
+    const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
+    if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão para gerir utilizadores.'});
+  }
   const target=db.prepare(`SELECT * FROM users WHERE id=? AND parent_user_id=? AND role='client'`).get(req.params.id,ownerId);
   if(!target) return res.status(404).json({error:'Utilizador não encontrado.'});
   const name=req.body?.name===undefined?null:String(req.body.name).trim();
@@ -729,21 +745,27 @@ app.patch('/api/client-users/:id', requireAuth, (req,res)=>{
 });
 
 app.post('/api/client-users/:id/suspend', requireAuth, (req,res)=>{
-  if(req.user.role!=='client') return res.status(403).json({error:'Só para clientes.'});
-  const ownerId=clientOwnerId(req.user.id);
-  const me=clientAccountUser(req.user.id);
-  const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
-  if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão.'});
+  const target=db.prepare(`SELECT parent_user_id FROM users WHERE id=? AND role='client' AND parent_user_id IS NOT NULL`).get(req.params.id);
+  if(!target)return res.status(404).json({error:'Utilizador não encontrado.'});
+  const ownerId=req.user.role==='admin'?Number(target.parent_user_id):clientOwnerId(req.user.id);
+  const me=req.user.role==='client'?clientAccountUser(req.user.id):null;
+  if(req.user.role!=='admin'){
+    const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
+    if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão.'});
+  }
   const info=db.prepare(`UPDATE users SET is_active=0 WHERE id=? AND parent_user_id=? AND role='client'`).run(req.params.id,ownerId);
   if(!info.changes)return res.status(404).json({error:'Utilizador não encontrado.'});
   res.json({ok:true});
 });
 app.post('/api/client-users/:id/activate', requireAuth, (req,res)=>{
-  if(req.user.role!=='client') return res.status(403).json({error:'Só para clientes.'});
-  const ownerId=clientOwnerId(req.user.id);
-  const me=clientAccountUser(req.user.id);
-  const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
-  if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão.'});
+  const target=db.prepare(`SELECT parent_user_id FROM users WHERE id=? AND role='client' AND parent_user_id IS NOT NULL`).get(req.params.id);
+  if(!target)return res.status(404).json({error:'Utilizador não encontrado.'});
+  const ownerId=req.user.role==='admin'?Number(target.parent_user_id):clientOwnerId(req.user.id);
+  const me=req.user.role==='client'?clientAccountUser(req.user.id):null;
+  if(req.user.role!=='admin'){
+    const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
+    if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão.'});
+  }
   const info=db.prepare(`UPDATE users SET is_active=1 WHERE id=? AND parent_user_id=? AND role='client'`).run(req.params.id,ownerId);
   if(!info.changes)return res.status(404).json({error:'Utilizador não encontrado.'});
   res.json({ok:true});
