@@ -26,7 +26,7 @@
     if(existing){existing.classList.add('mr-cover-final');const brand=existing.querySelector('.mr-head .mr-brand:last-child');if(brand)brand.innerHTML=logo('mr-duit-logo mr-duit-logo-cover');return;}
     const firstNetwork=pages.find(p=>p.querySelector('.mr-network'));if(!firstNetwork)return;
     const month=(book.textContent.match(/(janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s+20\d{2}/i)||[])[0]||'';
-    const client=reportData?.client?.name||'Cliente';
+    const client=reportData?.client?.company||reportData?.client?.name||'Cliente';
     const cover=document.createElement('section');cover.className='mr-page mr-cover-final';cover.innerHTML=`<div class="mr-cover-top"><span>RELATÓRIO DE REDES SOCIAIS</span><span>${month.toUpperCase()}</span></div><div class="mr-cover-main">${logo('mr-duit-logo mr-duit-logo-cover')}<div class="mr-cover-kicker">FACEBOOK + INSTAGRAM</div><h1>Resultados<br>do mês.</h1><p>${client}</p></div><div class="mr-cover-foot"><span>${client}</span><span>DESIGN · REDES SOCIAIS</span></div>`;book.insertBefore(cover,book.firstElementChild);
   }
 
