@@ -70,6 +70,41 @@ const stageLabels = {
   final_review: 'Revisão final', done: 'Concluído', cancelled: 'Cancelado',
 };
 
+const CLIENT_PERMISSION_KEYS = [
+  'calendar_view','calendar_create','calendar_edit','calendar_delete',
+  'support_view','support_create','support_reply',
+  'projects_view','quotes_view','subs_view','payments_view','users_manage'
+];
+function clientAccountUser(userId){
+  return db.prepare(`SELECT id,name,email,company,phone,is_active,parent_user_id,is_account_owner,client_permissions
+                       FROM users WHERE id=? AND role='client'`).get(userId);
+}
+function clientOwnerId(userId){
+  const u=clientAccountUser(userId);
+  return Number(u?.parent_user_id||u?.id||0);
+}
+function clientPerms(userId){
+  const u=clientAccountUser(userId);
+  if(!u) return {};
+  if(!u.parent_user_id || Number(u.is_account_owner)!==0){
+    return Object.fromEntries(CLIENT_PERMISSION_KEYS.map(k=>[k,true]));
+  }
+  let raw={};
+  try{raw=JSON.parse(u.client_permissions||'{}')||{}}catch(_){}
+  return Object.fromEntries(CLIENT_PERMISSION_KEYS.map(k=>[k,raw[k]===true]));
+}
+function clientCan(userId,key){
+  return !!clientPerms(userId)[key];
+}
+function requireClientPermission(key){
+  return (req,res,next)=>{
+    if(req.user.role==='admin') return next();
+    if(req.user.role!=='client') return res.status(403).json({error:'Sem permissão'});
+    if(!clientCan(req.user.id,key)) return res.status(403).json({error:'Sem permissão para esta ação.'});
+    next();
+  };
+}
+
 /* ================================================================
    AUTH
    ================================================================ */
@@ -116,8 +151,18 @@ app.post('/api/auth/logout', (req, res) => {
 
 app.get('/api/auth/me', requireAuth, (req, res) => {
   const user = db.prepare(
-    'SELECT id, name, email, role, company, phone, avatar_url, notifications_enabled, is_prospect, prospect_portal_active FROM users WHERE id = ?'
+    'SELECT id, name, email, role, company, phone, avatar_url, notifications_enabled, is_prospect, prospect_portal_active, parent_user_id, is_account_owner, client_permissions, is_active FROM users WHERE id = ?'
   ).get(req.user.id);
+  if(user && user.role==='client'){
+    const ownerId=clientOwnerId(user.id);
+    const owner=ownerId?clientAccountUser(ownerId):null;
+    let permissions=clientPerms(user.id);
+    user.account_owner_id=ownerId||user.id;
+    user.account_owner_name=owner?.name||user.name;
+    user.account_company=owner?.company||user.company;
+    user.is_account_owner=!user.parent_user_id || Number(user.is_account_owner)!==0 ? 1 : 0;
+    user.permissions=permissions;
+  }
   res.json(user);
 });
 
@@ -341,7 +386,7 @@ app.post('/api/projects/:id/messages/mark-read', requireAdmin, (req, res) => {
 
 app.get('/api/client-summary', requireAuth, (req, res) => {
   if (req.user.role === 'admin') return res.status(400).json({ error: 'Só para clientes' });
-  const uid = req.user.id;
+  const uid = clientOwnerId(req.user.id);
   const activeSubs = db.prepare(`SELECT COUNT(*) c FROM subscriptions WHERE user_id=? AND status='active'`).get(uid).c;
   const openProjects = db.prepare(`SELECT COUNT(*) c FROM projects WHERE user_id=? AND stage NOT IN ('done','cancelled')`).get(uid).c;
   const pendingMockups = db.prepare(
@@ -597,6 +642,99 @@ app.delete('/api/clients/:id', requireAdmin, (req, res) => {
   const info = db.prepare(`DELETE FROM users WHERE id=? AND role='client'`).run(req.params.id);
   if (!info.changes) return res.status(404).json({ error: 'Cliente não encontrado' });
   res.json({ ok: true });
+});
+
+
+/* ================================================================
+   SUBCONTAS DE CLIENTE
+   ================================================================ */
+app.get('/api/client-users', requireAuth, (req,res)=>{
+  if(req.user.role!=='client') return res.status(403).json({error:'Só para clientes.'});
+  const me=clientAccountUser(req.user.id);
+  const ownerId=clientOwnerId(req.user.id);
+  const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
+  if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão para gerir utilizadores.'});
+  const rows=db.prepare(`
+    SELECT id,name,email,phone,is_active,parent_user_id,is_account_owner,client_permissions,created_at
+      FROM users
+     WHERE role='client' AND (id=? OR parent_user_id=?)
+     ORDER BY CASE WHEN id=? THEN 0 ELSE 1 END,name
+  `).all(ownerId,ownerId,ownerId).map(u=>{
+    let permissions={};
+    try{permissions=JSON.parse(u.client_permissions||'{}')||{}}catch(_){}
+    return {...u,permissions};
+  });
+  res.json(rows);
+});
+
+app.post('/api/client-users', requireAuth, async (req,res)=>{
+  if(req.user.role!=='client') return res.status(403).json({error:'Só para clientes.'});
+  const me=clientAccountUser(req.user.id);
+  const ownerId=clientOwnerId(req.user.id);
+  const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
+  if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão para criar utilizadores.'});
+  const owner=clientAccountUser(ownerId);
+  const name=String(req.body?.name||'').trim();
+  const email=String(req.body?.email||'').trim().toLowerCase();
+  const phone=String(req.body?.phone||'').trim();
+  const src=req.body?.permissions||{};
+  if(!name||!email) return res.status(400).json({error:'Nome e email são obrigatórios.'});
+  if(db.prepare('SELECT id FROM users WHERE lower(email)=lower(?)').get(email)) return res.status(409).json({error:'Já existe um utilizador com este email.'});
+  const permissions=Object.fromEntries(CLIENT_PERMISSION_KEYS.map(k=>[k,src[k]===true]));
+  permissions.users_manage=false;
+  const tempPassword=crypto.randomBytes(8).toString('base64url').slice(0,12);
+  const hash=bcrypt.hashSync(tempPassword,10);
+  const info=db.prepare(`
+    INSERT INTO users(name,email,password_hash,role,company,phone,is_active,parent_user_id,is_account_owner,client_permissions)
+    VALUES(?,?,?,'client',?,?,1,?,0,?)
+  `).run(name,email,hash,owner?.company||'',phone,ownerId,JSON.stringify(permissions));
+  try{
+    const tpl=T.welcome(name,email,tempPassword);
+    await deliver(db,{to:email,subject:tpl.subject,body:tpl.body,html:tpl.html,user_id:Number(info.lastInsertRowid),kind:'welcome_subaccount',force:true});
+  }catch(e){console.warn('welcome subaccount:',e.message)}
+  res.status(201).json({id:Number(info.lastInsertRowid),welcome_sent:true});
+});
+
+app.patch('/api/client-users/:id', requireAuth, (req,res)=>{
+  if(req.user.role!=='client') return res.status(403).json({error:'Só para clientes.'});
+  const ownerId=clientOwnerId(req.user.id);
+  const me=clientAccountUser(req.user.id);
+  const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
+  if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão para gerir utilizadores.'});
+  const target=db.prepare(`SELECT * FROM users WHERE id=? AND parent_user_id=? AND role='client'`).get(req.params.id,ownerId);
+  if(!target) return res.status(404).json({error:'Utilizador não encontrado.'});
+  const name=req.body?.name===undefined?null:String(req.body.name).trim();
+  const phone=req.body?.phone===undefined?null:String(req.body.phone).trim();
+  let permissions=null;
+  if(req.body?.permissions){
+    const src=req.body.permissions;
+    permissions=Object.fromEntries(CLIENT_PERMISSION_KEYS.map(k=>[k,src[k]===true]));
+    permissions.users_manage=false;
+  }
+  db.prepare(`UPDATE users SET name=COALESCE(?,name),phone=COALESCE(?,phone),client_permissions=COALESCE(?,client_permissions) WHERE id=?`)
+    .run(name,phone,permissions?JSON.stringify(permissions):null,target.id);
+  res.json({ok:true});
+});
+
+app.post('/api/client-users/:id/suspend', requireAuth, (req,res)=>{
+  if(req.user.role!=='client') return res.status(403).json({error:'Só para clientes.'});
+  const ownerId=clientOwnerId(req.user.id);
+  const me=clientAccountUser(req.user.id);
+  const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
+  if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão.'});
+  const info=db.prepare(`UPDATE users SET is_active=0 WHERE id=? AND parent_user_id=? AND role='client'`).run(req.params.id,ownerId);
+  if(!info.changes)return res.status(404).json({error:'Utilizador não encontrado.'});
+  res.json({ok:true});
+});
+app.post('/api/client-users/:id/activate', requireAuth, (req,res)=>{
+  if(req.user.role!=='client') return res.status(403).json({error:'Só para clientes.'});
+  const ownerId=clientOwnerId(req.user.id);
+  const me=clientAccountUser(req.user.id);
+  const isOwner=!me?.parent_user_id || Number(me?.is_account_owner)!==0;
+  if(!isOwner && !clientCan(req.user.id,'users_manage')) return res.status(403).json({error:'Sem permissão.'});
+  const info=db.prepare(`UPDATE users SET is_active=1 WHERE id=? AND parent_user_id=? AND role='client'`).run(req.params.id,ownerId);
+  if(!info.changes)return res.status(404).json({error:'Utilizador não encontrado.'});
+  res.json({ok:true});
 });
 
 /* ================================================================
@@ -1881,7 +2019,7 @@ app.delete('/api/notes/:id', requireAdmin, (req, res) => {
 /* ================================================================
    POSTS SOCIAIS (calendário)
    ================================================================ */
-app.get('/api/social-posts', requireAuth, (req, res) => {
+app.get('/api/social-posts', requireAuth, requireClientPermission('calendar_view'), (req, res) => {
   const { month, user_id } = req.query; // month = YYYY-MM
   const monthPrefix = month ? `${month}-%` : '%';
   if (req.user.role === 'admin') {
@@ -1893,23 +2031,30 @@ app.get('/api/social-posts', requireAuth, (req, res) => {
          FROM social_posts sp JOIN users u ON u.id=sp.user_id ${where} ORDER BY sp.date`
     ).all(...params));
   }
+  const ownerId=clientOwnerId(req.user.id);
   res.json(db.prepare(
     `SELECT * FROM social_posts WHERE user_id=? AND date LIKE ? ORDER BY date`
-  ).all(req.user.id, monthPrefix));
+  ).all(ownerId, monthPrefix));
 });
 
-app.post('/api/social-posts', requireAdmin, (req, res) => {
+app.post('/api/social-posts', requireAuth, (req, res) => {
   const { user_id, network, date, text, status } = req.body || {};
-  if (!user_id || !network || !date || !text) return res.status(400).json({ error: 'Campos obrigatórios em falta' });
+  if(req.user.role!=='admin'&&!clientCan(req.user.id,'calendar_create')) return res.status(403).json({error:'Sem permissão para criar conteúdos.'});
+  const targetUserId=req.user.role==='admin'?Number(user_id||0):clientOwnerId(req.user.id);
+  if (!targetUserId || !network || !date || !text) return res.status(400).json({ error: 'Campos obrigatórios em falta' });
   const info = db.prepare(
     `INSERT INTO social_posts (user_id, network, date, text, status) VALUES (?, ?, ?, ?, ?)`
-  ).run(user_id, network, date, text, status || 'scheduled');
+  ).run(targetUserId, network, date, text, status || 'draft');
   res.status(201).json({ id: info.lastInsertRowid });
 });
 
-app.patch('/api/social-posts/:id', requireAdmin, (req, res) => {
+app.patch('/api/social-posts/:id', requireAuth, (req, res) => {
   const post = db.prepare(`SELECT * FROM social_posts WHERE id=?`).get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Post não encontrado' });
+  if(req.user.role!=='admin'){
+    if(!clientCan(req.user.id,'calendar_edit')) return res.status(403).json({error:'Sem permissão para editar conteúdos.'});
+    if(Number(post.user_id)!==clientOwnerId(req.user.id)) return res.status(403).json({error:'Sem permissão'});
+  }
   const { network, date, text, status, client_suggestion } = req.body || {};
   db.prepare(
     `UPDATE social_posts SET
@@ -1927,7 +2072,7 @@ app.patch('/api/social-posts/:id', requireAdmin, (req, res) => {
 app.post('/api/social-posts/:id/suggestion', requireAuth, (req, res) => {
   const post = db.prepare(`SELECT * FROM social_posts WHERE id=?`).get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Post não encontrado' });
-  if (req.user.role !== 'admin' && post.user_id !== req.user.id) {
+  if (req.user.role !== 'admin' && Number(post.user_id) !== clientOwnerId(req.user.id)) {
     return res.status(403).json({ error: 'Sem permissão' });
   }
   const { suggestion } = req.body || {};
@@ -1950,7 +2095,13 @@ app.post('/api/social-posts/:id/suggestion', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/social-posts/:id', requireAdmin, (req, res) => {
+app.delete('/api/social-posts/:id', requireAuth, (req, res) => {
+  const post=db.prepare('SELECT * FROM social_posts WHERE id=?').get(req.params.id);
+  if(!post)return res.status(404).json({error:'Post não encontrado'});
+  if(req.user.role!=='admin'){
+    if(!clientCan(req.user.id,'calendar_delete'))return res.status(403).json({error:'Sem permissão para apagar conteúdos.'});
+    if(Number(post.user_id)!==clientOwnerId(req.user.id))return res.status(403).json({error:'Sem permissão'});
+  }
   db.prepare(`DELETE FROM social_posts WHERE id=?`).run(req.params.id);
   res.json({ ok: true });
 });
@@ -2511,6 +2662,8 @@ app.get('/api/tickets', requireAuth, (req, res) => {
                  t.updated_at DESC`
     ).all());
   }
+  if(!clientCan(req.user.id,'support_view'))return res.status(403).json({error:'Sem permissão para ver apoio.'});
+  const ownerId=clientOwnerId(req.user.id);
   res.json(db.prepare(
     `SELECT t.*,
             (SELECT COUNT(*) FROM messages m WHERE m.ticket_id=t.id) message_count,
@@ -2519,13 +2672,14 @@ app.get('/api/tickets', requireAuth, (req, res) => {
               WHERE m.ticket_id=t.id AND u2.role='admin' AND m.read_by_client_at IS NULL
             ) unread_count
        FROM tickets t WHERE t.user_id=? ORDER BY t.updated_at DESC`
-  ).all(req.user.id));
+  ).all(ownerId));
 });
 
 app.post('/api/tickets', requireAuth, (req, res) => {
   const { subject, priority, body } = req.body || {};
   if (!subject || !body) return res.status(400).json({ error: 'Assunto e mensagem obrigatórios' });
-  const userId = req.user.role === 'admin' ? (req.body.user_id || req.user.id) : req.user.id;
+  if(req.user.role!=='admin'&&!clientCan(req.user.id,'support_create'))return res.status(403).json({error:'Sem permissão para criar pedidos de apoio.'});
+  const userId = req.user.role === 'admin' ? (req.body.user_id || req.user.id) : clientOwnerId(req.user.id);
   const t = db.prepare(
     `INSERT INTO tickets (user_id, subject, priority) VALUES (?, ?, ?)`
   ).run(userId, subject, priority || 'normal');
@@ -2540,7 +2694,8 @@ app.get('/api/tickets/:id', requireAuth, (req, res) => {
        FROM tickets t JOIN users u ON u.id=t.user_id WHERE t.id=?`
   ).get(req.params.id);
   if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
-  if (req.user.role !== 'admin' && ticket.user_id !== req.user.id) return res.status(403).json({ error: 'Sem permissão' });
+  if (req.user.role !== 'admin' && Number(ticket.user_id) !== clientOwnerId(req.user.id)) return res.status(403).json({ error: 'Sem permissão' });
+  if (req.user.role !== 'admin' && !clientCan(req.user.id,'support_view')) return res.status(403).json({ error: 'Sem permissão para ver apoio.' });
 
   // Marca como lidas as mensagens do "outro lado"
   try {
@@ -2572,7 +2727,8 @@ app.get('/api/tickets/:id', requireAuth, (req, res) => {
 app.post('/api/tickets/:id/messages', requireAuth, (req, res) => {
   const ticket = db.prepare('SELECT * FROM tickets WHERE id=?').get(req.params.id);
   if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
-  if (req.user.role !== 'admin' && ticket.user_id !== req.user.id) return res.status(403).json({ error: 'Sem permissão' });
+  if (req.user.role !== 'admin' && Number(ticket.user_id) !== clientOwnerId(req.user.id)) return res.status(403).json({ error: 'Sem permissão' });
+  if (req.user.role !== 'admin' && !clientCan(req.user.id,'support_reply')) return res.status(403).json({ error: 'Sem permissão para responder.' });
   const { body } = req.body || {};
   if (!body) return res.status(400).json({ error: 'Mensagem obrigatória' });
   db.prepare(`INSERT INTO messages (ticket_id, user_id, body) VALUES (?, ?, ?)`)
