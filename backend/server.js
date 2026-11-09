@@ -559,7 +559,7 @@ app.get('/api/clients', requireAdmin, (req, res) => {
     `SELECT u.id, u.name, u.email, u.company, u.phone, u.avatar_url, u.created_at,
             u.is_prospect, u.is_active,
             (SELECT COUNT(*) FROM users su WHERE su.parent_user_id=u.id AND su.role='client') AS subaccounts,
-            (SELECT COUNT(*) FROM subscriptions s WHERE s.user_id=u.id) AS subs,
+            (SELECT COUNT(*) FROM subscriptions s WHERE s.user_id=u.id AND s.status='active') AS subs,
             (SELECT COUNT(*) FROM projects p WHERE p.user_id=u.id AND p.stage NOT IN ('done','cancelled')) AS projects,
             (SELECT COUNT(*) FROM tickets t WHERE t.user_id=u.id AND t.status!='closed') AS open_tickets,
             (SELECT COALESCE(SUM(price),0) FROM subscriptions s WHERE s.user_id=u.id AND s.status='active' AND s.period='mês') AS mrr,
