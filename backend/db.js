@@ -257,15 +257,6 @@ CREATE TABLE IF NOT EXISTS ad_campaigns (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_ad_campaigns_user ON ad_campaigns(user_id);
-
-try {
-  const adCols = db.prepare(`PRAGMA table_info(ad_campaigns)`).all();
-  if (adCols.length && !adCols.find(c => c.name === 'area')) {
-    db.exec(`ALTER TABLE ad_campaigns ADD COLUMN area TEXT`);
-    console.log('✓ Migration: ad_campaigns.area adicionada.');
-  }
-} catch (e) { console.warn('Migration ad_campaigns.area:', e.message); }
-
 CREATE TABLE IF NOT EXISTS ad_sets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   campaign_id INTEGER NOT NULL,
@@ -398,6 +389,14 @@ CREATE INDEX IF NOT EXISTS idx_project_messages_project ON project_messages(proj
 -- (caso contrário, em BDs antigas ainda sem essa coluna, o CREATE INDEX falha
 -- e bloqueia o arranque do servidor).
 `);
+
+try {
+  const adCols = db.prepare(`PRAGMA table_info(ad_campaigns)`).all();
+  if (adCols.length && !adCols.find(c => c.name === 'area')) {
+    db.exec(`ALTER TABLE ad_campaigns ADD COLUMN area TEXT`);
+    console.log('✓ Migration: ad_campaigns.area adicionada.');
+  }
+} catch (e) { console.warn('Migration ad_campaigns.area:', e.message); }
 
 /* ==============================================================
    Migrations ligeiras (para BDs já existentes)
