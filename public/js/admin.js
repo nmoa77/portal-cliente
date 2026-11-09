@@ -433,8 +433,8 @@ async function viewClients(main) {
                     <div style="display:flex; gap:10px; align-items:center;">
                       <div class="avatar" style="background:${inactive ? 'var(--bg-2)' : 'var(--yellow)'}; color:var(--black); font-size:12px; width:32px; height:32px; border:1px solid var(--line);">${initials(c.name)}</div>
                       <div>
-                        <div style="font-weight:700; font-size:14px; line-height:1.2;">${escapeHtml(c.company || c.name || '—')}</div>
-                        <div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(c.name || '—')}</div>
+                        <div style="font-weight:700; font-size:14px; line-height:1.2;">${escapeHtml(clientAccountLabel(c))}</div>
+                        ${clientContactLabel(c) ? `<div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(clientContactLabel(c))}</div>` : ''}
                         ${Number(c.subaccounts||0)>0 ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">${c.subaccounts} subconta${Number(c.subaccounts)===1?'':'s'}</div>` : ''}
                       </div>
                     </div>
@@ -614,8 +614,8 @@ async function viewSubs(main) {
             ${subs.map(r => `
               <tr>
                 <td>
-                  <div style="font-weight:700;">${escapeHtml(r.client_company || r.client_name || '—')}</div>
-                  <div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(r.client_name || '—')}</div>
+                  <div style="font-weight:700;">${escapeHtml(clientAccountLabel(r))}</div>
+                  ${clientContactLabel(r) ? `<div style="font-size:12px; color:var(--muted); margin-top:3px;">${escapeHtml(clientContactLabel(r))}</div>` : ''}
                 </td>
                 <td>
                   <div style="font-weight:500;">${escapeHtml(r.name)}</div>
@@ -1032,7 +1032,7 @@ function adminProjectRow(p) {
           <span>${escapeHtml(p.name)}</span>
           ${unread > 0 ? `<span class="badge-alert" title="${unread} nota(s) novas de cliente por ler">${unread}</span>` : ''}
         </div>
-        <div class="project-meta">${escapeHtml(p.client_company || p.client_name || '—')}${p.client_company && p.client_name ? ' · ' + escapeHtml(p.client_name) : ''} · ${p.deadline ? 'Entrega ' + fmtDate(p.deadline) : 'sem data'}</div>
+        <div class="project-meta">${escapeHtml(clientAccountLabel(p))}${clientContactLabel(p) ? ' · ' + escapeHtml(clientContactLabel(p)) : ''} · ${p.deadline ? 'Entrega ' + fmtDate(p.deadline) : 'sem data'}</div>
       </div>
       <div style="flex:1; min-width:220px;">
         <div class="project-stages">${stages}</div>
@@ -1546,7 +1546,7 @@ async function viewQuotes(main) {
                 <div style="font-size:12px;margin-top:3px">${escapeHtml(q.title)}</div>
                 <div style="font-size:11px;color:var(--muted);margin-top:2px">${q.sent_at?'Enviado '+fmtDate(q.sent_at):'Rascunho'}${q.valid_until?' · válido até '+fmtDate(q.valid_until):''}</div>
               </td>
-              <td><strong>${escapeHtml(q.client_company || q.client_name || '—')}</strong><div style="font-size:11px;color:var(--muted)">${escapeHtml(q.client_company ? (q.client_name || '') : '')}</div></td>
+              <td><strong>${escapeHtml(clientAccountLabel(q))}</strong>${clientContactLabel(q) ? `<div style="font-size:11px;color:var(--muted)">${escapeHtml(clientContactLabel(q))}</div>` : ''}</td>
               <td><strong>${fmtMoney(q.total)}</strong><div style="font-size:11px;color:var(--muted)">c/ IVA</div></td>
               <td>${emailState(q)}</td>
               <td>${viewState(q)}</td>
@@ -1758,7 +1758,7 @@ async function openEditQuote(id) {
   }
   infoBox.innerHTML = `
     <div class="eyebrow" style="margin-bottom:4px;">${isProspect ? 'Prospect (sem conta ativa)' : 'Cliente'}</div>
-    <div><strong>${escapeHtml(full.client_company || full.client_name || '—')}</strong>${full.client_company && full.client_name ? ' · ' + escapeHtml(full.client_name) : ''}</div>
+    <div><strong>${escapeHtml(clientAccountLabel(full))}</strong>${clientContactLabel(full) ? ' · ' + escapeHtml(clientContactLabel(full)) : ''}</div>
     <div style="color:var(--muted); font-size:12px;">${escapeHtml(full.client_email || '')}${full.client_phone ? ' · ' + escapeHtml(full.client_phone) : ''}</div>
   `;
   infoBox.style.display = '';
@@ -1879,7 +1879,7 @@ async function viewInvoices(main) {
             ${rows.map(i => `
               <tr>
                 <td><strong>${i.number}</strong></td>
-                <td><strong>${escapeHtml(i.client_company || i.client_name || '—')}</strong><div style="font-size:11px;color:var(--muted)">${escapeHtml(i.client_company ? (i.client_name || '') : '')}</div></td>
+                <td><strong>${escapeHtml(clientAccountLabel(i))}</strong>${clientContactLabel(i) ? `<div style="font-size:11px;color:var(--muted)">${escapeHtml(clientContactLabel(i))}</div>` : ''}</td>
                 <td>${escapeHtml(i.description)}</td>
                 <td>${fmtDate(i.issued_at)}</td>
                 <td><strong>${fmtMoney(i.amount)}</strong></td>
@@ -1923,8 +1923,8 @@ async function viewCancels(main) {
         <div class="card">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
             <div style="flex:1; min-width:260px;">
-              <div style="font-family:'Clash Display'; font-size:22px;">${escapeHtml(c.client_company || c.client_name || '—')}</div>
-              <div style="color:var(--muted); font-size:13px; margin-bottom:10px;">${escapeHtml(c.client_company ? (c.client_name || '') : '')}${c.client_email ? (c.client_company && c.client_name ? ' · ' : '') + escapeHtml(c.client_email) : ''}</div>
+              <div style="font-family:'Clash Display'; font-size:22px;">${escapeHtml(clientAccountLabel(c))}</div>
+              <div style="color:var(--muted); font-size:13px; margin-bottom:10px;">${clientContactLabel(c) ? escapeHtml(clientContactLabel(c)) : ''}${c.client_email ? (clientContactLabel(c) ? ' · ' : '') + escapeHtml(c.client_email) : ''}</div>
 
               <div style="padding:10px 14px; background:var(--bg-2); border-radius:10px; margin-bottom:10px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:6px;">
@@ -1997,7 +1997,7 @@ async function viewSupport(main) {
               <span>${escapeHtml(t.subject)}</span>
               ${t.unread_count > 0 ? `<span class="badge-alert" title="${t.unread_count} mensagem(ns) por ler">${t.unread_count}</span>` : ''}
             </div>
-            <div class="project-meta">${escapeHtml(t.client_company || t.client_name || '—')}${t.client_company && t.client_name ? ' · ' + escapeHtml(t.client_name) : ''} · ${fmtDateTime(t.updated_at)} · ${t.message_count} ${t.message_count === 1 ? 'mensagem' : 'mensagens'}</div>
+            <div class="project-meta">${escapeHtml(clientAccountLabel(t))}${clientContactLabel(t) ? ' · ' + escapeHtml(clientContactLabel(t)) : ''} · ${fmtDateTime(t.updated_at)} · ${t.message_count} ${t.message_count === 1 ? 'mensagem' : 'mensagens'}</div>
           </div>
           ${priorityPill(t.priority)}
           ${statusPill(t.status)}
@@ -2016,7 +2016,7 @@ async function openTicket(id) {
       <div>
         <button class="btn btn-ghost btn-sm" onclick="go('support')">← Voltar</button>
         <h1 style="margin-top:8px;">${escapeHtml(t.subject)}</h1>
-        <p class="lede">${escapeHtml(t.client_company || t.client_name || '—')}${t.client_company && t.client_name ? ' · ' + escapeHtml(t.client_name) : ''} · ${escapeHtml(t.client_email)} · ${priorityPill(t.priority)}</p>
+        <p class="lede">${escapeHtml(clientAccountLabel(t))}${clientContactLabel(t) ? ' · ' + escapeHtml(clientContactLabel(t)) : ''} · ${escapeHtml(t.client_email)} · ${priorityPill(t.priority)}</p>
       </div>
       <div style="display:flex; gap:6px;">
         <select onchange="setTicketStatus(${t.id}, this.value)" style="padding:8px; border:1px solid var(--line); border-radius:10px;">
