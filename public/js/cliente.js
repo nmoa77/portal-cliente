@@ -48,9 +48,12 @@ async function refreshSummary() {
 
 /* ---- Shell (sidebar + nav) ---- */
 function renderShell() {
+  const companyName = state.me.account_company || state.me.company || 'Cliente';
+  const companyBrand = document.getElementById('client-company-brand');
+  if (companyBrand) companyBrand.textContent = companyName;
   document.getElementById('side-avatar').textContent = initials(state.me.name);
   document.getElementById('side-name').textContent = state.me.name;
-  document.getElementById('side-role').textContent = state.me.company || 'Cliente';
+  document.getElementById('side-role').textContent = isAccountOwner() ? 'Proprietário' : companyName;
 
   const nav = document.getElementById('nav');
   const s = state.summary || {};
