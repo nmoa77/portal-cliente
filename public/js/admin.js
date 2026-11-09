@@ -60,7 +60,7 @@ function renderShell() {
     { id: 'landing-pages', icon: 'sparkle', label: 'Landing Pages' },
     { id: 'areas', icon: 'folder', label: 'Áreas' },
     { id: 'prospects', icon: 'sparkle', label: 'Prospecção',
-        count: s.totalProspects,         countTitle: `${s.totalProspects || 0} prospect(s) por converter`,
+        count: s.prospectsToSend,        countTitle: `${s.prospectsToSend || 0} prospect(s) por enviar`,
         alert: s.pendingProspectActions, alertTitle: `${s.pendingProspectActions || 0} prospect(s) já respondeu(eram) — pronto a converter` },
     { id: 'leads',     icon: 'chat',    label: 'Leads' },
     { id: 'subs',      icon: 'box',     label: 'Subscrições',  alert: s.pendingSubs,            alertTitle: `${s.pendingSubs || 0} subscrição(ões) por confirmar` },
