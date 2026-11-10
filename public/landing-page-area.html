@@ -3,6 +3,7 @@
 <head>
 <script>
 (function(){
+  document.documentElement.classList.add('area-lp-preload');
   var p=location.pathname.split('/').filter(Boolean).pop()||'';
   if(p==='dentistas'||p==='duit-design-dentistas'){
     document.documentElement.classList.add('dentistas-preload');
@@ -220,6 +221,9 @@ body.dentistas-lp .primary-cta-band .dentistas-compare>div{
   }
 }
 
+
+html.area-lp-preload .hero-card,
+html.area-lp-preload #topForm{visibility:hidden!important;opacity:0!important}
 </style>
 </head>
 <body>
@@ -568,6 +572,7 @@ async function loadArea(){
       window.addEventListener('scroll',maybePopupOnScroll,{passive:true});
     }
   }
+  document.documentElement.classList.remove('area-lp-preload');
 }
 const sid=sessionStorage.areaLpSid||(sessionStorage.areaLpSid=(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random())),utm={utm_source:q.get('utm_source')||'',utm_medium:q.get('utm_medium')||'',utm_campaign:q.get('utm_campaign')||''};
 function currentLpKey(){
