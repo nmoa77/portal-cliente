@@ -212,17 +212,10 @@
     <form id="postForm">
       <input type="hidden" id="mp-id">
       <div class="field"><label>Cliente</label><select id="mp-user"></select></div>
-      <div class="grid g-2" style="gap:12px">
-        <div class="field"><label>Rede</label>
-          <select id="mp-net">
-            <option value="instagram">Instagram</option>
-            <option value="facebook">Facebook</option>
-            <option value="linkedin">LinkedIn</option>
-          </select>
-        </div>
-        <div class="field"><label>Data</label><input id="mp-date" type="date"></div>
-      </div>
-      <div class="field"><label>Legenda</label><textarea id="mp-text" rows="3" placeholder="Texto do post..."></textarea></div>
+      <div class="field"><label>Data</label><input id="mp-date" type="date"></div>
+      <div class="field"><label>Legenda</label><textarea id="mp-text" rows="4" placeholder="Texto do post..."></textarea></div>
+      <div class="field"><label>Inspiração</label><textarea id="mp-inspiration" rows="3" placeholder="Referência, ideia, link ou orientação visual..."></textarea></div>
+      <div class="field"><label>Story</label><textarea id="mp-story" rows="3" placeholder="Texto ou ideia para o story..."></textarea></div>
       <div class="field" id="mp-suggestion-wrap" style="display:none">
         <label>Sugestão do cliente</label>
         <textarea id="mp-suggestion-view" rows="2" disabled style="background:var(--warn-bg, #fff8dc); border-color:var(--warn, #ffd60a);"></textarea>
@@ -448,7 +441,7 @@
 <div class="toast-wrap" id="toasts"></div>
 
 <script src="/js/common.js?v=20261104b"></script>
-<script src="/js/admin.js?v=20261109metaarea2"></script>
+<script src="/js/admin.js?v=20261110calendar1"></script>
 <script src="/js/meta-reports-admin.js?v=20261002a"></script>
 <script src="/js/meta-reports-polish.js?v=20261002a"></script>
 <script src="/js/meta-reports-fix.js?v=20261109d"></script>
