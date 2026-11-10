@@ -1198,12 +1198,10 @@ async function viewCalendar(main) {
           <div class="date">${d}</div>
           ${dayPosts.map(p => {
             const label = p.client_company || p.client_name || '';
-            const netShort = (p.network || '').slice(0,2).toUpperCase();
             return `
             <div class="cal-post ${p.status}"
-                 title="${escapeHtml(label + ' · ' + netLabel(p.network) + ' · ' + p.text + ' · ' + p.status)}"
+                 title="${escapeHtml(label + ' · ' + p.text + ' · ' + p.status)}"
                  onclick="event.stopPropagation(); openEditPost(${p.id})">
-              <span class="net">${netShort}</span>
               <span style="font-weight:600">${escapeHtml(label)}</span>
               <span style="opacity:.75">·</span>
               ${escapeHtml(p.text.slice(0, 18))}${p.text.length > 18 ? '…' : ''}
@@ -1299,6 +1297,21 @@ function dayBlock(title, dateStr, drafts, totalForDay) {
   `;
 }
 
+function copyPostField(id, field) {
+  const p = (state.calPostsCache || []).find(x => Number(x.id) === Number(id));
+  if (!p) { toast('Conteúdo não encontrado.', 'cancel'); return; }
+  const value = String(p[field] || '').trim();
+  if (!value) { toast('Este campo está vazio.', 'cancel'); return; }
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(value).then(
+      () => toast('Conteúdo copiado.', 'check'),
+      () => toast('Não foi possível copiar.', 'cancel')
+    );
+  } else {
+    toast(value, 'check');
+  }
+}
+
 function dayPostRow(p) {
   // Botões disponíveis para o admin escolher consoante o estado atual.
   // - draft     → pode "Agendar" (transição normal) OU saltar para "Publicado"
@@ -1325,17 +1338,31 @@ function dayPostRow(p) {
     <button class="btn btn-${a.variant} btn-sm" onclick="quickSetStatus(${p.id}, '${a.key}')" title="${a.title}">${a.label}</button>
   `).join('');
 
+  const fieldRow = (label, field, value) => {
+    const txt = String(value || '').trim();
+    if (!txt) return '';
+    return `
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line);">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;">
+          <span class="eyebrow" style="font-size:10px;">${label}</span>
+          <button class="btn btn-ghost btn-sm" type="button" onclick="event.stopPropagation(); copyPostField(${p.id}, '${field}')">Copiar</button>
+        </div>
+        <div style="font-size:13px;line-height:1.45;white-space:pre-wrap;">${escapeHtml(txt)}</div>
+      </div>`;
+  };
+
   return `
-    <div class="day-post ${p.status}">
-      <div class="dp-left">
-        <span class="pill ${netCls(p.network)}" style="min-width:36px; text-align:center;">${netLabel(p.network).slice(0,2).toUpperCase()}</span>
+    <div class="day-post ${p.status}" style="align-items:flex-start;">
+      <div class="dp-left" style="flex:1;min-width:0;">
         <div style="flex:1; min-width:0;">
           <div style="font-weight:500; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
             <span>${escapeHtml(p.client_company || p.client_name || '')}</span>
             ${statusPill(p.status)}
           </div>
-          <div style="color:var(--muted); font-size:13px; margin-top:3px;">${escapeHtml(p.text)}</div>
-          ${p.client_suggestion ? `<div style="font-size:12px; margin-top:4px; color:var(--accent, #b88700);">💡 Sugestão: ${escapeHtml(p.client_suggestion)}</div>` : ''}
+          ${fieldRow('Legenda', 'text', p.text)}
+          ${fieldRow('Inspiração', 'inspiration', p.inspiration)}
+          ${fieldRow('Story', 'story', p.story)}
+          ${p.client_suggestion ? `<div style="font-size:12px; margin-top:8px; color:var(--accent, #b88700);">💡 Sugestão: ${escapeHtml(p.client_suggestion)}</div>` : ''}
         </div>
       </div>
       <div class="dp-actions">
