@@ -104,6 +104,38 @@ body.dentistas-lp .dentistas-popup-later{border:0;background:transparent;color:#
  body.dentistas-lp{padding-bottom:68px}
  body.dentistas-lp .dentistas-popup{padding:26px 22px}
 }
+
+body.dentistas-lp .hero{padding-top:72px;padding-bottom:84px}
+body.dentistas-lp .hero-grid>div:first-child{max-width:900px}
+body.dentistas-lp .hero h1{max-width:840px;font-size:clamp(52px,5.8vw,88px);line-height:.98;letter-spacing:-.035em}
+body.dentistas-lp .hero .lead{max-width:720px;font-size:20px;line-height:1.5;margin-top:24px}
+body.dentistas-lp .dentistas-hero-offer{margin-top:30px;gap:14px}
+body.dentistas-lp .dentistas-offer-badge{display:inline-flex;align-items:center;width:max-content;padding:8px 12px;border-radius:999px;background:#fff3a6;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+body.dentistas-lp .dentistas-benefits,
+body.dentistas-lp .dentistas-proof{display:none!important}
+
+body.dentistas-lp .cta-band:first-of-type .w{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(420px,.9fr);gap:56px;align-items:center}
+body.dentistas-lp .cta-band:first-of-type .w>div:first-child{max-width:680px}
+body.dentistas-lp .cta-band:first-of-type h2{font-size:clamp(42px,4.8vw,68px);line-height:1.02;letter-spacing:-.03em;margin-bottom:18px}
+body.dentistas-lp .cta-band:first-of-type p{max-width:620px;font-size:18px;line-height:1.5}
+body.dentistas-lp .cta-band:first-of-type>a{display:none!important}
+body.dentistas-lp .cta-band:first-of-type .dentistas-compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0;width:100%}
+body.dentistas-lp .dentistas-compare>div{min-height:260px;padding:28px;border-radius:20px;display:flex;flex-direction:column;justify-content:flex-start}
+body.dentistas-lp .dentistas-compare .before{background:#f2f2f2}
+body.dentistas-lp .dentistas-compare .after{background:#fff5be;border:0}
+body.dentistas-lp .dentistas-compare .compare-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:20px;color:#7a6b00}
+body.dentistas-lp .dentistas-compare h3{font-size:24px;line-height:1.15;margin:0 0 14px}
+body.dentistas-lp .dentistas-compare p{font-size:15px;line-height:1.55;margin:0;color:#333}
+
+@media(max-width:900px){
+ body.dentistas-lp .hero{padding-top:48px;padding-bottom:56px}
+ body.dentistas-lp .hero h1{font-size:clamp(44px,12vw,64px)}
+ body.dentistas-lp .hero .lead{font-size:18px}
+ body.dentistas-lp .cta-band:first-of-type .w{grid-template-columns:1fr;gap:30px}
+ body.dentistas-lp .cta-band:first-of-type .dentistas-compare{grid-template-columns:1fr}
+ body.dentistas-lp .dentistas-compare>div{min-height:auto}
+}
+
 </style>
 </head>
 <body>
@@ -336,11 +368,9 @@ async function loadArea(){
       const offer=document.createElement('div');
       offer.className='dentistas-hero-offer';
       offer.innerHTML=
-        '<div style="display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;background:#fff3a6;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em">Análise gratuita para clínicas dentárias</div>'+
+        '<div class="dentistas-offer-badge">Análise gratuita para clínicas dentárias</div>'+
         '<a class="btn" href="#contacto">Quero receber as 3 melhorias →</a>'+
-        '<p class="dentistas-hero-note">Sem compromisso. Recebe primeiro a análise. Só depois decide se faz sentido falar comigo.</p>'+
-        '<div class="dentistas-benefits"><span>Imagem da clínica</span><span>Clareza dos tratamentos</span><span>Confiança antes da marcação</span></div>'+
-        '<div class="dentistas-proof"><div><strong>1. Imagem</strong><span>O que pode estar a enfraquecer a perceção da clínica.</span></div><div><strong>2. Clareza</strong><span>Onde os tratamentos podem ser explicados de forma mais simples.</span></div><div><strong>3. Confiança</strong><span>O que pode reforçar a decisão antes da marcação.</span></div></div>';
+        '<p class="dentistas-hero-note">Sem compromisso. Recebe primeiro a análise e só depois decide se faz sentido avançar.</p>';
       heroCopy.appendChild(offer);
     }
 
@@ -382,8 +412,8 @@ async function loadArea(){
         const compare=document.createElement('div');
         compare.className='dentistas-compare';
         compare.innerHTML=
-          '<div class="before"><h3>Quando a comunicação não acompanha a clínica</h3><p>• Imagem pouco diferenciada</p><p>• Tratamentos difíceis de perceber</p><p>• Website e redes sem consistência</p><p>• Menos confiança antes do contacto</p></div>'+
-          '<div class="after"><h3>Quando a comunicação trabalha a favor da clínica</h3><p>• Imagem profissional e coerente</p><p>• Tratamentos apresentados com clareza</p><p>• Mais confiança na marca</p><p>• Um caminho mais simples até à marcação</p></div>';
+          '<div class="before"><div class="compare-label">Hoje</div><h3>A comunicação pode estar a criar dúvidas.</h3><p>Imagem pouco diferenciada, mensagens dispersas e tratamentos pouco claros.</p></div>'+
+          '<div class="after"><div class="compare-label">Objetivo</div><h3>Transmitir confiança antes da marcação.</h3><p>Imagem coerente, informação simples e uma presença que reforça a clínica.</p></div>';
         wrap.appendChild(compare);
       }
     }
