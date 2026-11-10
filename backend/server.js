@@ -2086,13 +2086,14 @@ app.get('/api/social-posts', requireAuth, requireClientPermission('calendar_view
 });
 
 app.post('/api/social-posts', requireAuth, (req, res) => {
-  const { user_id, network, date, text, status } = req.body || {};
+  const { user_id, network, date, text, inspiration, story, status } = req.body || {};
   if(req.user.role!=='admin'&&!clientCan(req.user.id,'calendar_create')) return res.status(403).json({error:'Sem permissão para criar conteúdos.'});
   const targetUserId=req.user.role==='admin'?Number(user_id||0):clientOwnerId(req.user.id);
-  if (!targetUserId || !network || !date || !text) return res.status(400).json({ error: 'Campos obrigatórios em falta' });
+  if (!targetUserId || !date || !text) return res.status(400).json({ error: 'Campos obrigatórios em falta' });
+  const finalNetwork = network || 'instagram';
   const info = db.prepare(
-    `INSERT INTO social_posts (user_id, network, date, text, status) VALUES (?, ?, ?, ?, ?)`
-  ).run(targetUserId, network, date, text, status || 'draft');
+    `INSERT INTO social_posts (user_id, network, date, text, inspiration, story, status) VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(targetUserId, finalNetwork, date, text, inspiration || null, story || null, status || 'draft');
   res.status(201).json({ id: info.lastInsertRowid });
 });
 
@@ -2103,14 +2104,20 @@ app.patch('/api/social-posts/:id', requireAuth, (req, res) => {
     if(!clientCan(req.user.id,'calendar_edit')) return res.status(403).json({error:'Sem permissão para editar conteúdos.'});
     if(Number(post.user_id)!==clientOwnerId(req.user.id)) return res.status(403).json({error:'Sem permissão'});
   }
-  const { network, date, text, status, client_suggestion } = req.body || {};
+  const { network, date, text, inspiration, story, status, client_suggestion } = req.body || {};
   db.prepare(
     `UPDATE social_posts SET
        network=COALESCE(?, network), date=COALESCE(?, date),
-       text=COALESCE(?, text), status=COALESCE(?, status),
+       text=COALESCE(?, text),
+       inspiration=?,
+       story=?,
+       status=COALESCE(?, status),
        client_suggestion=COALESCE(?, client_suggestion)
      WHERE id=?`
-  ).run(network ?? null, date ?? null, text ?? null, status ?? null,
+  ).run(network ?? null, date ?? null, text ?? null,
+        inspiration === undefined ? post.inspiration : (inspiration || null),
+        story === undefined ? post.story : (story || null),
+        status ?? null,
         client_suggestion === undefined ? null : client_suggestion,
         req.params.id);
   res.json({ ok: true });
