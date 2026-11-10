@@ -50,6 +50,21 @@ body.dentistas-lp .dentistas-audit-box p{margin:0;font-size:14px;line-height:1.4
   body.dentistas-lp #contacto .grid{grid-template-columns:1fr}
 }
 
+
+body.dentistas-lp .dentistas-proof{margin-top:22px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+body.dentistas-lp .dentistas-proof div{padding:14px 15px;border-radius:14px;background:#fff;border:1px solid var(--line)}
+body.dentistas-lp .dentistas-proof strong{display:block;font-size:14px;margin-bottom:3px}
+body.dentistas-lp .dentistas-proof span{font-size:12px;color:var(--muted);line-height:1.4}
+body.dentistas-lp .dentistas-compare{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:26px}
+body.dentistas-lp .dentistas-compare>div{padding:24px;border-radius:18px}
+body.dentistas-lp .dentistas-compare .before{background:#f4f4f4}
+body.dentistas-lp .dentistas-compare .after{background:#fff8cc;border:1px solid #f1d85a}
+body.dentistas-lp .dentistas-compare h3{margin:0 0 12px;font-size:20px}
+body.dentistas-lp .dentistas-compare p{margin:7px 0;font-size:14px}
+@media(max-width:900px){
+ body.dentistas-lp .dentistas-proof,
+ body.dentistas-lp .dentistas-compare{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -219,7 +234,7 @@ const CONFIG={
  'centro-de-estudos':{title:'A confiança começa antes da primeira explicação.',lead:'A sua comunicação deve transmitir confiança às famílias e mostrar claramente como acompanha cada aluno.',intro:'Famílias e alunos precisam de perceber rapidamente como funciona o acompanhamento, o método e a proximidade que oferece.',apps:[['Inscrições','Campanhas para novos alunos e épocas escolares.'],['Oferta','Peças para disciplinas, ciclos e modalidades de apoio.'],['Digital','Conteúdo para redes sociais, anúncios e comunicação com famílias.'],['Materiais','Folhetos, horários, apresentações e comunicação do espaço.']]},
  'saude-mental':{title:'Confiança antes da primeira conversa.',lead:'A sua comunicação deve transmitir a mesma proximidade, segurança e cuidado que oferece em cada acompanhamento.',intro:'Quem procura ajuda precisa de sentir confiança antes mesmo de marcar. Uma comunicação humana, clara e profissional pode facilitar esse primeiro passo.',apps:[['Especializações','Apresentar áreas de acompanhamento de forma clara.'],['Confiança','Comunicação humana, segura e profissional.'],['Digital','Conteúdo para redes sociais, campanhas e presença online.'],['Contacto','Peças e páginas que ajudam a dar o primeiro passo.']]},
  'fisioterapia':{title:'Movimento, recuperação e confiança.',lead:'A sua comunicação deve transmitir confiança, acompanhamento e evolução desde o primeiro contacto.',intro:'Quem procura ajuda quer perceber rapidamente como pode ser acompanhado. Mostrar especialização, proximidade e método ajuda a criar confiança antes da marcação.',apps:[['Tratamentos','Apresentar áreas de intervenção e serviços de forma clara.'],['Equipa','Dar visibilidade aos profissionais e à experiência clínica.'],['Digital','Conteúdo para redes sociais, campanhas e presença local.'],['Marcação','Peças e páginas que facilitam o contacto e a marcação.']]},
- 'dentistas':{title:'A confiança na sua clínica começa antes da consulta.',lead:'Receba uma análise inicial à comunicação da sua clínica e veja onde pode transmitir mais confiança, clareza e profissionalismo.',intro:'Antes de marcar, o paciente procura sinais de confiança. Uma comunicação mais clara e consistente ajuda a perceber melhor a clínica, os tratamentos e aquilo que a diferencia.',apps:[['Tratamentos','Explique especialidades e tratamentos de forma clara e fácil de perceber.'],['Equipa','Dê rosto à clínica e reforce confiança através dos profissionais.'],['Digital','Crie campanhas e conteúdos que transmitam profissionalismo e proximidade.'],['Marcação','Facilite o primeiro contacto e conduza o paciente até à marcação.']]}
+ 'dentistas':{title:'Descubra 3 melhorias para a comunicação da sua clínica.',lead:'Receba uma análise inicial, gratuita e sem compromisso, com 3 oportunidades concretas para transmitir mais confiança antes da primeira consulta.',intro:'Antes de marcar, o paciente procura sinais de confiança. Uma comunicação mais clara e consistente ajuda a perceber melhor a clínica, os tratamentos e aquilo que a diferencia.',apps:[['Tratamentos','Explique especialidades e tratamentos de forma clara e fácil de perceber.'],['Equipa','Dê rosto à clínica e reforce confiança através dos profissionais.'],['Digital','Crie campanhas e conteúdos que transmitam profissionalismo e proximidade.'],['Marcação','Facilite o primeiro contacto e conduza o paciente até à marcação.']]}
 };
 const abs=v=>{const s=String(v||'').trim();if(!s)return '';if(/^https?:\/\//i.test(s))return s;return location.origin+(s.startsWith('/')?'':'/')+s};
 async function loadArea(){
@@ -271,15 +286,15 @@ async function loadArea(){
     const contactEy=document.querySelector('#contacto .ey');
     const contactH2=document.querySelector('#contacto h2');
     const contactP=document.querySelector('#contacto p');
-    if(contactEy)contactEy.textContent='Análise inicial à comunicação da sua clínica';
-    if(contactH2)contactH2.textContent='Mostre-me a sua clínica. Eu mostro-lhe onde pode comunicar melhor.';
-    if(contactP)contactP.textContent='Deixe apenas os dados essenciais. Faço uma primeira leitura da comunicação da clínica e respondo com oportunidades concretas de melhoria.';
+    if(contactEy)contactEy.textContent='Receba 3 melhorias concretas';
+    if(contactH2)contactH2.textContent='Envie-me a sua clínica. Eu mostro-lhe 3 pontos onde pode comunicar melhor.';
+    if(contactP)contactP.textContent='Deixe os dados essenciais. Analiso a comunicação atual da clínica e respondo com 3 melhorias prioritárias — sem compromisso e sem proposta automática.';
 
     const bottomForm=document.getElementById('bottomForm');
     if(bottomForm && !bottomForm.previousElementSibling?.classList?.contains('dentistas-audit-box')){
       const box=document.createElement('div');
       box.className='dentistas-audit-box';
-      box.innerHTML='<strong>O que recebe nesta primeira análise</strong><p>Uma leitura rápida à imagem, clareza da oferta e confiança transmitida pela comunicação da clínica — sem compromisso e sem proposta automática.</p>';
+      box.innerHTML='<strong>O que recebe</strong><p>3 melhorias concretas sobre imagem, clareza e confiança na comunicação da sua clínica. Sem compromisso e sem proposta automática.</p>';
       bottomForm.parentNode.insertBefore(box,bottomForm);
     }
 
@@ -287,7 +302,7 @@ async function loadArea(){
     const bottomCompany=document.querySelector('#bottomForm input[name="company"]');
     const bottomPhone=document.querySelector('#bottomForm input[name="phone"]');
     const bottomMessage=document.querySelector('#bottomForm textarea[name="message"]');
-    if(bottomBtn)bottomBtn.textContent='Quero receber a análise →';
+    if(bottomBtn)bottomBtn.textContent='Quero receber as 3 melhorias →';
     if(bottomCompany){bottomCompany.placeholder='Nome da clínica *';bottomCompany.required=true;}
     if(bottomPhone){bottomPhone.required=false;bottomPhone.value='';}
     if(bottomMessage){bottomMessage.required=false;bottomMessage.value='';}
@@ -317,8 +332,8 @@ async function loadArea(){
     if(faqHead)faqHead.textContent='Antes de enviar.';
     const details=[...document.querySelectorAll('.faq details')];
     if(details[0]){
-      details[0].querySelector('summary').textContent='A análise tem algum custo?';
-      details[0].querySelector('p').textContent='Não. É uma primeira análise sem compromisso para perceber onde a comunicação da clínica pode melhorar.';
+      details[0].querySelector('summary').textContent='As 3 melhorias têm algum custo?';
+      details[0].querySelector('p').textContent='Não. A análise inicial é gratuita e serve para identificar 3 oportunidades claras de melhoria na comunicação da clínica.';
     }
     if(details[1]){
       details[1].querySelector('summary').textContent='Vou receber uma proposta automaticamente?';
