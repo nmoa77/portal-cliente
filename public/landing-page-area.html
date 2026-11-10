@@ -224,6 +224,89 @@ body.dentistas-lp .primary-cta-band .dentistas-compare>div{
 
 html.area-lp-preload .hero-card,
 html.area-lp-preload #topForm{visibility:hidden!important;opacity:0!important}
+
+/* Dentistas: hero equilibrado sem imagem */
+body.dentistas-lp .hero{
+  padding-top:72px!important;
+  padding-bottom:76px!important;
+}
+body.dentistas-lp .hero-grid{
+  display:grid!important;
+  grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr)!important;
+  gap:72px!important;
+  align-items:center!important;
+}
+body.dentistas-lp .hero-grid>div:first-child{
+  max-width:none!important;
+}
+body.dentistas-lp .hero-card{
+  display:none!important;
+}
+body.dentistas-lp .hero h1{
+  max-width:900px!important;
+  font-size:clamp(58px,6vw,94px)!important;
+  line-height:.96!important;
+  letter-spacing:-.04em!important;
+}
+body.dentistas-lp .hero .lead{
+  max-width:760px!important;
+  font-size:21px!important;
+  line-height:1.5!important;
+}
+body.dentistas-lp .dentistas-hero-offer{
+  margin-top:32px!important;
+}
+body.dentistas-lp .dentistas-hero-side{
+  grid-column:2;
+  grid-row:1;
+  align-self:center;
+  display:grid;
+  gap:14px;
+}
+body.dentistas-lp .dentistas-hero-side>div{
+  background:#fff;
+  border:1px solid #ece8da;
+  border-radius:20px;
+  padding:22px 24px;
+}
+body.dentistas-lp .dentistas-hero-side span{
+  display:block;
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.08em;
+  color:#9a7b00;
+  margin-bottom:8px;
+}
+body.dentistas-lp .dentistas-hero-side strong{
+  display:block;
+  font-size:22px;
+  line-height:1.1;
+  margin-bottom:6px;
+}
+body.dentistas-lp .dentistas-hero-side p{
+  margin:0;
+  font-size:14px;
+  line-height:1.45;
+  color:#555;
+}
+@media(max-width:1050px){
+  body.dentistas-lp .hero-grid{
+    grid-template-columns:1fr!important;
+    gap:34px!important;
+  }
+  body.dentistas-lp .dentistas-hero-side{
+    grid-column:1;
+    grid-row:auto;
+    grid-template-columns:repeat(3,1fr);
+  }
+}
+@media(max-width:700px){
+  body.dentistas-lp .hero{padding-top:48px!important;padding-bottom:54px!important}
+  body.dentistas-lp .hero h1{font-size:clamp(46px,12vw,66px)!important}
+  body.dentistas-lp .hero .lead{font-size:18px!important}
+  body.dentistas-lp .dentistas-hero-side{grid-template-columns:1fr}
+}
+
 </style>
 </head>
 <body>
@@ -459,7 +542,8 @@ async function loadArea(){
       offer.innerHTML=
         '<div class="dentistas-offer-badge">Análise gratuita para clínicas dentárias</div>'+
         '<a class="btn" href="#contacto">Quero receber as 3 melhorias →</a>'+
-        '<p class="dentistas-hero-note">Sem compromisso. Recebe primeiro a análise e só depois decide se faz sentido avançar.</p>';
+        '<p class="dentistas-hero-note">Sem compromisso. Recebe primeiro a análise e só depois decide se faz sentido avançar.</p>'+
+        '<div class="dentistas-hero-side"><div><span>01</span><strong>Imagem</strong><p>Perceção visual da clínica.</p></div><div><span>02</span><strong>Clareza</strong><p>Como os tratamentos são apresentados.</p></div><div><span>03</span><strong>Confiança</strong><p>O que reforça a decisão antes da marcação.</p></div></div>';
       heroCopy.appendChild(offer);
     }
 
