@@ -74,6 +74,36 @@ body.dentistas-lp #para-area{padding-top:60px}
 body.dentistas-lp #para-area .copy .ey{color:#8a6f00}
 body.dentistas-lp .cta-band:first-of-type{background:#111;color:#fff;padding-top:48px;padding-bottom:48px}
 body.dentistas-lp .cta-band:first-of-type .dentistas-compare{grid-column:1/-1;width:100%}
+
+body.dentistas-lp .hero-grid{grid-template-columns:1fr!important}
+body.dentistas-lp .hero-card{display:none!important}
+body.dentistas-lp .hero-grid>div:first-child{max-width:980px}
+body.dentistas-lp .dentistas-sticky-cta{position:fixed;left:0;right:0;bottom:0;z-index:1200;background:#111;color:#fff;border-top:1px solid rgba(255,255,255,.08);transition:background .28s ease,color .28s ease,box-shadow .28s ease}
+body.dentistas-lp .dentistas-sticky-cta.scrolled{background:#ffd200;color:#111;box-shadow:0 -8px 28px rgba(0,0,0,.18)}
+body.dentistas-lp .dentistas-sticky-inner{max-width:1180px;margin:0 auto;padding:12px 22px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+body.dentistas-lp .dentistas-sticky-copy{display:flex;flex-direction:column;gap:2px}
+body.dentistas-lp .dentistas-sticky-copy strong{font-size:14px;line-height:1.2}
+body.dentistas-lp .dentistas-sticky-copy span{font-size:12px;opacity:.75}
+body.dentistas-lp .dentistas-sticky-cta .btn{white-space:nowrap;padding:11px 17px}
+body.dentistas-lp .dentistas-sticky-cta.scrolled .btn{background:#111;color:#fff}
+body.dentistas-lp{padding-bottom:78px}
+body.dentistas-lp .dentistas-popup-backdrop{position:fixed;inset:0;z-index:1400;background:rgba(0,0,0,.52);display:none;align-items:center;justify-content:center;padding:24px}
+body.dentistas-lp .dentistas-popup-backdrop.show{display:flex}
+body.dentistas-lp .dentistas-popup{position:relative;width:min(560px,100%);background:#fff;color:#111;border-radius:22px;padding:30px;box-shadow:0 24px 80px rgba(0,0,0,.28)}
+body.dentistas-lp .dentistas-popup .ey{display:inline-flex;padding:7px 10px;border-radius:999px;background:#fff3a6;color:#111;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+body.dentistas-lp .dentistas-popup h3{font-size:clamp(30px,5vw,46px);line-height:1.02;margin:14px 0 12px}
+body.dentistas-lp .dentistas-popup p{font-size:16px;line-height:1.55;color:#555;margin:0 0 20px}
+body.dentistas-lp .dentistas-popup-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+body.dentistas-lp .dentistas-popup-close{position:absolute;right:14px;top:14px;width:38px;height:38px;border:0;border-radius:50%;background:#f2f2f2;cursor:pointer;font-size:22px;line-height:1}
+body.dentistas-lp .dentistas-popup-later{border:0;background:transparent;color:#666;cursor:pointer;padding:10px 6px}
+@media(max-width:700px){
+ body.dentistas-lp .dentistas-sticky-inner{padding:10px 14px}
+ body.dentistas-lp .dentistas-sticky-copy span{display:none}
+ body.dentistas-lp .dentistas-sticky-copy strong{font-size:12px}
+ body.dentistas-lp .dentistas-sticky-cta .btn{font-size:12px;padding:10px 12px}
+ body.dentistas-lp{padding-bottom:68px}
+ body.dentistas-lp .dentistas-popup{padding:26px 22px}
+}
 </style>
 </head>
 <body>
@@ -206,6 +236,29 @@ body.dentistas-lp .cta-band:first-of-type .dentistas-compare{grid-column:1/-1;wi
     <div class="thanks" id="bottomThanks"><strong>Recebido ✓</strong><br>Obrigado. Entrarei em contacto consigo.</div>
   </div>
 </section>
+
+<div class="dentistas-sticky-cta" id="dentistasStickyCta" style="display:none">
+  <div class="dentistas-sticky-inner">
+    <div class="dentistas-sticky-copy">
+      <strong>3 melhorias para a comunicação da sua clínica</strong>
+      <span>Análise gratuita e sem compromisso</span>
+    </div>
+    <a class="btn" href="#contacto">Receber análise →</a>
+  </div>
+</div>
+
+<div class="dentistas-popup-backdrop" id="dentistasPopup">
+  <div class="dentistas-popup" role="dialog" aria-modal="true" aria-labelledby="dentistasPopupTitle">
+    <button class="dentistas-popup-close" type="button" aria-label="Fechar">×</button>
+    <div class="ey">Antes de sair</div>
+    <h3 id="dentistasPopupTitle">Quer receber 3 melhorias concretas para a comunicação da sua clínica?</h3>
+    <p>Analiso a imagem, a clareza dos tratamentos e a confiança transmitida antes da marcação. Gratuito e sem compromisso.</p>
+    <div class="dentistas-popup-actions">
+      <a class="btn" href="#contacto" data-popup-cta="1">Quero receber as 3 melhorias →</a>
+      <button class="dentistas-popup-later" type="button">Agora não</button>
+    </div>
+  </div>
+</div>
 
 <footer class="legal">DUIT · NIF 209 109 017 · Odivelas, Portugal · <a href="/politica-privacidade.html">Privacidade</a> · <a href="/politica-cookies.html">Cookies</a> · <a href="https://duit.pt">duit.pt</a></footer>
 <button class="back-to-top" type="button" aria-label="Voltar ao topo" title="Voltar ao topo">
@@ -358,6 +411,46 @@ async function loadArea(){
     if(details[1]){
       details[1].querySelector('summary').textContent='Vou receber uma proposta automaticamente?';
       details[1].querySelector('p').textContent='Não. Primeiro envio-lhe a análise. Só avançamos para uma conversa comercial se fizer sentido para si.';
+    }
+
+    const sticky=document.getElementById('dentistasStickyCta');
+    const popup=document.getElementById('dentistasPopup');
+    if(sticky){
+      sticky.style.display='block';
+      const updateSticky=()=>{
+        const threshold=Math.max(180,window.innerHeight*.35);
+        sticky.classList.toggle('scrolled',window.scrollY>threshold);
+      };
+      window.addEventListener('scroll',updateSticky,{passive:true});
+      updateSticky();
+    }
+
+    let dentistasPopupShown=sessionStorage.getItem('dentistasPopupShown')==='1';
+    const showDentistasPopup=()=>{
+      if(dentistasPopupShown||!popup)return;
+      dentistasPopupShown=true;
+      sessionStorage.setItem('dentistasPopupShown','1');
+      popup.classList.add('show');
+    };
+    const closeDentistasPopup=()=>popup&&popup.classList.remove('show');
+
+    if(popup){
+      popup.querySelector('.dentistas-popup-close')?.addEventListener('click',closeDentistasPopup);
+      popup.querySelector('.dentistas-popup-later')?.addEventListener('click',closeDentistasPopup);
+      popup.querySelector('[data-popup-cta]')?.addEventListener('click',closeDentistasPopup);
+      popup.addEventListener('click',e=>{if(e.target===popup)closeDentistasPopup()});
+      document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDentistasPopup()});
+
+      setTimeout(showDentistasPopup,45000);
+      const maybePopupOnScroll=()=>{
+        const doc=document.documentElement;
+        const max=Math.max(1,doc.scrollHeight-window.innerHeight);
+        if(window.scrollY/max>=0.55){
+          showDentistasPopup();
+          window.removeEventListener('scroll',maybePopupOnScroll);
+        }
+      };
+      window.addEventListener('scroll',maybePopupOnScroll,{passive:true});
     }
   }
 }
