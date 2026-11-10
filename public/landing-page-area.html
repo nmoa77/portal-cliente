@@ -1063,6 +1063,72 @@ function setupConversionAreaLP(slug,cfg,sector){
 
   const sticky=document.getElementById('dentistasStickyCta');
   const popup=document.getElementById('dentistasPopup');
+
+  if(sticky){
+    Object.assign(sticky.style,{
+      display:'block',position:'fixed',left:'0',right:'0',bottom:'0',zIndex:'1200',
+      minHeight:'64px',background:'#111',color:'#fff',borderTop:'1px solid rgba(255,255,255,.08)',
+      boxShadow:'0 -6px 24px rgba(0,0,0,.12)'
+    });
+    const inner=sticky.querySelector('.dentistas-sticky-inner');
+    if(inner)Object.assign(inner.style,{
+      maxWidth:'1180px',minHeight:'64px',margin:'0 auto',padding:'10px 20px',
+      display:'flex',alignItems:'center',justifyContent:'space-between',gap:'18px'
+    });
+    const copy=sticky.querySelector('.dentistas-sticky-copy');
+    if(copy)Object.assign(copy.style,{display:'flex',flexDirection:'column',gap:'2px',minWidth:'0'});
+    const strongEl=sticky.querySelector('.dentistas-sticky-copy strong');
+    if(strongEl)Object.assign(strongEl.style,{fontSize:'14px',lineHeight:'1.25'});
+    const spanEl=sticky.querySelector('.dentistas-sticky-copy span');
+    if(spanEl)Object.assign(spanEl.style,{fontSize:'12px',opacity:'.72'});
+    const stickyBtn=sticky.querySelector('.btn');
+    if(stickyBtn)Object.assign(stickyBtn.style,{
+      display:'inline-flex',alignItems:'center',justifyContent:'center',minHeight:'44px',
+      width:'auto',padding:'10px 16px',whiteSpace:'nowrap',borderRadius:'12px',flex:'0 0 auto'
+    });
+  }
+
+  if(popup){
+    Object.assign(popup.style,{
+      position:'fixed',inset:'0',zIndex:'1400',display:'none',alignItems:'center',
+      justifyContent:'center',padding:'24px',background:'rgba(0,0,0,.56)'
+    });
+    const box=popup.querySelector('.dentistas-popup');
+    if(box)Object.assign(box.style,{
+      position:'relative',width:'min(560px, calc(100vw - 32px))',
+      maxHeight:'calc(100vh - 48px)',overflow:'auto',margin:'0 auto',padding:'30px',
+      background:'#fff',color:'#111',borderRadius:'22px',boxShadow:'0 24px 80px rgba(0,0,0,.32)'
+    });
+    const eyebrow=popup.querySelector('.ey');
+    if(eyebrow)Object.assign(eyebrow.style,{
+      display:'inline-flex',width:'auto',padding:'7px 10px',borderRadius:'999px',
+      background:'#fff3a6',color:'#111',fontSize:'11px',fontWeight:'800',
+      textTransform:'uppercase',letterSpacing:'.05em'
+    });
+    const popTitle=popup.querySelector('h3');
+    if(popTitle)Object.assign(popTitle.style,{margin:'16px 0 12px',fontSize:'42px',lineHeight:'1.02'});
+    const popP=popup.querySelector('p');
+    if(popP)Object.assign(popP.style,{margin:'0 0 22px',fontSize:'16px',lineHeight:'1.55',color:'#555'});
+    const actions=popup.querySelector('.dentistas-popup-actions');
+    if(actions)Object.assign(actions.style,{display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'});
+    const pBtn=popup.querySelector('.dentistas-popup-actions .btn');
+    if(pBtn)Object.assign(pBtn.style,{
+      display:'inline-flex',width:'auto',minHeight:'50px',alignItems:'center',
+      justifyContent:'center',padding:'13px 18px',borderRadius:'12px'
+    });
+    const later=popup.querySelector('.dentistas-popup-later');
+    if(later)Object.assign(later.style,{
+      border:'0',background:'transparent',color:'#666',padding:'10px 6px',
+      fontSize:'14px',cursor:'pointer'
+    });
+    const closeBtn=popup.querySelector('.dentistas-popup-close');
+    if(closeBtn)Object.assign(closeBtn.style,{
+      position:'absolute',top:'14px',right:'14px',width:'38px',height:'38px',
+      display:'grid',placeItems:'center',border:'0',borderRadius:'50%',
+      background:'#f1f1f1',color:'#111',fontSize:'22px',cursor:'pointer'
+    });
+  }
+
   if(sticky){
     sticky.style.display='block';
     const strong=sticky.querySelector('.dentistas-sticky-copy strong');
@@ -1073,7 +1139,7 @@ function setupConversionAreaLP(slug,cfg,sector){
     if(btn)btn.textContent='Receber análise →';
     const updateSticky=()=>{
       const threshold=Math.max(180,window.innerHeight*.35);
-      sticky.classList.toggle('scrolled',window.scrollY>threshold);
+      const scrolled=window.scrollY>threshold;sticky.classList.toggle('scrolled',scrolled);sticky.style.background=scrolled?'#ffd200':'#111';sticky.style.color=scrolled?'#111':'#fff';const b=sticky.querySelector('.btn');if(b){b.style.background=scrolled?'#111':'#ffd200';b.style.color=scrolled?'#fff':'#111'};
     };
     window.addEventListener('scroll',updateSticky,{passive:true});
     updateSticky();
@@ -1089,8 +1155,8 @@ function setupConversionAreaLP(slug,cfg,sector){
     if(btn)btn.textContent='Quero receber as 3 melhorias →';
 
     let shown=sessionStorage.getItem('areaPopupShown:'+slug)==='1';
-    const show=()=>{if(shown)return;shown=true;sessionStorage.setItem('areaPopupShown:'+slug,'1');popup.classList.add('show')};
-    const close=()=>popup.classList.remove('show');
+    const show=()=>{if(shown)return;shown=true;sessionStorage.setItem('areaPopupShown:'+slug,'1');popup.classList.add('show');popup.style.display='flex'};
+    const close=()=>{popup.classList.remove('show');popup.style.display='none'};
     popup.querySelector('.dentistas-popup-close')?.addEventListener('click',close);
     popup.querySelector('.dentistas-popup-later')?.addEventListener('click',close);
     popup.querySelector('[data-popup-cta]')?.addEventListener('click',close);
