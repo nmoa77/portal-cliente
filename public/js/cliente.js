@@ -813,9 +813,10 @@ async function openPostView(id) {
     const p = posts.find(x => x.id === id);
     if (!p) { toast('Post não encontrado.', 'cancel'); return; }
     document.getElementById('mp-id').value = p.id;
-    document.getElementById('mp-net-view').value = netLabel(p.network);
     document.getElementById('mp-date-view').value = fmtDate(p.date);
     document.getElementById('mp-text-view').value = p.text || '';
+    document.getElementById('mp-inspiration-view').value = p.inspiration || '';
+    document.getElementById('mp-story-view').value = p.story || '';
     const statusMap = { draft: 'Rascunho', scheduled: 'Agendado', published: 'Publicado', cancelled: 'Cancelado' };
     document.getElementById('mp-status-view').value = statusMap[p.status] || p.status;
     document.getElementById('mp-suggestion').value = '';
@@ -972,25 +973,25 @@ async function openClientPostEditor(id=null){
       <button class="btn btn-icon" onclick="document.getElementById('client-post-editor').remove()">✕</button>
     </div>
     <form id="clientPostForm" style="margin-top:16px">
-      <div class="grid g-2" style="gap:12px">
-        <div class="field"><label>Rede</label><select id="cp-network"><option value="instagram">Instagram</option><option value="facebook">Facebook</option><option value="linkedin">LinkedIn</option></select></div>
-        <div class="field"><label>Data</label><input id="cp-date" type="date" required></div>
-      </div>
-      <div class="field"><label>Conteúdo / legenda</label><textarea id="cp-text" rows="6" required placeholder="Escreva o conteúdo..."></textarea></div>
+      <div class="field"><label>Data</label><input id="cp-date" type="date" required></div>
+      <div class="field"><label>Conteúdo / legenda</label><textarea id="cp-text" rows="5" required placeholder="Escreva o conteúdo..."></textarea></div>
+      <div class="field"><label>Inspiração</label><textarea id="cp-inspiration" rows="3" placeholder="Referência, ideia, link ou orientação visual..."></textarea></div>
+      <div class="field"><label>Story</label><textarea id="cp-story" rows="3" placeholder="Texto ou ideia para o story..."></textarea></div>
       <div class="field"><label>Estado</label><select id="cp-status"><option value="draft">Rascunho</option><option value="scheduled">Agendado</option></select></div>
       <div class="modal-actions"><button type="button" class="btn btn-ghost" onclick="document.getElementById('client-post-editor').remove()">Cancelar</button><button class="btn btn-yellow" type="submit">Guardar</button></div>
     </form>
   </div>`;
   document.body.appendChild(overlay);
   if(post){
-    document.getElementById('cp-network').value=post.network||'instagram';
     document.getElementById('cp-date').value=String(post.date||'').slice(0,10);
     document.getElementById('cp-text').value=post.text||'';
+    document.getElementById('cp-inspiration').value=post.inspiration||'';
+    document.getElementById('cp-story').value=post.story||'';
     document.getElementById('cp-status').value=['draft','scheduled'].includes(post.status)?post.status:'draft';
   }else document.getElementById('cp-date').value=todayISO();
   document.getElementById('clientPostForm').onsubmit=async e=>{
     e.preventDefault();
-    const body={network:document.getElementById('cp-network').value,date:document.getElementById('cp-date').value,text:document.getElementById('cp-text').value.trim(),status:document.getElementById('cp-status').value};
+    const body={date:document.getElementById('cp-date').value,text:document.getElementById('cp-text').value.trim(),inspiration:document.getElementById('cp-inspiration').value.trim()||null,story:document.getElementById('cp-story').value.trim()||null,status:document.getElementById('cp-status').value};
     try{
       if(post)await api(`/api/social-posts/${post.id}`,{method:'PATCH',body});
       else await api('/api/social-posts',{method:'POST',body});
