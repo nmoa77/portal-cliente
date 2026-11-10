@@ -122,25 +122,26 @@ body.dentistas-lp .dentistas-offer-badge{display:inline-flex;align-items:center;
 body.dentistas-lp .dentistas-benefits,
 body.dentistas-lp .dentistas-proof{display:none!important}
 
-body.dentistas-lp .cta-band:first-of-type .w{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(420px,.9fr);gap:56px;align-items:center}
-body.dentistas-lp .cta-band:first-of-type .w>div:first-child{max-width:680px}
-body.dentistas-lp .cta-band:first-of-type h2{font-size:clamp(42px,4.8vw,68px);line-height:1.02;letter-spacing:-.03em;margin-bottom:18px}
-body.dentistas-lp .cta-band:first-of-type p{max-width:620px;font-size:18px;line-height:1.5}
-body.dentistas-lp .cta-band:first-of-type>a{display:none!important}
-body.dentistas-lp .cta-band:first-of-type .dentistas-compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:0;width:100%}
-body.dentistas-lp .dentistas-compare>div{min-height:260px;padding:28px;border-radius:20px;display:flex;flex-direction:column;justify-content:flex-start}
+body.dentistas-lp .cta-band:first-of-type .w{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(520px,.95fr);gap:64px;align-items:center}
+body.dentistas-lp .cta-band:first-of-type .w>div:first-child{max-width:720px}
+body.dentistas-lp .cta-band:first-of-type h2{font-size:clamp(42px,4.6vw,66px);line-height:1.02;letter-spacing:-.03em;margin-bottom:18px}
+body.dentistas-lp .cta-band:first-of-type p{max-width:620px;font-size:18px;line-height:1.5;margin-bottom:24px}
+body.dentistas-lp .cta-band:first-of-type>a{display:inline-flex!important;justify-self:start;align-self:start;background:#111;color:#fff;border-radius:14px;padding:15px 20px;max-width:260px;line-height:1.25}
+body.dentistas-lp .cta-band:first-of-type .dentistas-compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:0;width:100%}
+body.dentistas-lp .dentistas-compare>div{min-height:210px;padding:26px 26px 24px;border-radius:20px;display:flex;flex-direction:column;justify-content:flex-start}
 body.dentistas-lp .dentistas-compare .before{background:#f2f2f2}
 body.dentistas-lp .dentistas-compare .after{background:#fff5be;border:0}
 body.dentistas-lp .dentistas-compare .compare-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:20px;color:#7a6b00}
-body.dentistas-lp .dentistas-compare h3{font-size:24px;line-height:1.15;margin:0 0 14px}
-body.dentistas-lp .dentistas-compare p{font-size:15px;line-height:1.55;margin:0;color:#333}
+body.dentistas-lp .dentistas-compare h3{font-size:22px;line-height:1.14;margin:0 0 12px}
+body.dentistas-lp .dentistas-compare p{font-size:14px;line-height:1.5;margin:0;color:#333}
 
 @media(max-width:900px){
  body.dentistas-lp .hero{padding-top:48px;padding-bottom:56px}
  body.dentistas-lp .hero h1{font-size:clamp(44px,12vw,64px)}
  body.dentistas-lp .hero .lead{font-size:18px}
- body.dentistas-lp .cta-band:first-of-type .w{grid-template-columns:1fr;gap:30px}
- body.dentistas-lp .cta-band:first-of-type .dentistas-compare{grid-template-columns:1fr}
+ body.dentistas-lp .cta-band:first-of-type .w{grid-template-columns:1fr;gap:28px}
+ body.dentistas-lp .cta-band:first-of-type>a{justify-self:start}
+ body.dentistas-lp .cta-band:first-of-type .dentistas-compare{grid-template-columns:1fr 1fr}
  body.dentistas-lp .dentistas-compare>div{min-height:auto}
 }
 
@@ -149,6 +150,10 @@ html.dentistas-preload .hero-card,
 html.dentistas-preload #topForm{display:none!important}
 html.dentistas-preload .hero-grid{grid-template-columns:1fr!important}
 html.dentistas-preload .hero-grid>div:first-child{max-width:900px}
+
+@media(max-width:620px){
+ body.dentistas-lp .cta-band:first-of-type .dentistas-compare{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
