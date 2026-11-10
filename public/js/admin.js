@@ -1405,8 +1405,9 @@ function openNewPostForDate(dateStr) {
   document.getElementById('modal-post-lede').textContent = 'Agenda uma publicação. O cliente vai receber para aprovar.';
   document.getElementById('mp-id').value = '';
   document.getElementById('mp-date').value = dateStr || todayISO();
-  document.getElementById('mp-net').value = 'instagram';
   document.getElementById('mp-text').value = '';
+  document.getElementById('mp-inspiration').value = '';
+  document.getElementById('mp-story').value = '';
   document.getElementById('mp-status').value = 'scheduled';
   const sel = document.getElementById('mp-user');
   sel.innerHTML = state.clients.filter(c => (c.social_subs || 0) > 0).map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
@@ -1426,11 +1427,12 @@ async function openEditPost(id) {
   }
   if (!p) { toast('Post não encontrado.', 'cancel'); return; }
   document.getElementById('modal-post-title').textContent = 'Editar post';
-  document.getElementById('modal-post-lede').textContent = `${p.client_company || p.client_name || ''} · ${netLabel(p.network)}`;
+  document.getElementById('modal-post-lede').textContent = `${p.client_company || p.client_name || ''}`;
   document.getElementById('mp-id').value = id;
   document.getElementById('mp-date').value = p.date;
-  document.getElementById('mp-net').value = p.network;
   document.getElementById('mp-text').value = p.text;
+  document.getElementById('mp-inspiration').value = p.inspiration || '';
+  document.getElementById('mp-story').value = p.story || '';
   document.getElementById('mp-status').value = p.status;
   const sel = document.getElementById('mp-user');
   // Apenas clientes com plano de redes sociais — mas garante incluir o atual
@@ -3320,9 +3322,10 @@ document.addEventListener('submit', async (e) => {
     const id = document.getElementById('mp-id').value;
     const body = {
       user_id: Number(document.getElementById('mp-user').value),
-      network: document.getElementById('mp-net').value,
       date: document.getElementById('mp-date').value,
       text: document.getElementById('mp-text').value,
+      inspiration: document.getElementById('mp-inspiration').value.trim() || null,
+      story: document.getElementById('mp-story').value.trim() || null,
       status: document.getElementById('mp-status').value,
     };
     try {
