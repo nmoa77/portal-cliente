@@ -185,7 +185,7 @@ const CONFIG={
  'centro-de-estudos':{title:'A confiança começa antes da primeira explicação.',lead:'A sua comunicação deve transmitir confiança às famílias e mostrar claramente como acompanha cada aluno.',intro:'Famílias e alunos precisam de perceber rapidamente como funciona o acompanhamento, o método e a proximidade que oferece.',apps:[['Inscrições','Campanhas para novos alunos e épocas escolares.'],['Oferta','Peças para disciplinas, ciclos e modalidades de apoio.'],['Digital','Conteúdo para redes sociais, anúncios e comunicação com famílias.'],['Materiais','Folhetos, horários, apresentações e comunicação do espaço.']]},
  'saude-mental':{title:'Confiança antes da primeira conversa.',lead:'A sua comunicação deve transmitir a mesma proximidade, segurança e cuidado que oferece em cada acompanhamento.',intro:'Quem procura ajuda precisa de sentir confiança antes mesmo de marcar. Uma comunicação humana, clara e profissional pode facilitar esse primeiro passo.',apps:[['Especializações','Apresentar áreas de acompanhamento de forma clara.'],['Confiança','Comunicação humana, segura e profissional.'],['Digital','Conteúdo para redes sociais, campanhas e presença online.'],['Contacto','Peças e páginas que ajudam a dar o primeiro passo.']]},
  'fisioterapia':{title:'Movimento, recuperação e confiança.',lead:'A sua comunicação deve transmitir confiança, acompanhamento e evolução desde o primeiro contacto.',intro:'Quem procura ajuda quer perceber rapidamente como pode ser acompanhado. Mostrar especialização, proximidade e método ajuda a criar confiança antes da marcação.',apps:[['Tratamentos','Apresentar áreas de intervenção e serviços de forma clara.'],['Equipa','Dar visibilidade aos profissionais e à experiência clínica.'],['Digital','Conteúdo para redes sociais, campanhas e presença local.'],['Marcação','Peças e páginas que facilitam o contacto e a marcação.']]},
- 'dentistas':{title:'Confiança antes de abrir o sorriso.',lead:'A sua comunicação deve transmitir confiança, cuidado e profissionalismo antes mesmo da primeira consulta.',intro:'Quem escolhe onde tratar o sorriso procura confiança antes de tudo. A forma como apresenta a equipa, os tratamentos e o espaço pode facilitar essa decisão.',apps:[['Tratamentos','Apresentar ortodontia, implantologia, higiene oral e outras especialidades.'],['Equipa','Dar visibilidade aos profissionais e à experiência clínica.'],['Digital','Conteúdo para redes sociais, campanhas e presença local.'],['Marcação','Peças e páginas que facilitam o contacto e a marcação.']]}
+ 'dentistas':{title:'A sua clínica inspira confiança. A comunicação também deve fazê-lo.',lead:'Mostre tratamentos, equipa e espaço com a mesma clareza e profissionalismo que oferece em cada consulta.',intro:'Antes de marcar, o paciente procura sinais de confiança. Uma comunicação mais clara e consistente ajuda a perceber melhor a clínica, os tratamentos e aquilo que a diferencia.',apps:[['Tratamentos','Explique especialidades e tratamentos de forma clara e fácil de perceber.'],['Equipa','Dê rosto à clínica e reforce confiança através dos profissionais.'],['Digital','Crie campanhas e conteúdos que transmitam profissionalismo e proximidade.'],['Marcação','Facilite o primeiro contacto e conduza o paciente até à marcação.']]}
 };
 const abs=v=>{const s=String(v||'').trim();if(!s)return '';if(/^https?:\/\//i.test(s))return s;return location.origin+(s.startsWith('/')?'':'/')+s};
 async function loadArea(){
@@ -216,6 +216,68 @@ async function loadArea(){
   document.getElementById('applications').innerHTML=cfg.apps.map((x,i)=>'<div class="app-card"><div class="n">'+(i+1)+'</div><h3>'+x[0]+'</h3><p>'+x[1]+'</p></div>').join('');
   document.getElementById('topMessage').value='Pedido através da LP por área · '+sector;
   document.getElementById('bottomMessage').placeholder='Que tipo de trabalhos costuma precisar em '+sector+'? (opcional)';
+
+  if(slug==='dentistas'){
+    const topBtn=document.querySelector('#topForm button[type="submit"]');
+    const bottomBtn=document.querySelector('#bottomForm button[type="submit"]');
+    const topCompany=document.querySelector('#topForm input[name="company"]');
+    const bottomCompany=document.querySelector('#bottomForm input[name="company"]');
+    const topPhone=document.querySelector('#topForm input[name="phone"]');
+    const bottomPhone=document.querySelector('#bottomForm input[name="phone"]');
+    const contactEy=document.querySelector('#contacto .ey');
+    const contactH2=document.querySelector('#contacto h2');
+    const contactP=document.querySelector('#contacto p');
+
+    if(topBtn)topBtn.textContent='Quero uma análise à comunicação da minha clínica →';
+    const topNote=document.querySelector('#topForm .note');
+    const bottomNote=document.querySelector('#bottomForm + .note');
+    if(topNote)topNote.innerHTML='Sem compromisso. Uso os seus dados apenas para responder ao pedido. Consulte a <a href="/politica-privacidade.html">Política de Privacidade</a>.';
+    if(bottomBtn)bottomBtn.textContent='Quero a minha análise →';
+
+    if(topCompany)topCompany.placeholder='Clínica';
+    if(bottomCompany)bottomCompany.placeholder='Clínica';
+
+    if(topPhone){
+      topPhone.required=false;
+      topPhone.placeholder='Telefone (opcional)';
+    }
+    if(bottomPhone){
+      bottomPhone.required=false;
+      bottomPhone.placeholder='Telefone (opcional)';
+    }
+
+    if(contactEy)contactEy.textContent='Uma primeira análise, sem compromisso';
+    if(contactH2)contactH2.textContent='Quer saber como a sua clínica pode comunicar melhor?';
+    if(contactP)contactP.textContent='Deixe o seu contacto. Faço uma primeira análise à comunicação da sua clínica e mostro-lhe onde o design pode ajudar a transmitir mais confiança, clareza e profissionalismo.';
+
+    const bands=[...document.querySelectorAll('.cta-band')];
+    if(bands[0]){
+      const h=bands[0].querySelector('h2'),p=bands[0].querySelector('p'),a=bands[0].querySelector('a');
+      if(h)h.textContent='A primeira impressão da sua clínica começa antes da consulta.';
+      if(p)p.textContent='Uma comunicação clara e consistente ajuda o paciente a perceber melhor os tratamentos, a equipa e o valor da clínica.';
+      if(a)a.textContent='Quero a análise →';
+    }
+    if(bands[1]){
+      const h=bands[1].querySelector('h2'),p=bands[1].querySelector('p'),a=bands[1].querySelector('a');
+      if(h)h.textContent='Não se trata apenas de ter uma imagem bonita.';
+      if(p)p.textContent='Trata-se de transmitir confiança, profissionalismo e coerência em cada ponto de contacto.';
+      if(a)a.textContent='Ver como melhorar →';
+    }
+
+    const howHead=[...document.querySelectorAll('.section .head h2')].find(el=>el.textContent.includes('Do pedido à entrega'));
+    if(howHead)howHead.textContent='Uma forma simples de começar.';
+    const steps=[...document.querySelectorAll('.how .step')];
+    if(steps.length>=4){
+      steps[0].querySelector('h3').textContent='Envia o contacto';
+      steps[0].querySelector('p').textContent='Partilhe o nome da clínica e um contacto.';
+      steps[1].querySelector('h3').textContent='Analiso';
+      steps[1].querySelector('p').textContent='Vejo como a clínica está a comunicar hoje.';
+      steps[2].querySelector('h3').textContent='Mostro oportunidades';
+      steps[2].querySelector('p').textContent='Aponto melhorias concretas e prioritárias.';
+      steps[3].querySelector('h3').textContent='Decide se faz sentido';
+      steps[3].querySelector('p').textContent='Sem compromisso e sem pressão comercial.';
+    }
+  }
 }
 const sid=sessionStorage.areaLpSid||(sessionStorage.areaLpSid=(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random())),utm={utm_source:q.get('utm_source')||'',utm_medium:q.get('utm_medium')||'',utm_campaign:q.get('utm_campaign')||''};
 function currentLpKey(){
