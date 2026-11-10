@@ -220,6 +220,8 @@ CREATE TABLE IF NOT EXISTS social_posts (
   network TEXT NOT NULL CHECK(network IN ('instagram','facebook','linkedin')),
   date TEXT NOT NULL,                 -- YYYY-MM-DD
   text TEXT NOT NULL,
+  inspiration TEXT,
+  story TEXT,
   status TEXT NOT NULL DEFAULT 'scheduled' CHECK(status IN ('draft','scheduled','published','cancelled')),
   client_suggestion TEXT,             -- sugestão do cliente (não altera o post)
   created_at TEXT DEFAULT (datetime('now')),
@@ -407,6 +409,18 @@ try {
     db.exec(`ALTER TABLE social_posts ADD COLUMN client_suggestion TEXT`);
   }
 } catch (e) { console.warn('Migration social_posts.client_suggestion:', e.message); }
+
+try {
+  const cols = db.prepare(`PRAGMA table_info(social_posts)`).all();
+  if (!cols.find(c => c.name === 'inspiration')) {
+    db.exec(`ALTER TABLE social_posts ADD COLUMN inspiration TEXT`);
+    console.log('✓ Migration: social_posts.inspiration adicionada.');
+  }
+  if (!cols.find(c => c.name === 'story')) {
+    db.exec(`ALTER TABLE social_posts ADD COLUMN story TEXT`);
+    console.log('✓ Migration: social_posts.story adicionada.');
+  }
+} catch (e) { console.warn('Migration social_posts inspiration/story:', e.message); }
 
 // Migration: coluna notifications_enabled em users
 try {
