@@ -1,6 +1,14 @@
 <!doctype html>
 <html lang="pt-PT">
 <head>
+<script>
+(function(){
+  var p=location.pathname.split('/').filter(Boolean).pop()||'';
+  if(p==='dentistas'||p==='duit-design-dentistas'){
+    document.documentElement.classList.add('dentistas-preload');
+  }
+})();
+</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DUIT Design para o seu negócio</title>
@@ -136,6 +144,11 @@ body.dentistas-lp .dentistas-compare p{font-size:15px;line-height:1.55;margin:0;
  body.dentistas-lp .dentistas-compare>div{min-height:auto}
 }
 
+
+html.dentistas-preload .hero-card,
+html.dentistas-preload #topForm{display:none!important}
+html.dentistas-preload .hero-grid{grid-template-columns:1fr!important}
+html.dentistas-preload .hero-grid>div:first-child{max-width:900px}
 </style>
 </head>
 <body>
@@ -362,6 +375,7 @@ async function loadArea(){
 
   if(slug==='dentistas'){
     document.body.classList.add('dentistas-lp');
+    document.documentElement.classList.remove('dentistas-preload');
 
     const heroCopy=document.querySelector('.hero-grid>div:first-child');
     if(heroCopy && !heroCopy.querySelector('.dentistas-hero-offer')){
