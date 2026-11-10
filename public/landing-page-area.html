@@ -65,6 +65,15 @@ body.dentistas-lp .dentistas-compare p{margin:7px 0;font-size:14px}
  body.dentistas-lp .dentistas-proof,
  body.dentistas-lp .dentistas-compare{grid-template-columns:1fr}
 }
+
+body.dentistas-lp .hero{position:relative;background:linear-gradient(180deg,#fff 0%,#fffdf2 100%)}
+body.dentistas-lp .hero:before{content:'';position:absolute;left:0;top:0;width:7px;height:100%;background:#ffd200}
+body.dentistas-lp .hero h1{font-size:clamp(44px,5vw,76px);max-width:820px;line-height:.98}
+body.dentistas-lp .hero .lead{max-width:680px;font-size:19px}
+body.dentistas-lp #para-area{padding-top:60px}
+body.dentistas-lp #para-area .copy .ey{color:#8a6f00}
+body.dentistas-lp .cta-band:first-of-type{background:#111;color:#fff;padding-top:48px;padding-bottom:48px}
+body.dentistas-lp .cta-band:first-of-type .dentistas-compare{grid-column:1/-1;width:100%}
 </style>
 </head>
 <body>
@@ -274,9 +283,11 @@ async function loadArea(){
       const offer=document.createElement('div');
       offer.className='dentistas-hero-offer';
       offer.innerHTML=
-        '<a class="btn" href="#contacto">Quero a análise da minha clínica →</a>'+
-        '<p class="dentistas-hero-note">Sem compromisso. Sem chamada obrigatória. Primeiro analiso, depois decide se faz sentido falar.</p>'+
-        '<div class="dentistas-benefits"><span>Imagem da clínica</span><span>Clareza dos tratamentos</span><span>Confiança antes da marcação</span></div>';
+        '<div style="display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;background:#fff3a6;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em">Análise gratuita para clínicas dentárias</div>'+
+        '<a class="btn" href="#contacto">Quero receber as 3 melhorias →</a>'+
+        '<p class="dentistas-hero-note">Sem compromisso. Recebe primeiro a análise. Só depois decide se faz sentido falar comigo.</p>'+
+        '<div class="dentistas-benefits"><span>Imagem da clínica</span><span>Clareza dos tratamentos</span><span>Confiança antes da marcação</span></div>'+
+        '<div class="dentistas-proof"><div><strong>1. Imagem</strong><span>O que pode estar a enfraquecer a perceção da clínica.</span></div><div><strong>2. Clareza</strong><span>Onde os tratamentos podem ser explicados de forma mais simples.</span></div><div><strong>3. Confiança</strong><span>O que pode reforçar a decisão antes da marcação.</span></div></div>';
       heroCopy.appendChild(offer);
     }
 
@@ -312,7 +323,16 @@ async function loadArea(){
       const h=bands[0].querySelector('h2'),p=bands[0].querySelector('p'),a=bands[0].querySelector('a');
       if(h)h.textContent='Antes de marcar, o paciente já está a formar uma opinião.';
       if(p)p.textContent='Website, redes sociais, tratamentos, equipa e imagem visual ajudam a decidir se a clínica transmite confiança.';
-      if(a)a.textContent='Quero saber onde posso melhorar →';
+      if(a)a.textContent='Quero receber as 3 melhorias →';
+      const wrap=bands[0].querySelector('.w');
+      if(wrap && !wrap.querySelector('.dentistas-compare')){
+        const compare=document.createElement('div');
+        compare.className='dentistas-compare';
+        compare.innerHTML=
+          '<div class="before"><h3>Quando a comunicação não acompanha a clínica</h3><p>• Imagem pouco diferenciada</p><p>• Tratamentos difíceis de perceber</p><p>• Website e redes sem consistência</p><p>• Menos confiança antes do contacto</p></div>'+
+          '<div class="after"><h3>Quando a comunicação trabalha a favor da clínica</h3><p>• Imagem profissional e coerente</p><p>• Tratamentos apresentados com clareza</p><p>• Mais confiança na marca</p><p>• Um caminho mais simples até à marcação</p></div>';
+        wrap.appendChild(compare);
+      }
     }
     if(bands[1])bands[1].style.display='none';
 
