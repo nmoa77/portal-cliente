@@ -6,19 +6,19 @@
   <title>Bio</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f6f4ef;--text:#111;--accent:#ffd200;--section-title:#111;--profile-width:340px;--card-width:280px}
-    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif}
-    h1,h2,.bio-card-title{font-family:Antonio,Impact,sans-serif;font-weight:600}
+    :root{--bg:#f6f4ef;--text:#111;--accent:#ffd200;--section-title:#111;--description:#77736d;--card-title:#1d1b18;--card-text:#77736d;--social-bg:#242424;--social-icon:#fff;--profile-width:340px;--card-width:280px}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Montserrat,Arial,sans-serif}
+    h1,h2,.bio-card-title{font-family:Montserrat,Arial,sans-serif;font-weight:800}
     .bio-layout{display:grid;grid-template-columns:var(--profile-width) minmax(0,1fr);gap:clamp(35px,6vw,90px);max-width:1260px;margin:auto;padding:60px 32px}
     .bio-profile{position:sticky;top:50px;align-self:start}.bio-logo{width:190px;height:auto;object-fit:contain;display:block;margin-bottom:24px}
-    .bio-profile h1{font-size:35px;font-weight:650;letter-spacing:-.03em;margin:0 0 16px}.bio-profile p{font-size:16px;line-height:1.6;margin:0;white-space:pre-wrap}
-    .bio-socials{display:flex;gap:15px;flex-wrap:wrap;margin-top:28px}.bio-socials a{width:66px;height:66px;background:#242424;color:#fff;display:flex;align-items:center;justify-content:center;border-radius:50%;text-decoration:none}
+    .bio-profile h1{font-size:35px;font-weight:650;letter-spacing:-.03em;margin:0 0 16px}.bio-profile p{font-size:16px;line-height:1.6;margin:0;white-space:pre-wrap;color:var(--description)}
+    .bio-socials{display:flex;gap:15px;flex-wrap:wrap;margin-top:28px}.bio-socials a{width:66px;height:66px;background:var(--social-bg);color:var(--social-icon);display:flex;align-items:center;justify-content:center;border-radius:50%;text-decoration:none}
     .bio-section{margin-bottom:35px}.bio-section h2{font-size:21px;font-weight:700;margin:0 0 17px;display:flex;align-items:center;gap:10px;color:var(--section-title)}
     .bio-cards{display:flex;flex-wrap:nowrap;gap:16px;align-items:flex-start;overflow-x:auto;padding:3px 3px 16px;scrollbar-width:thin}.bio-cards>.bio-card{flex:0 0 min(100%,min(var(--card-width),280px));min-width:0}
     .bio-card{background:#fff;color:#1d1b18;border-radius:16px;overflow:hidden;box-shadow:0 5px 19px rgba(29,27,24,.1);transition:transform .2s,box-shadow .2s}.bio-card:hover{transform:translateY(-2px);box-shadow:0 9px 25px rgba(29,27,24,.14)}
-    .bio-card img{display:block;width:100%;height:auto;object-fit:contain}.bio-card-body{padding:17px 18px 19px}.bio-card-title{display:block;font-size:23px;line-height:1.25;color:var(--text)}.bio-card-subtitle{font-size:14px;line-height:1.55;color:#77736d;margin-top:7px;white-space:pre-wrap}
+    .bio-card img{display:block;width:100%;height:auto;object-fit:contain}.bio-card-body{padding:17px 18px 19px}.bio-card-title{display:block;font-size:23px;line-height:1.25;color:var(--card-title)}.bio-card-subtitle{font-size:14px;line-height:1.55;color:var(--card-text);margin-top:7px;white-space:pre-wrap}
     .bio-cta{display:inline-flex;align-items:center;gap:12px;background:var(--accent);color:#fff;border-radius:9px;margin-top:15px;padding:11px 17px;font-size:12px;font-weight:700;text-decoration:none}.bio-cta:hover{filter:brightness(.93)}
     .swipe-hint{display:none}
     @media(max-width:760px){
