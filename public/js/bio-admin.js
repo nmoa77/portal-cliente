@@ -143,17 +143,70 @@
   window.duitDeleteBioCard=(sid,cid)=>{if(!confirm('Eliminar cartão?'))return;const s=draft.sections.find(x=>String(x.id)===String(sid));s.cards=s.cards.filter(x=>String(x.id)!==String(cid));renderSections();renderPreview()};
   window.duitCardImage=async(sid,cid,file)=>{if(!file)return;const url=await uploadImage(draft.id,file);duitCardPatch(sid,cid,{image_url:url});renderSections()};
   window.duitSetBioPreview=m=>{previewMode=m;renderPreview()};
+  function previewPayload(){
+    const b=draft;
+    return {
+      id:b.id,name:b.name,slug:b.slug,description:b.description,logo_url:b.logo_url,
+      background_color:b.background_color,text_color:b.text_color,accent_color:b.accent_color,
+      section_title_color:b.section_title_color,description_color:b.description_color,
+      card_title_color:b.card_title_color,card_text_color:b.card_text_color,
+      social_bg_color:b.social_bg_color,social_icon_color:b.social_icon_color,
+      profile_width:b.profile_width,card_width:b.card_width,
+      socials:['instagram','facebook','youtube','email'].filter(k=>b.socials?.[k]).map((k,i)=>({id:'preview-social-'+i,platform:k,url:b.socials[k]})),
+      tabs:(b.sections||[]).map((s,i)=>({id:s.id,title:s.title,icon:s.icon||'',sort_order:i,is_active:s.enabled===false?0:1})),
+      cards:(b.sections||[]).flatMap((s,si)=>(s.cards||[]).map((card,ci)=>({
+        id:card.id,tab_id:s.id,title:card.title||'',subtitle:card.subtitle||'',
+        button_label:card.button_label||'VER MAIS',url:card.url||'',image_url:card.image_url||'',
+        sort_order:ci,is_active:card.enabled===false?0:1
+      })))
+    };
+  }
+
+  function postPreview(){
+    const iframe=document.getElementById('bio-live-preview');
+    if(!iframe?.contentWindow)return;
+    iframe.contentWindow.postMessage({type:'duit-bio-preview-data',bio:previewPayload()},'*');
+  }
+
   function renderPreview(){
-    syncDraft();const b=draft,w=document.getElementById('bio-preview-wrap');if(!w)return;
+    syncDraft();
+    const w=document.getElementById('bio-preview-wrap');if(!w)return;
     const mobile=previewMode==='mobile';
     document.getElementById('bio-prev-mobile').style.background=mobile?'#e0b126':'';
     document.getElementById('bio-prev-desktop').style.background=!mobile?'#e0b126':'';
-    w.innerHTML=`<div class="bio-preview" style="width:100%;max-width:${mobile?350:1100}px;margin:0 auto;background:${esc(b.background_color)};color:${esc(b.text_color)};padding:${mobile?'32px 15px':'38px 28px'};text-align:${mobile?'center':'left'};min-height:470px;box-sizing:border-box">
-      <div style="${mobile?'':'display:grid;grid-template-columns:minmax(0,'+b.profile_width+'px) minmax(0,1fr);gap:28px'}">
-        <div>${b.logo_url?'<img src="'+esc(b.logo_url)+'" style="width:'+(mobile?140:190)+'px;height:auto;object-fit:contain;display:block;margin:'+(mobile?'0 auto':'0')+'">':''}<h3 style="margin:12px 0;font-size:${mobile?29:36}px">${esc(b.name)}</h3><p style="opacity:.8;font-size:13px;line-height:1.55;white-space:pre-wrap">${esc(b.description||'')}</p><div style="display:flex;gap:12px;justify-content:${mobile?'center':'flex-start'};flex-wrap:wrap;margin-top:20px">${['instagram','facebook','youtube','email'].filter(k=>b.socials[k]).map(k=>'<span style="display:flex;width:66px;height:66px;align-items:center;justify-content:center;border-radius:50%;background:#242424;color:#fff">'+socialIcon(k)+'</span>').join('')}</div></div>
-        <div style="min-width:0;--preview-card-width:${b.card_width}px">${b.sections.filter(s=>s.enabled).map(s=>'<section style="text-align:left;margin-top:'+(mobile?26:0)+'px;margin-bottom:24px"><h4 style="margin-bottom:12px;font-size:22px;color:'+esc(b.section_title_color||b.text_color)+'">'+(s.icon?esc(s.icon)+' ':'')+esc(s.title)+'</h4><div class="bio-preview-card-list">'+s.cards.filter(c=>c.enabled).map(c=>'<div class="bio-preview-card" style="margin-bottom:11px">'+(c.image_url?'<img src="'+esc(c.image_url)+'" style="display:block;width:100%;height:auto;object-fit:contain">':'')+'<div style="padding:13px">'+(c.title?'<strong class="bio-preview-title" style="display:block;font-size:21px;color:'+esc(b.card_title_color)+'">'+esc(c.title)+'</strong>':'')+(c.subtitle?'<p style="color:'+esc(b.card_text_color)+';font-size:12px;line-height:1.5;margin:6px 0 0;white-space:pre-wrap">'+esc(c.subtitle)+'</p>':'')+(c.url?'<span class="bio-preview-cta" style="background:'+esc(b.accent_color)+'">'+esc(c.button_label||'VER MAIS')+' →</span>':'')+'</div></div>').join('')+'</div></section>').join('')}</div>
-      </div></div>`;
+
+    let iframe=document.getElementById('bio-live-preview');
+    if(!iframe){
+      iframe=document.createElement('iframe');
+      iframe.id='bio-live-preview';
+      iframe.title='Pré-visualização da Bio';
+      iframe.src=urlFor(draft)+(urlFor(draft).includes('?')?'&':'?')+'preview=1';
+      iframe.style.border='0';
+      iframe.style.display='block';
+      iframe.style.margin='0 auto';
+      iframe.style.background='transparent';
+      iframe.style.minHeight='720px';
+      iframe.style.borderRadius='20px';
+      iframe.style.transition='width .2s ease';
+      iframe.addEventListener('load',()=>setTimeout(postPreview,50));
+      w.innerHTML='';
+      w.appendChild(iframe);
+    }
+    iframe.style.width=mobile?'390px':'100%';
+    iframe.style.maxWidth=mobile?'390px':'1100px';
+    postPreview();
   }
+
+  if(!window.__duitBioPreviewHeightBound){
+    window.__duitBioPreviewHeightBound=true;
+    window.addEventListener('message',e=>{
+      if(e?.data?.type!=='duit-bio-preview-height')return;
+      const iframe=document.getElementById('bio-live-preview');if(!iframe)return;
+      const h=Math.max(650,Math.min(2400,Number(e.data.height)||720));
+      iframe.style.height=h+'px';
+    });
+  }
+
   window.duitSaveBioConfig=async()=>{
     syncDraft();
     const f=document.getElementById('bio-logo-file')?.files?.[0];if(f){draft.logo_url=await uploadImage(draft.id,f)}
