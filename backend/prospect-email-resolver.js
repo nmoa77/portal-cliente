@@ -300,8 +300,14 @@ function ensureTable(){
    * Não altera Landing Pages nem outras abordagens.
    */
   try{
+    db.exec(`CREATE TABLE IF NOT EXISTS prospect_email_template_migrations(
+      key TEXT PRIMARY KEY,
+      applied_at TEXT DEFAULT(datetime('now'))
+    )`);
+    const migrationKey='20261111_area_email_aligned_with_lp_v1';
+    const already=db.prepare('SELECT 1 FROM prospect_email_template_migrations WHERE key=?').get(migrationKey);
     const tpl=db.prepare("SELECT id FROM prospect_email_templates WHERE lower(TRIM(name))=lower('Email por sector') ORDER BY id ASC LIMIT 1").get();
-    if(tpl){
+    if(!already&&tpl){
       const subject='{empresa} — {sector_headline}';
       const body=[
         'Olá,',
@@ -395,6 +401,7 @@ function ensureTable(){
         htmlBody,
         tpl.id
       );
+      db.prepare('INSERT INTO prospect_email_template_migrations(key) VALUES(?)').run(migrationKey);
     }
   }catch(e){
     console.warn('[crm] email por área alinhado com LP:',e.message);
