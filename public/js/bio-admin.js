@@ -114,8 +114,8 @@
     return `<div style="margin-top:16px">
       ${field('Nome do separador','<input class="bio-field" placeholder="Nome do separador" value="'+esc(s.title)+'" oninput="duitEditSectionTitle(\''+s.id+'\',this.value)">')}
       <label style="font-size:12px;font-weight:700">Ícone (opcional)</label><div style="display:flex;gap:8px;align-items:center;margin:8px 0"><span style="font-size:28px">${esc(s.icon||'—')}</span><button class="btn btn-small" onclick="duitEditSection('${s.id}',{icon:''})">Sem ícone</button></div>
-      <input class="bio-field" placeholder="Pesquisar ícones: piscina, treino, aulas..." value="${esc(iconSearch)}" oninput="duitBioIconSearch(this.value)">
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(45px,1fr));gap:6px;max-height:180px;overflow:auto;margin-top:8px">${filtered.map(([ic,n])=>'<button title="'+esc(n)+'" onclick="duitEditSection(\''+s.id+'\',{icon:\''+ic+'\'})" style="font-size:23px;padding:7px;cursor:pointer;border:'+(s.icon===ic?'2px solid #d3a000':'1px solid #ddd')+';border-radius:8px;background:'+(s.icon===ic?'#fff3c2':'white')+'">'+ic+'</button>').join('')}</div>
+      <input class="bio-field" placeholder="Pesquisar ícones: piscina, treino, aulas..." value="${esc(iconSearch)}" oninput="duitBioIconSearch('${s.id}',this.value)">
+      <div id="bio-icon-grid-${String(s.id).replace(/[^a-zA-Z0-9_-]/g,'_')}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(45px,1fr));gap:6px;max-height:180px;overflow:auto;margin-top:8px">${filtered.map(([ic,n])=>'<button title="'+esc(n)+'" onclick="duitEditSection(\''+s.id+'\',{icon:\''+ic+'\'})" style="font-size:23px;padding:7px;cursor:pointer;border:'+(s.icon===ic?'2px solid #d3a000':'1px solid #ddd')+';border-radius:8px;background:'+(s.icon===ic?'#fff3c2':'white')+'">'+ic+'</button>').join('')}</div>
       <div style="display:flex;justify-content:space-between;gap:8px;margin:16px 0"><button class="btn btn-yellow" onclick="duitAddBioCard('${s.id}')">+ Adicionar cartão</button><button class="btn btn-small" onclick="duitDeleteBioSection('${s.id}')">Eliminar separador</button></div>
       ${s.cards.map((c,j)=>cardEditor(s,c,j)).join('')}
     </div>`;
@@ -130,7 +130,13 @@
     ${field('Link','<input class="bio-field" value="'+esc(c.url||'')+'" oninput="duitCardPatch(\''+s.id+'\',\''+c.id+'\',{url:this.value})">')}
   </div>`}
   window.duitToggleBioSection=id=>{expanded=String(expanded)===String(id)?null:id;renderSections()};
-  window.duitBioIconSearch=v=>{iconSearch=v;renderSections()};
+  window.duitBioIconSearch=(id,v)=>{
+    iconSearch=v;
+    const s=draft.sections.find(x=>String(x.id)===String(id));if(!s)return;
+    const grid=document.getElementById('bio-icon-grid-'+String(id).replace(/[^a-zA-Z0-9_-]/g,'_'));if(!grid)return;
+    const filtered=icons.filter(([,n])=>n.toLowerCase().includes(iconSearch.toLowerCase()));
+    grid.innerHTML=filtered.map(([ic,n])=>'<button title="'+esc(n)+'" onclick="duitEditSection(\''+s.id+'\',{icon:\''+ic+'\'})" style="font-size:23px;padding:7px;cursor:pointer;border:'+(s.icon===ic?'2px solid #d3a000':'1px solid #ddd')+';border-radius:8px;background:'+(s.icon===ic?'#fff3c2':'white')+'">'+ic+'</button>').join('');
+  };
   window.duitEditSectionTitle=(id,value)=>{const s=draft.sections.find(x=>String(x.id)===String(id));if(!s)return;s.title=value;renderPreview()};
   window.duitEditSection=(id,p)=>{const s=draft.sections.find(x=>String(x.id)===String(id));Object.assign(s,p);renderSections();renderPreview()};
   window.duitSectionVisible=(id,v)=>duitEditSection(id,{enabled:v});
