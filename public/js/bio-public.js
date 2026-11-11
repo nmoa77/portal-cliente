@@ -25,6 +25,23 @@
     return '<svg '+common+'><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></svg>';
   }
 
+  function sectionIconHtml(value){
+    const v=String(value||'');
+    if(v.startsWith('lucide:')){
+      const name=v.slice(7);
+      return '<i data-lucide="'+esc(name)+'" class="bio-section-lucide" aria-hidden="true"></i>';
+    }
+    return esc(v);
+  }
+
+  function refreshLucide(root){
+    try{
+      if(window.lucide?.createIcons){
+        window.lucide.createIcons({icons:window.lucide.icons,root:root||document});
+      }
+    }catch(_){}
+  }
+
   function renderBio(b){
     if(!b)return;
     document.title=b.name||'Bio';
@@ -49,8 +66,9 @@
       (b.logo_url?'<img class="bio-logo" src="'+esc(b.logo_url)+'" alt="">':'')+
       '<h1>'+esc(b.name||'')+'</h1><p>'+esc(b.description||'')+'</p>'+
       '<div class="bio-socials">'+socials.map(s=>{const href=s.platform==='email'?'mailto:'+s.url:s.url;return '<a href="'+esc(href)+'" '+(s.platform==='email'?'':'target="_blank" rel="noopener noreferrer"')+' data-social="'+esc(s.id||'')+'" aria-label="'+esc(s.platform)+'">'+socialIcon(s.platform)+'</a>'}).join('')+'</div></aside>'+
-      '<div class="bio-sections">'+tabs.map(t=>{const tc=cards.filter(c=>String(c.tab_id)===String(t.id));return '<section class="bio-section"><h2>'+(t.icon?'<span>'+esc(t.icon)+'</span> ':'')+esc(t.title)+'</h2>'+(tc.length>1?'<p class="swipe-hint">Deslize para ver mais →</p>':'')+'<div class="bio-cards '+(tc.length===1?'single':'')+'">'+tc.map(c=>'<article class="bio-card">'+(c.image_url?'<img src="'+esc(c.image_url)+'" alt="">':'')+'<div class="bio-card-body">'+(c.title?'<strong class="bio-card-title">'+esc(c.title)+'</strong>':'')+(c.subtitle?'<div class="bio-card-subtitle">'+esc(c.subtitle)+'</div>':'')+(c.url?'<a class="bio-cta" href="'+esc(c.url)+'" '+(/^https?:/i.test(c.url)?'target="_blank" rel="noopener noreferrer"':'')+' data-card="'+esc(c.id||'')+'">'+esc(c.button_label||'VER MAIS')+' <span>→</span></a>':'')+'</div></article>').join('')+'</div></section>'}).join('')+'</div></div>';
+      '<div class="bio-sections">'+tabs.map(t=>{const tc=cards.filter(c=>String(c.tab_id)===String(t.id));return '<section class="bio-section"><h2>'+(t.icon?'<span class="bio-section-icon">'+sectionIconHtml(t.icon)+'</span> ':'')+esc(t.title)+'</h2>'+(tc.length>1?'<p class="swipe-hint">Deslize para ver mais →</p>':'')+'<div class="bio-cards '+(tc.length===1?'single':'')+'">'+tc.map(c=>'<article class="bio-card">'+(c.image_url?'<img src="'+esc(c.image_url)+'" alt="">':'')+'<div class="bio-card-body">'+(c.title?'<strong class="bio-card-title">'+esc(c.title)+'</strong>':'')+(c.subtitle?'<div class="bio-card-subtitle">'+esc(c.subtitle)+'</div>':'')+(c.url?'<a class="bio-cta" href="'+esc(c.url)+'" '+(/^https?:/i.test(c.url)?'target="_blank" rel="noopener noreferrer"':'')+' data-card="'+esc(c.id||'')+'">'+esc(c.button_label||'VER MAIS')+' <span>→</span></a>':'')+'</div></article>').join('')+'</div></section>'}).join('')+'</div></div>';
 
+    refreshLucide(document.getElementById('bio-root'));
     document.querySelectorAll('[data-card]').forEach(a=>a.addEventListener('click',()=>track('click','card',a.dataset.card)));
     document.querySelectorAll('[data-social]').forEach(a=>a.addEventListener('click',()=>track('social_click','social',a.dataset.social)));
 
