@@ -3,7 +3,7 @@
   const icons=[['🏋️','Ginásio'],['💪','Treino'],['🏃','Corrida'],['🚴','Cycling'],['🏊','Piscina'],['🧘','Pilates'],['🥗','Nutrição'],['📅','Agenda'],['🗓️','Calendário'],['📍','Localização'],['🗺️','Mapa'],['📚','Ebooks'],['📖','Livro'],['🎁','Ofertas'],['🔥','Em alta'],['⭐','Destaques'],['🏆','Prémios'],['🎯','Objetivos'],['👥','Comunidade'],['👨‍👩‍👧','Família'],['📲','App'],['📱','Telemóvel'],['📷','Fotografias'],['🎬','Vídeo'],['▶️','Play'],['💬','Chat'],['✉️','Email'],['☎️','Telefone'],['🔗','Links'],['🌐','Website'],['🛒','Loja'],['🤝','Parceiros'],['🎟️','Eventos'],['📝','Inscrição'],['✅','Check'],['❓','Quiz'],['🏠','Clube'],['💧','Água'],['❤️','Saúde'],['☀️','Bem-estar'],['💡','Dicas'],['⚡','Energia'],['📢','Novidades'],['🎵','Música'],['🥇','Resultados'],['📈','Progresso'],['🔔','Avisos'],['🎉','Festa'],['➕','Mais'],['🎓','Aprender'],['🌿','Natureza'],['🧠','Mind'],['🕒','Horários']];
   let bios=[],draft=null,expanded=null,previewMode='mobile',iconSearch='';
   async function load(){bios=await api('/api/admin/bios');return bios}
-  function urlFor(b){return location.origin+'/bio/'+encodeURIComponent(b.slug)}
+  function urlFor(b){return String(b?.slug||'').toLowerCase()==='duit'?'https://duit.pt/bio':location.origin+'/bio/'+encodeURIComponent(b.slug)}
   async function uploadImage(bioId,file){const data=await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=rej;fr.readAsDataURL(file)});return (await api('/api/admin/bios/'+bioId+'/assets',{method:'POST',body:{filename:file.name,data_url:data}})).url}
   function toDraft(b){
     const socials=Object.fromEntries(['instagram','facebook','youtube','email'].map(k=>[k,(b.socials||[]).find(x=>x.platform===k)?.url||'']));
