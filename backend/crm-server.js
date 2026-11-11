@@ -659,60 +659,6 @@ function defaultSectorContent(sector){
       ['Mais envolvimento','Crie conteúdos úteis para alunos e famílias.'],
       ['Mais diferenciação','Destaque aquilo que torna a formação especial.']
     ];
-  }else if(s==='artes gráficas & comunicação'){
-    headline='Mostre criatividade sem perder capacidade de execução.';
-    subheadline='Apresente soluções, acabamentos e projetos de forma visual para transmitir experiência, qualidade e resposta profissional.';
-    advantages=[
-      ['Mais pedidos de orçamento','Mostre claramente o que produz e facilite o pedido de contacto.'],
-      ['Mais valorização','Uma apresentação cuidada aumenta a perceção de qualidade do trabalho.'],
-      ['Mais diferenciação','Destaque técnicas, materiais, acabamentos e capacidade de produção.'],
-      ['Mais confiança','Mostre projetos reais e consistência em todos os pontos de contacto.']
-    ];
-  }else if(s==='comércio & retalho'){
-    headline='Faça o produto destacar-se antes da decisão de compra.';
-    subheadline='Uma comunicação visual clara e consistente para valorizar produto, promoções e experiência de marca.';
-    advantages=[
-      ['Mais intenção de compra','Apresente produtos e novidades de forma mais apelativa.'],
-      ['Mais visitas','Dê razões claras para visitar a loja ou entrar em contacto.'],
-      ['Mais reconhecimento','Crie uma imagem consistente e fácil de identificar.'],
-      ['Mais recorrência','Mantenha a marca presente entre compras e campanhas.']
-    ];
-  }else if(s==='serviços profissionais'){
-    headline='Transforme conhecimento em confiança antes do primeiro contacto.';
-    subheadline='Explique serviços, experiência e valor de forma clara para ajudar potenciais clientes a perceber porque devem escolher a sua empresa.';
-    advantages=[
-      ['Mais confiança','Apresente experiência, método e especialização com clareza.'],
-      ['Mais contactos qualificados','Ajude o cliente certo a perceber rapidamente se o pode ajudar.'],
-      ['Mais autoridade','Transforme conhecimento em comunicação útil e credível.'],
-      ['Mais diferenciação','Mostre o que torna a sua abordagem diferente de alternativas semelhantes.']
-    ];
-  }else if(s==='tecnologia & digital'){
-    headline='Torne simples perceber o valor daquilo que é complexo.';
-    subheadline='Uma comunicação mais clara para explicar soluções, diferenciação e resultados sem perder rigor técnico.';
-    advantages=[
-      ['Mais leads qualificados','Explique rapidamente o problema que resolve e para quem.'],
-      ['Mais clareza','Transforme tecnologia e funcionalidades em benefícios fáceis de perceber.'],
-      ['Mais credibilidade','Mostre casos, resultados e competência técnica.'],
-      ['Mais diferenciação','Comunique aquilo que torna a solução realmente distinta.']
-    ];
-  }else if(s==='agricultura & agroalimentar'){
-    headline='Mostre origem, qualidade e confiança desde o primeiro olhar.';
-    subheadline='Valorize produto, processo e território com uma comunicação que aproxima a marca de clientes, distribuidores e parceiros.';
-    advantages=[
-      ['Mais valorização do produto','Mostre origem, qualidade e processo de forma cuidada.'],
-      ['Mais confiança','Dê rosto à produção, certificações e saber-fazer.'],
-      ['Mais oportunidades comerciais','Apresente a oferta de forma clara a clientes e parceiros.'],
-      ['Mais diferenciação','Transforme território, história e método em valor de marca.']
-    ];
-  }else if(s==='desporto & fitness'){
-    headline='Faça a energia começar antes do primeiro treino.';
-    subheadline='Mostre ambiente, acompanhamento e resultados para transformar interesse em visitas, inscrições e comunidade.';
-    advantages=[
-      ['Mais inscrições','Mostre modalidades, acompanhamento e experiência de forma clara.'],
-      ['Mais motivação','Conteúdos fortes ajudam potenciais clientes a imaginar-se a treinar consigo.'],
-      ['Mais confiança','Apresente equipa, espaço, método e acompanhamento profissional.'],
-      ['Mais comunidade','Reforce pertença, energia e consistência dentro e fora do espaço.']
-    ];
   }
 
   const out={headline,subheadline};
