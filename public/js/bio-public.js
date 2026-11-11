@@ -18,7 +18,7 @@
     const r=await fetch('/api/public/bio/'+encodeURIComponent(slug),{cache:'no-store'});if(!r.ok)throw Error('Bio indisponível');const b=await r.json();
     document.title=b.name||'Bio';
     const root=document.documentElement.style;
-    root.setProperty('--bg',b.background_color||'#f6f4ef');root.setProperty('--text',b.text_color||'#111');root.setProperty('--accent',b.accent_color||'#ffd200');root.setProperty('--section-title',b.section_title_color||b.text_color||'#111');root.setProperty('--profile-width',(Number(b.profile_width)||340)+'px');root.setProperty('--card-width',(Number(b.card_width)||280)+'px');
+    root.setProperty('--bg',b.background_color||'#f6f4ef');root.setProperty('--text',b.text_color||'#111');root.setProperty('--accent',b.accent_color||'#ffd200');root.setProperty('--section-title',b.section_title_color||b.text_color||'#111');root.setProperty('--description',b.description_color||'#77736d');root.setProperty('--card-title',b.card_title_color||'#1d1b18');root.setProperty('--card-text',b.card_text_color||'#77736d');root.setProperty('--social-bg',b.social_bg_color||'#242424');root.setProperty('--social-icon',b.social_icon_color||'#ffffff');root.setProperty('--profile-width',(Number(b.profile_width)||340)+'px');root.setProperty('--card-width',(Number(b.card_width)||280)+'px');
     $('bio-root').innerHTML='<div class="bio-layout"><aside class="bio-profile">'+
       (b.logo_url?'<img class="bio-logo" src="'+esc(b.logo_url)+'" alt="">':'')+
       '<h1>'+esc(b.name||'')+'</h1><p>'+esc(b.description||'')+'</p>'+
