@@ -407,6 +407,111 @@ function ensureTable(){
     console.warn('[crm] email por área alinhado com LP:',e.message);
   }
 
+  /* DUIT_AREA_EMAIL_IMAGES_V2_20261111
+   * Mantém o Email por Área alinhado com a LP e repõe as imagens que dão impacto:
+   * hero + 4 imagens de apoio da própria área.
+   * Não altera Landing Pages nem outras abordagens.
+   */
+  try{
+    db.exec(`CREATE TABLE IF NOT EXISTS prospect_email_template_migrations(
+      key TEXT PRIMARY KEY,
+      applied_at TEXT DEFAULT(datetime('now'))
+    )`);
+    const migrationKey='20261111_area_email_images_v2';
+    const already=db.prepare('SELECT 1 FROM prospect_email_template_migrations WHERE key=?').get(migrationKey);
+    const tpl=db.prepare("SELECT id FROM prospect_email_templates WHERE lower(TRIM(name))=lower('Email por sector') ORDER BY id ASC LIMIT 1").get();
+
+    if(!already&&tpl){
+      const htmlBody=`
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;background:#ffffff">
+  <tr>
+    <td style="padding:0">
+      <img src="{hero}" width="640" alt="" style="display:block;width:100%;max-width:640px;height:300px;object-fit:cover;border:0">
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:34px 38px 18px">
+      <div style="font-size:34px;line-height:1.08;font-weight:800;letter-spacing:-.035em;color:#111111;margin:0 0 16px">{sector_headline}</div>
+      <div style="font-size:17px;line-height:1.6;color:#66615b;margin:0;max-width:540px">{sector_subheadline}</div>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:14px 28px 10px">
+      <table role="presentation" width="100%" cellspacing="10" cellpadding="0" border="0" style="border-collapse:separate">
+        <tr class="duit-gallery-row">
+          <td class="duit-gallery-cell" width="50%" valign="top">
+            <img src="{imagem_1}" width="270" height="190" alt="" style="display:block;width:100%;height:190px;object-fit:cover;border:0;border-radius:12px">
+          </td>
+          <td class="duit-gallery-cell" width="50%" valign="top">
+            <img src="{imagem_2}" width="270" height="190" alt="" style="display:block;width:100%;height:190px;object-fit:cover;border:0;border-radius:12px">
+          </td>
+        </tr>
+        <tr class="duit-gallery-row">
+          <td class="duit-gallery-cell" width="50%" valign="top">
+            <img src="{imagem_3}" width="270" height="190" alt="" style="display:block;width:100%;height:190px;object-fit:cover;border:0;border-radius:12px">
+          </td>
+          <td class="duit-gallery-cell" width="50%" valign="top">
+            <img src="{imagem_4}" width="270" height="190" alt="" style="display:block;width:100%;height:190px;object-fit:cover;border:0;border-radius:12px">
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:18px 28px 8px">
+      <table role="presentation" width="100%" cellspacing="10" cellpadding="0" border="0" style="border-collapse:separate">
+        <tr>
+          <td width="50%" valign="top" style="padding:20px;background:#faf8f1;border-radius:14px">
+            <div style="width:34px;height:34px;border-radius:50%;background:#FFF1A8;color:#111;font-size:18px;line-height:34px;text-align:center;margin-bottom:14px">+</div>
+            <div style="font-size:17px;line-height:1.25;font-weight:800;color:#111;margin:0 0 8px">{vantagem_1}</div>
+            <div style="font-size:14px;line-height:1.55;color:#66615b">{vantagem_1_texto}</div>
+          </td>
+          <td width="50%" valign="top" style="padding:20px;background:#faf8f1;border-radius:14px">
+            <div style="width:34px;height:34px;border-radius:50%;background:#DDF7F6;color:#111;font-size:18px;line-height:34px;text-align:center;margin-bottom:14px">✓</div>
+            <div style="font-size:17px;line-height:1.25;font-weight:800;color:#111;margin:0 0 8px">{vantagem_2}</div>
+            <div style="font-size:14px;line-height:1.55;color:#66615b">{vantagem_2_texto}</div>
+          </td>
+        </tr>
+        <tr>
+          <td width="50%" valign="top" style="padding:20px;background:#faf8f1;border-radius:14px">
+            <div style="width:34px;height:34px;border-radius:50%;background:#DDF7F6;color:#111;font-size:18px;line-height:34px;text-align:center;margin-bottom:14px">⌖</div>
+            <div style="font-size:17px;line-height:1.25;font-weight:800;color:#111;margin:0 0 8px">{vantagem_3}</div>
+            <div style="font-size:14px;line-height:1.55;color:#66615b">{vantagem_3_texto}</div>
+          </td>
+          <td width="50%" valign="top" style="padding:20px;background:#faf8f1;border-radius:14px">
+            <div style="width:34px;height:34px;border-radius:50%;background:#FFF1A8;color:#111;font-size:18px;line-height:34px;text-align:center;margin-bottom:14px">★</div>
+            <div style="font-size:17px;line-height:1.25;font-weight:800;color:#111;margin:0 0 8px">{vantagem_4}</div>
+            <div style="font-size:14px;line-height:1.55;color:#66615b">{vantagem_4_texto}</div>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <tr>
+    <td style="padding:24px 38px 38px">
+      <div style="font-size:22px;line-height:1.3;font-weight:800;color:#111;margin:0 0 14px">Veja como esta abordagem pode funcionar na {empresa}.</div>
+      <a href="{lp_url}" target="_blank" style="display:inline-block;background:#FFD200;color:#111;text-decoration:none;font-size:15px;font-weight:800;line-height:1;padding:15px 22px;border-radius:10px">Ver a abordagem →</a>
+    </td>
+  </tr>
+</table>`;
+
+      db.prepare(`
+        UPDATE prospect_email_templates
+           SET html_body=?,
+               updated_at=datetime('now')
+         WHERE id=?
+      `).run(htmlBody,tpl.id);
+
+      db.prepare('INSERT INTO prospect_email_template_migrations(key) VALUES(?)').run(migrationKey);
+    }
+  }catch(e){
+    console.warn('[crm] imagens no email por área:',e.message);
+  }
+
   /* DUIT_REMOVE_DUPLICATE_TEXT_SIGNATURE */
   try{
     const rows=db.prepare('SELECT id,body FROM prospect_email_templates').all();
