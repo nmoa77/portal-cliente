@@ -1,5 +1,5 @@
 (()=>{
-  const slug=decodeURIComponent(location.pathname.split('/').filter(Boolean).pop()||'');
+  const parts=location.pathname.split('/').filter(Boolean);\n  const slug=decodeURIComponent(parts.length===1&&parts[0]==='bio'?'duit':(parts.pop()||''));
   const preview=new URLSearchParams(location.search).get('preview')==='1';
   const $=id=>document.getElementById(id);
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
