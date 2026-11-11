@@ -1,5 +1,6 @@
 (()=>{
   const slug=decodeURIComponent(location.pathname.split('/').filter(Boolean).pop()||'');
+  const preview=new URLSearchParams(location.search).get('preview')==='1';
   const $=id=>document.getElementById(id);
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const session=(()=>{let s=sessionStorage.getItem('duit_bio_sid');if(!s){s=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now());sessionStorage.setItem('duit_bio_sid',s)}return s})();
@@ -15,16 +16,16 @@
     $('bio-name').textContent=b.name||'';$('bio-desc').textContent=b.description||'';
     const logo=$('bio-logo');if(b.logo_url){logo.src=b.logo_url}else logo.style.display='none';
     $('bio-socials').innerHTML=(b.socials||[]).map(s=>'<a href="'+esc(s.url)+'" target="_blank" rel="noopener" data-social="'+s.id+'" title="'+esc(s.platform)+'">'+icon(s.platform)+'</a>').join('');
-    $('bio-socials').querySelectorAll('[data-social]').forEach(a=>a.addEventListener('click',()=>event('social_click','social',Number(a.dataset.social))));
+    $('bio-socials').querySelectorAll('[data-social]').forEach(a=>a.addEventListener('click',()=>{if(!preview)event('social_click','social',Number(a.dataset.social))}));
     const tabs=b.tabs||[],cards=b.cards||[];let active=tabs[0]?.id||null;
     const render=()=>{
       $('bio-tabs').innerHTML=tabs.map(t=>'<button class="tab '+(Number(t.id)===Number(active)?'active':'')+'" data-tab="'+t.id+'">'+(t.icon?esc(t.icon)+' ':'')+esc(t.title)+'</button>').join('');
       $('bio-tabs').querySelectorAll('[data-tab]').forEach(x=>x.onclick=()=>{active=Number(x.dataset.tab);render()});
       const list=active?cards.filter(c=>Number(c.tab_id)===Number(active)):cards.filter(c=>!c.tab_id);
       $('bio-cards').innerHTML=list.length?list.map(c=>'<article class="card">'+(c.image_url?'<img src="'+esc(c.image_url)+'" alt="">':'')+'<div class="body"><h2>'+esc(c.title)+'</h2>'+(c.subtitle?'<p>'+esc(c.subtitle)+'</p>':'')+(c.url?'<a href="'+esc(c.url)+'" target="_blank" rel="noopener" data-card="'+c.id+'">'+esc(c.button_label||'Saber mais')+'</a>':'')+'</div></article>').join(''):'<div class="empty">Ainda não existem conteúdos neste separador.</div>';
-      $('bio-cards').querySelectorAll('[data-card]').forEach(a=>a.addEventListener('click',()=>event('click','card',Number(a.dataset.card))));
+      $('bio-cards').querySelectorAll('[data-card]').forEach(a=>a.addEventListener('click',()=>{if(!preview)event('click','card',Number(a.dataset.card))}));
     };
-    render();event('view','bio',b.id);
+    render();if(!preview)event('view','bio',b.id);
   }
   boot().catch(()=>{document.body.innerHTML='<div class="empty">Não foi possível carregar esta Bio.</div>'});
 })();
