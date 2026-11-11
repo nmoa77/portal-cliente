@@ -39,7 +39,7 @@
     root.setProperty('--social-bg',b.social_bg_color||'#242424');
     root.setProperty('--social-icon',b.social_icon_color||'#ffffff');
     root.setProperty('--profile-width',(Number(b.profile_width)||340)+'px');
-    root.setProperty('--card-width',(Number(b.card_width)||280)+'px');
+    const cw=Math.min(Number(b.card_width)||280,280);root.setProperty('--card-width',cw+'px');root.setProperty('--single-card-width',Math.min((cw*2)+16,1200)+'px');
 
     const tabs=(b.tabs||[]).filter(t=>Number(t.is_active??1)!==0);
     const cards=(b.cards||[]).filter(c=>Number(c.is_active??1)!==0);
