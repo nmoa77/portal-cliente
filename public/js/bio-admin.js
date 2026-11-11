@@ -1,6 +1,33 @@
 (()=>{
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const icons=[['🏋️','Ginásio'],['💪','Treino'],['🏃','Corrida'],['🚴','Cycling'],['🏊','Piscina'],['🧘','Pilates'],['🥗','Nutrição'],['📅','Agenda'],['🗓️','Calendário'],['📍','Localização'],['🗺️','Mapa'],['📚','Ebooks'],['📖','Livro'],['🎁','Ofertas'],['🔥','Em alta'],['⭐','Destaques'],['🏆','Prémios'],['🎯','Objetivos'],['👥','Comunidade'],['👨‍👩‍👧','Família'],['📲','App'],['📱','Telemóvel'],['📷','Fotografias'],['🎬','Vídeo'],['▶️','Play'],['💬','Chat'],['✉️','Email'],['☎️','Telefone'],['🔗','Links'],['🌐','Website'],['🛒','Loja'],['🤝','Parceiros'],['🎟️','Eventos'],['📝','Inscrição'],['✅','Check'],['❓','Quiz'],['🏠','Clube'],['💧','Água'],['❤️','Saúde'],['☀️','Bem-estar'],['💡','Dicas'],['⚡','Energia'],['📢','Novidades'],['🎵','Música'],['🥇','Resultados'],['📈','Progresso'],['🔔','Avisos'],['🎉','Festa'],['➕','Mais'],['🎓','Aprender'],['🌿','Natureza'],['🧠','Mind'],['🕒','Horários']];
+  const legacyIcons=[['🏋️','Ginásio'],['💪','Treino'],['🏃','Corrida'],['🚴','Cycling'],['🏊','Piscina'],['🧘','Pilates'],['🥗','Nutrição'],['📅','Agenda'],['🗓️','Calendário'],['📍','Localização'],['🗺️','Mapa'],['📚','Ebooks'],['📖','Livro'],['🎁','Ofertas'],['🔥','Em alta'],['⭐','Destaques'],['🏆','Prémios'],['🎯','Objetivos'],['👥','Comunidade'],['👨‍👩‍👧','Família'],['📲','App'],['📱','Telemóvel'],['📷','Fotografias'],['🎬','Vídeo'],['▶️','Play'],['💬','Chat'],['✉️','Email'],['☎️','Telefone'],['🔗','Links'],['🌐','Website'],['🛒','Loja'],['🤝','Parceiros'],['🎟️','Eventos'],['📝','Inscrição'],['✅','Check'],['❓','Quiz'],['🏠','Clube'],['💧','Água'],['❤️','Saúde'],['☀️','Bem-estar'],['💡','Dicas'],['⚡','Energia'],['📢','Novidades'],['🎵','Música'],['🥇','Resultados'],['📈','Progresso'],['🔔','Avisos'],['🎉','Festa'],['➕','Mais'],['🎓','Aprender'],['🌿','Natureza'],['🧠','Mind'],['🕒','Horários']];
+  const ptIconTerms={users:'pessoas comunidade equipa clientes grupo',user:'pessoa cliente utilizador',phone:'telefone chamada contacto',mail:'email mensagem envelope',map:'mapa localização local',pin:'localização pin morada',calendar:'calendario agenda data',clock:'horario horas tempo',dumbbell:'ginasio treino fitness peso',heart:'saude coração amor',activity:'atividade fitness pulso',music:'musica som playlist',camera:'fotografia foto',video:'video filme',play:'reproduzir video',palette:'design cor criatividade',paintbrush:'design pintura criatividade',pen:'design escrita edição',briefcase:'empresa trabalho negocio',building:'empresa edificio',store:'loja comercio',shopping:'compras loja',gift:'oferta presente campanha',star:'destaque favorito',trophy:'premio resultado',target:'objetivo meta',flame:'em alta fogo destaque',zap:'energia rapido',globe:'website internet mundo',link:'ligacao link',book:'ebook livro',graduation:'formacao aprender educação',leaf:'natureza ambiente',brain:'mente coaching',megaphone:'anuncio novidade comunicação',bell:'aviso alerta',ticket:'evento bilhete',clipboard:'inscricao formulario',circlecheck:'check aprovado',circlehelp:'ajuda pergunta',house:'casa clube',droplets:'agua piscina',bike:'bicicleta cycling',personstanding:'pessoa treino',waves:'piscina agua'};
+  function lucideNames(){
+    const all=Object.keys(window.lucide?.icons||{});
+    return all.filter(n=>!/^(create|icons|default)$/i.test(n));
+  }
+  function iconSearchBlob(name){
+    const simple=String(name).replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[-_]/g,' ').toLowerCase();
+    const extra=Object.entries(ptIconTerms).filter(([k])=>simple.includes(k)).map(([,v])=>v).join(' ');
+    return simple+' '+extra;
+  }
+  function iconValueHtml(value,size=24){
+    const v=String(value||'');
+    if(v.startsWith('lucide:')){
+      const name=v.slice(7);
+      return '<i data-lucide="'+esc(name)+'" style="width:'+size+'px;height:'+size+'px;stroke-width:1.8"></i>';
+    }
+    return esc(v||'—');
+  }
+  function refreshLucide(root){
+    try{if(window.lucide?.createIcons)window.lucide.createIcons({icons:window.lucide.icons,root:root||document})}catch(_){}
+  }
+  function filteredLucideIcons(query){
+    const q=String(query||'').trim().toLowerCase();
+    const names=lucideNames();
+    const filtered=q?names.filter(n=>iconSearchBlob(n).includes(q)):names;
+    return filtered.slice(0,q?220:180);
+  }
   let bios=[],draft=null,expanded=null,previewMode='mobile',iconSearch='';
   async function load(){bios=await api('/api/admin/bios');return bios}
   function urlFor(b){return String(b?.slug||'').toLowerCase()==='duit'?'https://duit.pt/bio':location.origin+'/bio/'+encodeURIComponent(b.slug)}
@@ -103,19 +130,21 @@
     const box=document.getElementById('bio-section-list');if(!box)return;
     box.innerHTML=draft.sections.map((s,i)=>`<article style="padding:14px;border:1px solid #dfe3e8;border-radius:12px;margin-bottom:14px">
       <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap">
-        <button type="button" onclick="duitToggleBioSection('${s.id}')" style="border:0;background:transparent;font-weight:800;font-size:16px;cursor:pointer;text-align:left">${String(expanded)===String(s.id)?'▾':'▸'} ${esc(s.icon||'')} ${esc(s.title||'Novo separador')} (${s.cards.length})</button>
+        <button type="button" onclick="duitToggleBioSection('${s.id}')" style="border:0;background:transparent;font-weight:800;font-size:16px;cursor:pointer;text-align:left">${String(expanded)===String(s.id)?'▾':'▸'} ${iconValueHtml(s.icon,20)} ${esc(s.title||'Novo separador')} (${s.cards.length})</button>
         <div style="display:flex;gap:5px;align-items:center"><label style="font-size:12px"><input type="checkbox" ${s.enabled?'checked':''} onchange="duitSectionVisible('${s.id}',this.checked)"> Visível</label><button class="btn btn-small" ${i===0?'disabled':''} onclick="duitMoveSection(${i},-1)">↑</button><button class="btn btn-small" ${i===draft.sections.length-1?'disabled':''} onclick="duitMoveSection(${i},1)">↓</button></div>
       </div>
       ${String(expanded)===String(s.id)?sectionExpanded(s):''}
     </article>`).join('')||'<div class="empty">Crie o primeiro separador.</div>';
+    refreshLucide(box);
   }
   function sectionExpanded(s){
-    const filtered=icons.filter(([,n])=>n.toLowerCase().includes(iconSearch.toLowerCase()));
+    const filtered=filteredLucideIcons(iconSearch);
     return `<div style="margin-top:16px">
       ${field('Nome do separador','<input class="bio-field" placeholder="Nome do separador" value="'+esc(s.title)+'" oninput="duitEditSectionTitle(\''+s.id+'\',this.value)">')}
-      <label style="font-size:12px;font-weight:700">Ícone (opcional)</label><div style="display:flex;gap:8px;align-items:center;margin:8px 0"><span style="font-size:28px">${esc(s.icon||'—')}</span><button class="btn btn-small" onclick="duitEditSection('${s.id}',{icon:''})">Sem ícone</button></div>
-      <input class="bio-field" placeholder="Pesquisar ícones: piscina, treino, aulas..." value="${esc(iconSearch)}" oninput="duitBioIconSearch('${s.id}',this.value)">
-      <div id="bio-icon-grid-${String(s.id).replace(/[^a-zA-Z0-9_-]/g,'_')}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(45px,1fr));gap:6px;max-height:180px;overflow:auto;margin-top:8px">${filtered.map(([ic,n])=>'<button title="'+esc(n)+'" onclick="duitEditSection(\''+s.id+'\',{icon:\''+ic+'\'})" style="font-size:23px;padding:7px;cursor:pointer;border:'+(s.icon===ic?'2px solid #d3a000':'1px solid #ddd')+';border-radius:8px;background:'+(s.icon===ic?'#fff3c2':'white')+'">'+ic+'</button>').join('')}</div>
+      <label style="font-size:12px;font-weight:700">Ícone (opcional)</label><div style="display:flex;gap:8px;align-items:center;margin:8px 0"><span class="bio-current-icon" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:28px">${iconValueHtml(s.icon,28)}</span><button class="btn btn-small" onclick="duitEditSection('${s.id}',{icon:''})">Sem ícone</button></div>
+      <input class="bio-field" placeholder="Pesquisar: pessoas, telefone, design, música, loja..." value="${esc(iconSearch)}" oninput="duitBioIconSearch('${s.id}',this.value)">
+      <div style="font-size:11px;color:var(--muted);margin-top:6px">Biblioteca Lucide · mais de 2.000 ícones. Mostro até 220 resultados por pesquisa.</div>
+      <div id="bio-icon-grid-${String(s.id).replace(/[^a-zA-Z0-9_-]/g,'_')}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(50px,1fr));gap:7px;max-height:310px;overflow:auto;margin-top:9px;padding-right:3px">${filtered.map(name=>{const val='lucide:'+name;return '<button title="'+esc(name)+'" aria-label="'+esc(name)+'" onclick="duitEditSection(\''+s.id+'\',{icon:\''+val+'\'})" style="height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:'+(s.icon===val?'2px solid #d3a000':'1px solid #ddd')+';border-radius:9px;background:'+(s.icon===val?'#fff3c2':'white')+';color:#1d1b18"><i data-lucide="'+esc(name)+'" style="width:22px;height:22px;stroke-width:1.8"></i></button>'}).join('')}</div>
       <div style="display:flex;justify-content:space-between;gap:8px;margin:16px 0"><button class="btn btn-yellow" onclick="duitAddBioCard('${s.id}')">+ Adicionar cartão</button><button class="btn btn-small" onclick="duitDeleteBioSection('${s.id}')">Eliminar separador</button></div>
       ${s.cards.map((c,j)=>cardEditor(s,c,j)).join('')}
     </div>`;
@@ -134,8 +163,9 @@
     iconSearch=v;
     const s=draft.sections.find(x=>String(x.id)===String(id));if(!s)return;
     const grid=document.getElementById('bio-icon-grid-'+String(id).replace(/[^a-zA-Z0-9_-]/g,'_'));if(!grid)return;
-    const filtered=icons.filter(([,n])=>n.toLowerCase().includes(iconSearch.toLowerCase()));
-    grid.innerHTML=filtered.map(([ic,n])=>'<button title="'+esc(n)+'" onclick="duitEditSection(\''+s.id+'\',{icon:\''+ic+'\'})" style="font-size:23px;padding:7px;cursor:pointer;border:'+(s.icon===ic?'2px solid #d3a000':'1px solid #ddd')+';border-radius:8px;background:'+(s.icon===ic?'#fff3c2':'white')+'">'+ic+'</button>').join('');
+    const filtered=filteredLucideIcons(iconSearch);
+    grid.innerHTML=filtered.map(name=>{const val='lucide:'+name;return '<button title="'+esc(name)+'" aria-label="'+esc(name)+'" onclick="duitEditSection(\''+s.id+'\',{icon:\''+val+'\'})" style="height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:'+(s.icon===val?'2px solid #d3a000':'1px solid #ddd')+';border-radius:9px;background:'+(s.icon===val?'#fff3c2':'white')+';color:#1d1b18"><i data-lucide="'+esc(name)+'" style="width:22px;height:22px;stroke-width:1.8"></i></button>'}).join('');
+    refreshLucide(grid);
   };
   window.duitEditSectionTitle=(id,value)=>{const s=draft.sections.find(x=>String(x.id)===String(id));if(!s)return;s.title=value;renderPreview()};
   window.duitEditSection=(id,p)=>{const s=draft.sections.find(x=>String(x.id)===String(id));Object.assign(s,p);renderSections();renderPreview()};
