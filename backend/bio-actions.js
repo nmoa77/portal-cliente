@@ -176,7 +176,7 @@ module.exports=function(app){
         keepTabs.push(tid);
         (Array.isArray(s.cards)?s.cards:[]).slice(0,100).forEach((card,ci)=>{
           let cid=Number(card.id||0);
-          const args=[tid,clean(card.title,160)||'Sem título',clean(card.subtitle,500),clean(card.button_label||card.buttonText,60)||'VER MAIS',clean(card.url,1200),clean(card.image_url||card.image,1200),ci,card.enabled===false?0:1];
+          const args=[tid,clean(card.title,160)||'',clean(card.subtitle,500),clean(card.button_label||card.buttonText,60)||'VER MAIS',clean(card.url,1200),clean(card.image_url||card.image,1200),ci,card.enabled===false?0:1];
           if(cid&&db.prepare('SELECT 1 FROM bio_cards WHERE id=? AND bio_id=?').get(cid,id)) updCard.run(...args,cid,id);
           else cid=Number(insCard.run(id,...args).lastInsertRowid);
           keepCards.push(cid);
@@ -202,7 +202,7 @@ module.exports=function(app){
   app.delete('/api/admin/bio-tabs/:id',requireAdmin,(req,res)=>{db.prepare('DELETE FROM bio_tabs WHERE id=?').run(req.params.id);res.json({ok:true})});
 
   app.post('/api/admin/bios/:id/cards',requireAdmin,(req,res)=>{
-    const id=Number(req.params.id),b=req.body||{};const info=db.prepare(`INSERT INTO bio_cards(bio_id,tab_id,title,subtitle,button_label,url,image_url,sort_order) VALUES(?,?,?,?,?,?,?,?)`).run(id,Number(b.tab_id||0)||null,clean(b.title,160)||'Novo card',clean(b.subtitle,500),clean(b.button_label,80)||'Saber mais',clean(b.url,1000),clean(b.image_url,1000),Number(b.sort_order||0));res.json({id:Number(info.lastInsertRowid)});
+    const id=Number(req.params.id),b=req.body||{};const info=db.prepare(`INSERT INTO bio_cards(bio_id,tab_id,title,subtitle,button_label,url,image_url,sort_order) VALUES(?,?,?,?,?,?,?,?)`).run(id,Number(b.tab_id||0)||null,clean(b.title,160)||'',clean(b.subtitle,500),clean(b.button_label,80)||'Saber mais',clean(b.url,1000),clean(b.image_url,1000),Number(b.sort_order||0));res.json({id:Number(info.lastInsertRowid)});
   });
   app.patch('/api/admin/bio-cards/:id',requireAdmin,(req,res)=>{
     const b=req.body||{},cur=db.prepare('SELECT * FROM bio_cards WHERE id=?').get(req.params.id);if(!cur)return res.status(404).json({error:'Card não encontrado.'});
