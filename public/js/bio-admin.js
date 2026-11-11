@@ -90,6 +90,7 @@
   }
   function bindIdentity(){
     document.querySelectorAll('#bio-title,#bio-description,#bio-logo-url,[data-color-text],[data-social],#bio-profile-width,#bio-card-width,#bio-client').forEach(el=>el.addEventListener('input',()=>{syncDraft();if(el.id==='bio-profile-width')document.getElementById('bio-profile-val').textContent=el.value;if(el.id==='bio-card-width')document.getElementById('bio-card-val').textContent=el.value;renderPreview()}));
+    const lf=document.getElementById('bio-logo-file');if(lf)lf.addEventListener('change',async()=>{const f=lf.files?.[0];if(!f)return;draft.logo_url=await uploadImage(draft.id,f);document.getElementById('bio-logo-url').value=draft.logo_url;renderEditor()});
     document.querySelectorAll('[data-color-picker]').forEach(el=>el.addEventListener('input',()=>{const t=document.querySelector('[data-color-text="'+el.dataset.colorPicker+'"]');t.value=el.value;syncDraft();renderPreview()}));
   }
   function renderSections(){
@@ -159,11 +160,16 @@
     main.innerHTML='<div class="page-head"><div><h1>Estatísticas da Bio</h1><p class="lede">'+esc(b.name)+' · '+esc(urlFor(b))+'</p></div><button class="btn btn-ghost" onclick="duitEditBio('+id+')">← Voltar à Bio</button></div>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:20px 0">'+[1,7,30,90].map(n=>'<button class="btn '+(n===days?'btn-yellow':'btn-ghost')+'" onclick="duitBioStats('+id+','+n+')">'+(n===1?'Hoje':'Últimos '+n+' dias')+'</button>').join('')+'</div>'+
     '<div class="grid g-4"><div class="card stat"><div class="eyebrow">Visualizações</div><div class="value">'+s.summary.views+'</div><div class="delta">Aberturas da página</div></div><div class="card stat"><div class="eyebrow">Visitantes únicos</div><div class="value">'+s.summary.unique_visitors+'</div><div class="delta">Estimativa diária sem cookies</div></div><div class="card stat"><div class="eyebrow">Cliques em cartões</div><div class="value">'+s.summary.clicks+'</div><div class="delta">Conteúdos e ligações</div></div><div class="card stat"><div class="eyebrow">Taxa de cliques</div><div class="value">'+rate+'%</div><div class="delta">Cliques ÷ visitas</div></div></div>'+
+    dailyChart(s.daily,days)+
     '<div class="grid g-2" style="gap:18px;margin-top:20px">'+
     statList('Cartões com mais cliques',s.cards.map(x=>({name:x.title,sub:x.section,total:x.clicks})),s.summary.clicks,bar)+
     statList('Origem das visitas',s.sources.map(x=>({name:x.name,total:x.total})),s.summary.views,bar)+
     statList('Dispositivos',s.devices.map(x=>({name:x.name,total:x.total})),s.summary.views,bar)+
     statList('Cliques nas redes sociais',s.socials.map(x=>({name:x.platform,total:x.clicks})),s.summary.social_clicks,bar)+'</div>';
   };
+  function dailyChart(rows,days){
+    const max=Math.max(1,...rows.map(x=>Number(x.views||0)));
+    return '<section class="card" style="margin-top:20px"><h2 style="margin-bottom:4px">Evolução das visitas</h2><p class="muted" style="margin-top:0">Visitas por dia · passe o rato nas barras para ver o total.</p><div style="display:flex;align-items:end;gap:'+(days>30?2:7)+'px;height:220px;overflow-x:auto;padding:10px 0 0;border-bottom:1px solid #ebe8e2">'+rows.map((d,i)=>'<div title="'+esc(d.day)+': '+Number(d.views||0)+' visitas, '+Number(d.clicks||0)+' cliques" style="flex:1 0 auto;min-width:'+(days>=90?5:days>=30?12:25)+'px;max-width:'+(days===1?80:40)+'px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;align-items:center"><div style="height:'+Math.max(2,Number(d.views||0)/max*170)+'px;width:85%;background:#D5AA39;border-radius:5px 5px 0 0"></div><small class="muted" style="font-size:9px;white-space:nowrap">'+(days<=7?String(d.day).slice(8):(i%Math.ceil(days/10)===0?String(d.day).slice(5):''))+'</small></div>').join('')+'</div></section>';
+  }
   function statList(title,rows,total,bar){return '<section class="card"><h2>'+esc(title)+'</h2>'+(rows.length?rows.map(x=>'<div style="padding:10px 0;border-bottom:1px solid #f0eeea"><div style="display:flex;justify-content:space-between;gap:14px"><span><strong>'+esc(x.name||'—')+'</strong>'+(x.sub?'<small class="muted" style="display:block">'+esc(x.sub)+'</small>':'')+'</span><strong>'+Number(x.total||0)+'</strong></div>'+bar(Number(x.total||0),total)+'</div>').join(''):'<p class="muted">Sem dados neste período.</p>')+'</section>'}
 })();
