@@ -90,6 +90,11 @@ module.exports=function(app){
     if(!cols.has('profile_width')) db.exec('ALTER TABLE bio_sites ADD COLUMN profile_width INTEGER NOT NULL DEFAULT 340');
     if(!cols.has('card_width')) db.exec('ALTER TABLE bio_sites ADD COLUMN card_width INTEGER NOT NULL DEFAULT 280');
     if(!cols.has('section_title_color')) db.exec("ALTER TABLE bio_sites ADD COLUMN section_title_color TEXT NOT NULL DEFAULT '#111111'");
+    if(!cols.has('description_color')) db.exec("ALTER TABLE bio_sites ADD COLUMN description_color TEXT NOT NULL DEFAULT '#77736d'");
+    if(!cols.has('card_title_color')) db.exec("ALTER TABLE bio_sites ADD COLUMN card_title_color TEXT NOT NULL DEFAULT '#1d1b18'");
+    if(!cols.has('card_text_color')) db.exec("ALTER TABLE bio_sites ADD COLUMN card_text_color TEXT NOT NULL DEFAULT '#77736d'");
+    if(!cols.has('social_bg_color')) db.exec("ALTER TABLE bio_sites ADD COLUMN social_bg_color TEXT NOT NULL DEFAULT '#242424'");
+    if(!cols.has('social_icon_color')) db.exec("ALTER TABLE bio_sites ADD COLUMN social_icon_color TEXT NOT NULL DEFAULT '#ffffff'");
     const ev=new Set(db.prepare('PRAGMA table_info(bio_events)').all().map(x=>x.name));
     if(!ev.has('visitor_key')) db.exec('ALTER TABLE bio_events ADD COLUMN visitor_key TEXT');
     if(!ev.has('device')) db.exec('ALTER TABLE bio_events ADD COLUMN device TEXT');
@@ -137,7 +142,7 @@ module.exports=function(app){
     const b=req.body||{}; let slug=b.slug===undefined?cur.slug:slugify(b.slug);
     if(!slug)slug=cur.slug;
     const dup=db.prepare('SELECT id FROM bio_sites WHERE slug=? AND id<>?').get(slug,id); if(dup)return res.status(409).json({error:'Este endereço já está a ser usado.'});
-    db.prepare(`UPDATE bio_sites SET user_id=?,name=?,slug=?,description=?,logo_url=?,background_color=?,card_color=?,text_color=?,accent_color=?,button_color=?,button_text_color=?,profile_width=?,card_width=?,section_title_color=?,is_active=?,updated_at=datetime('now') WHERE id=?`).run(
+    db.prepare(`UPDATE bio_sites SET user_id=?,name=?,slug=?,description=?,logo_url=?,background_color=?,card_color=?,text_color=?,accent_color=?,button_color=?,button_text_color=?,profile_width=?,card_width=?,section_title_color=?,description_color=?,card_title_color=?,card_text_color=?,social_bg_color=?,social_icon_color=?,is_active=?,updated_at=datetime('now') WHERE id=?`).run(
       b.user_id===undefined?cur.user_id:(Number(b.user_id||0)||null),
       b.name===undefined?cur.name:clean(b.name,150),slug,
       b.description===undefined?cur.description:clean(b.description,1000),
@@ -147,6 +152,11 @@ module.exports=function(app){
       Math.min(480,Math.max(260,Number(b.profile_width===undefined?cur.profile_width:b.profile_width)||340)),
       Math.min(600,Math.max(220,Number(b.card_width===undefined?cur.card_width:b.card_width)||280)),
       b.section_title_color||cur.section_title_color||cur.text_color||'#111111',
+      b.description_color||cur.description_color||'#77736d',
+      b.card_title_color||cur.card_title_color||'#1d1b18',
+      b.card_text_color||cur.card_text_color||'#77736d',
+      b.social_bg_color||cur.social_bg_color||'#242424',
+      b.social_icon_color||cur.social_icon_color||'#ffffff',
       b.is_active===undefined?cur.is_active:(b.is_active?1:0),id
     );
     res.json(full(id));
@@ -158,10 +168,16 @@ module.exports=function(app){
     let slug=b.slug===undefined?cur.slug:slugify(b.slug);if(!slug)slug=cur.slug;
     const dup=db.prepare('SELECT id FROM bio_sites WHERE slug=? AND id<>?').get(slug,id);if(dup)return res.status(409).json({error:'Este endereço já está a ser usado.'});
     const tx=db.transaction(()=>{
-      db.prepare(`UPDATE bio_sites SET user_id=?,name=?,slug=?,description=?,logo_url=?,background_color=?,text_color=?,accent_color=?,profile_width=?,card_width=?,section_title_color=?,updated_at=datetime('now') WHERE id=?`).run(
+      db.prepare(`UPDATE bio_sites SET user_id=?,name=?,slug=?,description=?,logo_url=?,background_color=?,text_color=?,accent_color=?,profile_width=?,card_width=?,section_title_color=?,description_color=?,card_title_color=?,card_text_color=?,social_bg_color=?,social_icon_color=?,updated_at=datetime('now') WHERE id=?`).run(
         Number(b.user_id||0)||null,clean(b.name,150)||cur.name,slug,clean(b.description,1000),clean(b.logo_url,1000),
         clean(b.background_color,20)||'#F6F4EF',clean(b.text_color,20)||'#111111',clean(b.accent_color,20)||'#FFD200',
-        Math.min(480,Math.max(260,Number(b.profile_width)||340)),Math.min(600,Math.max(220,Number(b.card_width)||280)),clean(b.section_title_color,20)||cur.section_title_color||b.text_color||'#111111',id
+        Math.min(480,Math.max(260,Number(b.profile_width)||340)),Math.min(600,Math.max(220,Number(b.card_width)||280)),
+        clean(b.section_title_color,20)||cur.section_title_color||b.text_color||'#111111',
+        clean(b.description_color,20)||cur.description_color||'#77736d',
+        clean(b.card_title_color,20)||cur.card_title_color||'#1d1b18',
+        clean(b.card_text_color,20)||cur.card_text_color||'#77736d',
+        clean(b.social_bg_color,20)||cur.social_bg_color||'#242424',
+        clean(b.social_icon_color,20)||cur.social_icon_color||'#ffffff',id
       );
       db.prepare('DELETE FROM bio_socials WHERE bio_id=?').run(id);
       const insSocial=db.prepare('INSERT INTO bio_socials(bio_id,platform,url,sort_order) VALUES(?,?,?,?)');
