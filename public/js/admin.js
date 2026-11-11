@@ -76,6 +76,7 @@ function renderShell() {
     { id: 'home',      icon: 'home',    label: 'Visão geral' },
     { id: 'clients',   icon: 'users',   label: 'Clientes' },
     { id: 'landing-pages', icon: 'sparkle', label: 'Landing Pages' },
+    { id: 'bios', icon: 'sparkle', label: 'Bio' },
     { id: 'areas', icon: 'folder', label: 'Áreas' },
     { id: 'prospects', icon: 'sparkle', label: 'Prospecção',
         count: s.prospectsToSend,        countTitle: `${s.prospectsToSend || 0} prospect(s) por enviar`,
@@ -145,6 +146,10 @@ async function go(view) {
     else if (view === 'areas') {
       if(typeof window.duitViewAreas!=='function') throw new Error('Módulo Áreas não carregado.');
       await window.duitViewAreas(main);
+    }
+    else if (view === 'bios') {
+      if(typeof window.duitViewBios!=='function') throw new Error('Módulo Bio não carregado.');
+      await window.duitViewBios(main);
     }
     else if (view === 'prospects')await viewProspects(main);
     else if (view === 'leads')     await viewLeads(main);
