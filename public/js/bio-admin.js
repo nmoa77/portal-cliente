@@ -97,7 +97,7 @@
     const box=document.getElementById('bio-section-list');if(!box)return;
     box.innerHTML=draft.sections.map((s,i)=>`<article style="padding:14px;border:1px solid #dfe3e8;border-radius:12px;margin-bottom:14px">
       <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap">
-        <button type="button" onclick="duitToggleBioSection('${s.id}')" style="border:0;background:transparent;font-weight:800;font-size:16px;cursor:pointer;text-align:left">${String(expanded)===String(s.id)?'▾':'▸'} ${esc(s.icon||'')} ${esc(s.title)} (${s.cards.length})</button>
+        <button type="button" onclick="duitToggleBioSection('${s.id}')" style="border:0;background:transparent;font-weight:800;font-size:16px;cursor:pointer;text-align:left">${String(expanded)===String(s.id)?'▾':'▸'} ${esc(s.icon||'')} ${esc(s.title||'Novo separador')} (${s.cards.length})</button>
         <div style="display:flex;gap:5px;align-items:center"><label style="font-size:12px"><input type="checkbox" ${s.enabled?'checked':''} onchange="duitSectionVisible('${s.id}',this.checked)"> Visível</label><button class="btn btn-small" ${i===0?'disabled':''} onclick="duitMoveSection(${i},-1)">↑</button><button class="btn btn-small" ${i===draft.sections.length-1?'disabled':''} onclick="duitMoveSection(${i},1)">↓</button></div>
       </div>
       ${String(expanded)===String(s.id)?sectionExpanded(s):''}
@@ -106,7 +106,7 @@
   function sectionExpanded(s){
     const filtered=icons.filter(([,n])=>n.toLowerCase().includes(iconSearch.toLowerCase()));
     return `<div style="margin-top:16px">
-      ${field('Nome do separador','<input class="bio-field" value="'+esc(s.title)+'" oninput="duitEditSection(\''+s.id+'\',{title:this.value})">')}
+      ${field('Nome do separador','<input class="bio-field" placeholder="Nome do separador" value="'+esc(s.title)+'" oninput="duitEditSection(\''+s.id+'\',{title:this.value})">')}
       <label style="font-size:12px;font-weight:700">Ícone (opcional)</label><div style="display:flex;gap:8px;align-items:center;margin:8px 0"><span style="font-size:28px">${esc(s.icon||'—')}</span><button class="btn btn-small" onclick="duitEditSection('${s.id}',{icon:''})">Sem ícone</button></div>
       <input class="bio-field" placeholder="Pesquisar ícones: piscina, treino, aulas..." value="${esc(iconSearch)}" oninput="duitBioIconSearch(this.value)">
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(45px,1fr));gap:6px;max-height:180px;overflow:auto;margin-top:8px">${filtered.map(([ic,n])=>'<button title="'+esc(n)+'" onclick="duitEditSection(\''+s.id+'\',{icon:\''+ic+'\'})" style="font-size:23px;padding:7px;cursor:pointer;border:'+(s.icon===ic?'2px solid #d3a000':'1px solid #ddd')+';border-radius:8px;background:'+(s.icon===ic?'#fff3c2':'white')+'">'+ic+'</button>').join('')}</div>
@@ -128,7 +128,7 @@
   window.duitEditSection=(id,p)=>{const s=draft.sections.find(x=>String(x.id)===String(id));Object.assign(s,p);renderSections();renderPreview()};
   window.duitSectionVisible=(id,v)=>duitEditSection(id,{enabled:v});
   window.duitMoveSection=(i,d)=>{draft.sections=move(draft.sections,i,d);renderSections();renderPreview()};
-  window.duitAddBioSection=()=>{const id='new-'+Date.now();draft.sections.push({id,title:'Novo separador',icon:'',enabled:true,cards:[]});expanded=id;renderSections();renderPreview()};
+  window.duitAddBioSection=()=>{const id='new-'+Date.now();draft.sections.push({id,title:'',icon:'',enabled:true,cards:[]});expanded=id;renderSections();renderPreview()};
   window.duitDeleteBioSection=id=>{if(!confirm('Eliminar separador e todos os seus cartões?'))return;draft.sections=draft.sections.filter(x=>String(x.id)!==String(id));renderSections();renderPreview()};
   window.duitAddBioCard=id=>{const s=draft.sections.find(x=>String(x.id)===String(id));s.cards.push({id:'new-'+Date.now()+'-'+Math.random(),title:'',subtitle:'',button_label:'VER MAIS',url:'',image_url:'',enabled:true});renderSections();renderPreview()};
   window.duitCardPatch=(sid,cid,p)=>{const s=draft.sections.find(x=>String(x.id)===String(sid)),c=s.cards.find(x=>String(x.id)===String(cid));Object.assign(c,p);renderPreview()};
