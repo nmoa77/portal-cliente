@@ -18,7 +18,8 @@ try {
     "require('./meta-reports-actions')(capturedApp);",
     "require('./meta-report-automation')(capturedApp);",
     "require('./meta-report-archive')(capturedApp);",
-    "require('./meta-report-schedules')(capturedApp);"
+    "require('./meta-report-schedules')(capturedApp);",
+    "require('./bio-actions')(capturedApp);",
   ];
   for (const line of installs) {
     if (!serverSource.includes(line)) serverSource = serverSource.replace(marker, `${line}\n\n${marker}`);
