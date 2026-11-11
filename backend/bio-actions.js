@@ -272,5 +272,6 @@ module.exports=function(app){
     res.json({ok:true});
   });
 
+  app.get('/bio',(req,res)=>res.sendFile(path.join(__dirname,'..','public','bio.html')));
   app.get('/bio/:slug',(req,res)=>res.sendFile(path.join(__dirname,'..','public','bio.html')));
 };
