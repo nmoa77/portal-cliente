@@ -32,7 +32,7 @@ app.use((req,res,next)=>{
     return res.redirect(301,'https://duit.pt'+req.originalUrl);
   }
   if(host!=='duit.pt') return next();
-  if(req.path.startsWith('/api/')) return next();
+  if(req.path.startsWith('/api/') || req.path==='/bio' || req.path.startsWith('/bio/')) return next();
   return websiteStatic(req,res,()=>{
     if(req.method==='GET' && !path.extname(req.path)){
       return res.sendFile(path.join(websiteRoot,'index.html'));
