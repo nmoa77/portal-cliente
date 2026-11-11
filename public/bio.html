@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#f6f4ef;--text:#111;--accent:#ffd200;--section-title:#111;--description:#77736d;--card-title:#1d1b18;--card-text:#77736d;--social-bg:#242424;--social-icon:#fff;--profile-width:340px;--card-width:280px}
+    :root{--bg:#f6f4ef;--text:#111;--accent:#ffd200;--section-title:#111;--description:#77736d;--card-title:#1d1b18;--card-text:#77736d;--social-bg:#242424;--social-icon:#fff;--profile-width:340px;--card-width:280px;--single-card-width:576px}
     *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Montserrat,Arial,sans-serif}
     h1,h2,.bio-card-title{font-family:Montserrat,Arial,sans-serif;font-weight:800}
     .bio-layout{display:grid;grid-template-columns:var(--profile-width) minmax(0,1fr);gap:clamp(35px,6vw,90px);max-width:1260px;margin:auto;padding:60px 32px}
@@ -16,13 +16,13 @@
     .bio-profile h1{font-size:35px;font-weight:650;letter-spacing:-.03em;margin:0 0 16px;color:var(--description)}.bio-profile p{font-size:16px;line-height:1.6;margin:0;white-space:pre-wrap;color:var(--description)}
     .bio-socials{display:flex;gap:15px;flex-wrap:wrap;margin-top:28px}.bio-socials a{width:66px;height:66px;background:var(--social-bg);color:var(--social-icon);display:flex;align-items:center;justify-content:center;border-radius:50%;text-decoration:none}
     .bio-section{margin-bottom:35px}.bio-section h2{font-size:21px;font-weight:700;margin:0 0 17px;display:flex;align-items:center;gap:10px;color:var(--section-title)}
-    .bio-cards{display:flex;flex-wrap:nowrap;gap:16px;align-items:flex-start;overflow-x:auto;padding:3px 3px 16px;scrollbar-width:thin}.bio-cards>.bio-card{flex:0 0 min(100%,min(var(--card-width),280px));min-width:0}
+    .bio-cards{display:flex;flex-wrap:nowrap;gap:16px;align-items:flex-start;overflow-x:auto;padding:3px 3px 16px;scrollbar-width:thin}.bio-cards>.bio-card{flex:0 0 min(100%,var(--card-width));min-width:0}.bio-cards.single>.bio-card{flex-basis:min(100%,var(--single-card-width));max-width:var(--single-card-width)}
     .bio-card{background:#fff;color:#1d1b18;border-radius:16px;overflow:hidden;box-shadow:0 5px 19px rgba(29,27,24,.1);transition:transform .2s,box-shadow .2s}.bio-card:hover{transform:translateY(-2px);box-shadow:0 9px 25px rgba(29,27,24,.14)}
     .bio-card img{display:block;width:100%;height:auto;object-fit:contain}.bio-card-body{padding:17px 18px 19px}.bio-card-title{display:block;font-size:23px;line-height:1.25;color:var(--card-title)}.bio-card-subtitle{font-size:14px;line-height:1.55;color:var(--card-text);margin-top:7px;white-space:pre-wrap}
     .bio-cta{display:inline-flex;align-items:center;gap:12px;background:var(--accent);color:#fff;border-radius:9px;margin-top:15px;padding:11px 17px;font-size:12px;font-weight:700;text-decoration:none}.bio-cta:hover{filter:brightness(.93)}
     .swipe-hint{display:none}
     @media(max-width:760px){
-      .bio-layout{grid-template-columns:minmax(0,1fr);gap:30px;padding:35px 20px}.bio-profile{position:static}.bio-profile h1{font-size:28px}.bio-logo{width:140px}.bio-cards{overflow-x:auto;overflow-y:hidden;gap:13px;padding:3px 22px 14px 1px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}.bio-cards::-webkit-scrollbar{display:none}.bio-cards>.bio-card{flex:0 0 87%;max-width:87%;scroll-snap-align:start}.swipe-hint{display:block;font-size:12px;opacity:.7;margin:-7px 0 12px;text-align:right}
+      .bio-layout{grid-template-columns:minmax(0,1fr);gap:30px;padding:35px 20px}.bio-profile{position:static}.bio-profile h1{font-size:28px}.bio-logo{width:140px}.bio-cards{overflow-x:auto;overflow-y:hidden;gap:13px;padding:3px 22px 14px 1px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}.bio-cards::-webkit-scrollbar{display:none}.bio-cards>.bio-card{flex:0 0 87%;max-width:87%;scroll-snap-align:start}.bio-cards.single>.bio-card{flex:0 0 87%;max-width:87%}.swipe-hint{display:block;font-size:12px;opacity:.7;margin:-7px 0 12px;text-align:right}
     }
   </style>
 </head>
