@@ -21,7 +21,8 @@
             <span class="pill ${Number(b.is_active)?'ok':'err'}">${Number(b.is_active)?'Ativa':'Inativa'}</span>
           </div>
           <div class="grid g-2" style="gap:8px;margin:15px 0"><div class="card" style="padding:10px"><div class="eyebrow">Visitas</div><strong style="font-size:20px">${Number(b.views||0)}</strong></div><div class="card" style="padding:10px"><div class="eyebrow">Cliques</div><strong style="font-size:20px">${Number(b.clicks||0)}</strong></div></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="duitEditBio(${b.id})">Editar</button><button class="btn btn-ghost btn-sm" onclick="duitBioStats(${b.id})">Estatísticas</button><a class="btn btn-ghost btn-sm" href="${esc(urlFor(b))}" target="_blank">Ver Bio ↗</a></div>
+          <div style="font-size:11px;color:var(--muted);margin:-4px 0 12px">${esc(b.client_company||b.client_name||'Sem cliente associado')}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="duitEditBio(${b.id})">Editar</button><button class="btn btn-ghost btn-sm" onclick="duitBioStats(${b.id})">Estatísticas</button><a class="btn btn-ghost btn-sm" href="${esc(urlFor(b))}?preview=1" target="_blank">Pré-visualizar ↗</a><a class="btn btn-ghost btn-sm" href="${esc(urlFor(b))}" target="_blank">Abrir publicada ↗</a></div>
         </div>`).join('')||'<div class="empty">Ainda não existem Bios.</div>'}
       </div>`;
   };
@@ -42,6 +43,7 @@
         <div>
           <div class="card" style="padding:16px">
             <div class="grid g-2" style="gap:10px"><div class="field"><label>Nome</label><input id="bio-name" value="${esc(b.name)}"></div><div class="field"><label>Slug</label><input id="bio-slug" value="${esc(b.slug)}"></div></div>
+            <div class="field"><label>Cliente associado</label><select id="bio-user"><option value="">— sem cliente —</option>${(state.clients||[]).map(x=>'<option value="'+x.id+'" '+(Number(b.user_id)===Number(x.id)?'selected':'')+'>'+esc(clientOptionLabel(x))+'</option>').join('')}</select></div>
             <div class="field"><label>Descrição</label><textarea id="bio-desc" rows="4">${esc(b.description||'')}</textarea></div>
             <div class="field"><label>Logo</label><input id="bio-logo-file" type="file" accept="image/*"><div style="font-size:11px;color:var(--muted);margin-top:5px">${b.logo_url?'<img src="'+esc(b.logo_url)+'" style="max-width:100px;max-height:70px">':''}</div></div>
             <div class="grid g-3" style="gap:8px">
@@ -72,7 +74,7 @@
       <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="duitAddCard(${b.id},${t.id})">+ Card</button></div>`;
   }
   window.duitSaveBio=async id=>{
-    const body={name:document.getElementById('bio-name').value.trim(),slug:document.getElementById('bio-slug').value.trim(),description:document.getElementById('bio-desc').value.trim()};
+    const body={name:document.getElementById('bio-name').value.trim(),slug:document.getElementById('bio-slug').value.trim(),description:document.getElementById('bio-desc').value.trim(),user_id:Number(document.getElementById('bio-user').value||0)||null};
     document.querySelectorAll('[data-color]').forEach(x=>body[x.dataset.color]=x.value.trim());
     const f=document.getElementById('bio-logo-file').files[0];if(f)body.logo_url=await uploadImage(id,f);
     current=await api('/api/admin/bios/'+id,{method:'PATCH',body});toast('Bio guardada.','check');showEditor(current);await load();
@@ -91,6 +93,8 @@
   window.duitDeleteCard=async(cardId,bioId)=>{if(!confirm('Apagar este card?'))return;await api('/api/admin/bio-cards/'+cardId,{method:'DELETE'});await duitEditBio(bioId)};
   window.duitBioStats=async id=>{
     const b=bios.find(x=>Number(x.id)===Number(id))||await api('/api/admin/bios/'+id);stats=await api('/api/admin/bios/'+id+'/stats');
-    document.getElementById('bio-stats')?.remove();const o=document.createElement('div');o.id='bio-stats';o.className='overlay open';o.innerHTML=`<div class="modal wide" style="max-width:900px"><div style="display:flex;justify-content:space-between"><div><div class="eyebrow">Estatísticas</div><h3>${esc(b.name)}</h3></div><button class="btn btn-icon" onclick="document.getElementById('bio-stats').remove()">✕</button></div><div class="grid g-3" style="gap:10px;margin:16px 0"><div class="card stat"><div class="eyebrow">Visitas</div><div class="value">${stats.summary.views}</div></div><div class="card stat"><div class="eyebrow">Cliques cards</div><div class="value">${stats.summary.clicks}</div></div><div class="card stat"><div class="eyebrow">Cliques redes</div><div class="value">${stats.summary.social_clicks}</div></div></div><div class="section-head"><h2>Cliques por card</h2></div><div class="card table-card"><table class="table"><thead><tr><th>Card</th><th>Cliques</th></tr></thead><tbody>${stats.cards.map(x=>'<tr><td>'+esc(x.title)+'</td><td>'+x.clicks+'</td></tr>').join('')||'<tr><td colspan="2">Sem dados</td></tr>'}</tbody></table></div></div>`;document.body.appendChild(o);
+    document.getElementById('bio-stats')?.remove();const o=document.createElement('div');o.id='bio-stats';o.className='overlay open';o.innerHTML=`<div class="modal wide" style="max-width:900px"><div style="display:flex;justify-content:space-between"><div><div class="eyebrow">Estatísticas</div><h3>${esc(b.name)}</h3></div><button class="btn btn-icon" onclick="document.getElementById('bio-stats').remove()">✕</button></div><div class="grid g-3" style="gap:10px;margin:16px 0"><div class="card stat"><div class="eyebrow">Visitas</div><div class="value">${stats.summary.views}</div></div><div class="card stat"><div class="eyebrow">Cliques cards</div><div class="value">${stats.summary.clicks}</div></div><div class="card stat"><div class="eyebrow">Cliques redes</div><div class="value">${stats.summary.social_clicks}</div></div></div><div class="section-head"><h2>Cliques por card</h2></div><div class="card table-card"><table class="table"><thead><tr><th>Card</th><th>Cliques</th></tr></thead><tbody>${stats.cards.map(x=>'<tr><td>'+esc(x.title)+'</td><td>'+x.clicks+'</td></tr>').join('')||'<tr><td colspan="2">Sem dados</td></tr>'}</tbody></table></div>
+      <div class="section-head"><h2>Redes sociais</h2></div><div class="card table-card"><table class="table"><thead><tr><th>Rede</th><th>Cliques</th></tr></thead><tbody>${stats.socials.map(x=>'<tr><td>'+esc(x.platform)+'</td><td>'+x.clicks+'</td></tr>').join('')||'<tr><td colspan="2">Sem dados</td></tr>'}</tbody></table></div>
+      <div class="section-head"><h2>Últimos 30 dias</h2></div><div class="card table-card"><table class="table"><thead><tr><th>Dia</th><th>Visitas</th><th>Cliques</th></tr></thead><tbody>${stats.days.slice().reverse().map(x=>'<tr><td>'+esc(x.day)+'</td><td>'+x.views+'</td><td>'+x.clicks+'</td></tr>').join('')||'<tr><td colspan="3">Sem dados</td></tr>'}</tbody></table></div></div>`;document.body.appendChild(o);
   };
 })();
