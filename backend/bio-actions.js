@@ -103,6 +103,23 @@ module.exports=function(app){
     try{db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_bio_events_event_id ON bio_events(event_id)')}catch(_){}
   }catch(e){console.warn('[bio] migrations:',e.message)}
 
+  try{
+    db.exec(`CREATE TABLE IF NOT EXISTS bio_admin_migrations(
+      key TEXT PRIMARY KEY,
+      applied_at TEXT DEFAULT(datetime('now'))
+    )`);
+    const cleanupKey='20261111_reset_bio_stats_v1';
+    const done=db.prepare('SELECT 1 FROM bio_admin_migrations WHERE key=?').get(cleanupKey);
+    if(!done){
+      const tx=db.transaction(()=>{
+        db.prepare('DELETE FROM bio_events').run();
+        db.prepare('INSERT INTO bio_admin_migrations(key) VALUES(?)').run(cleanupKey);
+      });
+      tx();
+      console.log('[bio] estatísticas limpas');
+    }
+  }catch(e){console.warn('[bio] limpeza de estatísticas:',e.message)}
+
   const full=(id)=>{
     const bio=db.prepare(`SELECT b.*,u.name client_name,u.company client_company
       FROM bio_sites b LEFT JOIN users u ON u.id=b.user_id WHERE b.id=?`).get(id);
