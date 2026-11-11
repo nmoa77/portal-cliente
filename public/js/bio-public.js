@@ -3,29 +3,29 @@
   const preview=new URLSearchParams(location.search).get('preview')==='1';
   const $=id=>document.getElementById(id);
   const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const session=(()=>{let s=sessionStorage.getItem('duit_bio_sid');if(!s){s=(crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)+Date.now());sessionStorage.setItem('duit_bio_sid',s)}return s})();
-  async function event(event,target_type,target_id){
-    try{await fetch('/api/public/bio/'+encodeURIComponent(slug)+'/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,target_type,target_id,session_id:session,referrer:document.referrer})})}catch(_){}
+  const eventId=()=>crypto.randomUUID?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(16).slice(2));
+  const session=(()=>{let s=sessionStorage.getItem('duit_bio_sid');if(!s){s=eventId();sessionStorage.setItem('duit_bio_sid',s)}return s})();
+  async function track(event,target_type,target_id){if(preview)return;try{await fetch('/api/public/bio/'+encodeURIComponent(slug)+'/event',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event,event_id:eventId(),target_type,target_id,session_id:session,referrer:document.referrer})})}catch(_){}}
+  function socialIcon(name){
+    const common='width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"';
+    if(name==='instagram')return '<svg '+common+'><rect x="2.5" y="2.5" width="19" height="19" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.6" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>';
+    if(name==='facebook')return '<svg '+common+'><path d="M15.5 3.5h-2.2c-2.2 0-3.3 1.4-3.3 3.6V10H7v3h3v8h3.4v-8h3l.5-3h-3.5V7.6c0-.7.3-1.1 1.1-1.1h2V3.5Z" fill="currentColor" stroke="none"/></svg>';
+    if(name==='youtube')return '<svg '+common+'><rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3Z" fill="currentColor" stroke="none"/></svg>';
+    return '<svg '+common+'><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></svg>';
   }
-  function icon(p){const m={instagram:'IG',facebook:'f',linkedin:'in',youtube:'▶',tiktok:'♪',website:'↗',whatsapp:'WA',spotify:'♫',email:'@'};return m[String(p||'').toLowerCase()]||String(p||'').slice(0,2).toUpperCase()}
   async function boot(){
-    const r=await fetch('/api/public/bio/'+encodeURIComponent(slug),{cache:'no-store'});if(!r.ok){document.body.innerHTML='<div class="empty">Bio indisponível.</div>';return}const b=await r.json();
-    document.title=b.name+' · Bio';
+    const r=await fetch('/api/public/bio/'+encodeURIComponent(slug),{cache:'no-store'});if(!r.ok)throw Error('Bio indisponível');const b=await r.json();
+    document.title=b.name||'Bio';
     const root=document.documentElement.style;
-    root.setProperty('--bg',b.background_color||'#f6f4ef');root.setProperty('--card',b.card_color||'#fff');root.setProperty('--text',b.text_color||'#111');root.setProperty('--accent',b.accent_color||'#ffd200');root.setProperty('--btn',b.button_color||'#111');root.setProperty('--btnText',b.button_text_color||'#fff');
-    $('bio-name').textContent=b.name||'';$('bio-desc').textContent=b.description||'';
-    const logo=$('bio-logo');if(b.logo_url){logo.src=b.logo_url}else logo.style.display='none';
-    $('bio-socials').innerHTML=(b.socials||[]).map(s=>'<a href="'+esc(s.url)+'" target="_blank" rel="noopener" data-social="'+s.id+'" title="'+esc(s.platform)+'">'+icon(s.platform)+'</a>').join('');
-    $('bio-socials').querySelectorAll('[data-social]').forEach(a=>a.addEventListener('click',()=>{if(!preview)event('social_click','social',Number(a.dataset.social))}));
-    const tabs=b.tabs||[],cards=b.cards||[];let active=tabs[0]?.id||null;
-    const render=()=>{
-      $('bio-tabs').innerHTML=tabs.map(t=>'<button class="tab '+(Number(t.id)===Number(active)?'active':'')+'" data-tab="'+t.id+'">'+(t.icon?esc(t.icon)+' ':'')+esc(t.title)+'</button>').join('');
-      $('bio-tabs').querySelectorAll('[data-tab]').forEach(x=>x.onclick=()=>{active=Number(x.dataset.tab);render()});
-      const list=active?cards.filter(c=>Number(c.tab_id)===Number(active)):cards.filter(c=>!c.tab_id);
-      $('bio-cards').innerHTML=list.length?list.map(c=>'<article class="card">'+(c.image_url?'<img src="'+esc(c.image_url)+'" alt="">':'')+'<div class="body"><h2>'+esc(c.title)+'</h2>'+(c.subtitle?'<p>'+esc(c.subtitle)+'</p>':'')+(c.url?'<a href="'+esc(c.url)+'" target="_blank" rel="noopener" data-card="'+c.id+'">'+esc(c.button_label||'Saber mais')+'</a>':'')+'</div></article>').join(''):'<div class="empty">Ainda não existem conteúdos neste separador.</div>';
-      $('bio-cards').querySelectorAll('[data-card]').forEach(a=>a.addEventListener('click',()=>{if(!preview)event('click','card',Number(a.dataset.card))}));
-    };
-    render();if(!preview)event('view','bio',b.id);
+    root.setProperty('--bg',b.background_color||'#f6f4ef');root.setProperty('--text',b.text_color||'#111');root.setProperty('--accent',b.accent_color||'#ffd200');root.setProperty('--profile-width',(Number(b.profile_width)||340)+'px');root.setProperty('--card-width',(Number(b.card_width)||280)+'px');
+    $('bio-root').innerHTML='<div class="bio-layout"><aside class="bio-profile">'+
+      (b.logo_url?'<img class="bio-logo" src="'+esc(b.logo_url)+'" alt="">':'')+
+      '<h1>'+esc(b.name||'')+'</h1><p>'+esc(b.description||'')+'</p>'+
+      '<div class="bio-socials">'+(b.socials||[]).map(s=>{const href=s.platform==='email'?'mailto:'+s.url:s.url;return '<a href="'+esc(href)+'" '+(s.platform==='email'?'':'target="_blank" rel="noopener noreferrer"')+' data-social="'+s.id+'" aria-label="'+esc(s.platform)+'">'+socialIcon(s.platform)+'</a>'}).join('')+'</div></aside>'+
+      '<div class="bio-sections">'+(b.tabs||[]).map(t=>{const cards=(b.cards||[]).filter(c=>Number(c.tab_id)===Number(t.id));return '<section class="bio-section"><h2>'+(t.icon?'<span>'+esc(t.icon)+'</span> ':'')+esc(t.title)+'</h2>'+(cards.length>1?'<p class="swipe-hint">Deslize para ver mais →</p>':'')+'<div class="bio-cards">'+cards.map(c=>'<article class="bio-card">'+(c.image_url?'<img src="'+esc(c.image_url)+'" alt="">':'')+'<div class="bio-card-body"><strong class="bio-card-title">'+esc(c.title||'Sem título')+'</strong>'+(c.subtitle?'<div class="bio-card-subtitle">'+esc(c.subtitle)+'</div>':'')+(c.url?'<a class="bio-cta" href="'+esc(c.url)+'" '+(/^https?:/i.test(c.url)?'target="_blank" rel="noopener noreferrer"':'')+' data-card="'+c.id+'">'+esc(c.button_label||'VER MAIS')+' <span>→</span></a>':'')+'</div></article>').join('')+'</div></section>'}).join('')+'</div></div>';
+    document.querySelectorAll('[data-card]').forEach(a=>a.addEventListener('click',()=>track('click','card',Number(a.dataset.card))));
+    document.querySelectorAll('[data-social]').forEach(a=>a.addEventListener('click',()=>track('social_click','social',Number(a.dataset.social))));
+    track('view','bio',b.id);
   }
-  boot().catch(()=>{document.body.innerHTML='<div class="empty">Não foi possível carregar esta Bio.</div>'});
+  boot().catch(()=>{document.body.innerHTML='<div style="padding:60px;text-align:center;font-family:Arial">Bio indisponível.</div>'});
 })();
