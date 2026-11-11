@@ -43,8 +43,8 @@
         .bio-builder .bio-card{border:1px solid #edf0f3;border-radius:22px;box-shadow:0 8px 28px rgba(10,25,50,.045);padding:24px;background:#fff}
         .bio-builder .bio-field{width:100%;padding:12px 14px;border:1px solid #e4e7eb;background:#fff;border-radius:13px;font:inherit;box-sizing:border-box;outline-color:#e0b126;margin-top:6px}
         .bio-builder .bio-surface{background:#f8fafc;border:1px solid #edf0f3;border-radius:17px;padding:16px}
-        .bio-builder .bio-preview h3,.bio-builder .bio-preview h4,.bio-builder .bio-preview .bio-preview-title{font-family:Antonio,Impact,sans-serif;font-weight:600}
-        .bio-builder .bio-preview{font-family:Inter,Arial,sans-serif;border-radius:24px;overflow:hidden}
+        .bio-builder .bio-preview h3,.bio-builder .bio-preview h4,.bio-builder .bio-preview .bio-preview-title{font-family:Montserrat,Arial,sans-serif;font-weight:800}
+        .bio-builder .bio-preview{font-family:Montserrat,Arial,sans-serif;border-radius:24px;overflow:hidden}
         .bio-preview-card{background:#fff;color:#1d1b18;border-radius:14px;overflow:hidden;box-shadow:0 5px 17px rgba(29,27,24,.12)}
         .bio-preview-card-list{display:flex;flex-wrap:nowrap;gap:16px;align-items:flex-start;overflow-x:auto;padding:3px 3px 16px}
         .bio-preview-card-list>.bio-preview-card{flex:0 0 min(100%,min(var(--preview-card-width),280px));min-width:0}
