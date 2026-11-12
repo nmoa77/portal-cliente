@@ -147,9 +147,15 @@ function duitSyncAll() {
 function duitSyncAll_(showDetails) {
   const ss=duitSpreadsheet_();
   const byDate={};
+  const now=new Date();
+  const currentY=now.getFullYear(), currentM=now.getMonth()+1;
+  const prevDate=new Date(currentY,currentM-2,1);
+  const prevY=prevDate.getFullYear(), prevM=prevDate.getMonth()+1;
   for(const sheet of ss.getSheets()){
     if(sheet.getName()===SYNC_SHEET)continue;
     const my=duitMonthYear_(sheet); if(!my)continue;
+    const allowed=(my.year===currentY&&my.month===currentM)||(my.year===prevY&&my.month===prevM);
+    if(!allowed)continue;
     const lastRow=Math.min(sheet.getLastRow(),250), lastCol=Math.min(sheet.getLastColumn(),26);
     if(lastRow<1||lastCol<2)continue;
     const vals=sheet.getRange(1,1,lastRow,lastCol).getDisplayValues();
