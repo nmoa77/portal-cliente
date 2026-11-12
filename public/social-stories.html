@@ -30,6 +30,18 @@ button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#eee}.danger
 </div><p class="muted" id="meta-status" aria-live="polite">A verificar configuração…</p>
 <div id="meta-pending" style="margin:12px 0"></div><div id="meta-accounts"></div>
 </section>
+<section class="panel"><h2>Posts e Reels — publicação automática</h2>
+<p class="muted">Publicações nas duas contas escolhidas. O motor está desligado até a ligação Meta estar configurada e testada. Reels do Facebook requerem uma integração própria.</p>
+<form id="publish-form">
+<div class="grid"><label>Conta Meta ligada<select id="pub-account" required></select></label>
+<label>Formato<select id="pub-kind"><option value="post">Post (imagem)</option><option value="carousel">Carrossel (2 a 10 imagens)</option><option value="reel">Reel Instagram (vídeo MP4)</option></select></label></div>
+<p class="actions"><label><input type="checkbox" id="pub-ig" checked> Instagram</label><label><input type="checkbox" id="pub-fb" checked> Facebook</label></p>
+<p><label>Legenda<textarea id="pub-caption" maxlength="2200" rows="3" style="width:100%;border:1px solid #dedede;border-radius:10px;padding:13px;font:inherit" placeholder="Escreva a legenda…"></textarea></label></p>
+<div class="grid"><label>Imagens JPG ou vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,video/mp4" multiple required></label>
+<label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
+<p><button type="submit">Guardar publicação</button></p></form>
+<p class="muted" id="pub-status" aria-live="polite"></p><div id="pub-jobs"></div>
+</section>
 <section class="panel"><h2>Notificações no Android</h2>
 <p class="muted">Instale o portal no ecrã inicial e permita notificações. Receberá um aviso quando chegar a hora das Stories agendadas.</p>
 <div class="actions"><button id="enable-push" type="button">Ativar notificações</button><button id="test-push" type="button" class="secondary">Enviar teste</button></div>
@@ -96,6 +108,89 @@ async function prepareShare(s,button){
 async function downloadStory(s){try{const file=await getStoryFile(s);const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){alert(e.message);}}
 
 
+
+function dateForInput(offset=0){
+ const date=new Date(Date.now()+offset);const pad=n=>String(n).padStart(2,'0');
+ return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
+}
+async function refreshPublisher(accounts){
+ const config=await request('/api/duit-social/publisher/config');
+ $('pub-status').textContent=config.enabled
+  ? 'Publicação Meta configurada. Pode guardar e agendar conteúdos.'
+  : 'Publicação automática em preparação. Pode criar rascunhos, mas não agendar na Meta.';
+ const list=accounts||await request('/api/duit-social/meta/accounts');
+ $('pub-account').replaceChildren(...list.map(c=>{
+   const option=document.createElement('option');option.value=c.id;
+   option.textContent=(c.client_company||c.client_name)+' · '+c.facebook_page_name;
+   return option;
+ }));
+ const jobs=await request('/api/duit-social/publisher/jobs');const root=$('pub-jobs');root.replaceChildren();
+ if(!jobs.length){root.textContent='Ainda não existem publicações automáticas.';return;}
+ for(const job of jobs){
+   const div=document.createElement('div');div.className='story';
+   const title=document.createElement('div');
+   title.innerHTML='<strong>'+escapeHtml(job.kind)+' · '+escapeHtml(job.networks.join(' + '))+'</strong><div class="muted">'+
+     dateLabel(job.scheduled_at)+' · '+escapeHtml(job.status)+'</div>'+
+     job.results.map(x=>'<div class="muted">'+escapeHtml(x.network)+': '+escapeHtml(x.status)+
+     (x.error?' · '+escapeHtml(x.error):'')+'</div>').join('');
+   const actions=document.createElement('div');actions.className='actions';
+   if(job.status==='draft'){
+     actions.append(makeButton('Agendar',async()=>{
+       try{await request('/api/duit-social/publisher/jobs/'+job.id+'/schedule',{method:'POST'});await refreshPublisher();}
+       catch(e){$('pub-status').textContent=e.message;}
+     }));
+     actions.append(makeButton('Apagar',async()=>{
+       if(!confirm('Eliminar este rascunho e ficheiros?'))return;
+       await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
+       await refreshPublisher();
+     },'secondary'));
+   }
+   div.append(title,actions);root.append(div);
+ }
+}
+$('pub-kind').addEventListener('change',()=>{
+ const reel=$('pub-kind').value==='reel';
+ $('pub-fb').disabled=reel;if(reel)$('pub-fb').checked=false;
+ $('pub-files').accept=reel?'video/mp4':'image/jpeg';
+ $('pub-files').multiple=$('pub-kind').value==='carousel';
+});
+$('publish-form').addEventListener('submit',async event=>{
+ event.preventDefault();const button=event.target.querySelector('button[type=submit]');button.disabled=true;
+ try{
+   const kind=$('pub-kind').value,files=Array.from($('pub-files').files);
+   const networks=[$('pub-ig').checked?'instagram':null,$('pub-fb').checked?'facebook':null].filter(Boolean);
+   if(!networks.length)throw Error('Escolha pelo menos uma rede');
+   if(files.length<(kind==='carousel'?2:1)||files.length>(kind==='carousel'?10:1))throw Error('Quantidade inválida de ficheiros');
+   if(files.some(file=>file.size>80*1024*1024))throw Error('Máximo 80 MB por ficheiro');
+   const accountId=Number($('pub-account').value);
+   const connected=await request('/api/duit-social/meta/accounts');
+   const account=connected.find(x=>x.id===accountId);if(!account)throw Error('Conta desligada');
+   const job=await request('/api/duit-social/publisher/jobs',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({
+       account_id:accountId,client_id:account.client_id,kind,networks,
+       caption:$('pub-caption').value,
+       scheduled_at:new Date($('pub-date').value).toISOString()
+     })
+   });
+   try {
+     for(let i=0;i<files.length;i++){
+       const response=await fetch('/api/duit-social/publisher/jobs/'+job.id+'/files/'+i,{
+         method:'PUT',credentials:'same-origin',headers:{'Content-Type':files[i].type},body:files[i]
+       });
+       if(!response.ok)throw Error((await response.json().catch(()=>({})).error||'Upload falhou');
+     }
+   }catch(e){
+     await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
+     throw e;
+   }
+   $('pub-status').textContent='Rascunho guardado. Escolha Agendar quando a Meta estiver configurada.';
+   event.target.reset();$('pub-date').value=dateForInput(3600000);
+   await refreshPublisher();
+ }catch(e){$('pub-status').textContent='Erro: '+e.message;}
+ finally{button.disabled=false;}
+});
+
 async function refreshMeta(){
   const status=$('meta-status');
   const config=await request('/api/duit-social/meta/config');
@@ -126,6 +221,7 @@ async function refreshMeta(){
     chooser.append(help,select,confirmButton);
   }
   const accounts=await request('/api/duit-social/meta/accounts');
+  await refreshPublisher(accounts);
   const root=$('meta-accounts');root.replaceChildren();
   if(!accounts.length){root.textContent='Ainda não existem contas ligadas.';return;}
   for(const account of accounts){
