@@ -1,0 +1,32 @@
+name: DUIT Social - verifica testes
+
+on:
+  pull_request:
+    paths:
+      - "backend/duit-*.js"
+      - "public/social-stories.html"
+      - "public/sw.js"
+      - "tests/duit-*.test.js"
+      - ".github/workflows/duit-social-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verificar sintaxe
+        run: |
+          node --check backend/duit-social-stories.js
+          node --check backend/duit-meta-accounts.js
+          node --check backend/duit-web-push.js
+          node --check public/sw.js
+      - name: Testes das notificações
+        run: node --test tests/duit-web-push.test.js
