@@ -115,9 +115,20 @@ const SYNC_SHEET = '_DUIT_SYNC';
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('DUIT')
+    .addItem('Ativar sincronização', 'duitInstallTriggers')
     .addItem('Ligar célula selecionada a um post', 'duitMapSelectedCell')
     .addItem('Ver ligações', 'duitOpenSyncSheet')
     .addToUi();
+}
+
+function duitInstallTriggers() {
+  const ss = duitSpreadsheet_();
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === 'duitHandleEdit') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('duitHandleEdit').forSpreadsheet(ss).onEdit().create();
+  SpreadsheetApp.getUi().alert('Sincronização DUIT ativada nesta folha.');
 }
 
 function duitSpreadsheet_() {
@@ -168,7 +179,7 @@ function duitMapSelectedCell() {
   ui.alert('Célula ligada ao portal.');
 }
 
-function onEdit(e) {
+function duitHandleEdit(e) {
   try {
     if (!e || !e.range || e.range.getSheet().getName()===SYNC_SHEET) return;
     const ss=e.source, sh=ss.getSheetByName(SYNC_SHEET); if(!sh)return;
