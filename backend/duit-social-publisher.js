@@ -65,7 +65,8 @@ async function sendInstagram(job,media,account,token){
   const created=await graph(ig+'/media',params,token);
   if(job.kind==='carousel')children.push(created.id);
   else{
-   if(job.kind==='reel')await waitContainer(created.id,token);
+   // Fotografias e vídeos podem necessitar de processamento antes do publish.
+   await waitContainer(created.id,token);
    return await graph(ig+'/media_publish',{creation_id:created.id},token);
   }
  }
