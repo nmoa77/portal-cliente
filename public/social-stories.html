@@ -22,6 +22,14 @@ button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#eee}.danger
 </style>
 </head><body>
 <main><header><div><span class="eyebrow">DUIT · REDES SOCIAIS</span><h1>Stories para publicar</h1><p class="muted">Prepare no computador. Termine no Android com a música do Instagram.</p></div><a href="/admin.html?view=calendar">Voltar ao calendário</a></header>
+<section class="panel"><h2>Contas Instagram e Facebook</h2>
+<p class="muted">Ligue as Páginas e contas profissionais dos clientes através da Meta. Esta etapa ainda não publica nada automaticamente.</p>
+<div class="actions">
+<select id="meta-client" aria-label="Cliente para ligar à Meta" style="max-width:280px"></select>
+<button id="meta-connect" type="button">Ligar conta Meta</button>
+</div><p class="muted" id="meta-status" aria-live="polite">A verificar configuração…</p>
+<div id="meta-accounts"></div>
+</section>
 <section class="panel"><h2>Notificações no Android</h2>
 <p class="muted">Instale o portal no ecrã inicial e permita notificações. Receberá um aviso quando chegar a hora das Stories agendadas.</p>
 <div class="actions"><button id="enable-push" type="button">Ativar notificações</button><button id="test-push" type="button" class="secondary">Enviar teste</button></div>
@@ -87,6 +95,43 @@ async function prepareShare(s,button){
 }
 async function downloadStory(s){try{const file=await getStoryFile(s);const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){alert(e.message);}}
 
+
+async function refreshMeta(){
+  const status=$('meta-status');
+  const config=await request('/api/duit-social/meta/config');
+  $('meta-connect').disabled=!config.enabled;
+  status.textContent=config.enabled
+    ? 'Ligação disponível. Selecione o cliente e autorize a Página Facebook na Meta.'
+    : 'Falta configurar a aplicação Meta no Railway.';
+  const accounts=await request('/api/duit-social/meta/accounts');
+  const root=$('meta-accounts');root.replaceChildren();
+  if(!accounts.length){root.textContent='Ainda não existem contas ligadas.';return;}
+  for(const account of accounts){
+    const block=document.createElement('div');block.className='story';
+    const label=document.createElement('div');
+    label.innerHTML='<strong>'+escapeHtml(account.client_company||account.client_name)+'</strong>'+
+      '<div class="muted">'+escapeHtml(account.facebook_page_name)+
+      ' · '+(account.instagram_business_id?'Instagram profissional ligado':'Sem Instagram profissional')+'</div>';
+    const btn=makeButton('Desligar',async()=>{
+      if(!confirm('Desligar esta Página Meta do portal DUIT?'))return;
+      await request('/api/duit-social/meta/accounts/'+account.id,{method:'DELETE'});
+      await refreshMeta();
+    },'secondary');
+    block.append(label,btn);root.append(block);
+  }
+}
+$('meta-connect').addEventListener('click',async()=>{
+  const button=$('meta-connect');button.disabled=true;
+  try{
+    const result=await request('/api/duit-social/meta/connect',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client_id:Number($('meta-client').value)})
+    });
+    // Abrir OAuth em navegação de topo: estado e cookie SameSite=Lax.
+    location.assign(result.url);
+  }catch(e){$('meta-status').textContent=e.message;button.disabled=false;}
+});
+
 function toUint8Array(base64url){
 const base64=base64url.replace(/-/g,'+').replace(/_/g,'/');
 const binary=atob(base64+'='.repeat((4-base64.length%4)%4));
@@ -134,6 +179,7 @@ $('feedback').textContent='Story guardada no portal.';e.target.reset();await ref
 });
 (async()=>{try{const me=await request('/api/auth/me');if(me.role!=='admin')throw Error('Acesso reservado à DUIT');
 const clients=await request('/api/clients');$('client').replaceChildren(...clients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
+$('meta-client').replaceChildren(...clients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));await refreshMeta();
 const tomorrow=new Date(Date.now()+86400000);const pad=n=>String(n).padStart(2,'0');$('scheduled').value=tomorrow.getFullYear()+'-'+pad(tomorrow.getMonth()+1)+'-'+pad(tomorrow.getDate())+'T'+pad(tomorrow.getHours())+':'+pad(tomorrow.getMinutes());
 await refresh();}catch(e){$('stories').textContent=e.message;}})();
 </script></body></html>
