@@ -92,6 +92,13 @@ function removeMedia(jobId){
   db.prepare('DELETE FROM duit_publish_media WHERE id=?').run(m.id);
  }
 }
+function cleanupCompleted(){
+ // Repetir limpeza após reinício se a eliminação física falhou, sem republicar.
+ const completed=db.prepare("SELECT id FROM duit_publish_jobs WHERE status='published'").all();
+ for(const job of completed){
+  try{removeMedia(job.id);}catch(e){console.warn('[duit-social] cleanup pendente',job.id,e.message);}
+ }
+}
 async function publish(job){
  const account=db.prepare('SELECT * FROM duit_meta_accounts WHERE id=? AND client_id=?').get(job.account_id,job.client_id);
  if(!account)throw Error('Conta Meta não ligada');
@@ -199,6 +206,8 @@ function register(app){
   res.json({ok:true});
  });
  app.use('/api/duit-social/publisher',router);
+ try{cleanupCompleted();}catch(e){console.warn('[duit-social] limpeza inicial:',e.message);}
+
  if(process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'){
   let busy=false;
   const tick=async()=>{
