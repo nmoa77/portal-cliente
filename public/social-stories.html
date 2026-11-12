@@ -41,14 +41,16 @@ async function request(url,opts={}){const res=await fetch(url,{credentials:'same
 const body=await res.json().catch(()=>null);if(!res.ok)throw Error(body?.error||'Erro de comunicação');return body;}
 function escapeHtml(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function dateLabel(s){return new Intl.DateTimeFormat('pt-PT',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Lisbon'}).format(new Date(s));}
+const preparedFiles=new Map();
 function makeButton(label,action,cls=''){const b=document.createElement('button');b.textContent=label;b.className=cls;b.addEventListener('click',action);return b;}
 async function refresh(){
-const rows=await request('/api/duit-social/stories');const root=$('stories');root.replaceChildren();
+const rows=await request('/api/duit-social/stories');preparedFiles.clear();const root=$('stories');root.replaceChildren();
 if(!rows.length){root.textContent='Ainda não existem Stories.';return;}
 for(const s of rows){const item=document.createElement('article');item.className='story';if(s.id===Number(new URLSearchParams(location.search).get('story')))item.style.outline='2px solid #ffd200';const info=document.createElement('div');info.innerHTML='<strong>'+escapeHtml(s.client_company||s.client_name)+'</strong><div class="muted">'+dateLabel(s.scheduled_at)+' · '+escapeHtml(s.status)+'</div>';
 const actions=document.createElement('div');actions.className='actions';
 if(s.has_media){
- actions.append(makeButton('Partilhar Story',()=>shareStory(s),''));
+ const btn=makeButton('Preparar partilha',()=>prepareShare(s,btn),'');
+ actions.append(btn);
  actions.append(makeButton('Descarregar',()=>downloadStory(s),'secondary'));
 }
 if(s.status!=='published'){
@@ -62,10 +64,26 @@ const r=await fetch(s.media_url,{credentials:'same-origin',cache:'no-store'});if
 const blob=await r.blob();const ext=blob.type==='video/mp4'?'mp4':blob.type==='image/png'?'png':blob.type==='image/webp'?'webp':'jpg';
 return new File([blob],'DUIT-'+s.id+'.'+ext,{type:blob.type});
 }
-async function shareStory(s){
-try{const file=await getStoryFile(s);if(navigator.canShare?.({files:[file]})&&navigator.share){await navigator.share({files:[file]});return;}
-alert('Este navegador não permite partilhar ficheiros. Use «Descarregar».');
-}catch(e){if(e.name!=='AbortError')alert(e.message);}
+async function prepareShare(s,button){
+  // O Android exige que navigator.share seja chamado no clique do utilizador.
+  // Por isso, o download decorre antes e o segundo toque inicia a partilha.
+  if(!preparedFiles.has(s.id)){
+    button.disabled=true;button.textContent='A preparar ficheiro…';
+    try{
+      preparedFiles.set(s.id,await getStoryFile(s));
+      button.textContent='Partilhar agora';
+    }catch(e){button.textContent='Preparar partilha';alert(e.message);}
+    finally{button.disabled=false;}
+    return;
+  }
+  const file=preparedFiles.get(s.id);
+  try{
+    if(navigator.canShare?.({files:[file]})&&navigator.share){
+      const share=navigator.share({files:[file]});await share;
+    } else {
+      alert('O Android não permite partilhar este ficheiro. Use «Descarregar».');
+    }
+  }catch(e){if(e.name!=='AbortError')alert('Falha na partilha: '+e.message);}
 }
 async function downloadStory(s){try{const file=await getStoryFile(s);const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){alert(e.message);}}
 
