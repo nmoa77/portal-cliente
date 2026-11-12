@@ -1,5 +1,5 @@
 /* DUIT Portal — Service Worker */
-const VERSION = 'duit-v41';
+const VERSION = 'duit-v42';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -9,7 +9,7 @@ const PRECACHE_URLS = [
   '/js/prospects-crm.js', '/js/prospects-actions.js', '/js/prospects-legacy-bridge.js',
   '/js/prospects-ui-fix.js', '/js/prospects-pagination.js', '/js/prospects-sector-chart.js',
   '/js/prospects-table-fit.js',
-  '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'
+  '/social-stories.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon.svg'
 ];
 
 const ADMIN_SCRIPTS = [
@@ -93,4 +93,35 @@ self.addEventListener('fetch', event => {
 
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+// Notificações DUIT: abrir a Story no portal, sem presumir publicação.
+self.addEventListener('push', event => {
+  let payload = {};
+  try { payload = event.data?.json() || {}; } catch (_) {}
+  const title = String(payload.title || 'DUIT · Story pronta').slice(0,120);
+  const body = String(payload.body || 'Tem uma Story para publicar.').slice(0,240);
+  const raw = String(payload.url || '/social-stories.html');
+  const target = raw.startsWith('/social-stories.html') ? raw : '/social-stories.html';
+  event.waitUntil(self.registration.showNotification(title, {
+    body,
+    tag: 'duit-story-' + target,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    data: { url: target }
+  }));
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || '/social-stories.html', self.location.origin).href;
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type:'window', includeUncontrolled:true });
+    const current = windows.find(client => new URL(client.url).pathname === '/social-stories.html');
+    if (current) {
+      await current.navigate(target);
+      return current.focus();
+    }
+    return self.clients.openWindow(target);
+  })());
 });
