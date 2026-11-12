@@ -28,7 +28,8 @@ jobs:
           node --check backend/duit-meta-accounts.js
           node --check backend/duit-web-push.js
           node --check backend/duit-social-publisher.js
+          node --check backend/duit-social-meta-helpers.js
           node -e "const fs=require('fs'),vm=require('vm');const html=fs.readFileSync('public/social-stories.html','utf8');const script=html.match(/<script>([\\s\\S]*?)<\\/script>/);if(!script)throw Error('UI script missing');new vm.Script(script[1]);"
           node --check public/sw.js
       - name: Testes das notificações
-        run: node --test tests/duit-web-push.test.js
+        run: node --test tests/duit-*.test.js
