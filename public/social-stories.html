@@ -178,7 +178,7 @@ $('publish-form').addEventListener('submit',async event=>{
        const response=await fetch('/api/duit-social/publisher/jobs/'+job.id+'/files/'+i,{
          method:'PUT',credentials:'same-origin',headers:{'Content-Type':files[i].type},body:files[i]
        });
-       if(!response.ok)throw Error((await response.json().catch(()=>({})).error||'Upload falhou');
+       if(!response.ok){const info=await response.json().catch(()=>({}));throw Error(info.error||'Upload falhou');}
      }
    }catch(e){
      await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
