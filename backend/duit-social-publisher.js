@@ -74,9 +74,49 @@ async function sendInstagram(job,media,account,token){
  await waitContainer(parent.id,token);
  return await graph(ig+'/media_publish',{creation_id:parent.id},token);
 }
+// Facebook Reels Publishing API (start -> hosted upload -> finish -> status).
+async function sendFacebookReel(job,media,account,token){
+  if(media.length!==1||media[0].mime!=='video/mp4')throw Error('Reel Facebook requer um MP4');
+  const page=account.facebook_page_id;
+  const created=await graph(page+'/video_reels',{upload_phase:'start'},token);
+  const videoId=String(created.video_id||'');
+  const uploadUrl=new URL(String(created.upload_url||''));
+  // URL vem da Meta; nunca enviar o token para hosts arbitrários.
+  if(!/^\\d+$/.test(videoId)||uploadUrl.protocol!=='https:'||uploadUrl.hostname!=='rupload.facebook.com'){
+    throw Error('Resposta de upload Facebook inválida');
+  }
+  const upload=await fetch(uploadUrl.href,{
+    method:'POST',
+    headers:{Authorization:'OAuth '+token,file_url:signedUrl(media[0].id)},
+    signal:AbortSignal.timeout(120000),
+    redirect:'error'
+  });
+  const uploaded=await upload.json().catch(()=>({}));
+  if(!upload.ok||uploaded.success!==true)throw Error('A Meta não confirmou o upload do Reel Facebook');
+  const finished=await graph(page+'/video_reels',{
+    upload_phase:'finish',video_id:videoId,video_state:'PUBLISHED',description:job.caption
+  },token);
+  if(finished.success!==true)throw Error('A Meta não confirmou o pedido de publicação Facebook');
+  // Sucesso de "finish" pode apenas iniciar processamento; não apagar o vídeo
+  // enquanto o estado da publicação não estiver confirmado.
+  for(let attempt=0;attempt<10;attempt++){
+    const info=await graph(videoId,{fields:'status'},token,'GET');
+    const status=info.status||{};
+    const publishing=String(status.publishing_phase?.status||'').toLowerCase();
+    const videoStatus=String(status.video_status||'').toLowerCase();
+    if(publishing==='complete'||publishing==='completed'||videoStatus==='published'){
+      return {id:videoId};
+    }
+    if(['error','failed','expired','upload_failed'].includes(videoStatus)||
+       ['error','failed'].includes(publishing))throw Error('Falha de publicação do Reel Facebook');
+    await new Promise(resolve=>setTimeout(resolve,9000));
+  }
+  throw Error('Facebook ainda não confirmou publicação: verificar manualmente');
+}
+
 async function sendFacebook(job,media,account,token){
  const page=account.facebook_page_id;
- if(job.kind==='reel')throw Error('Reels do Facebook ainda não suportados');
+ if(job.kind==='reel')return sendFacebookReel(job,media,account,token);
  if(job.kind==='post'){
   const response=await graph(page+'/photos',{url:signedUrl(media[0].id),caption:job.caption},token);
   return {id:response.post_id||response.id};
@@ -164,7 +204,6 @@ function register(app){
   const {client_id,account_id,kind,networks,caption='',scheduled_at}=req.body||{};
   if(!['post','carousel','reel'].includes(kind)||!Array.isArray(networks)||networks.length<1||
    networks.some(n=>!['instagram','facebook'].includes(n))||new Set(networks).size!==networks.length||
-   (kind==='reel'&&networks.includes('facebook'))||
    typeof caption!=='string'||caption.length>2200||!Number.isFinite(Date.parse(scheduled_at)))
    return res.status(400).json({error:'Formato, canais ou data inválidos'});
   const account=db.prepare('SELECT * FROM duit_meta_accounts WHERE id=? AND client_id=?').get(account_id,client_id);
