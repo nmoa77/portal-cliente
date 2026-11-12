@@ -2,6 +2,7 @@
 // Publicação agendada DUIT. Desativada até configurar explicitamente a Meta.
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),express=require('express');
 const db=require('./db'),{requireAdmin}=require('./auth'),{cfg,decrypt}=require('./duit-meta-accounts');
+const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl}=require('./duit-social-meta-helpers');
 const folder=process.env.DUIT_SOCIAL_MEDIA_DIR||path.join(path.dirname(process.env.DATABASE_PATH||path.join(__dirname,'portal.db')),'duit-social-media');
 fs.mkdirSync(folder,{recursive:true});
 db.exec(`
@@ -104,7 +105,7 @@ async function sendFacebookReel(job,media,account,token){
     const status=info.status||{};
     const publishing=String(status.publishing_phase?.status||'').toLowerCase();
     const videoStatus=String(status.video_status||'').toLowerCase();
-    if(publishing==='complete'||publishing==='completed'||videoStatus==='published'){
+    if(isFacebookReelPublished(status)){
       return {id:videoId};
     }
     if(['error','failed','expired','upload_failed'].includes(videoStatus)||
@@ -128,8 +129,7 @@ async function sendFacebook(job,media,account,token){
  }
  // O endpoint de feed exige attached_media[0], attached_media[1], ...
  // (não um único campo attached_media com o array todo).
- const params={message:job.caption};
- attached.forEach((item,index)=>{params['attached_media['+index+']']=JSON.stringify(item);});
+ const params=facebookCarouselParams(attached.map(item=>String(item.media_fbid)),job.caption);
  return await graph(page+'/feed',params,token);
 }
 function removeMedia(jobId){
