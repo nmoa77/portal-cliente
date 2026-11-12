@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffd200">
+<title>DUIT — Stories para Instagram</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#151515;background:#f8f8f7}*{box-sizing:border-box}
+body{margin:0;padding:24px}main{max-width:930px;margin:auto}a{color:inherit}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+h1{font-size:clamp(27px,5vw,42px);letter-spacing:-1.5px;margin:8px 0}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.1em}
+.panel{background:#fff;padding:24px;border-radius:20px;box-shadow:0 4px 28px #0000000a;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}label{font-size:13px;font-weight:750;display:grid;gap:8px}
+input,select{width:100%;padding:13px;border:1px solid #dedede;border-radius:10px;font:inherit}
+button{border:0;background:#ffd200;padding:13px 20px;border-radius:10px;font-weight:750;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#eee}.danger{background:#fee2e2;color:#991b1b}
+.story{padding:16px;border:1px solid #eee;border-radius:14px;margin:12px 0;display:grid;grid-template-columns:1fr auto;gap:14px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.muted{color:#777;font-size:13px}
+#feedback{min-height:24px}.error{color:#b91c1c}.preview{width:100%;max-height:450px;object-fit:contain;border-radius:12px;background:#eee}
+@media(max-width:650px){body{padding:14px}.grid,.story{grid-template-columns:1fr}.panel{padding:16px}}
+</style>
+</head><body>
+<main><header><div><span class="eyebrow">DUIT · REDES SOCIAIS</span><h1>Stories para publicar</h1><p class="muted">Prepare no computador. Termine no Android com a música do Instagram.</p></div><a href="/admin.html?view=calendar">Voltar ao calendário</a></header>
+<section class="panel"><h2>Nova Story</h2><form id="new-story">
+<div class="grid"><label>Cliente<select id="client" required></select></label>
+<label>Data e hora em Portugal<input id="scheduled" type="datetime-local" required></label></div>
+<p><label>Imagem ou vídeo finalizado<input type="file" id="media" accept="image/jpeg,image/png,image/webp,video/mp4" required></label></p>
+<button type="submit">Guardar Story</button></form><p id="feedback" aria-live="polite"></p>
+</section>
+<section class="panel"><h2>Stories preparadas</h2><p class="muted">A partilha abre o menu do Android. Escolha Instagram Stories quando disponível. A publicação só é confirmada no portal depois de carregar em «Já publiquei».</p><div id="stories">A carregar…</div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+async function request(url,opts={}){const res=await fetch(url,{credentials:'same-origin',...opts});if(res.status===401){location.href='/index.html';throw Error('Inicie sessão.')}
+const body=await res.json().catch(()=>null);if(!res.ok)throw Error(body?.error||'Erro de comunicação');return body;}
+function escapeHtml(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function dateLabel(s){return new Intl.DateTimeFormat('pt-PT',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Lisbon'}).format(new Date(s));}
+function makeButton(label,action,cls=''){const b=document.createElement('button');b.textContent=label;b.className=cls;b.addEventListener('click',action);return b;}
+async function refresh(){
+const rows=await request('/api/duit-social/stories');const root=$('stories');root.replaceChildren();
+if(!rows.length){root.textContent='Ainda não existem Stories.';return;}
+for(const s of rows){const item=document.createElement('article');item.className='story';const info=document.createElement('div');info.innerHTML='<strong>'+escapeHtml(s.client_company||s.client_name)+'</strong><div class="muted">'+dateLabel(s.scheduled_at)+' · '+escapeHtml(s.status)+'</div>';
+const actions=document.createElement('div');actions.className='actions';
+if(s.has_media){
+ actions.append(makeButton('Partilhar Story',()=>shareStory(s),''));
+ actions.append(makeButton('Descarregar',()=>downloadStory(s),'secondary'));
+}
+if(s.status!=='published'){
+ actions.append(makeButton('Já publiquei',async()=>{if(!confirm('A Story foi publicada no Instagram? O ficheiro será eliminado do portal.'))return;await request('/api/duit-social/stories/'+s.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'published'})});refresh();},'secondary'));
+ actions.append(makeButton('Apagar',async()=>{if(!confirm('Apagar esta Story?'))return;await request('/api/duit-social/stories/'+s.id,{method:'DELETE'});refresh();},'danger'));
+}
+item.append(info,actions);root.append(item);}
+}
+async function getStoryFile(s){
+const r=await fetch(s.media_url,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Não foi possível obter a Story');
+const blob=await r.blob();const ext=blob.type==='video/mp4'?'mp4':blob.type==='image/png'?'png':blob.type==='image/webp'?'webp':'jpg';
+return new File([blob],'DUIT-'+s.id+'.'+ext,{type:blob.type});
+}
+async function shareStory(s){
+try{const file=await getStoryFile(s);if(navigator.canShare?.({files:[file]})&&navigator.share){await navigator.share({files:[file]});return;}
+alert('Este navegador não permite partilhar ficheiros. Use «Descarregar».');
+}catch(e){if(e.name!=='AbortError')alert(e.message);}
+}
+async function downloadStory(s){try{const file=await getStoryFile(s);const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){alert(e.message);}}
+$('new-story').addEventListener('submit',async e=>{
+e.preventDefault();const button=e.target.querySelector('button[type=submit]');button.disabled=true;$('feedback').textContent='A guardar…';
+try{const file=$('media').files[0];if(!file||file.size>80*1024*1024)throw Error('Máximo 80 MB por Story');
+const date=new Date($('scheduled').value);if(!Number.isFinite(date.getTime()))throw Error('Data inválida');
+const story=await request('/api/duit-social/stories',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:Number($('client').value),scheduled_at:date.toISOString(),status:'scheduled'})});
+try{const r=await fetch('/api/duit-social/stories/'+story.id+'/media',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file});const data=await r.json();if(!r.ok)throw Error(data?.error||'Falha no upload');}
+catch(e){await request('/api/duit-social/stories/'+story.id,{method:'DELETE'});throw e;}
+$('feedback').textContent='Story guardada no portal.';e.target.reset();await refresh();
+}catch(e){$('feedback').textContent=e.message;$('feedback').className='error';}finally{button.disabled=false;}
+});
+(async()=>{try{const me=await request('/api/auth/me');if(me.role!=='admin')throw Error('Acesso reservado à DUIT');
+const clients=await request('/api/clients');$('client').replaceChildren(...clients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
+const tomorrow=new Date(Date.now()+86400000);const pad=n=>String(n).padStart(2,'0');$('scheduled').value=tomorrow.getFullYear()+'-'+pad(tomorrow.getMonth()+1)+'-'+pad(tomorrow.getDate())+'T'+pad(tomorrow.getHours())+':'+pad(tomorrow.getMinutes());
+await refresh();}catch(e){$('stories').textContent=e.message;}})();
+</script></body></html>
