@@ -68,7 +68,10 @@ async function sendInstagram(job,media,account,token){
    return await graph(ig+'/media_publish',{creation_id:created.id},token);
   }
  }
+ // A Meta pode ainda estar a processar os contentores do carrossel.
+ for(const child of children)await waitContainer(child,token);
  const parent=await graph(ig+'/media',{media_type:'CAROUSEL',children:children.join(','),caption:job.caption},token);
+ await waitContainer(parent.id,token);
  return await graph(ig+'/media_publish',{creation_id:parent.id},token);
 }
 async function sendFacebook(job,media,account,token){
@@ -83,7 +86,11 @@ async function sendFacebook(job,media,account,token){
   const created=await graph(page+'/photos',{url:signedUrl(item.id),published:'false'},token);
   attached.push({media_fbid:created.id});
  }
- return await graph(page+'/feed',{message:job.caption,attached_media:JSON.stringify(attached)},token);
+ // O endpoint de feed exige attached_media[0], attached_media[1], ...
+ // (não um único campo attached_media com o array todo).
+ const params={message:job.caption};
+ attached.forEach((item,index)=>{params['attached_media['+index+']']=JSON.stringify(item);});
+ return await graph(page+'/feed',params,token);
 }
 function removeMedia(jobId){
  const all=db.prepare('SELECT * FROM duit_publish_media WHERE job_id=?').all(jobId);
