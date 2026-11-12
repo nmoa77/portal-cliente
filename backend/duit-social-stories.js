@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const express = require('express');
 const db = require('./db');
 const { requireAdmin } = require('./auth');
+const { sendPush, vapidConfig } = require('./duit-web-push');
 
 const mediaDir = process.env.DUIT_SOCIAL_MEDIA_DIR ||
   path.join(path.dirname(process.env.DATABASE_PATH || path.join(__dirname, 'portal.db')), 'duit-social-media');
@@ -20,11 +21,23 @@ CREATE TABLE IF NOT EXISTS duit_social_stories (
   scheduled_at TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','scheduled','ready','published')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  published_at TEXT
+  published_at TEXT,
+  notified_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_duit_social_stories_schedule
   ON duit_social_stories (status, scheduled_at);
+
+CREATE TABLE IF NOT EXISTS duit_social_push_subscriptions (
+  endpoint TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  subscription_json TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `);
+try {
+  const cols = db.prepare("PRAGMA table_info(duit_social_stories)").all();
+  if (!cols.some(c => c.name === 'notified_at')) db.exec("ALTER TABLE duit_social_stories ADD COLUMN notified_at TEXT");
+} catch (error) { console.error('[duit-social] migration:', error); }
 
 function filePath(id, name) {
   return path.join(mediaDir, String(id) + '-' + name);
@@ -52,6 +65,49 @@ function register(app) {
   const router = express.Router();
   router.use(requireAdmin);
   router.use(originOk);
+
+  router.get('/push/public-key', (req, res) => {
+    const config = vapidConfig();
+    res.json({ enabled: !!config, publicKey: config?.pub.toString('base64url') || null });
+  });
+
+  router.post('/push/subscribe', (req, res) => {
+    const sub = req.body?.subscription;
+    try {
+      const url = new URL(sub?.endpoint);
+      if (url.protocol !== 'https:' || !url.hostname || String(sub?.endpoint).length > 1500 ||
+          !sub?.keys?.p256dh || !sub?.keys?.auth ||
+          Buffer.from(sub.keys.p256dh,'base64url').length !== 65 ||
+          Buffer.from(sub.keys.auth,'base64url').length !== 16) {
+        return res.status(400).json({error:'Subscrição Push inválida'});
+      }
+      const minimal = {endpoint:url.href,keys:{p256dh:sub.keys.p256dh,auth:sub.keys.auth}};
+      db.prepare(`INSERT INTO duit_social_push_subscriptions(endpoint,user_id,subscription_json)
+        VALUES(?,?,?) ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id,subscription_json=excluded.subscription_json`)
+        .run(url.href, req.user.id, JSON.stringify(minimal));
+      res.json({ok:true});
+    } catch (_) {res.status(400).json({error:'Subscrição Push inválida'});}
+  });
+
+  router.post('/push/unsubscribe', (req, res) => {
+    const endpoint = String(req.body?.endpoint || '');
+    db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=? AND user_id=?')
+      .run(endpoint,req.user.id);
+    res.json({ok:true});
+  });
+
+  router.post('/push/test', async (req, res) => {
+    const subscriptions=db.prepare('SELECT endpoint, subscription_json FROM duit_social_push_subscriptions WHERE user_id=?').all(req.user.id);
+    if (!vapidConfig()) return res.status(503).json({error:'Chaves VAPID em falta'});
+    let delivered=0;
+    for(const row of subscriptions) {
+      try {await sendPush(JSON.parse(row.subscription_json),{title:'DUIT · Notificações ativas',body:'O Android já pode receber alertas de Stories.',url:'/social-stories.html'});delivered++;}
+      catch(err) {
+        if ([404,410].includes(err.status)) db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=?').run(row.endpoint);
+      }
+    }
+    res.json({delivered,total:subscriptions.length});
+  });
 
   router.get('/stories', (req, res) => {
     const rows = db.prepare(`SELECT s.*, u.name AS client_name, u.company AS client_company
@@ -135,5 +191,51 @@ function register(app) {
     res.json({ok:true});
   });
   app.use('/api/duit-social', router);
+
+  // Só uma instância do worker por base de dados. Configurar apenas um processo
+  // do Railway com DUIT_SOCIAL_REMINDERS_ENABLED=true.
+  if (process.env.DUIT_SOCIAL_REMINDERS_ENABLED === 'true') {
+    let busy=false;
+    const checkDue = async () => {
+      if(busy) return;
+      busy=true;
+      try {
+        const now = new Date().toISOString();
+        db.prepare(`UPDATE duit_social_stories SET status='ready'
+          WHERE status='scheduled' AND media_name IS NOT NULL AND scheduled_at<=?`).run(now);
+        const config=vapidConfig();
+        if(!config)return;
+        const due=db.prepare(`SELECT s.id,s.client_id,s.scheduled_at,u.name,u.company
+          FROM duit_social_stories s JOIN users u ON u.id=s.client_id
+          WHERE s.status='ready' AND s.notified_at IS NULL AND s.media_name IS NOT NULL
+          ORDER BY s.scheduled_at ASC LIMIT 30`).all();
+        const subscribers=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions').all();
+        if(!subscribers.length)return;
+        for(const story of due) {
+          let sent=0;
+          for(const row of subscribers) {
+            try{
+              await sendPush(JSON.parse(row.subscription_json),{
+                title:'DUIT · Story pronta',
+                body:(story.company||story.name)+' · Está na hora de publicar no Instagram.',
+                url:'/social-stories.html?story='+story.id
+              });
+              sent++;
+            }catch(e){
+              if([404,410].includes(e.status))
+                db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=?').run(row.endpoint);
+              else console.warn('[duit-social] push:',e.message);
+            }
+          }
+          // Retry quando nenhum dispositivo recebeu. Se houve entregas, não
+          // repetir em todos os dispositivos a cada minuto.
+          if(sent) db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
+        }
+      }catch(e){console.error('[duit-social] reminder job:',e);}
+      finally{busy=false;}
+    };
+    const timer=setInterval(checkDue,60*1000);timer.unref?.();
+    setTimeout(checkDue,2000).unref?.();
+  }
 }
 module.exports = { register };
