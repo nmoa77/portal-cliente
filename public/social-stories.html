@@ -145,12 +145,33 @@ async function refreshPublisher(accounts){
        await refreshPublisher();
      },'secondary'));
    }
-   div.append(title,actions);root.append(div);
+   const content=document.createElement('div');
+   if(job.caption){
+     const cap=document.createElement('p');cap.style.whiteSpace='pre-wrap';cap.style.fontSize='13px';
+     cap.textContent=job.caption;content.append(cap);
+   }
+   if(job.files?.length){
+     const details=document.createElement('details');
+     const summary=document.createElement('summary');summary.textContent='Ver imagens/vídeo ('+job.files.length+')';
+     details.append(summary);
+     const files=document.createElement('div');files.className='actions';files.style.marginTop='10px';
+     for(const media of job.files){
+       const url='/api/duit-social/publisher/jobs/'+job.id+'/files/'+media.id;
+       const preview=document.createElement(media.mime==='video/mp4'?'video':'img');
+       preview.src=url;preview.style.maxWidth='150px';preview.style.maxHeight='220px';
+       preview.style.borderRadius='9px';preview.style.objectFit='contain';
+       if(media.mime==='video/mp4')preview.controls=true;
+       files.append(preview);
+     }
+     details.append(files);content.append(details);
+   }
+   const combined=document.createElement('div');combined.append(title,content);
+   div.append(combined,actions);root.append(div);
  }
 }
 $('pub-kind').addEventListener('change',()=>{
  const reel=$('pub-kind').value==='reel';
- $('pub-fb').disabled=reel;if(reel)$('pub-fb').checked=false;
+ $('pub-fb').disabled=false;
  $('pub-files').accept=reel?'video/mp4':'image/jpeg';
  $('pub-files').multiple=$('pub-kind').value==='carousel';
 });
