@@ -32,6 +32,16 @@ CREATE TABLE IF NOT EXISTS duit_meta_accounts (
 );
 `);
 
+
+// Apenas os dois clientes comerciais acordados. Os nomes são validados
+// contra o registo de clientes do portal, sem depender de IDs inventados.
+function allowedClient(clientId) {
+  const row=db.prepare("SELECT id,name,company FROM users WHERE id=? AND role='client' AND parent_user_id IS NULL AND COALESCE(is_prospect,0)=0").get(Number(clientId));
+  if(!row)return false;
+  const normalized=(row.company||row.name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  return normalized==='duit' || normalized.startsWith('seven fitness') || normalized.startsWith('7even fitness');
+}
+
 const graphVersion = process.env.DUIT_META_GRAPH_VERSION || 'v25.0';
 function cfg() {
   const appId = process.env.DUIT_META_APP_ID;
@@ -94,6 +104,7 @@ function register(app) {
     catch(_){return res.status(500).json({error:'Autorização inválida'});}
     const page=pages.find(p=>p.id===String(req.body?.page_id));
     if(!page||!page.token)return res.status(400).json({error:'Página não autorizada'});
+    if(!allowedClient(row.client_id))return res.status(403).json({error:'Apenas DUIT e Seven Fitness estão autorizados neste módulo'});
     const distinct=db.prepare('SELECT DISTINCT client_id FROM duit_meta_accounts').all().map(x=>x.client_id);
     if(!distinct.includes(row.client_id)&&distinct.length>=2)
       return res.status(409).json({error:'Limite de 2 clientes Meta atingido. Desligue uma conta antes de adicionar outra.'});
@@ -117,7 +128,7 @@ function register(app) {
     const config=cfg();
     if(!config)return res.status(503).json({error:'A ligação Meta ainda não está configurada no Railway'});
     const clientId=Number(req.body?.client_id);
-    if(!Number.isSafeInteger(clientId)||clientId<=0||!db.prepare("SELECT id FROM users WHERE id=? AND role='client'").get(clientId))
+    if(!Number.isSafeInteger(clientId)||clientId<=0||!allowedClient(clientId))
       return res.status(400).json({error:'Cliente inválido'});
     const state=crypto.randomBytes(24).toString('base64url');
     db.prepare('DELETE FROM duit_meta_oauth_states WHERE expires_at<?').run(Date.now());
@@ -182,4 +193,4 @@ function register(app) {
     }
   });
 }
-module.exports={register,encrypt,decrypt,graph,cfg};
+module.exports={register,encrypt,decrypt,graph,cfg,allowedClient};
