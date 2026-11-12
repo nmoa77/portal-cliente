@@ -91,7 +91,7 @@ Começamos com **Seven Fitness Club** e **DUIT**, mas o portal permite ligar mai
 - Um único processo do Railway deve ter a publicação agendada ativa.
 - Posts simples: imagem JPEG Instagram/Facebook.
 - Carrosséis: 2–10 imagens JPEG, Instagram/Facebook.
-- Reels: MP4 Instagram; Facebook Reels ainda requer integração separada.
+- Reels: MP4 Instagram e Facebook, com publicadores independentes e confirmação da Meta por rede.
 - A API Meta deve confirmar cada canal antes da eliminação dos ficheiros.
 - Em timeout, o estado fica `review`, sem repetir automaticamente. Confirmar
   manualmente se a plataforma chegou a publicar para evitar duplicados.
@@ -116,3 +116,19 @@ não a integração completa Facebook Reels.
 ## Clientes atuais e futuros
 
 Na configuração inicial serão associados Seven Fitness Club e DUIT. Para um novo cliente, criar o respetivo registo principal no portal e escolher a Página Meta autorizada. Não existe um limite fixo de dois clientes; os limites efetivos de API e infraestrutura terão de ser respeitados.
+
+## Reels Facebook — suporte introduzido
+
+A API oficial Meta usa três fases para Reels de Páginas:
+`video_reels/start`, envio de vídeo para o URL devolvido por Meta,
+`video_reels/finish`. O publicador utiliza URLs temporários assinados e
+aceita como destino de upload apenas `https://rupload.facebook.com`.
+Depois do pedido de publicação, consulta o estado e **não elimina o vídeo**
+se a publicação ainda estiver em processamento ou com resultado ambíguo.
+Nessa situação o canal fica em revisão, sem nova publicação automática.
+A confirmar em testes reais: requisitos de proporção 9:16, duração,
+permissões e estados finais devolvidos pela versão Meta Graph aprovada.
+
+A configuração inicial DUIT/Seven não impede adicionar mais clientes no
+futuro. O administrador liga cada Página por autorização Meta e escolha
+explícita. O portal não cria contas novas na Meta.
