@@ -36,6 +36,24 @@ db.exec(`
   );
 `);
 
+try{
+  const seven=db.prepare(`SELECT id FROM users WHERE role='client' AND parent_user_id IS NULL
+    AND (lower(company) LIKE '%seven fitness%' OR lower(name) LIKE '%eunice costa%') ORDER BY id LIMIT 1`).get();
+  if(seven){
+    const exists=db.prepare('SELECT 1 FROM calendar_sheet_links WHERE user_id=?').get(seven.id);
+    if(!exists){
+      db.prepare(`INSERT INTO calendar_sheet_links(user_id,spreadsheet_id,spreadsheet_url,webhook_secret,enabled)
+        VALUES(?,?,?,?,1)`).run(
+          seven.id,
+          '1IYmcH2ZulW6z2EAgtHKmFj9KmdTDn0yYfvy4ajJVSZo',
+          'https://docs.google.com/spreadsheets/d/1IYmcH2ZulW6z2EAgtHKmFj9KmdTDn0yYfvy4ajJVSZo/edit',
+          newSecret()
+        );
+      console.log('[calendar-sheet] Google Sheet nativa associada ao Seven Fitness Club');
+    }
+  }
+}catch(e){console.warn('[calendar-sheet] seed Seven:',e.message)}
+
 function getLink(userId){
   return db.prepare(`SELECT l.*,u.name client_name,u.company client_company
     FROM calendar_sheet_links l JOIN users u ON u.id=l.user_id WHERE l.user_id=?`).get(Number(userId));
