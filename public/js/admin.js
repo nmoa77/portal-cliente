@@ -1134,6 +1134,17 @@ async function viewCalendar(main) {
   if (!state.calDay) state.calDay = todayISO();
   const mode = state.calMode;
   const filter = state.calClientFilter;
+  // Mostrar Stories juntamente com os posts, sem alterar os fluxos antigos.
+  const storyRows = await api('/api/duit-social/stories').catch(() => []);
+  const calendarStories = storyRows.filter(s => filter === 'all' || String(s.client_id) === String(filter))
+    .map(s => ({ ...s, calendarDay: new Date(s.scheduled_at)
+      .toLocaleDateString('sv-SE', { timeZone:'Europe/Lisbon' }) }));
+  const storyMini = s => `<a href="/social-stories.html?story=${s.id}" class="cal-post"
+    style="display:block;text-decoration:none;background:#fff3b5;color:#1b1b1b;border-radius:8px;padding:7px;margin-top:5px;"
+    onclick="event.stopPropagation()" title="Story ${escapeHtml(s.client_company||s.client_name)}">
+    ◉ Story · ${escapeHtml(s.client_company||s.client_name)} · ${escapeHtml(s.status)}
+  </a>`;
+
   const pageHead = `
     <div class="page-head">
       <div>
@@ -1216,6 +1227,7 @@ async function viewCalendar(main) {
               ${escapeHtml(p.text.slice(0, 18))}${p.text.length > 18 ? '…' : ''}
             </div>
           `;}).join('')}
+          ${calendarStories.filter(s => s.calendarDay === dateStr).map(storyMini).join('')}
         </div>
       `);
     }
@@ -1253,8 +1265,15 @@ async function viewCalendar(main) {
   const todayTotal    = all.filter(p => p.date === today).length;
   const tomorrowTotal = all.filter(p => p.date === tomorrow).length;
 
+  const storyDaily = [today, tomorrow].map(dateStr => {
+    const list=calendarStories.filter(s => s.calendarDay===dateStr);
+    if(!list.length)return '';
+    return `<div class="card" style="margin-bottom:12px;"><h3>Stories · ${fmtDate(dateStr,true)}</h3>
+      ${list.map(storyMini).join('')}</div>`;
+  }).join('');
   main.innerHTML = `
     ${pageHead}
+    ${storyDaily}
     <div class="grid" style="gap:18px">
       ${dayBlock('Hoje', today, todayPosts, todayTotal)}
       ${dayBlock('Amanhã', tomorrow, tomorrowPosts, tomorrowTotal)}
