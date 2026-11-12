@@ -113,87 +113,119 @@ const DUIT_SECRET = ${JSON.stringify(secret)};
 const DUIT_SPREADSHEET_ID = ${JSON.stringify(link.spreadsheet_id||'')};
 const SYNC_SHEET = '_DUIT_SYNC';
 
+function duitSpreadsheet_() {
+  return DUIT_SPREADSHEET_ID ? SpreadsheetApp.openById(DUIT_SPREADSHEET_ID) : SpreadsheetApp.getActive();
+}
+
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('DUIT')
-    .addItem('Ativar sincronização', 'duitInstallTriggers')
-    .addItem('Ligar célula selecionada a um post', 'duitMapSelectedCell')
-    .addItem('Ver ligações', 'duitOpenSyncSheet')
+    .addItem('Ativar sincronização automática', 'duitInstallTriggers')
     .addToUi();
 }
 
 function duitInstallTriggers() {
   const ss = duitSpreadsheet_();
-  const triggers = ScriptApp.getProjectTriggers();
-  triggers.forEach(t => {
-    if (t.getHandlerFunction() === 'duitHandleEdit') ScriptApp.deleteTrigger(t);
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (['duitHandleEdit','duitRefresh'].includes(t.getHandlerFunction())) ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('duitHandleEdit').forSpreadsheet(ss).onEdit().create();
-  SpreadsheetApp.getUi().alert('Sincronização DUIT ativada nesta folha.');
+  ScriptApp.newTrigger('duitRefresh').timeBased().everyHours(6).create();
+  duitRefresh();
+  SpreadsheetApp.getUi().alert('Sincronização automática DUIT ativada.');
 }
 
-function duitSpreadsheet_() {
-  return DUIT_SPREADSHEET_ID ? SpreadsheetApp.openById(DUIT_SPREADSHEET_ID) : SpreadsheetApp.getActive();
+function duitRefresh() {
+  // Mantém o trigger vivo e permite futuras rotinas de reconciliação.
+  return true;
 }
 
-function duitSyncSheet_() {
-  const ss = duitSpreadsheet_();
-  let sh = ss.getSheetByName(SYNC_SHEET);
-  if (!sh) {
-    sh = ss.insertSheet(SYNC_SHEET);
-    sh.getRange(1,1,1,4).setValues([['post_id','field','sheet_name','cell_a1']]);
-    sh.hideSheet();
+function duitMonthYear_(sheet) {
+  const title = sheet.getName();
+  let m = title.match(/(0?[1-9]|1[0-2])[-\s](20\d{2})/);
+  if (m) return {month:Number(m[1]),year:Number(m[2])};
+  const months={janeiro:1,fevereiro:2,março:3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12};
+  const low=title.toLowerCase();
+  for (const k in months) {
+    const y=(title.match(/20\d{2}/)||[])[0];
+    if (low.includes(k)&&y) return {month:months[k],year:Number(y)};
   }
-  return sh;
+  try {
+    const head=String(sheet.getRange('B1').getDisplayValue()||'').toLowerCase();
+    for (const k in months) {
+      const y=(head.match(/20\d{2}/)||[])[0];
+      if (head.includes(k)&&y) return {month:months[k],year:Number(y)};
+    }
+  } catch(_){}
+  return null;
 }
 
-function duitOpenSyncSheet() {
-  const sh = duitSyncSheet_();
-  sh.showSheet();
-  duitSpreadsheet_().setActiveSheet(sh);
+function duitPortalField_(label) {
+  const s=String(label||'').trim().toLowerCase();
+  if (s==='inspiração'||s==='inspiracao') return 'inspiration';
+  if (s==='post') return 'text';
+  if (s==='stories'||s==='story') return 'story';
+  return null;
 }
 
-function duitMapSelectedCell() {
-  const ss = duitSpreadsheet_();
-  const range = ss.getActiveRange();
-  if (!range) return;
-  const ui = SpreadsheetApp.getUi();
-  const p = ui.prompt('DUIT · ID do post', 'Indique o ID do post no portal.', ui.ButtonSet.OK_CANCEL);
-  if (p.getSelectedButton() !== ui.Button.OK) return;
-  const postId = Number(p.getResponseText());
-  if (!postId) return ui.alert('ID inválido.');
-  const f = ui.prompt('DUIT · Campo', 'Use: text, inspiration, story, date ou status', ui.ButtonSet.OK_CANCEL);
-  if (f.getSelectedButton() !== ui.Button.OK) return;
-  const field = String(f.getResponseText()||'').trim();
-  if (!['text','inspiration','story','date','status'].includes(field)) return ui.alert('Campo inválido.');
-  const sh = duitSyncSheet_();
-  const values = sh.getDataRange().getValues();
-  for (let i=1;i<values.length;i++) {
-    if (Number(values[i][0])===postId && String(values[i][1])===field) {
-      sh.getRange(i+1,1,1,4).setValues([[postId,field,range.getSheet().getName(),range.getA1Notation()]]);
-      sh.hideSheet();
-      return ui.alert('Ligação atualizada.');
+function duitSheetLabel_(field) {
+  if (field==='inspiration') return ['inspiração','inspiracao'];
+  if (field==='text') return ['post'];
+  if (field==='story') return ['stories','story'];
+  return [];
+}
+
+function duitDateForRange_(range) {
+  const sheet=range.getSheet();
+  const my=duitMonthYear_(sheet); if(!my) return null;
+  const row=range.getRow(), col=range.getColumn();
+  const field=duitPortalField_(sheet.getRange(row,1).getDisplayValue());
+  if(!field) return null;
+  let day=null;
+  for(let r=row-1;r>=Math.max(1,row-7);r--){
+    const v=Number(sheet.getRange(r,col).getDisplayValue());
+    if(v>=1&&v<=31){day=v;break;}
+  }
+  if(!day) return null;
+  const mm=String(my.month).padStart(2,'0'), dd=String(day).padStart(2,'0');
+  return {date:my.year+'-'+mm+'-'+dd,field};
+}
+
+function duitFindCell_(date,field) {
+  const ss=duitSpreadsheet_();
+  const d=String(date||'').match(/^(20\d{2})-(\d{2})-(\d{2})$/); if(!d)return null;
+  const year=Number(d[1]),month=Number(d[2]),day=Number(d[3]);
+  const labels=duitSheetLabel_(field);
+  for(const sheet of ss.getSheets()){
+    if(sheet.getName()===SYNC_SHEET)continue;
+    const my=duitMonthYear_(sheet);
+    if(!my||my.year!==year||my.month!==month)continue;
+    const lastRow=Math.min(sheet.getLastRow(),250), lastCol=Math.min(sheet.getLastColumn(),26);
+    const vals=sheet.getRange(1,1,lastRow,lastCol).getDisplayValues();
+    for(let r=0;r<vals.length;r++){
+      const label=String(vals[r][0]||'').trim().toLowerCase();
+      if(!labels.includes(label))continue;
+      for(let col=1;col<lastCol;col++){
+        for(let up=1;up<=7&&r-up>=0;up++){
+          if(Number(vals[r-up][col])===day) return sheet.getRange(r+1,col+1);
+        }
+      }
     }
   }
-  sh.appendRow([postId,field,range.getSheet().getName(),range.getA1Notation()]);
-  sh.hideSheet();
-  ui.alert('Célula ligada ao portal.');
+  return null;
 }
 
 function duitHandleEdit(e) {
   try {
-    if (!e || !e.range || e.range.getSheet().getName()===SYNC_SHEET) return;
-    const ss=e.source, sh=ss.getSheetByName(SYNC_SHEET); if(!sh)return;
-    const rows=sh.getDataRange().getValues();
-    const sheetName=e.range.getSheet().getName(), a1=e.range.getA1Notation();
-    for(let i=1;i<rows.length;i++){
-      if(String(rows[i][2])===sheetName && String(rows[i][3])===a1){
-        UrlFetchApp.fetch(DUIT_WEBHOOK,{
-          method:'post',contentType:'application/json',muteHttpExceptions:true,
-          payload:JSON.stringify({secret:DUIT_SECRET,source:'sheet',post_id:Number(rows[i][0]),field:String(rows[i][1]),value:e.value==null?'':e.value,sheet_name:sheetName,cell_a1:a1})
-        });
-        break;
-      }
-    }
+    if(!e||!e.range||e.range.getSheet().getName()===SYNC_SHEET)return;
+    const ctx=duitDateForRange_(e.range); if(!ctx)return;
+    const value=e.range.getDisplayValue();
+    UrlFetchApp.fetch(DUIT_WEBHOOK,{
+      method:'post',contentType:'application/json',muteHttpExceptions:true,
+      payload:JSON.stringify({
+        secret:DUIT_SECRET,source:'sheet',date:ctx.date,field:ctx.field,value:value,
+        sheet_name:e.range.getSheet().getName(),cell_a1:e.range.getA1Notation()
+      })
+    });
   } catch(err) { console.log(err); }
 }
 
@@ -202,16 +234,17 @@ function doPost(e) {
     const x=JSON.parse(e.postData.contents||'{}');
     if(x.secret!==DUIT_SECRET) return ContentService.createTextOutput('forbidden');
     if(x.source!=='portal') return ContentService.createTextOutput('ignored');
-    const ss=duitSpreadsheet_(), sh=duitSyncSheet_();
-    const rows=sh.getDataRange().getValues();
+    if(x.action==='ping') return ContentService.createTextOutput('ok');
     const post=x.post||{};
-    for(let i=1;i<rows.length;i++){
-      if(Number(rows[i][0])!==Number(post.id)) continue;
-      const field=String(rows[i][1]), tab=ss.getSheetByName(String(rows[i][2])); if(!tab)continue;
-      const range=tab.getRange(String(rows[i][3]));
-      if(x.action==='delete') range.clearContent();
-      else if(Object.prototype.hasOwnProperty.call(post,field)) range.setValue(post[field]??'');
+    if(x.action==='delete'){
+      ['text','inspiration','story'].forEach(f=>{const cell=duitFindCell_(post.date,f);if(cell)cell.clearContent();});
+      return ContentService.createTextOutput('ok');
     }
+    ['text','inspiration','story'].forEach(f=>{
+      if(!Object.prototype.hasOwnProperty.call(post,f))return;
+      const cell=duitFindCell_(post.date,f);
+      if(cell)cell.setValue(post[f]??'');
+    });
     return ContentService.createTextOutput('ok');
   } catch(err) {
     return ContentService.createTextOutput('error: '+err.message);
@@ -276,20 +309,36 @@ function register(app){
   });
 
   app.post('/api/google-sheets/calendar/webhook',(req,res)=>{
-    const b=req.body||{},postId=Number(b.post_id||0),field=String(b.field||''),value=b.value==null?'':String(b.value);
-    if(!postId||!['text','inspiration','story','date','status'].includes(field))return res.status(400).json({error:'Payload inválido.'});
-    const post=db.prepare('SELECT * FROM social_posts WHERE id=?').get(postId);if(!post)return res.status(404).json({error:'Post não encontrado.'});
-    const link=getLink(post.user_id);if(!link||!Number(link.enabled)||String(b.secret||'')!==String(link.webhook_secret))return res.status(403).json({error:'Ligação inválida.'});
+    const b=req.body||{},field=String(b.field||''),value=b.value==null?'':String(b.value);
+    if(!['text','inspiration','story','date','status'].includes(field))return res.status(400).json({error:'Campo inválido.'});
+
+    let post=null;
+    if(Number(b.post_id||0)){
+      post=db.prepare('SELECT * FROM social_posts WHERE id=?').get(Number(b.post_id));
+    } else if(/^\d{4}-\d{2}-\d{2}$/.test(String(b.date||''))){
+      const links=db.prepare(`SELECT user_id,webhook_secret FROM calendar_sheet_links WHERE enabled=1`).all();
+      const link=links.find(x=>String(x.webhook_secret)===String(b.secret||''));
+      if(!link)return res.status(403).json({error:'Ligação inválida.'});
+      const rows=db.prepare(`SELECT * FROM social_posts WHERE user_id=? AND date=? ORDER BY id`).all(link.user_id,String(b.date));
+      if(rows.length===0)return res.status(404).json({error:'Não existe post para essa data.'});
+      if(rows.length>1)return res.status(409).json({error:'Existe mais do que um post nessa data.'});
+      post=rows[0];
+    }
+    if(!post)return res.status(404).json({error:'Post não encontrado.'});
+
+    const link=getLink(post.user_id);
+    if(!link||!Number(link.enabled)||String(b.secret||'')!==String(link.webhook_secret))return res.status(403).json({error:'Ligação inválida.'});
     if(field==='date'&&!/^\d{4}-\d{2}-\d{2}$/.test(value))return res.status(400).json({error:'Data deve estar em YYYY-MM-DD.'});
     if(field==='status'&&!['draft','scheduled','published','cancelled'].includes(value))return res.status(400).json({error:'Estado inválido.'});
-    db.prepare(`UPDATE social_posts SET ${field}=? WHERE id=?`).run(value||((field==='inspiration'||field==='story')?null:''),postId);
+
+    db.prepare(`UPDATE social_posts SET ${field}=? WHERE id=?`).run(value||((field==='inspiration'||field==='story')?null:''),post.id);
     if(b.sheet_name&&b.cell_a1){
       db.prepare(`INSERT INTO calendar_sheet_mappings(post_id,field,sheet_name,cell_a1) VALUES(?,?,?,?)
         ON CONFLICT(post_id,field) DO UPDATE SET sheet_name=excluded.sheet_name,cell_a1=excluded.cell_a1,updated_at=datetime('now')`)
-        .run(postId,field,clean(b.sheet_name,200),clean(b.cell_a1,50));
+        .run(post.id,field,clean(b.sheet_name,200),clean(b.cell_a1,50));
     }
     db.prepare(`UPDATE calendar_sheet_links SET last_sheet_event_at=datetime('now'),last_error=NULL,updated_at=datetime('now') WHERE user_id=?`).run(post.user_id);
-    res.json({ok:true,post_id:postId,field});
+    res.json({ok:true,post_id:post.id,date:post.date,field});
   });
 
   app.post('/api/calendar-sheet-links/:userId/test',requireAdmin,async(req,res)=>{
