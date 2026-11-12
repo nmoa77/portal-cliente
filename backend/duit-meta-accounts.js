@@ -83,6 +83,11 @@ function register(app) {
     }
     next();
   });
+  router.get('/eligible-clients',(_req,res)=>{
+    const ids=db.prepare("SELECT id FROM users WHERE role='client' AND parent_user_id IS NULL AND COALESCE(is_prospect,0)=0").all()
+      .filter(row=>allowedClient(row.id)).map(row=>row.id);
+    res.json({ids,expected:['Seven Fitness Club','DUIT']});
+  });
   router.get('/config',(_req,res)=>{
     const config=cfg();
     res.json({enabled:!!config,version:graphVersion});
