@@ -296,9 +296,9 @@ $('feedback').textContent='Story guardada no portal.';e.target.reset();await ref
 }catch(e){$('feedback').textContent=e.message;$('feedback').className='error';}finally{button.disabled=false;}
 });
 (async()=>{try{const me=await request('/api/auth/me');if(me.role!=='admin')throw Error('Acesso reservado à DUIT');
-const clients=await request('/api/clients');const eligible=await request('/api/duit-social/meta/eligible-clients');const socialClients=clients.filter(c=>eligible.ids.includes(c.id));$('client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
+const clients=await request('/api/clients');const socialClients=clients.filter(c=>!c.is_prospect && !c.parent_user_id);$('client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
 $('meta-client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));await refreshMeta();
-if(socialClients.length<2)$('meta-status').textContent+=' DUIT e Seven Fitness precisam de existir como clientes no portal.';
+
 const tomorrow=new Date(Date.now()+86400000);const pad=n=>String(n).padStart(2,'0');$('scheduled').value=tomorrow.getFullYear()+'-'+pad(tomorrow.getMonth()+1)+'-'+pad(tomorrow.getDate())+'T'+pad(tomorrow.getHours())+':'+pad(tomorrow.getMinutes());
 await refresh();}catch(e){$('stories').textContent=e.message;}})();
 </script></body></html>
