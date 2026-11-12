@@ -115,9 +115,17 @@ function dateForInput(offset=0){
 }
 async function refreshPublisher(accounts){
  const config=await request('/api/duit-social/publisher/config');
+ const checks=[
+   ['Credenciais da Meta',config.hasMetaCredentials],
+   ['Ficheiros acessíveis por HTTPS',config.hasPublicMediaUrl],
+   ['Assinatura de ficheiros',config.hasSigningKey],
+   ['Armazenamento persistente',config.hasPersistentStorage],
+   ['Contas ligadas ('+config.connectedAccounts+')',config.connectedAccounts>0],
+   ['Motor de publicação ativado',config.workerEnabled]
+ ];
  $('pub-status').textContent=config.enabled
-  ? 'Publicação Meta configurada. Pode guardar e agendar conteúdos.'
-  : 'Publicação automática em preparação. Pode criar rascunhos, mas não agendar na Meta.';
+  ? 'Pronto para agendar. Confirme primeiro os testes com a Meta.'
+  : 'Configuração necessária: '+checks.filter(x=>!x[1]).map(x=>x[0]).join(' · ')+'.';
  const list=accounts||await request('/api/duit-social/meta/accounts');
  $('pub-account').replaceChildren(...list.map(c=>{
    const option=document.createElement('option');option.value=c.id;
@@ -139,6 +147,13 @@ async function refreshPublisher(accounts){
        try{await request('/api/duit-social/publisher/jobs/'+job.id+'/schedule',{method:'POST'});await refreshPublisher();}
        catch(e){$('pub-status').textContent=e.message;}
      }));
+     actions.append(makeButton('Publicar agora',async()=>{
+       if(!confirm('Publicar este conteúdo agora nas redes selecionadas?'))return;
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id+'/publish-now',{method:'POST'});
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
      actions.append(makeButton('Apagar',async()=>{
        if(!confirm('Eliminar este rascunho e ficheiros?'))return;
        await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
