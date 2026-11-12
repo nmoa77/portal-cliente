@@ -22,6 +22,11 @@ button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#eee}.danger
 </style>
 </head><body>
 <main><header><div><span class="eyebrow">DUIT · REDES SOCIAIS</span><h1>Stories para publicar</h1><p class="muted">Prepare no computador. Termine no Android com a música do Instagram.</p></div><a href="/admin.html?view=calendar">Voltar ao calendário</a></header>
+<section class="panel"><h2>Notificações no Android</h2>
+<p class="muted">Instale o portal no ecrã inicial e permita notificações. Receberá um aviso quando chegar a hora das Stories agendadas.</p>
+<div class="actions"><button id="enable-push" type="button">Ativar notificações</button><button id="test-push" type="button" class="secondary">Enviar teste</button></div>
+<p class="muted" id="push-status" aria-live="polite">A verificar compatibilidade…</p>
+</section>
 <section class="panel"><h2>Nova Story</h2><form id="new-story">
 <div class="grid"><label>Cliente<select id="client" required></select></label>
 <label>Data e hora em Portugal<input id="scheduled" type="datetime-local" required></label></div>
@@ -40,7 +45,7 @@ function makeButton(label,action,cls=''){const b=document.createElement('button'
 async function refresh(){
 const rows=await request('/api/duit-social/stories');const root=$('stories');root.replaceChildren();
 if(!rows.length){root.textContent='Ainda não existem Stories.';return;}
-for(const s of rows){const item=document.createElement('article');item.className='story';const info=document.createElement('div');info.innerHTML='<strong>'+escapeHtml(s.client_company||s.client_name)+'</strong><div class="muted">'+dateLabel(s.scheduled_at)+' · '+escapeHtml(s.status)+'</div>';
+for(const s of rows){const item=document.createElement('article');item.className='story';if(s.id===Number(new URLSearchParams(location.search).get('story')))item.style.outline='2px solid #ffd200';const info=document.createElement('div');info.innerHTML='<strong>'+escapeHtml(s.client_company||s.client_name)+'</strong><div class="muted">'+dateLabel(s.scheduled_at)+' · '+escapeHtml(s.status)+'</div>';
 const actions=document.createElement('div');actions.className='actions';
 if(s.has_media){
  actions.append(makeButton('Partilhar Story',()=>shareStory(s),''));
@@ -63,9 +68,45 @@ alert('Este navegador não permite partilhar ficheiros. Use «Descarregar».');
 }catch(e){if(e.name!=='AbortError')alert(e.message);}
 }
 async function downloadStory(s){try{const file=await getStoryFile(s);const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){alert(e.message);}}
+
+function toUint8Array(base64url){
+const base64=base64url.replace(/-/g,'+').replace(/_/g,'/');
+const binary=atob(base64+'='.repeat((4-base64.length%4)%4));
+return Uint8Array.from(binary,c=>c.charCodeAt(0));
+}
+async function setupPush(){
+const indicator=$('push-status');
+if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
+indicator.textContent='Este navegador não suporta notificações Web Push. Pode continuar a partilhar Stories manualmente.';return;
+}
+const settings=await request('/api/duit-social/push/public-key');
+if(!settings.enabled){indicator.textContent='Notificações por configurar no servidor (chaves VAPID em falta).';return;}
+const registration=await navigator.serviceWorker.register('/sw.js');
+const permission=await Notification.requestPermission();
+if(permission!=='granted'){indicator.textContent='Notificações não autorizadas no Android.';return;}
+const subscription=await registration.pushManager.subscribe({
+userVisibleOnly:true,applicationServerKey:toUint8Array(settings.publicKey)
+});
+await request('/api/duit-social/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subscription.toJSON()})});
+indicator.textContent='Notificações ativas neste dispositivo. Faça um teste para confirmar.';
+}
+$('enable-push').addEventListener('click',async()=>{
+$('enable-push').disabled=true;
+try{await setupPush();}catch(error){$('push-status').textContent='Erro: '+error.message;}
+finally{$('enable-push').disabled=false;}
+});
+$('test-push').addEventListener('click',async()=>{
+try{const result=await request('/api/duit-social/push/test',{method:'POST'});
+$('push-status').textContent=result.delivered+' de '+result.total+' notificações aceites pelo serviço Push (a entrega no Android depende do sistema).';
+}catch(error){$('push-status').textContent=error.message;}
+});
+
 $('new-story').addEventListener('submit',async e=>{
 e.preventDefault();const button=e.target.querySelector('button[type=submit]');button.disabled=true;$('feedback').textContent='A guardar…';
 try{const file=$('media').files[0];if(!file||file.size>80*1024*1024)throw Error('Máximo 80 MB por Story');
+const parts=$('scheduled').value.match(/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})$/);if(!parts)throw Error('Data inválida');
+// datetime-local corresponde à hora do dispositivo. Avisar se não está em Portugal.
+if(Intl.DateTimeFormat().resolvedOptions().timeZone!=='Europe/Lisbon'&&!confirm('O telemóvel não está definido para a hora de Portugal. Continuar com o horário local do dispositivo?'))return;
 const date=new Date($('scheduled').value);if(!Number.isFinite(date.getTime()))throw Error('Data inválida');
 const story=await request('/api/duit-social/stories',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:Number($('client').value),scheduled_at:date.toISOString(),status:'scheduled'})});
 try{const r=await fetch('/api/duit-social/stories/'+story.id+'/media',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file});const data=await r.json();if(!r.ok)throw Error(data?.error||'Falha no upload');}
