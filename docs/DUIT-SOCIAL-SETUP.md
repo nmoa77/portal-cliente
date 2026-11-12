@@ -75,3 +75,46 @@ token local, não revoga todas as autorizações na Meta.
 
 A CI da pull request executa os testes de criptografia Push e verificação
 de sintaxe; **não substitui testes end-to-end com o Android, Meta e Railway**.
+
+## Apenas dois clientes Meta
+
+Mesmo que a conta Meta Business tenha dezenas de Páginas, o OAuth **não as
+importa automaticamente**. Após a autorização, aparece uma lista de Páginas
+disponíveis e o administrador escolhe uma para o cliente selecionado.
+O sistema permite no máximo **dois clientes distintos** com contas Meta
+ligadas. Não é necessário desligar nem remover os restantes clientes da
+Meta Business Suite. As credenciais das Páginas não escolhidas são conservadas
+apenas numa sessão de autorização cifrada, com expiração de 15 minutos.
+
+## Motor de publicações (fase inicial)
+
+- `DUIT_SOCIAL_PUBLISH_ENABLED=false` por defeito. Nunca ativar antes de validar
+  os testes e os dois clientes escolhidos.
+- `DUIT_SOCIAL_PUBLIC_URL=https://DOMINIO-PORTAL` define a origem pública HTTPS
+  pela qual a API Meta obtém as imagens e vídeos, usando links assinados
+  temporários.
+- `DUIT_SOCIAL_MEDIA_SIGNING_KEY`: segredo de 32+ caracteres aleatórios.
+- Um único processo do Railway deve ter a publicação agendada ativa.
+- Posts simples: imagem JPEG Instagram/Facebook.
+- Carrosséis: 2–10 imagens JPEG, Instagram/Facebook.
+- Reels: MP4 Instagram; Facebook Reels ainda requer integração separada.
+- A API Meta deve confirmar cada canal antes da eliminação dos ficheiros.
+- Em timeout, o estado fica `review`, sem repetir automaticamente. Confirmar
+  manualmente se a plataforma chegou a publicar para evitar duplicados.
+- As publicações reais exigem a autorização de cada Página e conta profissional
+  Instagram, bem como permissões Meta aplicáveis.
+- Limites de formatos/duração do vídeo exigem validação de media antes de
+  produção.
+
+### Segurança
+
+As rotas de administração exigem o utilizador admin e validam Origin.
+Os ficheiros da publicação só são expostos temporariamente à Meta por URLs
+assinadas quando o motor de publicação está ativado. Não são servidos como
+ficheiros estáticos públicos.
+
+### Aviso
+
+Não se deve marcar a PR como concluída sem testar publicação e confirmação
+reais no ambiente autorizado. Esta versão inclui a estrutura do publicador,
+não a integração completa Facebook Reels.
