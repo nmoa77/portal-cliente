@@ -200,7 +200,20 @@ function register(app){
    res.type(media.mime);
    res.sendFile(mediaPath(media.job_id,media.name));
  });
- router.get('/config',(_req,res)=>res.json({enabled:enabled(),clientLimit:null}));
+ router.get('/config',(_req,res)=>{
+  const connected=db.prepare('SELECT COUNT(*) AS c FROM duit_meta_accounts').get().c;
+  const config={
+   enabled:enabled(),
+   clientLimit:null,
+   hasMetaCredentials:!!cfg(),
+   hasPublicMediaUrl:/^https:\/\//.test(publicRoot()),
+   hasSigningKey:signingKey().length>=32,
+   hasPersistentStorage:!!process.env.DATABASE_PATH,
+   connectedAccounts:connected,
+   workerEnabled:process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'
+  };
+  res.json(config);
+ });
  router.get('/jobs',(_req,res)=>{
   const jobs=db.prepare('SELECT * FROM duit_publish_jobs ORDER BY scheduled_at DESC LIMIT 200').all();
   res.json(jobs.map(job=>({...job,networks:JSON.parse(job.networks),
@@ -241,6 +254,17 @@ function register(app){
     ON CONFLICT(job_id,position) DO UPDATE SET name=excluded.name,mime=excluded.mime`).run(job.id,name,mime,position);
   if(before)try{fs.unlinkSync(mediaPath(job.id,before.name));}catch(_){}
   res.json({ok:true});
+ });
+ router.post('/jobs/:id/publish-now',(req,res)=>{
+  const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
+  if(!job||job.status!=='draft')return res.status(409).json({error:'A publicação já não é um rascunho'});
+  const count=db.prepare('SELECT COUNT(*) AS c FROM duit_publish_media WHERE job_id=?').get(job.id).c;
+  if(count<(job.kind==='carousel'?2:1))return res.status(400).json({error:'Ficheiros insuficientes'});
+  if(!enabled())return res.status(503).json({error:'O motor Meta ainda não está configurado nem ativado'});
+  // O worker recolhe o conteúdo imediatamente, sem bloquear o pedido HTTP.
+  db.prepare("UPDATE duit_publish_jobs SET scheduled_at=?,status='scheduled' WHERE id=?")
+    .run(new Date().toISOString(),job.id);
+  res.json({ok:true,status:'scheduled'});
  });
  router.post('/jobs/:id/schedule',(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
