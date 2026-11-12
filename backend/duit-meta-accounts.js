@@ -95,6 +95,14 @@ function register(app) {
     catch(_){return res.status(500).json({error:'Autorização inválida'});}
     const page=pages.find(p=>p.id===String(req.body?.page_id));
     if(!page||!page.token)return res.status(400).json({error:'Página não autorizada'});
+    // Impedir associar a mesma Página Facebook a clientes diferentes.
+    const owner=db.prepare('SELECT client_id FROM duit_meta_accounts WHERE facebook_page_id=? AND client_id!=?')
+      .get(page.id,row.client_id);
+    if(owner)return res.status(409).json({error:'Esta Página já está associada a outro cliente no portal.'});
+    // Não substituir uma conta utilizada por publicações agendadas ou em revisão.
+    const active=db.prepare(`SELECT COUNT(*) AS total FROM duit_publish_jobs
+      WHERE client_id=? AND status IN ('scheduled','processing','review')`).get(row.client_id);
+    if(active?.total)return res.status(409).json({error:'Existem publicações pendentes. Conclua ou reveja os agendamentos antes de trocar a Página.'});
     // Um cliente, uma Página selecionada. Não importar restantes Páginas nem outros clientes.
     db.transaction(()=>{
       db.prepare('DELETE FROM duit_meta_accounts WHERE client_id=?').run(row.client_id);
@@ -130,6 +138,11 @@ function register(app) {
     res.json({url:auth.href});
   });
   router.delete('/accounts/:id',(req,res)=>{
+    const account=db.prepare('SELECT id FROM duit_meta_accounts WHERE id=?').get(Number(req.params.id));
+    if(!account)return res.status(404).json({error:'Conta Meta não encontrada'});
+    const pending=db.prepare(`SELECT COUNT(*) AS total FROM duit_publish_jobs
+      WHERE account_id=? AND status IN ('scheduled','processing','review')`).get(account.id);
+    if(pending?.total)return res.status(409).json({error:'Há publicações agendadas ou pendentes nesta conta. Resolva-as antes de desligar.'});
     const result=db.prepare('DELETE FROM duit_meta_accounts WHERE id=?').run(Number(req.params.id));
     res.json({deleted:result.changes});
   });
