@@ -132,7 +132,7 @@ function duitInstallTriggers() {
   ScriptApp.newTrigger('duitHandleEdit').forSpreadsheet(ss).onEdit().create();
   ScriptApp.newTrigger('duitRefresh').timeBased().everyHours(6).create();
   const result=duitSyncAll_(false);
-  SpreadsheetApp.getUi().alert('Sincronização automática DUIT ativada.\n\n'+result);
+  SpreadsheetApp.getUi().alert('Sincronização automática DUIT ativada.\\n\\n'+result);
 }
 
 function duitRefresh() {
@@ -188,18 +188,18 @@ function duitSyncAll_(showDetails) {
 
 function duitMonthYear_(sheet) {
   const title = sheet.getName();
-  let m = title.match(/(0?[1-9]|1[0-2])[-\s](20\d{2})/);
+  let m = title.match(/(0?[1-9]|1[0-2])[-\\s](20\\d{2})/);
   if (m) return {month:Number(m[1]),year:Number(m[2])};
   const months={janeiro:1,fevereiro:2,março:3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12};
   const low=title.toLowerCase();
   for (const k in months) {
-    const y=(title.match(/20\d{2}/)||[])[0];
+    const y=(title.match(/20\\d{2}/)||[])[0];
     if (low.includes(k)&&y) return {month:months[k],year:Number(y)};
   }
   try {
     const head=String(sheet.getRange('B1').getDisplayValue()||'').toLowerCase();
     for (const k in months) {
-      const y=(head.match(/20\d{2}/)||[])[0];
+      const y=(head.match(/20\\d{2}/)||[])[0];
       if (head.includes(k)&&y) return {month:months[k],year:Number(y)};
     }
   } catch(_){}
@@ -239,7 +239,7 @@ function duitDateForRange_(range) {
 
 function duitFindCell_(date,field) {
   const ss=duitSpreadsheet_();
-  const d=String(date||'').match(/^(20\d{2})-(\d{2})-(\d{2})$/); if(!d)return null;
+  const d=String(date||'').match(/^(20\\d{2})-(\\d{2})-(\\d{2})$/); if(!d)return null;
   const year=Number(d[1]),month=Number(d[2]),day=Number(d[3]);
   const labels=duitSheetLabel_(field);
   for(const sheet of ss.getSheets()){
