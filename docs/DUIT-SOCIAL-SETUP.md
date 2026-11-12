@@ -132,3 +132,16 @@ permissões e estados finais devolvidos pela versão Meta Graph aprovada.
 A configuração inicial DUIT/Seven não impede adicionar mais clientes no
 futuro. O administrador liga cada Página por autorização Meta e escolha
 explícita. O portal não cria contas novas na Meta.
+
+## Verificação de infraestrutura — 12/11/2026
+
+Inspeção **apenas de leitura** do projeto Railway `Portal cliente`:
+- Serviço `portal-cliente` ligado à branch `main`.
+- Uma réplica em produção; volume `portal-cliente-volume` montado em `/data`.
+- `DATABASE_PATH` já existe nas variáveis.
+- Ainda sem variáveis `DUIT_META_*`, `DUIT_VAPID_*`,
+  `DUIT_SOCIAL_PUBLISH_ENABLED` ou `DUIT_SOCIAL_MEDIA_SIGNING_KEY`.
+
+Não criar automaticamente credenciais Meta: têm de ser obtidas na app
+Meta Developers, com URI OAuth e permissões apropriadas. Não ativar o motor
+nem fazer deploy enquanto faltarem esses pré-requisitos e testes reais.
