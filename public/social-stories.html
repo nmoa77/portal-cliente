@@ -28,7 +28,7 @@ button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#eee}.danger
 <select id="meta-client" aria-label="Cliente para ligar à Meta" style="max-width:280px"></select>
 <button id="meta-connect" type="button">Ligar conta Meta</button>
 </div><p class="muted" id="meta-status" aria-live="polite">A verificar configuração…</p>
-<div id="meta-accounts"></div>
+<div id="meta-pending" style="margin:12px 0"></div><div id="meta-accounts"></div>
 </section>
 <section class="panel"><h2>Notificações no Android</h2>
 <p class="muted">Instale o portal no ecrã inicial e permita notificações. Receberá um aviso quando chegar a hora das Stories agendadas.</p>
@@ -103,6 +103,28 @@ async function refreshMeta(){
   status.textContent=config.enabled
     ? 'Ligação disponível. Selecione o cliente e autorize a Página Facebook na Meta.'
     : 'Falta configurar a aplicação Meta no Railway.';
+  const pending=await request('/api/duit-social/meta/pending');
+  const chooser=$('meta-pending');chooser.replaceChildren();
+  if(pending.pages?.length){
+    const help=document.createElement('p');help.className='muted';
+    help.textContent='A Meta apresentou várias Páginas. Selecione apenas a Página deste cliente. As restantes não serão ligadas.';
+    const select=document.createElement('select');
+    for(const page of pending.pages){
+      const option=document.createElement('option');option.value=page.id;
+      option.textContent=page.name+(page.instagram_business_id?' · Instagram ligado':' · Só Facebook');
+      select.append(option);
+    }
+    const confirmButton=makeButton('Confirmar esta Página',async()=>{
+      try{
+        await request('/api/duit-social/meta/select-page',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({page_id:select.value})
+        });
+        await refreshMeta();
+      }catch(e){$('meta-status').textContent=e.message;}
+    });
+    chooser.append(help,select,confirmButton);
+  }
   const accounts=await request('/api/duit-social/meta/accounts');
   const root=$('meta-accounts');root.replaceChildren();
   if(!accounts.length){root.textContent='Ainda não existem contas ligadas.';return;}
