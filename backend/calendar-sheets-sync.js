@@ -120,6 +120,7 @@ function duitSpreadsheet_() {
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('DUIT')
     .addItem('Ativar sincronização automática', 'duitInstallTriggers')
+    .addItem('Sincronizar plano completo agora', 'duitSyncAll')
     .addToUi();
 }
 
@@ -130,13 +131,59 @@ function duitInstallTriggers() {
   });
   ScriptApp.newTrigger('duitHandleEdit').forSpreadsheet(ss).onEdit().create();
   ScriptApp.newTrigger('duitRefresh').timeBased().everyHours(6).create();
-  duitRefresh();
-  SpreadsheetApp.getUi().alert('Sincronização automática DUIT ativada.');
+  const result=duitSyncAll_(false);
+  SpreadsheetApp.getUi().alert('Sincronização automática DUIT ativada.\n\n'+result);
 }
 
 function duitRefresh() {
-  // Mantém o trigger vivo e permite futuras rotinas de reconciliação.
-  return true;
+  return duitSyncAll_(false);
+}
+
+function duitSyncAll() {
+  const result=duitSyncAll_(true);
+  SpreadsheetApp.getUi().alert(result);
+}
+
+function duitSyncAll_(showDetails) {
+  const ss=duitSpreadsheet_();
+  const byDate={};
+  for(const sheet of ss.getSheets()){
+    if(sheet.getName()===SYNC_SHEET)continue;
+    const my=duitMonthYear_(sheet); if(!my)continue;
+    const lastRow=Math.min(sheet.getLastRow(),250), lastCol=Math.min(sheet.getLastColumn(),26);
+    if(lastRow<1||lastCol<2)continue;
+    const vals=sheet.getRange(1,1,lastRow,lastCol).getDisplayValues();
+    for(let r=0;r<vals.length;r++){
+      const field=duitPortalField_(vals[r][0]); if(!field)continue;
+      for(let col=1;col<lastCol;col++){
+        const value=String(vals[r][col]||'');
+        if(!value.trim())continue;
+        let day=null;
+        for(let up=1;up<=7&&r-up>=0;up++){
+          const n=Number(vals[r-up][col]);
+          if(n>=1&&n<=31){day=n;break;}
+        }
+        if(!day)continue;
+        const mm=String(my.month).padStart(2,'0'),dd=String(day).padStart(2,'0');
+        const date=my.year+'-'+mm+'-'+dd;
+        if(!byDate[date])byDate[date]={date:date,text:'',inspiration:'',story:''};
+        byDate[date][field]=value;
+      }
+    }
+  }
+  const entries=Object.values(byDate);
+  if(!entries.length)return 'Não encontrei conteúdos para sincronizar.';
+  const url=DUIT_WEBHOOK.replace('/webhook','/bulk-sync');
+  const resp=UrlFetchApp.fetch(url,{
+    method:'post',contentType:'application/json',muteHttpExceptions:true,
+    payload:JSON.stringify({secret:DUIT_SECRET,source:'sheet',entries:entries})
+  });
+  const code=resp.getResponseCode(),body=resp.getContentText();
+  if(code<200||code>=300)return 'Erro na sincronização ('+code+'): '+body;
+  try{
+    const x=JSON.parse(body);
+    return 'Plano sincronizado: '+x.created+' criados, '+x.updated+' atualizados, '+x.conflicts+' conflitos.';
+  }catch(_){return 'Plano sincronizado.'}
 }
 
 function duitMonthYear_(sheet) {
@@ -339,6 +386,41 @@ function register(app){
     }
     db.prepare(`UPDATE calendar_sheet_links SET last_sheet_event_at=datetime('now'),last_error=NULL,updated_at=datetime('now') WHERE user_id=?`).run(post.user_id);
     res.json({ok:true,post_id:post.id,date:post.date,field});
+  });
+
+  app.post('/api/google-sheets/calendar/bulk-sync',(req,res)=>{
+    const b=req.body||{},entries=Array.isArray(b.entries)?b.entries:[];
+    const links=db.prepare(`SELECT user_id,webhook_secret FROM calendar_sheet_links WHERE enabled=1`).all();
+    const link=links.find(x=>String(x.webhook_secret)===String(b.secret||''));
+    if(!link)return res.status(403).json({error:'Ligação inválida.'});
+    if(entries.length>1000)return res.status(400).json({error:'Demasiados registos numa só sincronização.'});
+
+    let created=0,updated=0,ignored=0,conflicts=0;
+    const tx=db.transaction(()=>{
+      for(const raw of entries){
+        const date=String(raw.date||'');
+        if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){ignored++;continue;}
+        const text=raw.text==null?'':String(raw.text);
+        const inspiration=raw.inspiration==null?'':String(raw.inspiration);
+        const story=raw.story==null?'':String(raw.story);
+        if(!text.trim()&&!inspiration.trim()&&!story.trim()){ignored++;continue;}
+
+        const rows=db.prepare(`SELECT * FROM social_posts WHERE user_id=? AND date=? ORDER BY id`).all(link.user_id,date);
+        if(rows.length>1){conflicts++;continue;}
+        if(rows.length===1){
+          db.prepare(`UPDATE social_posts SET text=?,inspiration=?,story=? WHERE id=?`)
+            .run(text,inspiration||null,story||null,rows[0].id);
+          updated++;
+        }else{
+          db.prepare(`INSERT INTO social_posts(user_id,network,date,text,inspiration,story,status)
+            VALUES(?,?,?,?,?,?,?)`).run(link.user_id,'instagram',date,text,inspiration||null,story||null,'draft');
+          created++;
+        }
+      }
+    });
+    tx();
+    db.prepare(`UPDATE calendar_sheet_links SET last_sheet_event_at=datetime('now'),last_error=NULL,updated_at=datetime('now') WHERE user_id=?`).run(link.user_id);
+    res.json({ok:true,created,updated,ignored,conflicts,total:entries.length});
   });
 
   app.post('/api/calendar-sheet-links/:userId/test',requireAdmin,async(req,res)=>{
