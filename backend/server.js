@@ -4,6 +4,7 @@ const express = require('express');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcryptjs');
 const db = require('./db');
+const calendarSheets = require('./calendar-sheets-sync');
 const { deliver, T, listResendEmails } = require('./email');
 const {
   signToken, setAuthCookie, clearAuthCookie,
@@ -104,6 +105,8 @@ function requireClientPermission(key){
     next();
   };
 }
+
+calendarSheets.register(app);
 
 /* ================================================================
    AUTH
@@ -2085,7 +2088,7 @@ app.get('/api/social-posts', requireAuth, requireClientPermission('calendar_view
   ).all(ownerId, monthPrefix));
 });
 
-app.post('/api/social-posts', requireAuth, (req, res) => {
+app.post('/api/social-posts', requireAuth, async (req, res) => {
   const { user_id, network, date, text, inspiration, story, status } = req.body || {};
   if(req.user.role!=='admin'&&!clientCan(req.user.id,'calendar_create')) return res.status(403).json({error:'Sem permissão para criar conteúdos.'});
   const targetUserId=req.user.role==='admin'?Number(user_id||0):clientOwnerId(req.user.id);
@@ -2094,10 +2097,11 @@ app.post('/api/social-posts', requireAuth, (req, res) => {
   const info = db.prepare(
     `INSERT INTO social_posts (user_id, network, date, text, inspiration, story, status) VALUES (?, ?, ?, ?, ?, ?, ?)`
   ).run(targetUserId, finalNetwork, date, text, inspiration || null, story || null, status || 'draft');
+  await calendarSheets.notifyPostChanged(Number(info.lastInsertRowid),'upsert');
   res.status(201).json({ id: info.lastInsertRowid });
 });
 
-app.patch('/api/social-posts/:id', requireAuth, (req, res) => {
+app.patch('/api/social-posts/:id', requireAuth, async (req, res) => {
   const post = db.prepare(`SELECT * FROM social_posts WHERE id=?`).get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Post não encontrado' });
   if(req.user.role!=='admin'){
@@ -2120,6 +2124,7 @@ app.patch('/api/social-posts/:id', requireAuth, (req, res) => {
         status ?? null,
         client_suggestion === undefined ? null : client_suggestion,
         req.params.id);
+  await calendarSheets.notifyPostChanged(Number(req.params.id),'upsert');
   res.json({ ok: true });
 });
 
@@ -2150,13 +2155,14 @@ app.post('/api/social-posts/:id/suggestion', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-app.delete('/api/social-posts/:id', requireAuth, (req, res) => {
+app.delete('/api/social-posts/:id', requireAuth, async (req, res) => {
   const post=db.prepare('SELECT * FROM social_posts WHERE id=?').get(req.params.id);
   if(!post)return res.status(404).json({error:'Post não encontrado'});
   if(req.user.role!=='admin'){
     if(!clientCan(req.user.id,'calendar_delete'))return res.status(403).json({error:'Sem permissão para apagar conteúdos.'});
     if(Number(post.user_id)!==clientOwnerId(req.user.id))return res.status(403).json({error:'Sem permissão'});
   }
+  await calendarSheets.notifyPostChanged(Number(req.params.id),'delete');
   db.prepare(`DELETE FROM social_posts WHERE id=?`).run(req.params.id);
   res.json({ ok: true });
 });
