@@ -226,15 +226,29 @@ function duitSheetLabel_(field) {
 }
 
 function duitDayRowForContentRow_(sheet,row) {
-  // Cada bloco semanal da folha tem a linha dos dias exatamente acima
-  // das linhas DOMINGO / categoria / INTERNO / inspiração / post / stories.
-  // Procuramos para cima a primeira linha que tenha vários dias válidos,
-  // e só aceitamos essa linha para o bloco atual.
-  const minRow=Math.max(1,row-8);
+  // A única referência válida é uma linha de DATA do bloco.
+  // Procuramos para cima até ao bloco semanal anterior e só aceitamos
+  // uma linha que contenha vários números de dia nas colunas B:H.
+  // Se encontrarmos entretanto outro bloco de conteúdo, paramos.
+  const minRow=Math.max(1,row-10);
   for(let r=row-1;r>=minRow;r--){
+    const label=String(sheet.getRange(r,1).getDisplayValue()||'').trim().toLowerCase();
+    if (r !== row-1 && ['inspiração','inspiracao','post','stories','story'].includes(label)) break;
+
     const vals=sheet.getRange(r,2,1,7).getDisplayValues()[0];
-    const nums=vals.map(v=>Number(v)).filter(v=>v>=1&&v<=31);
-    if(nums.length>=2) return r;
+    const nums=vals.map(v=>Number(v));
+    const valid=nums.filter(v=>v>=1&&v<=31);
+
+    // Linha DATA real: vários dias sequenciais/contíguos do calendário.
+    if(valid.length>=2){
+      let sequential=0, prev=null;
+      for(const n of nums){
+        if(!(n>=1&&n<=31)) continue;
+        if(prev===null || n===prev+1 || (prev>=28&&n===1)) sequential++;
+        prev=n;
+      }
+      if(sequential>=2) return r;
+    }
   }
   return null;
 }
