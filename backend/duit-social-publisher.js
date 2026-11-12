@@ -146,7 +146,7 @@ function register(app){
   try{if(origin&&new URL(origin).host!==req.get('host'))return res.sendStatus(403);}catch(_){return res.sendStatus(403);}
   next();
  });
- router.get('/config',(_req,res)=>res.json({enabled:enabled(),maxClients:2}));
+ router.get('/config',(_req,res)=>res.json({enabled:enabled(),clientLimit:null}));
  router.get('/jobs',(_req,res)=>{
   const jobs=db.prepare('SELECT * FROM duit_publish_jobs ORDER BY scheduled_at DESC LIMIT 200').all();
   res.json(jobs.map(job=>({...job,networks:JSON.parse(job.networks),
