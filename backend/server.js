@@ -107,6 +107,8 @@ function requireClientPermission(key){
 }
 
 calendarSheets.register(app);
+// Stories DUIT — fase 1: preparação e partilha manual no Android.
+require('./duit-social-stories').register(app);
 
 /* ================================================================
    AUTH
