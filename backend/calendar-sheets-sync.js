@@ -182,7 +182,7 @@ function duitSyncAll_(showDetails) {
   const url=DUIT_WEBHOOK.replace('/webhook','/bulk-sync');
   const resp=UrlFetchApp.fetch(url,{
     method:'post',contentType:'application/json',muteHttpExceptions:true,
-    payload:JSON.stringify({secret:DUIT_SECRET,source:'sheet',entries:entries})
+    payload:JSON.stringify({secret:DUIT_SECRET,source:'sheet',script_url:ScriptApp.getService().getUrl(),entries:entries})
   });
   const code=resp.getResponseCode(),body=resp.getContentText();
   if(code<200||code>=300)return 'Erro na sincronização ('+code+'): '+body;
@@ -300,6 +300,7 @@ function duitHandleEdit(e) {
       method:'post',contentType:'application/json',muteHttpExceptions:true,
       payload:JSON.stringify({
         secret:DUIT_SECRET,source:'sheet',date:ctx.date,field:ctx.field,value:value,
+        script_url:ScriptApp.getService().getUrl(),
         sheet_name:e.range.getSheet().getName(),cell_a1:e.range.getA1Notation()
       })
     });
@@ -405,6 +406,10 @@ function register(app){
 
     const link=getLink(post.user_id);
     if(!link||!Number(link.enabled)||String(b.secret||'')!==String(link.webhook_secret))return res.status(403).json({error:'Ligação inválida.'});
+    if(b.script_url&&/^https:\/\/script\.google\.com\/macros\/s\//.test(String(b.script_url))){
+      db.prepare(`UPDATE calendar_sheet_links SET apps_script_url=?,updated_at=datetime('now') WHERE user_id=?`)
+        .run(String(b.script_url).slice(0,1500),post.user_id);
+    }
     if(field==='date'&&!/^\d{4}-\d{2}-\d{2}$/.test(value))return res.status(400).json({error:'Data deve estar em YYYY-MM-DD.'});
     if(field==='status'&&!['draft','scheduled','published','cancelled'].includes(value))return res.status(400).json({error:'Estado inválido.'});
 
@@ -423,6 +428,10 @@ function register(app){
     const links=db.prepare(`SELECT user_id,webhook_secret FROM calendar_sheet_links WHERE enabled=1`).all();
     const link=links.find(x=>String(x.webhook_secret)===String(b.secret||''));
     if(!link)return res.status(403).json({error:'Ligação inválida.'});
+    if(b.script_url&&/^https:\/\/script\.google\.com\/macros\/s\//.test(String(b.script_url))){
+      db.prepare(`UPDATE calendar_sheet_links SET apps_script_url=?,updated_at=datetime('now') WHERE user_id=?`)
+        .run(String(b.script_url).slice(0,1500),link.user_id);
+    }
     if(entries.length>1000)return res.status(400).json({error:'Demasiados registos numa só sincronização.'});
 
     let created=0,updated=0,ignored=0,conflicts=0;
