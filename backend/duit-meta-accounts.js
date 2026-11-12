@@ -13,6 +13,13 @@ CREATE TABLE IF NOT EXISTS duit_meta_oauth_states (
  client_id INTEGER NOT NULL,
  expires_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS duit_meta_oauth_pending (
+ token TEXT PRIMARY KEY,
+ admin_id INTEGER NOT NULL,
+ client_id INTEGER NOT NULL,
+ pages_encrypted TEXT NOT NULL,
+ expires_at INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS duit_meta_accounts (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  client_id INTEGER NOT NULL,
@@ -70,6 +77,36 @@ function register(app) {
     const config=cfg();
     res.json({enabled:!!config,version:graphVersion});
   });
+  router.get('/pending',(req,res)=>{
+    const row=db.prepare('SELECT * FROM duit_meta_oauth_pending WHERE admin_id=? AND expires_at>? ORDER BY expires_at DESC LIMIT 1').get(req.user.id,Date.now());
+    if(!row)return res.json({pages:[],client_id:null});
+    try {
+      const list=JSON.parse(decrypt(row.pages_encrypted,cfg().key));
+      res.json({client_id:row.client_id,pages:list.map(p=>({id:p.id,name:p.name,instagram_business_id:p.instagram_business_id||null}))});
+    }catch(_){res.status(500).json({error:'Não foi possível ler as Páginas autorizadas'});}
+  });
+  router.post('/select-page',(req,res)=>{
+    const config=cfg();if(!config)return res.status(503).json({error:'Meta não configurada'});
+    const row=db.prepare('SELECT * FROM duit_meta_oauth_pending WHERE admin_id=? AND expires_at>? ORDER BY expires_at DESC LIMIT 1').get(req.user.id,Date.now());
+    if(!row)return res.status(410).json({error:'Autorização expirada. Volte a ligar a conta.'});
+    let pages;
+    try {pages=JSON.parse(decrypt(row.pages_encrypted,config.key));}
+    catch(_){return res.status(500).json({error:'Autorização inválida'});}
+    const page=pages.find(p=>p.id===String(req.body?.page_id));
+    if(!page||!page.token)return res.status(400).json({error:'Página não autorizada'});
+    const distinct=db.prepare('SELECT DISTINCT client_id FROM duit_meta_accounts').all().map(x=>x.client_id);
+    if(!distinct.includes(row.client_id)&&distinct.length>=2)
+      return res.status(409).json({error:'Limite de 2 clientes Meta atingido. Desligue uma conta antes de adicionar outra.'});
+    // Um cliente, uma Página selecionada. Não importar restantes Páginas nem outros clientes.
+    db.transaction(()=>{
+      db.prepare('DELETE FROM duit_meta_accounts WHERE client_id=?').run(row.client_id);
+      db.prepare(`INSERT INTO duit_meta_accounts
+        (client_id,facebook_page_id,facebook_page_name,instagram_business_id,access_token_encrypted)
+        VALUES(?,?,?,?,?)`).run(row.client_id,page.id,page.name,page.instagram_business_id||null,encrypt(page.token,config.key));
+      db.prepare('DELETE FROM duit_meta_oauth_pending WHERE token=?').run(row.token);
+    })();
+    res.json({ok:true,page_name:page.name});
+  });
   router.get('/accounts',(req,res)=>{
     const rows=db.prepare(`SELECT a.id,a.client_id,a.facebook_page_id,a.facebook_page_name,
       a.instagram_business_id,a.connected_at,u.name AS client_name,u.company AS client_company
@@ -126,23 +163,19 @@ function register(app) {
         fields:'id,name,access_token,instagram_business_account',
         limit:100,access_token:long.access_token
       });
-      let added=0;
-      for(const page of accounts.data||[]) {
-        if(!page.id||!page.access_token)continue;
-        db.prepare(`INSERT INTO duit_meta_accounts
-          (client_id,facebook_page_id,facebook_page_name,instagram_business_id,access_token_encrypted)
-          VALUES(?,?,?,?,?)
-          ON CONFLICT(client_id,facebook_page_id) DO UPDATE SET
-          facebook_page_name=excluded.facebook_page_name,
-          instagram_business_id=excluded.instagram_business_id,
-          access_token_encrypted=excluded.access_token_encrypted,
-          connected_at=datetime('now')`)
-          .run(row.client_id,String(page.id),String(page.name||'Página'),
-            String(page.instagram_business_account?.id||'')||null,
-            encrypt(page.access_token,config.key));
-        added++;
-      }
-      res.redirect(303,'/social-stories.html?meta_connected='+added);
+      const pages=(accounts.data||[]).filter(p=>p.id&&p.access_token).map(p=>({
+        id:String(p.id),
+        name:String(p.name||'Página'),
+        instagram_business_id:p.instagram_business_account?.id?String(p.instagram_business_account.id):null,
+        token:String(p.access_token)
+      }));
+      // Guardar temporariamente a lista cifrada. Só a Página escolhida pelo
+      // administrador será associada ao cliente; nunca importar automaticamente.
+      const pending=crypto.randomBytes(24).toString('base64url');
+      db.prepare('DELETE FROM duit_meta_oauth_pending WHERE expires_at<? OR admin_id=?').run(Date.now(),req.user.id);
+      db.prepare('INSERT INTO duit_meta_oauth_pending(token,admin_id,client_id,pages_encrypted,expires_at) VALUES(?,?,?,?,?)')
+        .run(pending,req.user.id,row.client_id,encrypt(JSON.stringify(pages),config.key),Date.now()+15*60*1000);
+      res.redirect(303,'/social-stories.html?meta_choose=1');
     }catch(e){
       console.error('[duit-social] OAuth Meta:',e.message);
       res.status(502).send('Não foi possível concluir a ligação à Meta. Verifique as permissões e as definições da app.');
