@@ -58,6 +58,14 @@ async function graph(path,params={}) {
 function register(app) {
   const router=express.Router();
   router.use(requireAdmin);
+  router.use((req,res,next)=>{
+    const origin=req.get('origin');
+    if(origin) {
+      try { if(new URL(origin).host!==req.get('host')) return res.status(403).json({error:'Origem não autorizada'}); }
+      catch (_) {return res.status(403).json({error:'Origem inválida'});}
+    }
+    next();
+  });
   router.get('/config',(_req,res)=>{
     const config=cfg();
     res.json({enabled:!!config,version:graphVersion});
