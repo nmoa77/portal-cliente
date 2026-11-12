@@ -81,12 +81,9 @@ async function sendFacebookReel(job,media,account,token){
   const page=account.facebook_page_id;
   const created=await graph(page+'/video_reels',{upload_phase:'start'},token);
   const videoId=String(created.video_id||'');
-  const uploadUrl=new URL(String(created.upload_url||''));
-  // URL vem da Meta; nunca enviar o token para hosts arbitrários.
-  if(!/^\\d+$/.test(videoId)||uploadUrl.protocol!=='https:'||uploadUrl.hostname!=='rupload.facebook.com'){
-    throw Error('Resposta de upload Facebook inválida');
-  }
-  const upload=await fetch(uploadUrl.href,{
+  // Validar host exato antes de transmitir o token de Página Facebook.
+  const uploadUrl=validateFacebookReelUploadUrl(String(created.upload_url||''),videoId);
+  const upload=await fetch(uploadUrl,{
     method:'POST',
     headers:{Authorization:'OAuth '+token,file_url:signedUrl(media[0].id)},
     signal:AbortSignal.timeout(120000),
