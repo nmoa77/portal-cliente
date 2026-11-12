@@ -39,6 +39,22 @@ try {
   if (!cols.some(c => c.name === 'notified_at')) db.exec("ALTER TABLE duit_social_stories ADD COLUMN notified_at TEXT");
 } catch (error) { console.error('[duit-social] migration:', error); }
 
+// Limpeza de segurança: ficheiros que ficaram no disco depois de uma falha
+// são removidos apenas se não estiverem referenciados e tiverem >24 horas.
+function cleanupOrphanMedia() {
+  const rows=db.prepare('SELECT id,media_name FROM duit_social_stories WHERE media_name IS NOT NULL').all();
+  const referenced=new Set(rows.map(r=>String(r.id)+'-'+r.media_name));
+  const cutoff=Date.now()-24*60*60*1000;
+  for(const name of fs.readdirSync(mediaDir)) {
+    if(!/^\\d+-[a-f0-9]{32}\\.(?:jpg|png|webp|mp4)$/.test(name))continue;
+    if(referenced.has(name))continue;
+    try{
+      const full=path.join(mediaDir,name);
+      if(fs.statSync(full).mtimeMs<cutoff) fs.unlinkSync(full);
+    }catch(e){console.warn('[duit-social] orphan cleanup:',e.message);}
+  }
+}
+
 function filePath(id, name) {
   return path.join(mediaDir, String(id) + '-' + name);
 }
@@ -200,6 +216,8 @@ function register(app) {
     res.json({ok:true});
   });
   app.use('/api/duit-social', router);
+  try {cleanupOrphanMedia();} catch(error) {console.warn('[duit-social] orphan cleanup:',error.message);}
+
 
   // Só uma instância do worker por base de dados. Configurar apenas um processo
   // do Railway com DUIT_SOCIAL_REMINDERS_ENABLED=true.
