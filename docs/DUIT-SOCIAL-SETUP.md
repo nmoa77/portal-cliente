@@ -118,3 +118,15 @@ ficheiros estáticos públicos.
 Não se deve marcar a PR como concluída sem testar publicação e confirmação
 reais no ambiente autorizado. Esta versão inclui a estrutura do publicador,
 não a integração completa Facebook Reels.
+
+## Clientes autorizados nesta implementação
+
+O módulo Meta só permite associar os clientes cujo registo principal no portal
+identifique a empresa como **DUIT** ou **Seven Fitness** (incluindo Seven Fitness
+Club). A interface mostra exclusivamente estes registos. O limite de dois
+clientes mantém-se; a Meta Business Suite pode continuar a ter outras Páginas,
+que não são importadas nem alteradas.
+
+Se a DUIT estiver apenas registada como utilizador administrador, criar primeiro
+um registo de cliente DUIT no portal. Não foi criado automaticamente nenhum
+cliente nem escolhido nenhum ID ou Página Meta sem confirmação da interface.
