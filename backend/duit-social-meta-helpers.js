@@ -2,7 +2,7 @@
 // Regras puras e testáveis do publicador Meta.
 function facebookCarouselParams(photoIds,caption=''){
   if(!Array.isArray(photoIds)||photoIds.length<2||photoIds.length>10||
-    photoIds.some(id=>typeof id!=='string'||!/^\\d+$/.test(id)))
+    photoIds.some(id=>typeof id!=='string'||!/^\d+$/.test(id)))
     throw new Error('IDs Facebook de carrossel inválidos');
   const params={message:String(caption)};
   photoIds.forEach((id,i)=>{
@@ -17,7 +17,7 @@ function isFacebookReelPublished(status){
   return phase==='complete'||phase==='completed'||video==='published';
 }
 function validateFacebookReelUploadUrl(url,videoId){
-  if(!/^\\d+$/.test(String(videoId)))throw Error('Identificador de Reel inválido');
+  if(!/^\d+$/.test(String(videoId)))throw Error('Identificador de Reel inválido');
   const parsed=new URL(url);
   if(parsed.protocol!=='https:'||parsed.hostname!=='rupload.facebook.com')
     throw Error('Host de upload não autorizado');
