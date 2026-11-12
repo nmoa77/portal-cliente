@@ -1176,6 +1176,9 @@ async function viewCalendar(main) {
           ? `<button class="btn btn-ghost btn-sm" onclick="openGenPosts()">${svg('cal')} Gerar posts do mês</button>`
           : ''}
         ${filter !== 'all'
+          ? `<button class="btn btn-ghost btn-sm" onclick="openCalendarSheetLink()">Google Sheet ↗</button>`
+          : ''}
+        ${filter !== 'all'
           ? `<button class="btn btn-ghost btn-sm" onclick="openClearClient()">${svg('trash')} Apagar mês deste cliente</button>`
           : ''}
       </div>
@@ -1459,7 +1462,7 @@ async function openEditPost(id) {
   }
   if (!p) { toast('Post não encontrado.', 'cancel'); return; }
   document.getElementById('modal-post-title').textContent = 'Editar post';
-  document.getElementById('modal-post-lede').textContent = `${p.client_company || p.client_name || ''}`;
+  document.getElementById('modal-post-lede').textContent = `${p.client_company || p.client_name || ''} · Post #${p.id}`;
   document.getElementById('mp-id').value = id;
   document.getElementById('mp-date').value = p.date;
   document.getElementById('mp-text').value = p.text;
@@ -1485,6 +1488,133 @@ async function openEditPost(id) {
     }
   }
   openModal('modal-post');
+}
+
+
+async function openCalendarSheetLink() {
+  if (state.calClientFilter === 'all') { toast('Escolha um cliente primeiro.', 'cancel'); return; }
+  const userId = Number(state.calClientFilter);
+  const client = state.clients.find(c => Number(c.id) === userId);
+  if (!client) return;
+
+  let cfg;
+  try { cfg = await api('/api/calendar-sheet-links/' + userId); }
+  catch (err) { toast(err.message, 'cancel'); return; }
+
+  document.getElementById('calendar-sheet-modal')?.remove();
+  const o = document.createElement('div');
+  o.id = 'calendar-sheet-modal';
+  o.className = 'overlay open';
+  const lastSheet = cfg.last_sheet_event_at ? fmtDateTime(cfg.last_sheet_event_at) : '—';
+  const lastPortal = cfg.last_portal_sync_at ? fmtDateTime(cfg.last_portal_sync_at) : '—';
+  o.innerHTML = `
+    <div class="modal wide" style="max-width:850px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+        <div>
+          <div class="eyebrow">Calendário · Google Sheets</div>
+          <h3 style="margin:4px 0">${escapeHtml(client.company || client.name)}</h3>
+          <p class="lede">Sincronização bidirecional: alterações na folha atualizam o portal e alterações no portal atualizam a folha.</p>
+        </div>
+        <button class="btn btn-icon" onclick="document.getElementById('calendar-sheet-modal').remove()">✕</button>
+      </div>
+
+      <div class="field">
+        <label>Google Sheet</label>
+        <input id="cs-sheet-url" value="${escapeHtml(cfg.spreadsheet_url || '')}" placeholder="https://docs.google.com/spreadsheets/d/...">
+      </div>
+      <div class="field">
+        <label>URL do Apps Script publicado</label>
+        <input id="cs-script-url" value="${escapeHtml(cfg.apps_script_url || '')}" placeholder="https://script.google.com/macros/s/.../exec">
+        <small style="display:block;color:var(--muted);margin-top:6px">O Apps Script faz a ponte entre a folha visual e o portal.</small>
+      </div>
+
+      <label style="display:flex;gap:8px;align-items:center;margin:10px 0 16px;text-transform:none;letter-spacing:0">
+        <input id="cs-enabled" type="checkbox" ${Number(cfg.enabled)!==0?'checked':''} style="width:auto;margin:0">
+        Ligação ativa
+      </label>
+
+      <div class="grid g-2" style="gap:10px;margin-bottom:16px">
+        <div class="card" style="padding:12px">
+          <div class="eyebrow">Última alteração da Sheet</div>
+          <strong>${escapeHtml(lastSheet)}</strong>
+        </div>
+        <div class="card" style="padding:12px">
+          <div class="eyebrow">Último envio do portal</div>
+          <strong>${escapeHtml(lastPortal)}</strong>
+        </div>
+      </div>
+
+      ${cfg.last_error ? `<div style="padding:10px 12px;background:#fff3f1;border-radius:10px;color:#b42318;font-size:12px;margin-bottom:14px">${escapeHtml(cfg.last_error)}</div>` : ''}
+
+      <div style="padding:14px;background:var(--bg-2);border-radius:12px;margin-bottom:16px">
+        <strong style="display:block;margin-bottom:6px">Como ligar as células da folha</strong>
+        <div style="font-size:12px;line-height:1.55;color:var(--muted)">
+          Depois de instalar o script, aparece um menu <b>DUIT</b> na Google Sheet. Selecione uma célula e escolha
+          <b>“Ligar célula selecionada a um post”</b>. Indique o ID do post e o campo:
+          <code>text</code>, <code>inspiration</code>, <code>story</code>, <code>date</code> ou <code>status</code>.
+        </div>
+      </div>
+
+      <div class="modal-actions" style="justify-content:space-between;flex-wrap:wrap">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="calendarSheetShowScript(${userId})">Ver script</button>
+          <button class="btn btn-ghost" onclick="calendarSheetTest(${userId})">Testar ligação</button>
+          ${cfg.spreadsheet_url ? `<a class="btn btn-ghost" target="_blank" href="${escapeHtml(cfg.spreadsheet_url)}">Abrir Sheet ↗</a>` : ''}
+        </div>
+        <button class="btn btn-yellow" onclick="saveCalendarSheetLink(${userId})">Guardar ligação</button>
+      </div>
+    </div>`;
+  document.body.appendChild(o);
+}
+
+async function saveCalendarSheetLink(userId) {
+  try {
+    const cfg = await api('/api/calendar-sheet-links/' + userId, {
+      method: 'PUT',
+      body: {
+        spreadsheet_url: document.getElementById('cs-sheet-url').value.trim(),
+        apps_script_url: document.getElementById('cs-script-url').value.trim(),
+        enabled: document.getElementById('cs-enabled').checked,
+      }
+    });
+    toast('Ligação à Google Sheet guardada.', 'check');
+    document.getElementById('calendar-sheet-modal')?.remove();
+    openCalendarSheetLink();
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
+async function calendarSheetShowScript(userId) {
+  try {
+    const r = await fetch('/api/calendar-sheet-links/' + userId + '/script', { credentials: 'include' });
+    const txt = await r.text();
+    if (!r.ok) throw new Error(txt || 'Não foi possível gerar o script.');
+    document.getElementById('calendar-sheet-script-modal')?.remove();
+    const o = document.createElement('div');
+    o.id = 'calendar-sheet-script-modal';
+    o.className = 'overlay open';
+    o.innerHTML = `
+      <div class="modal wide" style="max-width:900px">
+        <div style="display:flex;justify-content:space-between;gap:12px">
+          <div><div class="eyebrow">Google Apps Script</div><h3 style="margin:4px 0">Script da ligação</h3></div>
+          <button class="btn btn-icon" onclick="document.getElementById('calendar-sheet-script-modal').remove()">✕</button>
+        </div>
+        <p class="lede">Na Google Sheet: Extensões → Apps Script. Cole este código, guarde e publique como Aplicação Web.</p>
+        <textarea id="cs-script-code" rows="22" style="width:100%;font-family:monospace;font-size:11px;white-space:pre">${escapeHtml(txt)}</textarea>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="navigator.clipboard.writeText(document.getElementById('cs-script-code').value).then(()=>toast('Script copiado.','check'))">Copiar script</button>
+          <button class="btn btn-yellow" onclick="document.getElementById('calendar-sheet-script-modal').remove()">Fechar</button>
+        </div>
+      </div>`;
+    document.body.appendChild(o);
+  } catch (err) { toast(err.message, 'cancel'); }
+}
+
+async function calendarSheetTest(userId) {
+  try {
+    const r = await api('/api/calendar-sheet-links/' + userId + '/test', { method: 'POST' });
+    toast(r.ok ? 'Ligação ao Apps Script confirmada.' : 'A ligação respondeu, mas com erro.', r.ok ? 'check' : 'cancel');
+    openCalendarSheetLink();
+  } catch (err) { toast(err.message, 'cancel'); }
 }
 
 function activeCalMonth() {
