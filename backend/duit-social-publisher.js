@@ -190,6 +190,16 @@ function register(app){
   try{if(origin&&new URL(origin).host!==req.get('host'))return res.sendStatus(403);}catch(_){return res.sendStatus(403);}
   next();
  });
+ router.get('/jobs/:id/files/:mediaId',(req,res)=>{
+   const jobId=Number(req.params.id),mediaId=Number(req.params.mediaId);
+   if(!Number.isSafeInteger(jobId)||!Number.isSafeInteger(mediaId))return res.sendStatus(404);
+   const media=db.prepare('SELECT * FROM duit_publish_media WHERE id=? AND job_id=?').get(mediaId,jobId);
+   if(!media)return res.sendStatus(404);
+   res.set('Cache-Control','private, no-store');
+   res.set('X-Content-Type-Options','nosniff');
+   res.type(media.mime);
+   res.sendFile(mediaPath(media.job_id,media.name));
+ });
  router.get('/config',(_req,res)=>res.json({enabled:enabled(),clientLimit:null}));
  router.get('/jobs',(_req,res)=>{
   const jobs=db.prepare('SELECT * FROM duit_publish_jobs ORDER BY scheduled_at DESC LIMIT 200').all();
