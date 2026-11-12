@@ -42,14 +42,24 @@ try{
   if(seven){
     const exists=db.prepare('SELECT 1 FROM calendar_sheet_links WHERE user_id=?').get(seven.id);
     if(!exists){
-      db.prepare(`INSERT INTO calendar_sheet_links(user_id,spreadsheet_id,spreadsheet_url,webhook_secret,enabled)
-        VALUES(?,?,?,?,1)`).run(
+      db.prepare(`INSERT INTO calendar_sheet_links(user_id,spreadsheet_id,spreadsheet_url,apps_script_url,webhook_secret,enabled)
+        VALUES(?,?,?,?,?,1)`).run(
           seven.id,
           '1IYmcH2ZulW6z2EAgtHKmFj9KmdTDn0yYfvy4ajJVSZo',
           'https://docs.google.com/spreadsheets/d/1IYmcH2ZulW6z2EAgtHKmFj9KmdTDn0yYfvy4ajJVSZo/edit',
+          'https://script.google.com/macros/s/AKfycbxmTomA-pyOwdrXl-z2eDUpzlA36qVyHf0AIW2VFKWchlvrYm_8-X5YIzvMBNDRVf0G2w/exec',
           newSecret()
         );
       console.log('[calendar-sheet] Google Sheet nativa associada ao Seven Fitness Club');
+    } else {
+      db.prepare(`UPDATE calendar_sheet_links
+        SET spreadsheet_id=?,spreadsheet_url=?,apps_script_url=?,enabled=1,updated_at=datetime('now')
+        WHERE user_id=?`).run(
+          '1IYmcH2ZulW6z2EAgtHKmFj9KmdTDn0yYfvy4ajJVSZo',
+          'https://docs.google.com/spreadsheets/d/1IYmcH2ZulW6z2EAgtHKmFj9KmdTDn0yYfvy4ajJVSZo/edit',
+          'https://script.google.com/macros/s/AKfycbxmTomA-pyOwdrXl-z2eDUpzlA36qVyHf0AIW2VFKWchlvrYm_8-X5YIzvMBNDRVf0G2w/exec',
+          seven.id
+        );
     }
   }
 }catch(e){console.warn('[calendar-sheet] seed Seven:',e.message)}
@@ -100,6 +110,7 @@ function appsScriptTemplate(link,baseUrl){
   const webhook=(baseUrl||'https://cliente.duit.pt')+'/api/google-sheets/calendar/webhook';
   return `const DUIT_WEBHOOK = ${JSON.stringify(webhook)};
 const DUIT_SECRET = ${JSON.stringify(secret)};
+const DUIT_SPREADSHEET_ID = ${JSON.stringify(link.spreadsheet_id||'')};
 const SYNC_SHEET = '_DUIT_SYNC';
 
 function onOpen() {
@@ -109,8 +120,12 @@ function onOpen() {
     .addToUi();
 }
 
+function duitSpreadsheet_() {
+  return DUIT_SPREADSHEET_ID ? SpreadsheetApp.openById(DUIT_SPREADSHEET_ID) : SpreadsheetApp.getActive();
+}
+
 function duitSyncSheet_() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = duitSpreadsheet_();
   let sh = ss.getSheetByName(SYNC_SHEET);
   if (!sh) {
     sh = ss.insertSheet(SYNC_SHEET);
@@ -123,11 +138,11 @@ function duitSyncSheet_() {
 function duitOpenSyncSheet() {
   const sh = duitSyncSheet_();
   sh.showSheet();
-  SpreadsheetApp.getActive().setActiveSheet(sh);
+  duitSpreadsheet_().setActiveSheet(sh);
 }
 
 function duitMapSelectedCell() {
-  const ss = SpreadsheetApp.getActive();
+  const ss = duitSpreadsheet_();
   const range = ss.getActiveRange();
   if (!range) return;
   const ui = SpreadsheetApp.getUi();
@@ -176,7 +191,7 @@ function doPost(e) {
     const x=JSON.parse(e.postData.contents||'{}');
     if(x.secret!==DUIT_SECRET) return ContentService.createTextOutput('forbidden');
     if(x.source!=='portal') return ContentService.createTextOutput('ignored');
-    const ss=SpreadsheetApp.getActive(), sh=duitSyncSheet_();
+    const ss=duitSpreadsheet_(), sh=duitSyncSheet_();
     const rows=sh.getDataRange().getValues();
     const post=x.post||{};
     for(let i=1;i<rows.length;i++){
