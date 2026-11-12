@@ -175,8 +175,10 @@ function duitSyncAll_(showDetails) {
       }
     }
   }
-  const entries=Object.values(byDate);
-  if(!entries.length)return 'Não encontrei conteúdos para sincronizar.';
+  const entries=Object.values(byDate).filter(x =>
+    String(x.text||'').trim() || String(x.inspiration||'').trim() || String(x.story||'').trim()
+  );
+  if(!entries.length)return 'Não encontrei conteúdos preenchidos para sincronizar.';
   const url=DUIT_WEBHOOK.replace('/webhook','/bulk-sync');
   const resp=UrlFetchApp.fetch(url,{
     method:'post',contentType:'application/json',muteHttpExceptions:true,
@@ -226,22 +228,17 @@ function duitSheetLabel_(field) {
 }
 
 function duitDayRowForContentRow_(sheet,row) {
-  // A única referência válida é uma linha de DATA do bloco.
-  // Procuramos para cima até ao bloco semanal anterior e só aceitamos
-  // uma linha que contenha vários números de dia nas colunas B:H.
-  // Se encontrarmos entretanto outro bloco de conteúdo, paramos.
-  const minRow=Math.max(1,row-10);
-  for(let r=row-1;r>=minRow;r--){
-    const label=String(sheet.getRange(r,1).getDisplayValue()||'').trim().toLowerCase();
-    if (r !== row-1 && ['inspiração','inspiracao','post','stories','story'].includes(label)) break;
-
+  // Estrutura real da folha:
+  // inspiração -> post -> stories -> DATA
+  // Portanto o conteúdo pertence à primeira linha DATA válida logo abaixo.
+  const maxRow=Math.min(sheet.getLastRow(),row+5);
+  for(let r=row+1;r<=maxRow;r++){
     const vals=sheet.getRange(r,2,1,7).getDisplayValues()[0];
     const nums=vals.map(v=>Number(v));
     const valid=nums.filter(v=>v>=1&&v<=31);
 
-    // Linha DATA real: vários dias sequenciais/contíguos do calendário.
     if(valid.length>=2){
-      let sequential=0, prev=null;
+      let sequential=0,prev=null;
       for(const n of nums){
         if(!(n>=1&&n<=31)) continue;
         if(prev===null || n===prev+1 || (prev>=28&&n===1)) sequential++;
@@ -249,6 +246,9 @@ function duitDayRowForContentRow_(sheet,row) {
       }
       if(sequential>=2) return r;
     }
+
+    const label=String(sheet.getRange(r,1).getDisplayValue()||'').trim().toLowerCase();
+    if(['inspiração','inspiracao','post','stories','story'].includes(label) && r>row+3) break;
   }
   return null;
 }
