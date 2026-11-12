@@ -158,12 +158,10 @@ function duitSyncAll_(showDetails) {
       for(let col=1;col<lastCol;col++){
         const value=String(vals[r][col]||'');
         if(!value.trim())continue;
-        let day=null;
-        for(let up=1;up<=7&&r-up>=0;up++){
-          const n=Number(vals[r-up][col]);
-          if(n>=1&&n<=31){day=n;break;}
-        }
-        if(!day)continue;
+        const dayRow=duitDayRowForContentRow_(sheet,r+1);
+        if(!dayRow)continue;
+        const day=Number(sheet.getRange(dayRow,col+1).getDisplayValue());
+        if(!(day>=1&&day<=31))continue;
         const mm=String(my.month).padStart(2,'0'),dd=String(day).padStart(2,'0');
         const date=my.year+'-'+mm+'-'+dd;
         if(!byDate[date])byDate[date]={date:date,text:'',inspiration:'',story:''};
@@ -221,18 +219,30 @@ function duitSheetLabel_(field) {
   return [];
 }
 
+function duitDayRowForContentRow_(sheet,row) {
+  // Cada bloco semanal da folha tem a linha dos dias exatamente acima
+  // das linhas DOMINGO / categoria / INTERNO / inspiração / post / stories.
+  // Procuramos para cima a primeira linha que tenha vários dias válidos,
+  // e só aceitamos essa linha para o bloco atual.
+  const minRow=Math.max(1,row-8);
+  for(let r=row-1;r>=minRow;r--){
+    const vals=sheet.getRange(r,2,1,7).getDisplayValues()[0];
+    const nums=vals.map(v=>Number(v)).filter(v=>v>=1&&v<=31);
+    if(nums.length>=2) return r;
+  }
+  return null;
+}
+
 function duitDateForRange_(range) {
   const sheet=range.getSheet();
   const my=duitMonthYear_(sheet); if(!my) return null;
   const row=range.getRow(), col=range.getColumn();
   const field=duitPortalField_(sheet.getRange(row,1).getDisplayValue());
   if(!field) return null;
-  let day=null;
-  for(let r=row-1;r>=Math.max(1,row-7);r--){
-    const v=Number(sheet.getRange(r,col).getDisplayValue());
-    if(v>=1&&v<=31){day=v;break;}
-  }
-  if(!day) return null;
+  const dayRow=duitDayRowForContentRow_(sheet,row);
+  if(!dayRow) return null;
+  const day=Number(sheet.getRange(dayRow,col).getDisplayValue());
+  if(!(day>=1&&day<=31)) return null;
   const mm=String(my.month).padStart(2,'0'), dd=String(day).padStart(2,'0');
   return {date:my.year+'-'+mm+'-'+dd,field};
 }
@@ -251,10 +261,10 @@ function duitFindCell_(date,field) {
     for(let r=0;r<vals.length;r++){
       const label=String(vals[r][0]||'').trim().toLowerCase();
       if(!labels.includes(label))continue;
+      const dayRow=duitDayRowForContentRow_(sheet,r+1);
+      if(!dayRow)continue;
       for(let col=1;col<lastCol;col++){
-        for(let up=1;up<=7&&r-up>=0;up++){
-          if(Number(vals[r-up][col])===day) return sheet.getRange(r+1,col+1);
-        }
+        if(Number(sheet.getRange(dayRow,col+1).getDisplayValue())===day) return sheet.getRange(r+1,col+1);
       }
     }
   }
