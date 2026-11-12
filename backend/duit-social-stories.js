@@ -139,6 +139,15 @@ function register(app) {
     const ext = extensions[mime];
     if (!ext || !Buffer.isBuffer(req.body) || req.body.length < 1)
       return res.status(400).json({error:'Escolha JPG, PNG, WEBP ou MP4 válido'});
+    // Não confiar apenas no MIME enviado pelo navegador.
+    const magic = req.body;
+    const signatureOk = (
+      (mime === 'image/jpeg' && magic.length >= 3 && magic[0] === 0xff && magic[1] === 0xd8 && magic[2] === 0xff) ||
+      (mime === 'image/png' && magic.length >= 8 && magic.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex'))) ||
+      (mime === 'image/webp' && magic.length >= 12 && magic.toString('ascii',0,4)==='RIFF' && magic.toString('ascii',8,12)==='WEBP') ||
+      (mime === 'video/mp4' && magic.length >= 12 && magic.toString('ascii',4,8)==='ftyp')
+    );
+    if (!signatureOk) return res.status(400).json({error:'O ficheiro não corresponde ao formato selecionado'});
     const name = crypto.randomBytes(16).toString('hex') + '.' + ext;
     const target = filePath(story.id, name);
     try {
