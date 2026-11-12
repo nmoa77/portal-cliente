@@ -76,15 +76,9 @@ token local, não revoga todas as autorizações na Meta.
 A CI da pull request executa os testes de criptografia Push e verificação
 de sintaxe; **não substitui testes end-to-end com o Android, Meta e Railway**.
 
-## Apenas dois clientes Meta
+## Contas Meta por cliente (escalável)
 
-Mesmo que a conta Meta Business tenha dezenas de Páginas, o OAuth **não as
-importa automaticamente**. Após a autorização, aparece uma lista de Páginas
-disponíveis e o administrador escolhe uma para o cliente selecionado.
-O sistema permite no máximo **dois clientes distintos** com contas Meta
-ligadas. Não é necessário desligar nem remover os restantes clientes da
-Meta Business Suite. As credenciais das Páginas não escolhidas são conservadas
-apenas numa sessão de autorização cifrada, com expiração de 15 minutos.
+Começamos com **Seven Fitness Club** e **DUIT**, mas o portal permite ligar mais clientes futuramente sem alterações de código. A conta Meta Business pode mostrar muitas Páginas; após OAuth, o administrador escolhe explicitamente **uma Página por cliente**. As restantes Páginas não são associadas ao portal.
 
 ## Motor de publicações (fase inicial)
 
@@ -119,14 +113,6 @@ Não se deve marcar a PR como concluída sem testar publicação e confirmação
 reais no ambiente autorizado. Esta versão inclui a estrutura do publicador,
 não a integração completa Facebook Reels.
 
-## Clientes autorizados nesta implementação
+## Clientes atuais e futuros
 
-O módulo Meta só permite associar os clientes cujo registo principal no portal
-identifique a empresa como **DUIT** ou **Seven Fitness** (incluindo Seven Fitness
-Club). A interface mostra exclusivamente estes registos. O limite de dois
-clientes mantém-se; a Meta Business Suite pode continuar a ter outras Páginas,
-que não são importadas nem alteradas.
-
-Se a DUIT estiver apenas registada como utilizador administrador, criar primeiro
-um registo de cliente DUIT no portal. Não foi criado automaticamente nenhum
-cliente nem escolhido nenhum ID ou Página Meta sem confirmação da interface.
+Na configuração inicial serão associados Seven Fitness Club e DUIT. Para um novo cliente, criar o respetivo registo principal no portal e escolher a Página Meta autorizada. Não existe um limite fixo de dois clientes; os limites efetivos de API e infraestrutura terão de ser respeitados.
