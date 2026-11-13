@@ -30,4 +30,11 @@ function validateMediaSet(kind,rows){
  return rows.every((row,index)=>Number(row.position)===index &&
     row.mime===(kind==='reel'?'video/mp4':'image/jpeg'));
 }
-module.exports={facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet};
+function validMetaPostId(value){
+ return typeof value==='string' && /^\d{1,40}(?:_\d{1,40})?$/.test(value);
+}
+function canReconcile(jobStatus,networkStatus,action){
+ return jobStatus==='review' && ['review','processing'].includes(networkStatus)
+   && ['confirm_published','verified_not_published'].includes(action);
+}
+module.exports={facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile};
