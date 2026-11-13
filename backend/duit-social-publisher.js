@@ -2,7 +2,7 @@
 // Publicação agendada DUIT. Desativada até configurar explicitamente a Meta.
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),express=require('express');
 const db=require('./db'),{requireAdmin}=require('./auth'),{cfg,decrypt}=require('./duit-meta-accounts');
-const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl}=require('./duit-social-meta-helpers');
+const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet}=require('./duit-social-meta-helpers');
 const folder=process.env.DUIT_SOCIAL_MEDIA_DIR||path.join(path.dirname(process.env.DATABASE_PATH||path.join(__dirname,'portal.db')),'duit-social-media');
 fs.mkdirSync(folder,{recursive:true});
 db.exec(`
@@ -29,13 +29,9 @@ const enabled=()=>process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'&&!!cfg()&&/^h
 function mediaPath(job,name){return path.join(folder,'job-'+job+'-'+name);}
 function validateJobMedia(job){
  const rows=db.prepare('SELECT position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id);
- const required=job.kind==='carousel'?2:1;
- if(rows.length<required||(job.kind!=='carousel'&&rows.length!==1)||
-    rows.length>10||rows.some((r,i)=>r.position!==i))
-   return {ok:false,error:'Carregue todos os ficheiros por ordem, sem posições vazias'};
- if(rows.some(r=>r.mime!==(job.kind==='reel'?'video/mp4':'image/jpeg')))
-   return {ok:false,error:'Formato de ficheiro inválido'};
- return {ok:true};
+ return validateMediaSet(job.kind,rows)
+   ? {ok:true}
+   : {ok:false,error:'Carregue os ficheiros por ordem e no formato adequado'};
 }
 
 function signedUrl(id){
