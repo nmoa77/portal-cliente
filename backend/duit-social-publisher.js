@@ -2,7 +2,7 @@
 // Publicação agendada DUIT. Desativada até configurar explicitamente a Meta.
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),express=require('express');
 const db=require('./db'),{requireAdmin}=require('./auth'),{cfg,decrypt}=require('./duit-meta-accounts');
-const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet}=require('./duit-social-meta-helpers');
+const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile}=require('./duit-social-meta-helpers');
 const folder=process.env.DUIT_SOCIAL_MEDIA_DIR||path.join(path.dirname(process.env.DATABASE_PATH||path.join(__dirname,'portal.db')),'duit-social-media');
 fs.mkdirSync(folder,{recursive:true});
 db.exec(`
@@ -300,10 +300,10 @@ function register(app){
   if(!['instagram','facebook'].includes(network)||
      !['confirm_published','verified_not_published'].includes(action))
     return res.status(400).json({error:'Rede ou ação inválida'});
-  if(action==='confirm_published'&&!/^\d{1,40}(?:_\d{1,40})?$/.test(remoteId))
+  if(action==='confirm_published'&&!validMetaPostId(remoteId))
     return res.status(400).json({error:'Indique o identificador Meta da publicação confirmada'});
   const channel=db.prepare('SELECT * FROM duit_publish_results WHERE job_id=? AND network=?').get(id,network);
-  if(!channel||!['review','processing'].includes(channel.status))
+  if(!channel||!canReconcile(job.status,channel.status,action))
     return res.status(409).json({error:'Esta rede não está pendente de revisão'});
   if(action==='confirm_published'){
     db.prepare("UPDATE duit_publish_results SET status='published',remote_id=?,error=NULL WHERE job_id=? AND network=?")
