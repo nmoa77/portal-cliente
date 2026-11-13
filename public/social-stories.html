@@ -185,6 +185,16 @@ async function refreshPublisher(accounts){
      const warn=document.createElement('p');warn.className='muted';
      warn.textContent='Atenção: confirme o estado real da publicação na Meta antes de alterar qualquer canal.';
      actions.append(warn);
+     const uncertain=job.results.some(r=>r.status==='review'||r.status==='processing');
+     const neverSent=job.results.some(r=>r.status==='pending');
+     if(neverSent&&!uncertain)actions.append(makeButton('Retomar apenas canais não iniciados',async()=>{
+       if(!confirm('Repor na fila APENAS os canais que ainda não foram enviados?'))return;
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id+'/resume-pending',{method:'POST'});
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+
      for(const item of job.results.filter(r=>r.status==='review'||r.status==='processing')){
        const channel=item.network==='instagram'?'Instagram':'Facebook';
        actions.append(makeButton('Já publicado · '+channel,async()=>{
