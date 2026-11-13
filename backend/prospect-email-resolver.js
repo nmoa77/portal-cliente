@@ -688,15 +688,17 @@ function resolveProspectEmail(userId,landingPageId,emailTemplateId){
       if(!lp)return {error:'Landing Page não encontrada ou inativa.'};
     }
 
+    // O destino de {lp_url} tem de ser a LP efetiva do email (não uma LP antiga da área).
+    const pForLp=lp?{...p,sector_landing_page_key:lp.public_key,sector_landing_page_title:lp.title,sector_landing_page_id:lp.id}:p;
     return {
-      prospect:p,
+      prospect:pForLp,
       source_type:'selected_template',
       source_name:tpl.name,
       landing_page:lp,
       template:tpl,
-      subject:fill(tpl.subject,p),
-      body:fill(tpl.body,p),
-      email_html:fill(tpl.html_body||'',p),
+      subject:fill(tpl.subject,pForLp),
+      body:fill(tpl.body,pForLp),
+      email_html:fill(tpl.html_body||'',pForLp),
       email_format:String(tpl.html_body||'').trim()?'html':'text'
     };
   }
@@ -706,13 +708,14 @@ function resolveProspectEmail(userId,landingPageId,emailTemplateId){
   if(lpId){
     const lp=db.prepare('SELECT * FROM landing_pages WHERE id=? AND is_active=1').get(lpId);
     if(!lp)return {error:'Landing Page não encontrada ou inativa.'};
-    const subject=fill(lp.email_subject,p)||('DUIT — '+lp.title);
-    const body=fill(lp.email_body,p);
-    const emailHtml=fill(lp.email_html,p);
+    const pForLp={...p,sector_landing_page_key:lp.public_key,sector_landing_page_title:lp.title,sector_landing_page_id:lp.id};
+    const subject=fill(lp.email_subject,pForLp)||('DUIT — '+lp.title);
+    const body=fill(lp.email_body,pForLp);
+    const emailHtml=fill(lp.email_html,pForLp);
     const emailFormat=String(lp.email_format||'text')==='html'&&emailHtml.trim()?'html':'text';
     if(emailFormat==='html'&&!emailHtml.trim())return {error:'Esta Landing Page está em modo HTML mas ainda não tem HTML configurado.'};
     if(emailFormat==='text'&&!body.trim())return {error:'Esta Landing Page ainda não tem texto de email configurado.'};
-    return {prospect:p,source_type:'landing_page',source_name:lp.title,landing_page:lp,template:null,subject,body,email_html:emailHtml,email_format:emailFormat};
+    return {prospect:pForLp,source_type:'landing_page',source_name:lp.title,landing_page:lp,template:null,subject,body,email_html:emailHtml,email_format:emailFormat};
   }
 
   const tpl=getTemplate(null);
