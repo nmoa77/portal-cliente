@@ -182,3 +182,16 @@ O serviço também converte publicações interrompidas em `review` no arranque,
 sem repetir automaticamente o envio. Esta é uma salvaguarda inicial, não
 uma garantia de reconciliação automática com a Meta; realizar testes de
 integração antes de ativar na produção.
+
+## Cancelamento de agendamentos — 13/11/2026
+
+- Um agendamento ainda em `scheduled` pode ser **cancelado**, regressando a
+  `draft` sem perder legenda, imagens ou vídeo.
+- A anulação é uma atualização SQL condicional. Quando o motor já iniciou
+  qualquer destino de publicação, o servidor recusa cancelar, evitando
+  eliminar ficheiros ou perder o rasto do conteúdo já enviado.
+- O apagamento de trabalhos só é permitido em `draft`. Para apagar algo
+  agendado, é necessário cancelar primeiro o agendamento.
+- Agendar para uma data passada devolve erro. «Publicar agora» continua a ser
+  a opção explícita para envio imediato.
+- Os testes automatizados cobrem o estado seguro de cancelamento e as datas.
