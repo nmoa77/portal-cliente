@@ -1149,7 +1149,7 @@ function setupConversionAreaLP(slug,cfg,sector){
     const title=popup.querySelector('h3');
     const p=popup.querySelector('p');
     const btn=popup.querySelector('[data-popup-cta]');
-    popup.querySelector('.ey')?.textContent='Antes de sair';
+    const popupEy=popup.querySelector('.ey');if(popupEy)popupEy.textContent='Antes de sair';
     if(title)title.textContent='Quer receber 3 melhorias concretas para a comunicação do seu '+entity+'?';
     if(p)p.textContent='Faço uma primeira análise à comunicação de '+sector+' e mostro 3 oportunidades prioritárias. Gratuito e sem compromisso.';
     if(btn)btn.textContent='Quero receber as 3 melhorias →';
