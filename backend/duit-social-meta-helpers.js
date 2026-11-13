@@ -23,4 +23,11 @@ function validateFacebookReelUploadUrl(url,videoId){
     throw Error('Host de upload não autorizado');
   return parsed.href;
 }
-module.exports={facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl};
+function validateMediaSet(kind,rows){
+ if(!['post','carousel','reel'].includes(kind)||!Array.isArray(rows))return false;
+ const required=kind==='carousel'?2:1;
+ if(rows.length<required||(kind!=='carousel'&&rows.length!==1)||rows.length>10)return false;
+ return rows.every((row,index)=>Number(row.position)===index &&
+    row.mime===(kind==='reel'?'video/mp4':'image/jpeg'));
+}
+module.exports={facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet};
