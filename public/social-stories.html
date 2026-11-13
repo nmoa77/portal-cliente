@@ -198,6 +198,7 @@ $('publish-form').addEventListener('submit',async event=>{
    if(!networks.length)throw Error('Escolha pelo menos uma rede');
    if(files.length<(kind==='carousel'?2:1)||files.length>(kind==='carousel'?10:1))throw Error('Quantidade inválida de ficheiros');
    if(files.some(file=>file.size>80*1024*1024))throw Error('Máximo 80 MB por ficheiro');
+   if(files.some(file=>kind==='reel'?file.type!=='video/mp4':file.type!=='image/jpeg'))throw Error('Use apenas MP4 para Reels ou JPG para Posts/Carrosséis');
    const accountId=Number($('pub-account').value);
    const connected=await request('/api/duit-social/meta/accounts');
    const account=connected.find(x=>x.id===accountId);if(!account)throw Error('Conta desligada');
@@ -332,6 +333,7 @@ $('feedback').textContent='Story guardada no portal.';e.target.reset();await ref
 }catch(e){$('feedback').textContent=e.message;$('feedback').className='error';}finally{button.disabled=false;}
 });
 (async()=>{try{const me=await request('/api/auth/me');if(me.role!=='admin')throw Error('Acesso reservado à DUIT');
+$('pub-date').value=dateForInput(60*60*1000);
 const clients=await request('/api/clients');const socialClients=clients.filter(c=>!c.is_prospect && !c.parent_user_id);$('client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
 $('meta-client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));await refreshMeta();
 
