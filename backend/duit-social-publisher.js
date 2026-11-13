@@ -300,7 +300,7 @@ function register(app){
   if(!['instagram','facebook'].includes(network)||
      !['confirm_published','verified_not_published'].includes(action))
     return res.status(400).json({error:'Rede ou ação inválida'});
-  if(action==='confirm_published'&&!/^\\d{1,40}(?:_\\d{1,40})?$/.test(remoteId))
+  if(action==='confirm_published'&&!/^\d{1,40}(?:_\d{1,40})?$/.test(remoteId))
     return res.status(400).json({error:'Indique o identificador Meta da publicação confirmada'});
   const channel=db.prepare('SELECT * FROM duit_publish_results WHERE job_id=? AND network=?').get(id,network);
   if(!channel||!['review','processing'].includes(channel.status))
