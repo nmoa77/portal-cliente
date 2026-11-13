@@ -63,6 +63,34 @@ async function graph(path,params={}) {
   if(!response.ok || body.error) throw new Error('Meta Graph: '+(body.error?.message||response.status));
   return body;
 }
+// Ler as Páginas por cursor, sempre através do endpoint fixo da Meta.
+// Nunca seguir diretamente paging.next: evita URLs externos e garante que
+// um Business com muitos clientes não é truncado às primeiras 100 Páginas.
+async function listAuthorizedPages(userToken) {
+  const pages=[];
+  const seen=new Set();
+  let after=null;
+  for(let batch=0;batch<20;batch++){
+    const params={
+      fields:'id,name,access_token,instagram_business_account',
+      limit:100,access_token:userToken
+    };
+    if(after)params.after=after;
+    const result=await graph('me/accounts',params);
+    for(const page of result.data||[]){
+      if(page?.id&&!seen.has(String(page.id))){
+        seen.add(String(page.id));
+        pages.push(page);
+      }
+    }
+    const next=result.paging?.cursors?.after;
+    if(!result.paging?.next || !next || next===after)break;
+    after=next;
+    if(batch===19)throw Error('A conta Meta tem demasiadas Páginas para listar numa única autorização');
+  }
+  return pages;
+}
+
 function register(app) {
   const router=express.Router();
   router.use(requireAdmin);
@@ -170,11 +198,8 @@ function register(app) {
         grant_type:'fb_exchange_token',client_id:config.appId,client_secret:config.secret,
         fb_exchange_token:short.access_token
       });
-      const accounts=await graph('me/accounts',{
-        fields:'id,name,access_token,instagram_business_account',
-        limit:100,access_token:long.access_token
-      });
-      const pages=(accounts.data||[]).filter(p=>p.id&&p.access_token).map(p=>({
+      const authorizedPages=await listAuthorizedPages(long.access_token);
+      const pages=authorizedPages.filter(p=>p.id&&p.access_token).map(p=>({
         id:String(p.id),
         name:String(p.name||'Página'),
         instagram_business_id:p.instagram_business_account?.id?String(p.instagram_business_account.id):null,
