@@ -544,13 +544,33 @@ function asset(value){
   return PORTAL_URL+(v.startsWith('/')?'':'/')+v;
 }
 
+/* Email clients may ignore object-fit. Keep sector photos at their natural aspect ratio. */
+function naturalSectorEmailImages(html){
+  return String(html||'').replace(/<img\b[^>]*>/gi,tag=>{
+    if(!/\bsrc\s*=\s*["']\{(?:hero|imagem_[1-4])\}["']/i.test(tag))return tag;
+    let next=tag
+      .replace(/\sheight\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi,'')
+      .replace(/\sstyle\s*=\s*(["'])([\s\S]*?)\1/i,(all,quote,style)=>{
+        const cleaned=style
+          .replace(/(?:^|;)\s*height\s*:[^;]*/gi,'')
+          .replace(/(?:^|;)\s*object-fit\s*:[^;]*/gi,'')
+          .replace(/(?:^|;)\s*max-height\s*:[^;]*/gi,'')
+          .trim()
+          .replace(/^;+|;+$/g,'');
+        return ' style='+quote+cleaned+';height:auto;'+quote;
+      });
+    if(!/\sstyle\s*=/i.test(next))next=next.replace(/\s*\/?\s*>$/,' style="height:auto;">');
+    return next;
+  });
+}
+
 function fill(text,p){
   const company=String(p?.company||p?.name||'').trim();
   const name=String(p?.name||'').trim();
   const observation=humanize(p?.email_observation,'há elementos interessantes na comunicação atual');
   const opportunity=humanize(p?.opportunity,p?.email_observation||'há espaço para tornar a comunicação mais clara e consistente');
   const idea=humanize(p?.idea,'começar por transformar esse ponto numa comunicação mais clara, regular e fácil de reconhecer');
-  return String(text||'')
+  return naturalSectorEmailImages(text)
     .replace(/\{empresa\}/gi,company)
     .replace(/\{nome\}/gi,name)
     .replace(/\{observacao\}/gi,observation)
