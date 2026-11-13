@@ -181,6 +181,15 @@ async function refreshPublisher(accounts){
        await refreshPublisher();
      },'secondary'));
    }
+   if(job.status==='scheduled'){
+     actions.append(makeButton('Cancelar agendamento',async()=>{
+       if(!confirm('Cancelar este agendamento? O conteúdo e os ficheiros ficam guardados como rascunho.'))return;
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id+'/unschedule',{method:'POST'});
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+   }
    if(job.status==='review'){
      const warn=document.createElement('p');warn.className='muted';
      warn.textContent='Atenção: confirme o estado real da publicação na Meta antes de alterar qualquer canal.';
