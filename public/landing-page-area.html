@@ -395,11 +395,15 @@ body.area-conversion-lp .hero:before{
   background:#ffd200;
 }
 body.area-conversion-lp .hero-grid{
-  display:block!important;
+  display:grid!important;
+  grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr)!important;
+  gap:42px!important;
+  align-items:center!important;
   max-width:1180px!important;
 }
-body.area-conversion-lp .hero-grid>div:first-child{max-width:1120px!important}
-body.area-conversion-lp .hero-card,
+body.area-conversion-lp .hero-grid>div:first-child{max-width:100%!important;min-width:0}
+body.area-conversion-lp .hero-card{display:block!important;min-width:0}
+body.area-conversion-lp .hero-card.hidden{display:none!important}
 body.area-conversion-lp #topForm{display:none!important}
 body.area-conversion-lp .hero h1{
   max-width:1040px!important;
@@ -562,6 +566,8 @@ body.area-conversion-lp .dentistas-popup-backdrop.show{display:flex}
 
 @media(max-width:900px){
   body.area-conversion-lp .hero{padding-top:48px!important;padding-bottom:56px!important}
+  body.area-conversion-lp .hero-grid{grid-template-columns:1fr!important;gap:26px!important}
+  body.area-conversion-lp .hero-card img{height:300px}
   body.area-conversion-lp .hero h1{font-size:clamp(48px,12vw,68px)!important}
   body.area-conversion-lp .hero .lead{font-size:18px!important}
   body.area-conversion-lp .area-hero-summary{grid-template-columns:1fr}
@@ -1193,7 +1199,11 @@ async function loadArea(){
   document.getElementById('heroLead').textContent=cfg.lead;
   document.getElementById('areaHeadline').textContent=data.headline||'Design pensado para a realidade do seu negócio.';
   document.getElementById('areaIntro').textContent=cfg.intro;
-  document.getElementById('heroImage').src=abs(data.hero_image)||abs(data.image_1)||abs(data.image_2)||abs(data.image_3)||abs(data.image_4)||'';
+  const heroImage=document.getElementById('heroImage');
+  const heroSrc=abs(data.hero_image)||abs(data.image_1)||abs(data.image_2)||abs(data.image_3)||abs(data.image_4)||'';
+  heroImage.parentElement.classList.toggle('hidden',!heroSrc);
+  if(heroSrc)heroImage.src=heroSrc;
+  heroImage.onerror=()=>{heroImage.parentElement.classList.add('hidden')};
   ['1','2','3','4'].forEach(n=>{const el=document.getElementById('sectorImg'+n),src=abs(data['image_'+n]);if(src){el.src=src}else{el.classList.add('hidden')}});
   document.getElementById('applications').innerHTML=cfg.apps.map((x,i)=>'<div class="app-card"><div class="n">'+(i+1)+'</div><h3>'+x[0]+'</h3><p>'+x[1]+'</p></div>').join('');
   document.getElementById('topMessage').value='Pedido através da LP por área · '+sector;
