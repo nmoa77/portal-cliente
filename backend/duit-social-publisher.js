@@ -245,6 +245,32 @@ function register(app){
   })();
   res.status(201).json({id});
  });
+ router.patch('/jobs/:id',(req,res)=>{
+   const id=Number(req.params.id);
+   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(id);
+   if(!job)return res.status(404).json({error:'Publicação não encontrada'});
+   if(!['draft','scheduled'].includes(job.status))
+     return res.status(409).json({error:'Publicação em processamento ou revisão. Não é possível editar.'});
+   const caption=req.body?.caption;
+   const scheduledAt=req.body?.scheduled_at;
+   if(caption===undefined && scheduledAt===undefined)
+     return res.status(400).json({error:'Indique a legenda ou a data'});
+   if(caption!==undefined&&(typeof caption!=='string'||caption.length>2200))
+     return res.status(400).json({error:'Legenda inválida'});
+   if(scheduledAt!==undefined&&
+      (typeof scheduledAt!=='string'||!Number.isFinite(Date.parse(scheduledAt))))
+     return res.status(400).json({error:'Data inválida'});
+   if(job.status==='scheduled'&&!enabled())
+     return res.status(503).json({error:'Motor Meta desativado. Não é possível reagendar publicações.'});
+   // Atualização condicional: o worker pode ter iniciado entretanto.
+   const changed=db.prepare(`UPDATE duit_publish_jobs
+      SET caption=?,scheduled_at=? WHERE id=? AND status=?`)
+     .run(caption===undefined?job.caption:caption,
+          scheduledAt===undefined?job.scheduled_at:new Date(scheduledAt).toISOString(),
+          id,job.status);
+   if(!changed.changes)return res.status(409).json({error:'A publicação mudou de estado. Atualize a lista.'});
+   res.json({ok:true});
+ });
  router.put('/jobs/:id/files/:position',express.raw({type:()=>true,limit:'80mb'}),(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   const position=Number(req.params.position);
