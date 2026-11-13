@@ -223,7 +223,11 @@ function register(app){
   res.json(config);
  });
  router.get('/jobs',(_req,res)=>{
-  const jobs=db.prepare('SELECT * FROM duit_publish_jobs ORDER BY scheduled_at DESC LIMIT 200').all();
+  const jobs=db.prepare(`SELECT j.*,u.name AS client_name,u.company AS client_company,
+    a.facebook_page_name AS page_name
+    FROM duit_publish_jobs j JOIN users u ON u.id=j.client_id
+    LEFT JOIN duit_meta_accounts a ON a.id=j.account_id
+    ORDER BY j.scheduled_at DESC LIMIT 200`).all();
   res.json(jobs.map(job=>({...job,networks:JSON.parse(job.networks),
    results:db.prepare('SELECT network,status,remote_id,error FROM duit_publish_results WHERE job_id=?').all(job.id),
    files:db.prepare('SELECT id,position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id)})));
