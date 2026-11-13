@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile}
+const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile,canCancelSchedule,isFutureSchedule}
   =require('../backend/duit-social-meta-helpers');
 
 test('Facebook carrossel usa parâmetros indexed por fotografia',()=>{
@@ -60,4 +60,19 @@ test('Revisão manual só em jobs com resultado ambíguo',()=>{
  assert.equal(canReconcile('scheduled','pending','confirm_published'),false);
  assert.equal(canReconcile('review','published','verified_not_published'),false);
  assert.equal(canReconcile('review','review','retry'),false);
+});
+
+test('Cancelar só agendamentos sem qualquer entrega iniciada',()=>{
+ assert.equal(canCancelSchedule('scheduled',['pending']),true);
+ assert.equal(canCancelSchedule('scheduled',['pending','pending']),true);
+ assert.equal(canCancelSchedule('scheduled',['pending','processing']),false);
+ assert.equal(canCancelSchedule('scheduled',['published','pending']),false);
+ assert.equal(canCancelSchedule('processing',['pending']),false);
+ assert.equal(canCancelSchedule('draft',['pending']),false);
+});
+test('Agendamento precisa de data futura; publicar agora é operação separada',()=>{
+ const now=Date.parse('2026-11-13T16:00:00Z');
+ assert.equal(isFutureSchedule('2026-11-13T16:10:00Z',now),true);
+ assert.equal(isFutureSchedule('2026-11-13T15:59:59Z',now),false);
+ assert.equal(isFutureSchedule('qualquer coisa',now),false);
 });
