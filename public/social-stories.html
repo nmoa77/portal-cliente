@@ -142,6 +142,27 @@ async function refreshPublisher(accounts){
      job.results.map(x=>'<div class="muted">'+escapeHtml(x.network)+': '+escapeHtml(x.status)+
      (x.error?' · '+escapeHtml(x.error):'')+'</div>').join('');
    const actions=document.createElement('div');actions.className='actions';
+   if(['draft','scheduled'].includes(job.status)){
+     actions.append(makeButton('Editar',async()=>{
+       const nextCaption=prompt('Editar legenda:',job.caption);
+       if(nextCaption===null)return;
+       const nextDate=prompt('Data e hora (YYYY-MM-DDTHH:mm em Portugal):',
+         new Date(job.scheduled_at).toLocaleString('sv-SE',{timeZone:'Europe/Lisbon'}).replace(' ','T').slice(0,16));
+       if(nextDate===null)return;
+       if(!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}$/.test(nextDate)){
+         $('pub-status').textContent='Data inválida';return;
+       }
+       const local=new Date(nextDate);
+       if(!Number.isFinite(local.getTime())){$('pub-status').textContent='Data inválida';return;}
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id,{
+           method:'PATCH',headers:{'Content-Type':'application/json'},
+           body:JSON.stringify({caption:nextCaption,scheduled_at:local.toISOString()})
+         });
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+   }
    if(job.status==='draft'){
      actions.append(makeButton('Agendar',async()=>{
        try{await request('/api/duit-social/publisher/jobs/'+job.id+'/schedule',{method:'POST'});await refreshPublisher();}
