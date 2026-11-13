@@ -37,4 +37,14 @@ function canReconcile(jobStatus,networkStatus,action){
  return jobStatus==='review' && ['review','processing'].includes(networkStatus)
    && ['confirm_published','verified_not_published'].includes(action);
 }
-module.exports={facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile};
+function canCancelSchedule(jobStatus,networkStatuses){
+ return jobStatus==='scheduled' &&
+   Array.isArray(networkStatuses) &&
+   networkStatuses.length>0 &&
+   networkStatuses.every(status=>status==='pending');
+}
+function isFutureSchedule(value,now=Date.now()){
+ const timestamp=Date.parse(value);
+ return Number.isFinite(timestamp)&&timestamp>now;
+}
+module.exports={facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile,canCancelSchedule,isFutureSchedule};
