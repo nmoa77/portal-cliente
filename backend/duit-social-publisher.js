@@ -2,7 +2,7 @@
 // Publicação agendada DUIT. Desativada até configurar explicitamente a Meta.
 const fs=require('fs'),path=require('path'),crypto=require('crypto'),express=require('express');
 const db=require('./db'),{requireAdmin}=require('./auth'),{cfg,decrypt}=require('./duit-meta-accounts');
-const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile}=require('./duit-social-meta-helpers');
+const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile,isFutureSchedule}=require('./duit-social-meta-helpers');
 const folder=process.env.DUIT_SOCIAL_MEDIA_DIR||path.join(path.dirname(process.env.DATABASE_PATH||path.join(__dirname,'portal.db')),'duit-social-media');
 fs.mkdirSync(folder,{recursive:true});
 db.exec(`
@@ -365,8 +365,7 @@ function register(app){
   const valid=validateJobMedia(job);
   if(!valid.ok)return res.status(400).json({error:valid.error});
   if(!enabled())return res.status(503).json({error:'Publicação automática desativada até configuração e testes'});
-  const when=Date.parse(job.scheduled_at);
-  if(!Number.isFinite(when)||when<=Date.now())
+  if(!isFutureSchedule(job.scheduled_at))
     return res.status(400).json({error:'A data já passou. Escolha uma data futura ou utilize «Publicar agora».'});
   const changed=db.prepare("UPDATE duit_publish_jobs SET status='scheduled' WHERE id=? AND status='draft'").run(job.id);
   if(!changed.changes)return res.status(409).json({error:'O estado mudou; atualize a lista'});
