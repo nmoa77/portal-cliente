@@ -289,6 +289,39 @@ function register(app){
   if(before)try{fs.unlinkSync(mediaPath(job.id,before.name));}catch(_){}
   res.json({ok:true});
  });
+ router.post('/jobs/:id/reconcile',(req,res)=>{
+  const id=Number(req.params.id);
+  const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(id);
+  if(!job||job.status!=='review')
+    return res.status(409).json({error:'Apenas publicações em revisão podem ser reconciliadas'});
+  const network=String(req.body?.network||'');
+  const action=String(req.body?.action||'');
+  const remoteId=String(req.body?.remote_id||'').trim();
+  if(!['instagram','facebook'].includes(network)||
+     !['confirm_published','verified_not_published'].includes(action))
+    return res.status(400).json({error:'Rede ou ação inválida'});
+  if(action==='confirm_published'&&!/^\\d{1,40}(?:_\\d{1,40})?$/.test(remoteId))
+    return res.status(400).json({error:'Indique o identificador Meta da publicação confirmada'});
+  const channel=db.prepare('SELECT * FROM duit_publish_results WHERE job_id=? AND network=?').get(id,network);
+  if(!channel||!['review','processing'].includes(channel.status))
+    return res.status(409).json({error:'Esta rede não está pendente de revisão'});
+  if(action==='confirm_published'){
+    db.prepare("UPDATE duit_publish_results SET status='published',remote_id=?,error=NULL WHERE job_id=? AND network=?")
+      .run(remoteId,id,network);
+    const left=db.prepare("SELECT COUNT(*) AS c FROM duit_publish_results WHERE job_id=? AND status!='published'").get(id).c;
+    if(!left){
+      db.prepare("UPDATE duit_publish_jobs SET status='published',error=NULL WHERE id=?").run(id);
+      try{removeMedia(id);}catch(e){console.warn('[duit-social] reconciliação media:',e.message);}
+    }
+    return res.json({ok:true,status:left?'review':'published'});
+  }
+  // O administrador confirmou que NÃO existe publicação remota neste canal.
+  // Apenas este canal fica pendente; canais já publicados não voltam a publicar.
+  db.prepare("UPDATE duit_publish_results SET status='pending',remote_id=NULL,error=NULL WHERE job_id=? AND network=?").run(id,network);
+  db.prepare("UPDATE duit_publish_jobs SET status='scheduled',scheduled_at=?,error=NULL WHERE id=?")
+    .run(new Date().toISOString(),id);
+  res.json({ok:true,status:'scheduled'});
+ });
  router.post('/jobs/:id/publish-now',(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   if(!job||job.status!=='draft')return res.status(409).json({error:'A publicação já não é um rascunho'});
@@ -316,6 +349,10 @@ function register(app){
   db.prepare('DELETE FROM duit_publish_jobs WHERE id=?').run(job.id);
   res.json({ok:true});
  });
+ // Após falha de processo, um envio iniciado pode já existir remotamente.
+ // Suspender esses trabalhos para confirmação humana em vez de repetir.
+ const interrupted=db.prepare("UPDATE duit_publish_jobs SET status='review',error='Processo interrompido; confirmar nas redes antes de reenviar' WHERE status='processing'").run();
+ if(interrupted.changes)db.prepare("UPDATE duit_publish_results SET status='review',error='Processo interrompido; verificar publicação remota' WHERE status='processing'").run();
  app.use('/api/duit-social/publisher',router);
  try{cleanupCompleted();}catch(e){console.warn('[duit-social] limpeza inicial:',e.message);}
 
