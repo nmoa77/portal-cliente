@@ -377,27 +377,20 @@ function register(app){
   if(!Number.isSafeInteger(id)||id<=0)return res.status(400).json({error:'Publicação inválida'});
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(id);
   if(!job)return res.status(404).json({error:'Publicação não encontrada'});
-  // Cancelar o agendamento primeiro. Apagar um trabalho agendado pode
-  // correr em paralelo com o worker e destruir os ficheiros durante o envio.
-  if(job.status!=='draft')return res.status(409).json({error:'Cancele primeiro o agendamento. Publicações iniciadas ou em revisão não podem ser apagadas.'});
-  const transaction=db.transaction(()=>{
-    const previousFiles=db.prepare('SELECT name FROM duit_publish_media WHERE job_id=?').all(id);
-    const changed=db.prepare("DELETE FROM duit_publish_jobs WHERE id=? AND status='draft'").run(id);
-    return {changes:changed.changes,files:previousFiles};
-  });
-  // A aplicação usa um único processo de publicação, mas esta condição
-  // também preserva o estado caso outra operação mude a publicação.
-  const removed=transaction();
-  if(!removed.changes)return res.status(409).json({error:'Estado alterado. Atualize a lista.'});
-  // A BD já não referencia os ficheiros. Em caso de falha a limpeza de órfãos
-  // pode recuperar os objetos remanescentes; nunca republicar o conteúdo.
-  for(const item of removed.files)try{fs.unlinkSync(mediaPath(id,item.name));}catch(e){if(e.code!=='ENOENT')console.warn('[duit-social] eliminação:',e.message);}
-  res.json({ok:true});
+  // Antes de apagar um agendamento é obrigatório cancelar. O worker nunca
+  // utiliza ficheiros de um draft, pelo que não existe envio em curso.
+  if(job.status!=='draft')
+    return res.status(409).json({error:'Cancele primeiro o agendamento. Publicações iniciadas ou em revisão não podem ser apagadas.'});
+  try{
+    removeMedia(id);
+    db.prepare("DELETE FROM duit_publish_jobs WHERE id=? AND status='draft'").run(id);
+    res.json({ok:true});
+  }catch(e){
+    console.error('[duit-social] apagar rascunho:',e.message);
+    res.status(500).json({error:'Não foi possível apagar os ficheiros. Pode tentar novamente.'});
+  }
  });
- // Após falha de processo, um envio iniciado pode já existir remotamente.
- // Suspender esses trabalhos para confirmação humana em vez de repetir.
- const interrupted=db.prepare("UPDATE duit_publish_jobs SET status='review',error='Processo interrompido; confirmar nas redes antes de reenviar' WHERE status='processing'").run();
- if(interrupted.changes)db.prepare("UPDATE duit_publish_results SET status='review',error='Processo interrompido; verificar publicação remota' WHERE status='processing'").run();
+
  app.use('/api/duit-social/publisher',router);
  try{cleanupCompleted();}catch(e){console.warn('[duit-social] limpeza inicial:',e.message);}
 
