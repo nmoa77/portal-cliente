@@ -289,6 +289,20 @@ function register(app){
   if(before)try{fs.unlinkSync(mediaPath(job.id,before.name));}catch(_){}
   res.json({ok:true});
  });
+ router.post('/jobs/:id/resume-pending',(req,res)=>{
+  const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
+  if(!job||job.status!=='review')return res.status(409).json({error:'Esta publicação não está em revisão'});
+  // Apenas trabalhos ainda por iniciar podem ser retomados. Nunca alterar
+  // canais em revisão ou já publicados.
+  const pending=db.prepare("SELECT COUNT(*) AS c FROM duit_publish_results WHERE job_id=? AND status='pending'").get(job.id).c;
+  const uncertain=db.prepare("SELECT COUNT(*) AS c FROM duit_publish_results WHERE job_id=? AND status IN ('review','processing')").get(job.id).c;
+  if(!pending)return res.status(409).json({error:'Não existem canais por iniciar'});
+  if(uncertain)return res.status(409).json({error:'Verifique primeiro os canais cujo resultado é desconhecido'});
+  if(!enabled())return res.status(503).json({error:'Publicação Meta desativada'});
+  const updated=db.prepare("UPDATE duit_publish_jobs SET status='scheduled',scheduled_at=?,error=NULL WHERE id=? AND status='review'")
+    .run(new Date().toISOString(),job.id);
+  res.json({ok:!!updated.changes,status:'scheduled'});
+ });
  router.post('/jobs/:id/reconcile',(req,res)=>{
   const id=Number(req.params.id);
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(id);
