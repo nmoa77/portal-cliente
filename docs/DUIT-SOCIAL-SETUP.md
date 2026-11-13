@@ -145,3 +145,18 @@ Inspeção **apenas de leitura** do projeto Railway `Portal cliente`:
 Não criar automaticamente credenciais Meta: têm de ser obtidas na app
 Meta Developers, com URI OAuth e permissões apropriadas. Não ativar o motor
 nem fazer deploy enquanto faltarem esses pré-requisitos e testes reais.
+
+## Melhorias de revisão — 13/11/2026
+
+- OAuth percorre as Páginas Meta por cursor, em blocos de 100, com limite
+  de segurança de 20 páginas de resultados. Não segue URLs `paging.next`
+  devolvidos por terceiros e não importa automaticamente qualquer Página.
+- Legendas e data/hora de rascunhos podem ser editadas. Um agendamento pode
+  ser reagendado enquanto estiver em `scheduled`; depois de o worker o
+  marcar `processing`, deixa de aceitar alterações.
+- A edição de agendamentos exige que a publicação Meta esteja ativada, para
+  evitar aparentar sucesso se o motor estiver desligado.
+- GitHub Actions execução #44: testes técnicos passaram; testes de ponta a
+  ponta com contas Meta reais continuam por fazer.
+
+**Não foi efetuado deploy, nem enviadas publicações reais.**
