@@ -195,3 +195,17 @@ integração antes de ativar na produção.
 - Agendar para uma data passada devolve erro. «Publicar agora» continua a ser
   a opção explícita para envio imediato.
 - Os testes automatizados cobrem o estado seguro de cancelamento e as datas.
+
+## Melhorias de gestão — 13/11/2026
+
+- Publicações agendadas podem ser **desagendadas** para rascunho sem perder
+  ficheiros nem legendas, desde que nenhum canal tenha iniciado o envio.
+- O apagamento é exclusivo de rascunhos; para eliminar conteúdo agendado,
+  cancelar primeiro. Publicações em `processing`/`review` não são apagadas.
+- Agendar com data passada devolve erro. Para envio imediato existe a ação
+  explícita «Publicar agora».
+- A lista de publicações inclui nome do cliente e filtro por cliente.
+  Isto permite operar vários clientes sem misturar as publicações.
+- Acrescentados testes de cancelamento seguro e agendamento futuro.
+
+**Sem merge, deploy, alteração de variáveis Railway ou publicação real.**
