@@ -40,7 +40,9 @@ button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#eee}.danger
 <div class="grid"><label>Imagens JPG ou vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,video/mp4" multiple required></label>
 <label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
 <p><button type="submit">Guardar publicação</button></p></form>
-<p class="muted" id="pub-status" aria-live="polite"></p><div id="pub-jobs"></div>
+<p class="muted" id="pub-status" aria-live="polite"></p>
+<div class="actions"><label>Filtrar publicações por cliente <select id="pub-filter"><option value="all">Todos os clientes</option></select></label></div>
+<div id="pub-jobs"></div>
 </section>
 <section class="panel"><h2>Notificações no Android</h2>
 <p class="muted">Instale o portal no ecrã inicial e permita notificações. Receberá um aviso quando chegar a hora das Stories agendadas.</p>
@@ -133,11 +135,21 @@ async function refreshPublisher(accounts){
    return option;
  }));
  const jobs=await request('/api/duit-social/publisher/jobs');const root=$('pub-jobs');root.replaceChildren();
- if(!jobs.length){root.textContent='Ainda não existem publicações automáticas.';return;}
- for(const job of jobs){
+ const select=$('pub-filter');const previous=select.value;
+ const clients=new Map();
+ for(const job of jobs)clients.set(String(job.client_id),job.client_company||job.client_name||'Cliente '+job.client_id);
+ select.replaceChildren();
+ const all=document.createElement('option');all.value='all';all.textContent='Todos os clientes';select.append(all);
+ for(const [id,label] of clients){
+   const option=document.createElement('option');option.value=id;option.textContent=label;select.append(option);
+ }
+ select.value=clients.has(previous)||previous==='all'?previous:'all';
+ const filtered=select.value==='all'?jobs:jobs.filter(job=>String(job.client_id)===select.value);
+ if(!filtered.length){root.textContent='Sem publicações para este cliente.';return;}
+ for(const job of filtered){
    const div=document.createElement('div');div.className='story';
    const title=document.createElement('div');
-   title.innerHTML='<strong>'+escapeHtml(job.kind)+' · '+escapeHtml(job.networks.join(' + '))+'</strong><div class="muted">'+
+   title.innerHTML='<strong>'+escapeHtml(job.client_company||job.client_name||'Cliente')+' · '+escapeHtml(job.kind)+'</strong><div class="muted">'+escapeHtml(job.networks.join(' + '))+' · '+
      dateLabel(job.scheduled_at)+' · '+escapeHtml(job.status)+'</div>'+
      job.results.map(x=>'<div class="muted">'+escapeHtml(x.network)+': '+escapeHtml(x.status)+
      (x.error?' · '+escapeHtml(x.error):'')+'</div>').join('');
@@ -253,6 +265,7 @@ async function refreshPublisher(accounts){
    div.append(combined,actions);root.append(div);
  }
 }
+$('pub-filter').addEventListener('change',()=>refreshPublisher().catch(e=>$('pub-status').textContent=e.message));
 $('pub-kind').addEventListener('change',()=>{
  const reel=$('pub-kind').value==='reel';
  $('pub-fb').disabled=false;
