@@ -336,6 +336,18 @@ function register(app){
     .run(new Date().toISOString(),id);
   res.json({ok:true,status:'scheduled'});
  });
+ router.post('/jobs/:id/unschedule',(req,res)=>{
+  const id=Number(req.params.id);
+  if(!Number.isSafeInteger(id)||id<=0)return res.status(400).json({error:'Publicação inválida'});
+  // O worker também altera status de scheduled para processing de forma atómica.
+  // Só anulamos quando ainda não começou nenhuma entrega.
+  const changed=db.prepare(`UPDATE duit_publish_jobs SET status='draft'
+    WHERE id=? AND status='scheduled'
+      AND NOT EXISTS(SELECT 1 FROM duit_publish_results
+                     WHERE job_id=? AND status!='pending')`).run(id,id);
+  if(!changed.changes)return res.status(409).json({error:'Já não é possível cancelar: o envio pode ter começado. Atualize o estado.'});
+  res.json({ok:true,status:'draft',filesPreserved:true});
+ });
  router.post('/jobs/:id/publish-now',(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   if(!job||job.status!=='draft')return res.status(409).json({error:'A publicação já não é um rascunho'});
@@ -353,8 +365,12 @@ function register(app){
   const valid=validateJobMedia(job);
   if(!valid.ok)return res.status(400).json({error:valid.error});
   if(!enabled())return res.status(503).json({error:'Publicação automática desativada até configuração e testes'});
-  db.prepare("UPDATE duit_publish_jobs SET status='scheduled' WHERE id=?").run(job.id);
-  res.json({ok:true});
+  const when=Date.parse(job.scheduled_at);
+  if(!Number.isFinite(when)||when<=Date.now())
+    return res.status(400).json({error:'A data já passou. Escolha uma data futura ou utilize «Publicar agora».'});
+  const changed=db.prepare("UPDATE duit_publish_jobs SET status='scheduled' WHERE id=? AND status='draft'").run(job.id);
+  if(!changed.changes)return res.status(409).json({error:'O estado mudou; atualize a lista'});
+  res.json({ok:true,status:'scheduled'});
  });
  router.delete('/jobs/:id',(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
