@@ -160,3 +160,25 @@ nem fazer deploy enquanto faltarem esses pré-requisitos e testes reais.
   ponta com contas Meta reais continuam por fazer.
 
 **Não foi efetuado deploy, nem enviadas publicações reais.**
+
+## Recuperação de publicações ambíguas — 13/11/2026
+
+O publicador **nunca repete automaticamente** um envio cujo resultado Meta
+seja desconhecido (timeout, perda de rede, reinício do processo). Nesses
+casos a publicação fica em `review`, com estados independentes por rede.
+
+No painel, o administrador verifica primeiro a publicação na Meta:
+- **Já publicado**: indica o ID real do conteúdo e confirma apenas esse canal.
+- **Não publicado**: depois de verificar a ausência do conteúdo, autoriza
+  uma nova tentativa apenas nesse canal.
+- **Retomar canais não iniciados**: disponível somente quando existem canais
+  `pending` e nenhum outro canal com resultado incerto.
+
+Assim, uma publicação concluída no Facebook não volta a ser enviada ao
+Facebook se o Instagram falhar. Os ficheiros só são apagados depois de
+confirmada a publicação em todos os canais selecionados.
+
+O serviço também converte publicações interrompidas em `review` no arranque,
+sem repetir automaticamente o envio. Esta é uma salvaguarda inicial, não
+uma garantia de reconciliação automática com a Meta; realizar testes de
+integração antes de ativar na produção.
