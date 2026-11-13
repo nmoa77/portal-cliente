@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl}
+const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet}
   =require('../backend/duit-social-meta-helpers');
 
 test('Facebook carrossel usa parâmetros indexed por fotografia',()=>{
@@ -28,4 +28,20 @@ test('Upload Meta apenas para rupload.facebook.com com HTTPS',()=>{
  assert.throws(()=>validateFacebookReelUploadUrl('http://rupload.facebook.com/a','123'));
  assert.throws(()=>validateFacebookReelUploadUrl('https://evil.test/a','123'));
  assert.throws(()=>validateFacebookReelUploadUrl('https://rupload.facebook.com/a','bad'));
+});
+
+test('Só agenda carrosséis completos com posições consecutivas',()=>{
+ assert.equal(validateMediaSet('carousel',[
+  {position:0,mime:'image/jpeg'},{position:1,mime:'image/jpeg'}]),true);
+ assert.equal(validateMediaSet('carousel',[
+  {position:0,mime:'image/jpeg'},{position:2,mime:'image/jpeg'}]),false);
+ assert.equal(validateMediaSet('carousel',[{position:0,mime:'image/jpeg'}]),false);
+ assert.equal(validateMediaSet('carousel',[
+  {position:0,mime:'image/jpeg'},{position:1,mime:'image/png'}]),false);
+});
+test('Reels aceitam apenas um MP4 e posts apenas um JPEG',()=>{
+ assert.equal(validateMediaSet('reel',[{position:0,mime:'video/mp4'}]),true);
+ assert.equal(validateMediaSet('reel',[{position:0,mime:'image/jpeg'}]),false);
+ assert.equal(validateMediaSet('post',[{position:0,mime:'image/jpeg'}]),true);
+ assert.equal(validateMediaSet('post',[{position:0,mime:'image/jpeg'},{position:1,mime:'image/jpeg'}]),false);
 });
