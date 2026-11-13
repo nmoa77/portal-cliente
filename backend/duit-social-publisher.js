@@ -27,6 +27,17 @@ const publicRoot=()=>String(process.env.DUIT_SOCIAL_PUBLIC_URL||'').replace(/\/$
 const signingKey=()=>process.env.DUIT_SOCIAL_MEDIA_SIGNING_KEY||'';
 const enabled=()=>process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'&&!!cfg()&&/^https:\/\//.test(publicRoot())&&signingKey().length>=32;
 function mediaPath(job,name){return path.join(folder,'job-'+job+'-'+name);}
+function validateJobMedia(job){
+ const rows=db.prepare('SELECT position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id);
+ const required=job.kind==='carousel'?2:1;
+ if(rows.length<required||(job.kind!=='carousel'&&rows.length!==1)||
+    rows.length>10||rows.some((r,i)=>r.position!==i))
+   return {ok:false,error:'Carregue todos os ficheiros por ordem, sem posições vazias'};
+ if(rows.some(r=>r.mime!==(job.kind==='reel'?'video/mp4':'image/jpeg')))
+   return {ok:false,error:'Formato de ficheiro inválido'};
+ return {ok:true};
+}
+
 function signedUrl(id){
  const expires=Math.floor(Date.now()/1000)+21600;
  const sig=crypto.createHmac('sha256',signingKey()).update(id+':'+expires).digest('hex');
@@ -259,8 +270,8 @@ function register(app){
  router.post('/jobs/:id/publish-now',(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   if(!job||job.status!=='draft')return res.status(409).json({error:'A publicação já não é um rascunho'});
-  const count=db.prepare('SELECT COUNT(*) AS c FROM duit_publish_media WHERE job_id=?').get(job.id).c;
-  if(count<(job.kind==='carousel'?2:1))return res.status(400).json({error:'Ficheiros insuficientes'});
+  const valid=validateJobMedia(job);
+  if(!valid.ok)return res.status(400).json({error:valid.error});
   if(!enabled())return res.status(503).json({error:'O motor Meta ainda não está configurado nem ativado'});
   // O worker recolhe o conteúdo imediatamente, sem bloquear o pedido HTTP.
   db.prepare("UPDATE duit_publish_jobs SET scheduled_at=?,status='scheduled' WHERE id=?")
@@ -270,8 +281,8 @@ function register(app){
  router.post('/jobs/:id/schedule',(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   if(!job||job.status!=='draft')return res.status(409).json({error:'Já não é um rascunho'});
-  const count=db.prepare('SELECT COUNT(*) c FROM duit_publish_media WHERE job_id=?').get(job.id).c;
-  if(count<(job.kind==='carousel'?2:1))return res.status(400).json({error:'Ficheiros insuficientes'});
+  const valid=validateJobMedia(job);
+  if(!valid.ok)return res.status(400).json({error:valid.error});
   if(!enabled())return res.status(503).json({error:'Publicação automática desativada até configuração e testes'});
   db.prepare("UPDATE duit_publish_jobs SET status='scheduled' WHERE id=?").run(job.id);
   res.json({ok:true});
