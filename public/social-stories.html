@@ -181,6 +181,35 @@ async function refreshPublisher(accounts){
        await refreshPublisher();
      },'secondary'));
    }
+   if(job.status==='review'){
+     const warn=document.createElement('p');warn.className='muted';
+     warn.textContent='Atenção: confirme o estado real da publicação na Meta antes de alterar qualquer canal.';
+     actions.append(warn);
+     for(const item of job.results.filter(r=>r.status==='review'||r.status==='processing')){
+       const channel=item.network==='instagram'?'Instagram':'Facebook';
+       actions.append(makeButton('Já publicado · '+channel,async()=>{
+         const id=prompt('Confirme na Meta e indique o ID da publicação em '+channel+'. Sem este ID, não alteramos o estado.');
+         if(!id)return;
+         try{
+           await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
+             method:'POST',headers:{'Content-Type':'application/json'},
+             body:JSON.stringify({network:item.network,action:'confirm_published',remote_id:id.trim()})
+           });
+           await refreshPublisher();
+         }catch(e){$('pub-status').textContent=e.message;}
+       },'secondary'));
+       actions.append(makeButton('Não publicado · '+channel,async()=>{
+         if(!confirm('Verificou na Meta que este conteúdo NÃO foi publicado em '+channel+'? O portal irá tentar publicar novamente APENAS nesse canal.'))return;
+         try{
+           await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
+             method:'POST',headers:{'Content-Type':'application/json'},
+             body:JSON.stringify({network:item.network,action:'verified_not_published'})
+           });
+           await refreshPublisher();
+         }catch(e){$('pub-status').textContent=e.message;}
+       },'secondary'));
+     }
+   }
    const content=document.createElement('div');
    if(job.caption){
      const cap=document.createElement('p');cap.style.whiteSpace='pre-wrap';cap.style.fontSize='13px';
