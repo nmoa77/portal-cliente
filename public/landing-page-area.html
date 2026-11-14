@@ -1023,9 +1023,11 @@ function setupConversionAreaLP(slug,cfg,sector){
   if(bands[0]){
     const h=bands[0].querySelector('h2'),p=bands[0].querySelector('p'),a=bands[0].querySelector('a');
     if(h)h.textContent=slug==='construcao-engenharia'
-      ?'Do projeto à apresentação. Tudo comunica profissionalismo.'
+      ?'Transforme projetos em novas oportunidades.'
       :cfg.title;
-    if(p)p.textContent=cfg.intro;
+    if(p)p.textContent=slug==='construcao-engenharia'
+      ?'Um portefólio bem organizado e propostas comerciais claras ajudam potenciais clientes a perceber o que distingue a sua empresa e a avançar para um pedido de orçamento.'
+      :cfg.intro;
     if(a)a.textContent='Quero receber as 3 melhorias →';
     const wrap=bands[0].querySelector('.w');
     if(wrap&&!wrap.querySelector('.area-compare')){
