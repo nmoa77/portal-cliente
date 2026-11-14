@@ -1194,7 +1194,7 @@ async function viewCalendar(main) {
     <div class="cal-toolbar">
       <div class="cal-filters">
         <button class="cal-filter ${filter === 'all' ? 'active' : ''}" onclick="setCalFilter('all')">Todos</button>
-        ${state.clients.filter(c => (c.social_subs || 0) > 0).map(c => `
+        ${state.clients.filter(c => (c.social_subs || 0) > 0 || calendarMetaJobs.some(j => Number(j.client_id) === Number(c.id))).map(c => `
           <button class="cal-filter ${filter == c.id ? 'active' : ''}" onclick="setCalFilter(${c.id})">
             ${escapeHtml(c.company || c.name)}
           </button>
@@ -1202,7 +1202,7 @@ async function viewCalendar(main) {
       </div>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
         <button class="btn btn-yellow btn-sm" onclick="openNewPostForDate('${mode === 'day' ? state.calDay : ''}')">${svg('plus')} Novo post</button>
-        <a class="btn btn-ghost btn-sm" href="/social-stories.html">Stories para Instagram ↗</a>
+        <a class="btn btn-yellow btn-sm" href="/social-stories.html">Posts, Reels e Stories Meta ↗</a>
         ${filter !== 'all'
           ? `<button class="btn btn-ghost btn-sm" onclick="openGenPosts()">${svg('cal')} Gerar posts do mês</button>`
           : ''}
