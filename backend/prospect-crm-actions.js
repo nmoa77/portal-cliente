@@ -396,7 +396,7 @@ module.exports = function installProspectCrmActions(app) {
     const lpUrl=lp?portal+'/'+encodeURIComponent(lp.public_key):null;
     const areaLpUrl=p.sector_landing_page_key?portal+'/'+encodeURIComponent(p.sector_landing_page_key):null;
     const targetUrl=lpUrl||areaLpUrl;
-    const ctaTrackUrl=targetUrl?`${portal}/api/public/prospect-cta/${encodeURIComponent(token)}`:null;
+    const ctaTrackUrl=includeTracking&&targetUrl?`${portal}/api/public/prospect-cta/${encodeURIComponent(token)}`:null;
     const useCustomHtml=Boolean(resolved.email_format==='html'&&String(resolved.email_html||'').trim());
     const withLpUrl=value=>String(value||'').replace(/\{lp_url\}/gi,targetUrl||'').replace(/\{landing_page_url\}/gi,targetUrl||'');
     const trackingPixel=includeTracking?`<img src="${portal}/api/crm/prospects/email-open/${encodeURIComponent(token)}.png" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0">`:'';
