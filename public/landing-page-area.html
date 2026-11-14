@@ -1193,7 +1193,9 @@ async function loadArea(){
   document.getElementById('areaEy').textContent=sector+' · DUIT Design';
   document.getElementById('heroTitle').innerHTML=cfg.title.replace(/(o seu negócio|a comunicação|confiança|imagem|experiência|qualidade|precisão|comunicar melhor|carro|imóvel|check-in|olhos|vender|trabalho|bem|operação|complicada|mercado|comunicação)$/i,'<span>$1</span>');
   document.getElementById('heroLead').textContent=cfg.lead;
-  document.getElementById('areaHeadline').textContent=data.headline||'Design pensado para a realidade do seu negócio.';
+  document.getElementById('areaHeadline').textContent=slug==='construcao-engenharia'
+    ?'Projetos que merecem ser apresentados à altura.'
+    :(data.headline||'Design pensado para a realidade do seu negócio.');
   document.getElementById('areaIntro').textContent=cfg.intro;
   document.getElementById('heroImage').src=abs(data.hero_image)||abs(data.image_1)||abs(data.image_2)||abs(data.image_3)||abs(data.image_4)||'';
   ['1','2','3','4'].forEach(n=>{const el=document.getElementById('sectorImg'+n),src=abs(data['image_'+n]);if(src){el.src=src}else{el.classList.add('hidden')}});
