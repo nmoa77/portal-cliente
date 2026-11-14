@@ -222,6 +222,29 @@ function register(app){
   };
   res.json(config);
  });
+ // Leitura do calendário por intervalo, sem o limite de 200 itens da listagem.
+ // Alargamos 1 dia em cada extremo para cobrir os fusos horários locais.
+ router.get('/calendar',(req,res)=>{
+   const start=String(req.query.start||''),end=String(req.query.end||'');
+   if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||
+      !/^\d{4}-\d{2}-\d{2}$/.test(end)||
+      !Number.isFinite(Date.parse(start))||!Number.isFinite(Date.parse(end))||
+      Date.parse(end)<Date.parse(start)||Date.parse(end)-Date.parse(start)>1000*60*60*24*65)
+     return res.status(400).json({error:'Intervalo inválido (máximo 65 dias)'});
+   const utcStart=new Date(Date.parse(start)-86400000).toISOString();
+   const utcEnd=new Date(Date.parse(end)+2*86400000).toISOString();
+   const clientId=req.query.client_id===undefined?null:Number(req.query.client_id);
+   if(clientId!==null&&(!Number.isSafeInteger(clientId)||clientId<=0))
+     return res.status(400).json({error:'Cliente inválido'});
+   const rows=db.prepare(`SELECT j.id,j.client_id,j.account_id,j.kind,j.scheduled_at,j.status,
+       j.networks,j.error,u.name AS client_name,u.company AS client_company
+       FROM duit_publish_jobs j JOIN users u ON u.id=j.client_id
+       WHERE j.scheduled_at>=? AND j.scheduled_at<?
+         AND (? IS NULL OR j.client_id=?)
+       ORDER BY j.scheduled_at ASC LIMIT 1000`)
+     .all(utcStart,utcEnd,clientId,clientId);
+   res.json(rows.map(row=>({...row,networks:JSON.parse(row.networks)})));
+ });
  router.get('/jobs',(_req,res)=>{
   const jobs=db.prepare(`SELECT j.*,u.name AS client_name,u.company AS client_company,
     a.facebook_page_name AS page_name
