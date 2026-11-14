@@ -209,3 +209,21 @@ integração antes de ativar na produção.
 - Acrescentados testes de cancelamento seguro e agendamento futuro.
 
 **Sem merge, deploy, alteração de variáveis Railway ou publicação real.**
+
+## Calendário integrado — 14/11/2026
+
+- A vista de calendário do administrador inclui os trabalhos reais do
+  publicador Meta (Posts, carrosséis e Reels), além dos Posts editoriais
+  antigos e das Stories preparadas manualmente.
+- O endpoint `GET /api/duit-social/publisher/calendar?start=AAAA-MM-DD&end=AAAA-MM-DD`
+  aceita até 65 dias e permite filtrar por `client_id`; os dias são
+  apresentados no fuso `Europe/Lisbon`.
+- Os conteúdos Meta aparecem em cor distinta e abrem o respetivo registo no
+  gestor com `?publication=ID`, mesmo quando o ID já não consta dos últimos
+  200 resultados da listagem normal.
+- A barra do calendário tem ligação direta ao módulo de Posts, Reels e Stories;
+  a lista de filtros inclui clientes com trabalhos Meta no período.
+- A CI passou a verificar também a sintaxe do `public/js/admin.js`.
+- **Ainda não há ligação automática entre posts editoriais antigos e
+  trabalhos Meta**: os dois fluxos continuam separados para evitar publicar
+  indevidamente conteúdos de planeamento antigo.
