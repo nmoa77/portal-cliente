@@ -1022,7 +1022,9 @@ function setupConversionAreaLP(slug,cfg,sector){
   const bands=[...document.querySelectorAll('.cta-band')];
   if(bands[0]){
     const h=bands[0].querySelector('h2'),p=bands[0].querySelector('p'),a=bands[0].querySelector('a');
-    if(h)h.textContent=cfg.title;
+    if(h)h.textContent=slug==='construcao-engenharia'
+      ?'Do projeto à apresentação. Tudo comunica profissionalismo.'
+      :cfg.title;
     if(p)p.textContent=cfg.intro;
     if(a)a.textContent='Quero receber as 3 melhorias →';
     const wrap=bands[0].querySelector('.w');
