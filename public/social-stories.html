@@ -135,6 +135,13 @@ async function refreshPublisher(accounts){
    return option;
  }));
  const jobs=await request('/api/duit-social/publisher/jobs');const root=$('pub-jobs');root.replaceChildren();
+ const targetId=Number(new URLSearchParams(location.search).get('publication'));
+ if(Number.isSafeInteger(targetId)&&targetId>0&&!jobs.some(job=>Number(job.id)===targetId)){
+   try{
+     const target=await request('/api/duit-social/publisher/jobs/'+targetId);
+     jobs.unshift(target);
+   }catch(_){}
+ }
  const select=$('pub-filter');const previous=select.value;
  const clients=new Map();
  for(const job of jobs)clients.set(String(job.client_id),job.client_company||job.client_name||'Cliente '+job.client_id);
@@ -144,7 +151,6 @@ async function refreshPublisher(accounts){
    const option=document.createElement('option');option.value=id;option.textContent=label;select.append(option);
  }
  select.value=clients.has(previous)||previous==='all'?previous:'all';
- const targetId=Number(new URLSearchParams(location.search).get('publication'));
  const targetJob=Number.isSafeInteger(targetId)?jobs.find(job=>Number(job.id)===targetId):null;
  if(targetJob)select.value=String(targetJob.client_id);
  const filtered=select.value==='all'?jobs:jobs.filter(job=>String(job.client_id)===select.value);
