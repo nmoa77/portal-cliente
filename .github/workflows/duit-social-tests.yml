@@ -5,6 +5,7 @@ on:
     paths:
       - "backend/duit-*.js"
       - "public/social-stories.html"
+      - "public/js/admin.js"
       - "public/sw.js"
       - "tests/duit-*.test.js"
       - ".github/workflows/duit-social-tests.yml"
@@ -31,5 +32,6 @@ jobs:
           node --check backend/duit-social-meta-helpers.js
           node -e "const fs=require('fs'),vm=require('vm');const html=fs.readFileSync('public/social-stories.html','utf8');const script=html.match(/<script>([\\s\\S]*?)<\\/script>/);if(!script)throw Error('UI script missing');new vm.Script(script[1]);"
           node --check public/sw.js
+          node --check public/js/admin.js
       - name: Testes das notificações
         run: node --test tests/duit-*.test.js
