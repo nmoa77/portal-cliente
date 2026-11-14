@@ -245,6 +245,18 @@ function register(app){
      .all(utcStart,utcEnd,clientId,clientId);
    res.json(rows.map(row=>({...row,networks:JSON.parse(row.networks)})));
  });
+ router.get('/jobs/:id',(req,res)=>{
+   const id=Number(req.params.id);
+   if(!Number.isSafeInteger(id)||id<=0)return res.status(400).json({error:'Identificador inválido'});
+   const job=db.prepare(`SELECT j.*,u.name AS client_name,u.company AS client_company,
+       a.facebook_page_name AS page_name
+       FROM duit_publish_jobs j JOIN users u ON u.id=j.client_id
+       LEFT JOIN duit_meta_accounts a ON a.id=j.account_id WHERE j.id=?`).get(id);
+   if(!job)return res.status(404).json({error:'Publicação não encontrada'});
+   res.json({...job,networks:JSON.parse(job.networks),
+     results:db.prepare('SELECT network,status,remote_id,error FROM duit_publish_results WHERE job_id=?').all(id),
+     files:db.prepare('SELECT id,position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(id)});
+ });
  router.get('/jobs',(_req,res)=>{
   const jobs=db.prepare(`SELECT j.*,u.name AS client_name,u.company AS client_company,
     a.facebook_page_name AS page_name
