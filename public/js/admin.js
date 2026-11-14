@@ -1134,6 +1134,36 @@ async function viewCalendar(main) {
   if (!state.calDay) state.calDay = todayISO();
   const mode = state.calMode;
   const filter = state.calClientFilter;
+  // Mostrar Stories juntamente com os posts, sem alterar os fluxos antigos.
+  const storyRows = await api('/api/duit-social/stories').catch(() => []);
+  const calendarStories = storyRows.filter(s => filter === 'all' || String(s.client_id) === String(filter))
+    .map(s => ({ ...s, calendarDay: new Date(s.scheduled_at)
+      .toLocaleDateString('sv-SE', { timeZone:'Europe/Lisbon' }) }));
+  // Trabalhos do publicador Meta aparecem no mesmo calendário, distintos
+  // dos posts editoriais antigos. Só ligamos os conteúdos realmente criados.
+  const windowStart = mode === 'month' ? state.calMonth + '-01' : state.calDay;
+  const windowEnd = mode === 'month'
+    ? (() => { const [y,m]=state.calMonth.split('-').map(Number);
+        return y+'-'+String(m).padStart(2,'0')+'-'+String(new Date(y,m,0).getDate()).padStart(2,'0'); })()
+    : addDaysISO(state.calDay,1);
+  const metaQuery = new URLSearchParams({start:windowStart,end:windowEnd});
+  if(filter!=='all')metaQuery.set('client_id',String(filter));
+  const metaJobs = await api('/api/duit-social/publisher/calendar?'+metaQuery.toString()).catch(()=>[]);
+  const calendarMetaJobs = metaJobs.map(j=>({
+    ...j,calendarDay:new Date(j.scheduled_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Lisbon'})
+  }));
+  const metaMini = j => `<a href="/social-stories.html?publication=${j.id}" class="cal-post"
+      style="display:block;text-decoration:none;background:#f4f0ff;color:#30234a;border-radius:8px;padding:7px;margin-top:5px;"
+      onclick="event.stopPropagation()" title="Publicação Meta · ${escapeHtml(j.client_company||j.client_name)}">
+      ◎ ${escapeHtml(j.kind==='reel'?'Reel':j.kind==='carousel'?'Carrossel':'Post')} ·
+      ${escapeHtml(j.client_company||j.client_name)} · ${escapeHtml(j.status)}
+    </a>`;
+  const storyMini = s => `<a href="/social-stories.html?story=${s.id}" class="cal-post"
+    style="display:block;text-decoration:none;background:#fff3b5;color:#1b1b1b;border-radius:8px;padding:7px;margin-top:5px;"
+    onclick="event.stopPropagation()" title="Story ${escapeHtml(s.client_company||s.client_name)}">
+    ◉ Story · ${escapeHtml(s.client_company||s.client_name)} · ${escapeHtml(s.status)}
+  </a>`;
+
   const pageHead = `
     <div class="page-head">
       <div>
@@ -1164,7 +1194,7 @@ async function viewCalendar(main) {
     <div class="cal-toolbar">
       <div class="cal-filters">
         <button class="cal-filter ${filter === 'all' ? 'active' : ''}" onclick="setCalFilter('all')">Todos</button>
-        ${state.clients.filter(c => (c.social_subs || 0) > 0).map(c => `
+        ${state.clients.filter(c => (c.social_subs || 0) > 0 || calendarMetaJobs.some(j => Number(j.client_id) === Number(c.id))).map(c => `
           <button class="cal-filter ${filter == c.id ? 'active' : ''}" onclick="setCalFilter(${c.id})">
             ${escapeHtml(c.company || c.name)}
           </button>
@@ -1172,6 +1202,7 @@ async function viewCalendar(main) {
       </div>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
         <button class="btn btn-yellow btn-sm" onclick="openNewPostForDate('${mode === 'day' ? state.calDay : ''}')">${svg('plus')} Novo post</button>
+        <a class="btn btn-yellow btn-sm" href="/social-stories.html">Posts, Reels e Stories Meta ↗</a>
         ${filter !== 'all'
           ? `<button class="btn btn-ghost btn-sm" onclick="openGenPosts()">${svg('cal')} Gerar posts do mês</button>`
           : ''}
@@ -1215,6 +1246,8 @@ async function viewCalendar(main) {
               ${escapeHtml(p.text.slice(0, 18))}${p.text.length > 18 ? '…' : ''}
             </div>
           `;}).join('')}
+          ${calendarStories.filter(s => s.calendarDay === dateStr).map(storyMini).join('')}
+          ${calendarMetaJobs.filter(j => j.calendarDay === dateStr).map(metaMini).join('')}
         </div>
       `);
     }
@@ -1252,8 +1285,22 @@ async function viewCalendar(main) {
   const todayTotal    = all.filter(p => p.date === today).length;
   const tomorrowTotal = all.filter(p => p.date === tomorrow).length;
 
+  const metaDaily = [today,tomorrow].map(dateStr=>{
+    const list=calendarMetaJobs.filter(j=>j.calendarDay===dateStr);
+    if(!list.length)return '';
+    return `<div class="card" style="margin-bottom:12px;"><h3>Publicações Meta · ${fmtDate(dateStr,true)}</h3>
+      ${list.map(metaMini).join('')}</div>`;
+  }).join('');
+  const storyDaily = [today, tomorrow].map(dateStr => {
+    const list=calendarStories.filter(s => s.calendarDay===dateStr);
+    if(!list.length)return '';
+    return `<div class="card" style="margin-bottom:12px;"><h3>Stories · ${fmtDate(dateStr,true)}</h3>
+      ${list.map(storyMini).join('')}</div>`;
+  }).join('');
   main.innerHTML = `
     ${pageHead}
+    ${storyDaily}
+    ${metaDaily}
     <div class="grid" style="gap:18px">
       ${dayBlock('Hoje', today, todayPosts, todayTotal)}
       ${dayBlock('Amanhã', tomorrow, tomorrowPosts, tomorrowTotal)}

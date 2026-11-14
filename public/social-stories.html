@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffd200">
+<title>DUIT — Stories para Instagram</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+:root{font-family:system-ui,-apple-system,sans-serif;color:#151515;background:#f8f8f7}*{box-sizing:border-box}
+body{margin:0;padding:24px}main{max-width:930px;margin:auto}a{color:inherit}
+header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:28px}
+h1{font-size:clamp(27px,5vw,42px);letter-spacing:-1.5px;margin:8px 0}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.1em}
+.panel{background:#fff;padding:24px;border-radius:20px;box-shadow:0 4px 28px #0000000a;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}label{font-size:13px;font-weight:750;display:grid;gap:8px}
+input,select{width:100%;padding:13px;border:1px solid #dedede;border-radius:10px;font:inherit}
+button{border:0;background:#ffd200;padding:13px 20px;border-radius:10px;font-weight:750;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}.secondary{background:#eee}.danger{background:#fee2e2;color:#991b1b}
+.story{padding:16px;border:1px solid #eee;border-radius:14px;margin:12px 0;display:grid;grid-template-columns:1fr auto;gap:14px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.muted{color:#777;font-size:13px}
+#feedback{min-height:24px}.error{color:#b91c1c}.preview{width:100%;max-height:450px;object-fit:contain;border-radius:12px;background:#eee}
+@media(max-width:650px){body{padding:14px}.grid,.story{grid-template-columns:1fr}.panel{padding:16px}}
+</style>
+</head><body>
+<main><header><div><span class="eyebrow">DUIT · REDES SOCIAIS</span><h1>Stories para publicar</h1><p class="muted">Prepare no computador. Termine no Android com a música do Instagram.</p></div><a href="/admin.html?view=calendar">Voltar ao calendário</a></header>
+<section class="panel"><h2>Contas Instagram e Facebook</h2>
+<p class="muted">Ligue as Páginas e contas profissionais dos clientes através da Meta. Esta etapa ainda não publica nada automaticamente.</p>
+<div class="actions">
+<select id="meta-client" aria-label="Cliente para ligar à Meta" style="max-width:280px"></select>
+<button id="meta-connect" type="button">Ligar conta Meta</button>
+</div><p class="muted" id="meta-status" aria-live="polite">A verificar configuração…</p>
+<div id="meta-pending" style="margin:12px 0"></div><div id="meta-accounts"></div>
+</section>
+<section class="panel"><h2>Posts e Reels — publicação automática</h2>
+<p class="muted">Publicações nas duas contas escolhidas. O motor está desligado até a ligação Meta estar configurada e testada. Reels também estão previstos para Facebook, sujeitos à confirmação da Meta.</p>
+<form id="publish-form">
+<div class="grid"><label>Conta Meta ligada<select id="pub-account" required></select></label>
+<label>Formato<select id="pub-kind"><option value="post">Post (imagem)</option><option value="carousel">Carrossel (2 a 10 imagens)</option><option value="reel">Reel Instagram (vídeo MP4)</option></select></label></div>
+<p class="actions"><label><input type="checkbox" id="pub-ig" checked> Instagram</label><label><input type="checkbox" id="pub-fb" checked> Facebook</label></p>
+<p><label>Legenda<textarea id="pub-caption" maxlength="2200" rows="3" style="width:100%;border:1px solid #dedede;border-radius:10px;padding:13px;font:inherit" placeholder="Escreva a legenda…"></textarea></label></p>
+<div class="grid"><label>Imagens JPG ou vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,video/mp4" multiple required></label>
+<label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
+<p><button type="submit">Guardar publicação</button></p></form>
+<p class="muted" id="pub-status" aria-live="polite"></p>
+<div class="actions"><label>Filtrar publicações por cliente <select id="pub-filter"><option value="all">Todos os clientes</option></select></label></div>
+<div id="pub-jobs"></div>
+</section>
+<section class="panel"><h2>Notificações no Android</h2>
+<p class="muted">Instale o portal no ecrã inicial e permita notificações. Receberá um aviso quando chegar a hora das Stories agendadas.</p>
+<div class="actions"><button id="enable-push" type="button">Ativar notificações</button><button id="test-push" type="button" class="secondary">Enviar teste</button></div>
+<p class="muted" id="push-status" aria-live="polite">A verificar compatibilidade…</p>
+</section>
+<section class="panel"><h2>Nova Story</h2><form id="new-story">
+<div class="grid"><label>Cliente<select id="client" required></select></label>
+<label>Data e hora em Portugal<input id="scheduled" type="datetime-local" required></label></div>
+<p><label>Imagem ou vídeo finalizado<input type="file" id="media" accept="image/jpeg,image/png,image/webp,video/mp4" required></label></p>
+<button type="submit">Guardar Story</button></form><p id="feedback" aria-live="polite"></p>
+</section>
+<section class="panel"><h2>Stories preparadas</h2><p class="muted">A partilha abre o menu do Android. Escolha Instagram Stories quando disponível. A publicação só é confirmada no portal depois de carregar em «Já publiquei».</p><div id="stories">A carregar…</div></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+async function request(url,opts={}){const res=await fetch(url,{credentials:'same-origin',...opts});if(res.status===401){location.href='/index.html';throw Error('Inicie sessão.')}
+const body=await res.json().catch(()=>null);if(!res.ok)throw Error(body?.error||'Erro de comunicação');return body;}
+function escapeHtml(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function dateLabel(s){return new Intl.DateTimeFormat('pt-PT',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Lisbon'}).format(new Date(s));}
+const preparedFiles=new Map();
+function makeButton(label,action,cls=''){const b=document.createElement('button');b.textContent=label;b.className=cls;b.addEventListener('click',action);return b;}
+async function refresh(){
+const rows=await request('/api/duit-social/stories');preparedFiles.clear();const root=$('stories');root.replaceChildren();
+if(!rows.length){root.textContent='Ainda não existem Stories.';return;}
+for(const s of rows){const item=document.createElement('article');item.className='story';if(s.id===Number(new URLSearchParams(location.search).get('story')))item.style.outline='2px solid #ffd200';const info=document.createElement('div');info.innerHTML='<strong>'+escapeHtml(s.client_company||s.client_name)+'</strong><div class="muted">'+dateLabel(s.scheduled_at)+' · '+escapeHtml(s.status)+'</div>';
+const actions=document.createElement('div');actions.className='actions';
+if(s.has_media){
+ const btn=makeButton('Preparar partilha',()=>prepareShare(s,btn),'');
+ actions.append(btn);
+ actions.append(makeButton('Descarregar',()=>downloadStory(s),'secondary'));
+}
+if(s.status!=='published'){
+ actions.append(makeButton('Já publiquei',async()=>{if(!confirm('A Story foi publicada no Instagram? O ficheiro será eliminado do portal.'))return;await request('/api/duit-social/stories/'+s.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'published'})});refresh();},'secondary'));
+ actions.append(makeButton('Apagar',async()=>{if(!confirm('Apagar esta Story?'))return;await request('/api/duit-social/stories/'+s.id,{method:'DELETE'});refresh();},'danger'));
+}
+item.append(info,actions);root.append(item);}
+}
+async function getStoryFile(s){
+const r=await fetch(s.media_url,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Não foi possível obter a Story');
+const blob=await r.blob();const ext=blob.type==='video/mp4'?'mp4':blob.type==='image/png'?'png':blob.type==='image/webp'?'webp':'jpg';
+return new File([blob],'DUIT-'+s.id+'.'+ext,{type:blob.type});
+}
+async function prepareShare(s,button){
+  // O Android exige que navigator.share seja chamado no clique do utilizador.
+  // Por isso, o download decorre antes e o segundo toque inicia a partilha.
+  if(!preparedFiles.has(s.id)){
+    button.disabled=true;button.textContent='A preparar ficheiro…';
+    try{
+      preparedFiles.set(s.id,await getStoryFile(s));
+      button.textContent='Partilhar agora';
+    }catch(e){button.textContent='Preparar partilha';alert(e.message);}
+    finally{button.disabled=false;}
+    return;
+  }
+  const file=preparedFiles.get(s.id);
+  try{
+    if(navigator.canShare?.({files:[file]})&&navigator.share){
+      const share=navigator.share({files:[file]});await share;
+    } else {
+      alert('O Android não permite partilhar este ficheiro. Use «Descarregar».');
+    }
+  }catch(e){if(e.name!=='AbortError')alert('Falha na partilha: '+e.message);}
+}
+async function downloadStory(s){try{const file=await getStoryFile(s);const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){alert(e.message);}}
+
+
+
+function dateForInput(offset=0){
+ const date=new Date(Date.now()+offset);const pad=n=>String(n).padStart(2,'0');
+ return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
+}
+async function refreshPublisher(accounts){
+ const config=await request('/api/duit-social/publisher/config');
+ const checks=[
+   ['Credenciais da Meta',config.hasMetaCredentials],
+   ['Ficheiros acessíveis por HTTPS',config.hasPublicMediaUrl],
+   ['Assinatura de ficheiros',config.hasSigningKey],
+   ['Armazenamento persistente',config.hasPersistentStorage],
+   ['Contas ligadas ('+config.connectedAccounts+')',config.connectedAccounts>0],
+   ['Motor de publicação ativado',config.workerEnabled]
+ ];
+ $('pub-status').textContent=config.enabled
+  ? 'Pronto para agendar. Confirme primeiro os testes com a Meta.'
+  : 'Configuração necessária: '+checks.filter(x=>!x[1]).map(x=>x[0]).join(' · ')+'.';
+ const list=accounts||await request('/api/duit-social/meta/accounts');
+ $('pub-account').replaceChildren(...list.map(c=>{
+   const option=document.createElement('option');option.value=c.id;
+   option.textContent=(c.client_company||c.client_name)+' · '+c.facebook_page_name;
+   return option;
+ }));
+ const jobs=await request('/api/duit-social/publisher/jobs');const root=$('pub-jobs');root.replaceChildren();
+ const targetId=Number(new URLSearchParams(location.search).get('publication'));
+ if(Number.isSafeInteger(targetId)&&targetId>0&&!jobs.some(job=>Number(job.id)===targetId)){
+   try{
+     const target=await request('/api/duit-social/publisher/jobs/'+targetId);
+     jobs.unshift(target);
+   }catch(_){}
+ }
+ const select=$('pub-filter');const previous=select.value;
+ const clients=new Map();
+ for(const job of jobs)clients.set(String(job.client_id),job.client_company||job.client_name||'Cliente '+job.client_id);
+ select.replaceChildren();
+ const all=document.createElement('option');all.value='all';all.textContent='Todos os clientes';select.append(all);
+ for(const [id,label] of clients){
+   const option=document.createElement('option');option.value=id;option.textContent=label;select.append(option);
+ }
+ select.value=clients.has(previous)||previous==='all'?previous:'all';
+ const targetJob=Number.isSafeInteger(targetId)?jobs.find(job=>Number(job.id)===targetId):null;
+ if(targetJob)select.value=String(targetJob.client_id);
+ const filtered=select.value==='all'?jobs:jobs.filter(job=>String(job.client_id)===select.value);
+ if(!filtered.length){root.textContent='Sem publicações para este cliente.';return;}
+ for(const job of filtered){
+   const div=document.createElement('div');div.className='story';
+   if(Number(job.id)===targetId){div.id='publication-'+job.id;div.style.outline='2px solid #ffd200';}
+   const title=document.createElement('div');
+   title.innerHTML='<strong>'+escapeHtml(job.client_company||job.client_name||'Cliente')+' · '+escapeHtml(job.kind)+'</strong><div class="muted">'+escapeHtml(job.networks.join(' + '))+' · '+
+     dateLabel(job.scheduled_at)+' · '+escapeHtml(job.status)+'</div>'+
+     job.results.map(x=>'<div class="muted">'+escapeHtml(x.network)+': '+escapeHtml(x.status)+
+     (x.error?' · '+escapeHtml(x.error):'')+'</div>').join('');
+   const actions=document.createElement('div');actions.className='actions';
+   if(['draft','scheduled'].includes(job.status)){
+     actions.append(makeButton('Editar',async()=>{
+       const nextCaption=prompt('Editar legenda:',job.caption);
+       if(nextCaption===null)return;
+       const nextDate=prompt('Data e hora (YYYY-MM-DDTHH:mm em Portugal):',
+         new Date(job.scheduled_at).toLocaleString('sv-SE',{timeZone:'Europe/Lisbon'}).replace(' ','T').slice(0,16));
+       if(nextDate===null)return;
+       if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(nextDate)){
+         $('pub-status').textContent='Data inválida';return;
+       }
+       const local=new Date(nextDate);
+       if(!Number.isFinite(local.getTime())){$('pub-status').textContent='Data inválida';return;}
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id,{
+           method:'PATCH',headers:{'Content-Type':'application/json'},
+           body:JSON.stringify({caption:nextCaption,scheduled_at:local.toISOString()})
+         });
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+   }
+   if(job.status==='draft'){
+     actions.append(makeButton('Agendar',async()=>{
+       try{await request('/api/duit-social/publisher/jobs/'+job.id+'/schedule',{method:'POST'});await refreshPublisher();}
+       catch(e){$('pub-status').textContent=e.message;}
+     }));
+     actions.append(makeButton('Publicar agora',async()=>{
+       if(!confirm('Publicar este conteúdo agora nas redes selecionadas?'))return;
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id+'/publish-now',{method:'POST'});
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+     actions.append(makeButton('Apagar',async()=>{
+       if(!confirm('Eliminar este rascunho e ficheiros?'))return;
+       await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
+       await refreshPublisher();
+     },'secondary'));
+   }
+   if(job.status==='scheduled'){
+     actions.append(makeButton('Cancelar agendamento',async()=>{
+       if(!confirm('Cancelar este agendamento? O conteúdo e os ficheiros ficam guardados como rascunho.'))return;
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id+'/unschedule',{method:'POST'});
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+   }
+   if(job.status==='review'){
+     const warn=document.createElement('p');warn.className='muted';
+     warn.textContent='Atenção: confirme o estado real da publicação na Meta antes de alterar qualquer canal.';
+     actions.append(warn);
+     const uncertain=job.results.some(r=>r.status==='review'||r.status==='processing');
+     const neverSent=job.results.some(r=>r.status==='pending');
+     if(neverSent&&!uncertain)actions.append(makeButton('Retomar apenas canais não iniciados',async()=>{
+       if(!confirm('Repor na fila APENAS os canais que ainda não foram enviados?'))return;
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id+'/resume-pending',{method:'POST'});
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+
+     for(const item of job.results.filter(r=>r.status==='review'||r.status==='processing')){
+       const channel=item.network==='instagram'?'Instagram':'Facebook';
+       actions.append(makeButton('Já publicado · '+channel,async()=>{
+         const id=prompt('Confirme na Meta e indique o ID da publicação em '+channel+'. Sem este ID, não alteramos o estado.');
+         if(!id)return;
+         try{
+           await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
+             method:'POST',headers:{'Content-Type':'application/json'},
+             body:JSON.stringify({network:item.network,action:'confirm_published',remote_id:id.trim()})
+           });
+           await refreshPublisher();
+         }catch(e){$('pub-status').textContent=e.message;}
+       },'secondary'));
+       actions.append(makeButton('Não publicado · '+channel,async()=>{
+         if(!confirm('Verificou na Meta que este conteúdo NÃO foi publicado em '+channel+'? O portal irá tentar publicar novamente APENAS nesse canal.'))return;
+         try{
+           await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
+             method:'POST',headers:{'Content-Type':'application/json'},
+             body:JSON.stringify({network:item.network,action:'verified_not_published'})
+           });
+           await refreshPublisher();
+         }catch(e){$('pub-status').textContent=e.message;}
+       },'secondary'));
+     }
+   }
+   const content=document.createElement('div');
+   if(job.caption){
+     const cap=document.createElement('p');cap.style.whiteSpace='pre-wrap';cap.style.fontSize='13px';
+     cap.textContent=job.caption;content.append(cap);
+   }
+   if(job.files?.length){
+     const details=document.createElement('details');
+     const summary=document.createElement('summary');summary.textContent='Ver imagens/vídeo ('+job.files.length+')';
+     details.append(summary);
+     const files=document.createElement('div');files.className='actions';files.style.marginTop='10px';
+     for(const media of job.files){
+       const url='/api/duit-social/publisher/jobs/'+job.id+'/files/'+media.id;
+       const preview=document.createElement(media.mime==='video/mp4'?'video':'img');
+       preview.src=url;preview.style.maxWidth='150px';preview.style.maxHeight='220px';
+       preview.style.borderRadius='9px';preview.style.objectFit='contain';
+       if(media.mime==='video/mp4')preview.controls=true;
+       files.append(preview);
+     }
+     details.append(files);content.append(details);
+   }
+   const combined=document.createElement('div');combined.append(title,content);
+   div.append(combined,actions);root.append(div);
+   if(Number(job.id)===targetId)requestAnimationFrame(()=>div.scrollIntoView({block:'center'}));
+ }
+}
+$('pub-filter').addEventListener('change',()=>refreshPublisher().catch(e=>$('pub-status').textContent=e.message));
+$('pub-kind').addEventListener('change',()=>{
+ const reel=$('pub-kind').value==='reel';
+ $('pub-fb').disabled=false;
+ $('pub-files').accept=reel?'video/mp4':'image/jpeg';
+ $('pub-files').multiple=$('pub-kind').value==='carousel';
+});
+$('publish-form').addEventListener('submit',async event=>{
+ event.preventDefault();const button=event.target.querySelector('button[type=submit]');button.disabled=true;
+ try{
+   const kind=$('pub-kind').value,files=Array.from($('pub-files').files);
+   const networks=[$('pub-ig').checked?'instagram':null,$('pub-fb').checked?'facebook':null].filter(Boolean);
+   if(!networks.length)throw Error('Escolha pelo menos uma rede');
+   if(files.length<(kind==='carousel'?2:1)||files.length>(kind==='carousel'?10:1))throw Error('Quantidade inválida de ficheiros');
+   if(files.some(file=>file.size>80*1024*1024))throw Error('Máximo 80 MB por ficheiro');
+   if(files.some(file=>kind==='reel'?file.type!=='video/mp4':file.type!=='image/jpeg'))throw Error('Use apenas MP4 para Reels ou JPG para Posts/Carrosséis');
+   const accountId=Number($('pub-account').value);
+   const connected=await request('/api/duit-social/meta/accounts');
+   const account=connected.find(x=>x.id===accountId);if(!account)throw Error('Conta desligada');
+   const job=await request('/api/duit-social/publisher/jobs',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({
+       account_id:accountId,client_id:account.client_id,kind,networks,
+       caption:$('pub-caption').value,
+       scheduled_at:new Date($('pub-date').value).toISOString()
+     })
+   });
+   try {
+     for(let i=0;i<files.length;i++){
+       const response=await fetch('/api/duit-social/publisher/jobs/'+job.id+'/files/'+i,{
+         method:'PUT',credentials:'same-origin',headers:{'Content-Type':files[i].type},body:files[i]
+       });
+       if(!response.ok){const info=await response.json().catch(()=>({}));throw Error(info.error||'Upload falhou');}
+     }
+   }catch(e){
+     await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
+     throw e;
+   }
+   $('pub-status').textContent='Rascunho guardado. Escolha Agendar quando a Meta estiver configurada.';
+   event.target.reset();$('pub-date').value=dateForInput(3600000);
+   await refreshPublisher();
+ }catch(e){$('pub-status').textContent='Erro: '+e.message;}
+ finally{button.disabled=false;}
+});
+
+async function refreshMeta(){
+  const status=$('meta-status');
+  const config=await request('/api/duit-social/meta/config');
+  $('meta-connect').disabled=!config.enabled;
+  status.textContent=config.enabled
+    ? 'Ligação disponível. Selecione o cliente e autorize a Página Facebook na Meta.'
+    : 'Falta configurar a aplicação Meta no Railway.';
+  const pending=await request('/api/duit-social/meta/pending');
+  const chooser=$('meta-pending');chooser.replaceChildren();
+  if(pending.pages?.length){
+    const help=document.createElement('p');help.className='muted';
+    help.textContent='A Meta apresentou várias Páginas. Selecione apenas a Página deste cliente. As restantes não serão ligadas.';
+    const select=document.createElement('select');
+    for(const page of pending.pages){
+      const option=document.createElement('option');option.value=page.id;
+      option.textContent=page.name+(page.instagram_business_id?' · Instagram ligado':' · Só Facebook');
+      select.append(option);
+    }
+    const confirmButton=makeButton('Confirmar esta Página',async()=>{
+      try{
+        await request('/api/duit-social/meta/select-page',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({page_id:select.value})
+        });
+        await refreshMeta();
+      }catch(e){$('meta-status').textContent=e.message;}
+    });
+    chooser.append(help,select,confirmButton);
+  }
+  const accounts=await request('/api/duit-social/meta/accounts');
+  await refreshPublisher(accounts);
+  const root=$('meta-accounts');root.replaceChildren();
+  if(!accounts.length){root.textContent='Ainda não existem contas ligadas.';return;}
+  for(const account of accounts){
+    const block=document.createElement('div');block.className='story';
+    const label=document.createElement('div');
+    label.innerHTML='<strong>'+escapeHtml(account.client_company||account.client_name)+'</strong>'+
+      '<div class="muted">'+escapeHtml(account.facebook_page_name)+
+      ' · '+(account.instagram_business_id?'Instagram profissional ligado':'Sem Instagram profissional')+'</div>';
+    const btn=makeButton('Desligar',async()=>{
+      if(!confirm('Desligar esta Página Meta do portal DUIT?'))return;
+      await request('/api/duit-social/meta/accounts/'+account.id,{method:'DELETE'});
+      await refreshMeta();
+    },'secondary');
+    block.append(label,btn);root.append(block);
+  }
+}
+$('meta-connect').addEventListener('click',async()=>{
+  const button=$('meta-connect');button.disabled=true;
+  try{
+    const result=await request('/api/duit-social/meta/connect',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client_id:Number($('meta-client').value)})
+    });
+    // Abrir OAuth em navegação de topo: estado e cookie SameSite=Lax.
+    location.assign(result.url);
+  }catch(e){$('meta-status').textContent=e.message;button.disabled=false;}
+});
+
+function toUint8Array(base64url){
+const base64=base64url.replace(/-/g,'+').replace(/_/g,'/');
+const binary=atob(base64+'='.repeat((4-base64.length%4)%4));
+return Uint8Array.from(binary,c=>c.charCodeAt(0));
+}
+async function setupPush(){
+const indicator=$('push-status');
+if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
+indicator.textContent='Este navegador não suporta notificações Web Push. Pode continuar a partilhar Stories manualmente.';return;
+}
+const settings=await request('/api/duit-social/push/public-key');
+if(!settings.enabled){indicator.textContent='Notificações por configurar no servidor (chaves VAPID em falta).';return;}
+const registration=await navigator.serviceWorker.register('/sw.js');
+const permission=await Notification.requestPermission();
+if(permission!=='granted'){indicator.textContent='Notificações não autorizadas no Android.';return;}
+const subscription=await registration.pushManager.subscribe({
+userVisibleOnly:true,applicationServerKey:toUint8Array(settings.publicKey)
+});
+await request('/api/duit-social/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subscription.toJSON()})});
+indicator.textContent='Notificações ativas neste dispositivo. Faça um teste para confirmar.';
+}
+$('enable-push').addEventListener('click',async()=>{
+$('enable-push').disabled=true;
+try{await setupPush();}catch(error){$('push-status').textContent='Erro: '+error.message;}
+finally{$('enable-push').disabled=false;}
+});
+$('test-push').addEventListener('click',async()=>{
+try{const result=await request('/api/duit-social/push/test',{method:'POST'});
+$('push-status').textContent=result.delivered+' de '+result.total+' notificações aceites pelo serviço Push (a entrega no Android depende do sistema).';
+}catch(error){$('push-status').textContent=error.message;}
+});
+
+$('new-story').addEventListener('submit',async e=>{
+e.preventDefault();const button=e.target.querySelector('button[type=submit]');button.disabled=true;$('feedback').textContent='A guardar…';
+try{const file=$('media').files[0];if(!file||file.size>80*1024*1024)throw Error('Máximo 80 MB por Story');
+const parts=$('scheduled').value.match(/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})$/);if(!parts)throw Error('Data inválida');
+// datetime-local corresponde à hora do dispositivo. Avisar se não está em Portugal.
+if(Intl.DateTimeFormat().resolvedOptions().timeZone!=='Europe/Lisbon'&&!confirm('O telemóvel não está definido para a hora de Portugal. Continuar com o horário local do dispositivo?'))return;
+const date=new Date($('scheduled').value);if(!Number.isFinite(date.getTime()))throw Error('Data inválida');
+const story=await request('/api/duit-social/stories',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:Number($('client').value),scheduled_at:date.toISOString(),status:'scheduled'})});
+try{const r=await fetch('/api/duit-social/stories/'+story.id+'/media',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file});const data=await r.json();if(!r.ok)throw Error(data?.error||'Falha no upload');}
+catch(e){await request('/api/duit-social/stories/'+story.id,{method:'DELETE'});throw e;}
+$('feedback').textContent='Story guardada no portal.';e.target.reset();await refresh();
+}catch(e){$('feedback').textContent=e.message;$('feedback').className='error';}finally{button.disabled=false;}
+});
+(async()=>{try{const me=await request('/api/auth/me');if(me.role!=='admin')throw Error('Acesso reservado à DUIT');
+$('pub-date').value=dateForInput(60*60*1000);
+const clients=await request('/api/clients');const socialClients=clients.filter(c=>!c.is_prospect && !c.parent_user_id);$('client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
+$('meta-client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));await refreshMeta();
+
+const tomorrow=new Date(Date.now()+86400000);const pad=n=>String(n).padStart(2,'0');$('scheduled').value=tomorrow.getFullYear()+'-'+pad(tomorrow.getMonth()+1)+'-'+pad(tomorrow.getDate())+'T'+pad(tomorrow.getHours())+':'+pad(tomorrow.getMinutes());
+await refresh();}catch(e){$('stories').textContent=e.message;}})();
+</script></body></html>
