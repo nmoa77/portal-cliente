@@ -144,10 +144,14 @@ async function refreshPublisher(accounts){
    const option=document.createElement('option');option.value=id;option.textContent=label;select.append(option);
  }
  select.value=clients.has(previous)||previous==='all'?previous:'all';
+ const targetId=Number(new URLSearchParams(location.search).get('publication'));
+ const targetJob=Number.isSafeInteger(targetId)?jobs.find(job=>Number(job.id)===targetId):null;
+ if(targetJob)select.value=String(targetJob.client_id);
  const filtered=select.value==='all'?jobs:jobs.filter(job=>String(job.client_id)===select.value);
  if(!filtered.length){root.textContent='Sem publicações para este cliente.';return;}
  for(const job of filtered){
    const div=document.createElement('div');div.className='story';
+   if(Number(job.id)===targetId){div.id='publication-'+job.id;div.style.outline='2px solid #ffd200';}
    const title=document.createElement('div');
    title.innerHTML='<strong>'+escapeHtml(job.client_company||job.client_name||'Cliente')+' · '+escapeHtml(job.kind)+'</strong><div class="muted">'+escapeHtml(job.networks.join(' + '))+' · '+
      dateLabel(job.scheduled_at)+' · '+escapeHtml(job.status)+'</div>'+
@@ -263,6 +267,7 @@ async function refreshPublisher(accounts){
    }
    const combined=document.createElement('div');combined.append(title,content);
    div.append(combined,actions);root.append(div);
+   if(Number(job.id)===targetId)requestAnimationFrame(()=>div.scrollIntoView({block:'center'}));
  }
 }
 $('pub-filter').addEventListener('change',()=>refreshPublisher().catch(e=>$('pub-status').textContent=e.message));
