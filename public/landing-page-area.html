@@ -971,6 +971,96 @@ const AREA_TRUST_GOALS={
   'dentistas':'transmitir mais confiança antes da primeira consulta'
 };
 const abs=v=>{const s=String(v||'').trim();if(!s)return '';if(/^https?:\/\//i.test(s))return s;return location.origin+(s.startsWith('/')?'':'/')+s};
+const AREA_CTA_COPY={
+    "saude": [
+      "Facilite o caminho entre a pesquisa e a marcação.",
+      "Apresente especialidades, equipa e informações úteis de forma organizada para ajudar cada paciente a encontrar o serviço certo e entrar em contacto."
+    ],
+    "bem-estar": [
+      "Dê motivos para voltar, mesmo depois da visita.",
+      "Campanhas, vouchers e materiais de marca podem manter a relação com o cliente ativa e criar novas oportunidades de visita."
+    ],
+    "beleza-estetica": [
+      "Torne cada serviço mais fácil de escolher.",
+      "Apresente tratamentos, campanhas e vouchers com informação clara, para transformar interesse em pedidos de marcação."
+    ],
+    "industria-producao": [
+      "Transforme capacidade técnica em argumentos comerciais.",
+      "Catálogos, fichas técnicas e apresentações bem estruturados ajudam compradores e parceiros a comparar soluções e pedir propostas."
+    ],
+    "artes-graficas-comunicacao": [
+      "Mais resposta aos pedidos, menos pressão na equipa.",
+      "Tenha apoio na criação e adaptação de peças para responder a campanhas, formatos e prazos sem sobrecarregar a produção."
+    ],
+    "automovel": [
+      "Da pesquisa à marcação, elimine dúvidas.",
+      "Destaque serviços, revisões e campanhas de forma simples para que o cliente perceba a oferta e saiba como contactar a oficina."
+    ],
+    "imobiliario": [
+      "Dê a cada imóvel argumentos para se destacar.",
+      "Brochuras, anúncios e dossiers comerciais bem concebidos ajudam a valorizar angariações, apresentar empreendimentos e gerar visitas."
+    ],
+    "turismo-alojamento": [
+      "Transforme interesse em vontade de reservar.",
+      "Organize ofertas, experiências e informações práticas para ajudar cada viajante a escolher e dar o passo seguinte."
+    ],
+    "restauracao": [
+      "Crie mais motivos para reservar mesa.",
+      "Menus, eventos e campanhas sazonais bem apresentados ajudam a divulgar novidades e a despertar vontade de visitar o restaurante."
+    ],
+    "comercio-retalho": [
+      "Destaque a oferta certa no momento de decisão.",
+      "Montras, etiquetas e campanhas digitais com mensagens alinhadas ajudam a dar visibilidade a produtos e promoções sem confundir o cliente."
+    ],
+    "servicos-profissionais": [
+      "Explique o seu valor antes de apresentar o orçamento.",
+      "Propostas, apresentações e materiais de serviço bem organizados ajudam os clientes a perceber o que está incluído e porquê escolher a sua empresa."
+    ],
+    "educacao-formacao": [
+      "Passe do interesse à inscrição com mais clareza.",
+      "Programas, horários e modalidades bem apresentados facilitam a escolha de cursos e ajudam a responder às dúvidas de futuros alunos."
+    ],
+    "transportes-logistica": [
+      "Ajude novos parceiros a perceber o que consegue entregar.",
+      "Apresentações de serviços, cobertura geográfica e informação comercial estruturada ajudam a simplificar pedidos e decisões de contratação."
+    ],
+    "tecnologia-digital": [
+      "Mostre o benefício, não apenas a funcionalidade.",
+      "Demonstrações visuais, materiais comerciais e explicações simples tornam a solução mais fácil de compreender e comparar."
+    ],
+    "agricultura-agroalimentar": [
+      "Dê ao produto mais força no ponto de venda.",
+      "Rótulos, catálogos e materiais comerciais consistentes podem valorizar a origem e ajudar distribuidores e clientes a identificar a oferta."
+    ],
+    "desporto-fitness": [
+      "Converta a energia do clube em novas inscrições.",
+      "Divulgue aulas, horários e campanhas com informação clara para facilitar a escolha e incentivar inscrições e visitas."
+    ],
+    "estudios-de-danca": [
+      "Faça da curiosidade uma primeira aula.",
+      "Mostre estilos, horários e turmas de forma apelativa para que novos alunos encontrem o seu ritmo e se inscrevam."
+    ],
+    "aventura": [
+      "Transforme a vontade de experimentar numa reserva.",
+      "Apresente percursos, atividades e condições de participação para que a experiência pareça tão apelativa quanto fácil de marcar."
+    ],
+    "centro-de-estudos": [
+      "Ajude as famílias a escolher o apoio certo.",
+      "Explique disciplinas, métodos e modalidades de acompanhamento de forma clara para facilitar pedidos de informação e inscrições."
+    ],
+    "saude-mental": [
+      "Torne o primeiro passo mais simples e acolhedor.",
+      "Apresente áreas de acompanhamento, formato das sessões e formas de contacto com sensibilidade para ajudar quem procura apoio a orientar-se."
+    ],
+    "fisioterapia": [
+      "Ajude o paciente a encontrar o acompanhamento indicado.",
+      "Explique tratamentos, áreas de intervenção e formas de marcação para reduzir dúvidas e facilitar o primeiro contacto."
+    ],
+    "construcao-engenharia": [
+      "Transforme projetos em novas oportunidades.",
+      "Um portefólio bem organizado e propostas comerciais claras ajudam potenciais clientes a perceber o que distingue a sua empresa e a avançar para um pedido de orçamento."
+    ]
+  };
 function setupConversionAreaLP(slug,cfg,sector){
   if(slug==='dentistas')return;
   document.body.classList.add('area-conversion-lp');
@@ -1022,12 +1112,9 @@ function setupConversionAreaLP(slug,cfg,sector){
   const bands=[...document.querySelectorAll('.cta-band')];
   if(bands[0]){
     const h=bands[0].querySelector('h2'),p=bands[0].querySelector('p'),a=bands[0].querySelector('a');
-    if(h)h.textContent=slug==='construcao-engenharia'
-      ?'Transforme projetos em novas oportunidades.'
-      :cfg.title;
-    if(p)p.textContent=slug==='construcao-engenharia'
-      ?'Um portefólio bem organizado e propostas comerciais claras ajudam potenciais clientes a perceber o que distingue a sua empresa e a avançar para um pedido de orçamento.'
-      :cfg.intro;
+    const ctaCopy=AREA_CTA_COPY[slug];
+    if(h)h.textContent=ctaCopy?.[0]||cfg.title;
+    if(p)p.textContent=ctaCopy?.[1]||cfg.intro;
     if(a)a.textContent='Quero receber as 3 melhorias →';
     const wrap=bands[0].querySelector('.w');
     if(wrap&&!wrap.querySelector('.area-compare')){
