@@ -861,6 +861,13 @@ async function publicationFile(file){
   throw Error('Não foi possível preparar o PNG '+file.name+': '+error.message);
  }finally{bitmap?.close();}
 }
+function returnToCalendarAfterSave(jobId){
+  if(mediaQuery.get('embed')==='calendar' && window.parent!==window){
+    window.parent.postMessage({type:'duit-media-publication-saved',jobId:Number(jobId)},window.location.origin);
+  }else{
+    window.location.assign('/admin.html#calendar');
+  }
+}
 $('publish-form').addEventListener('submit',async event=>{
  event.preventDefault();const button=event.target.querySelector('button[type=submit]');button.disabled=true;
  try{
@@ -907,6 +914,7 @@ $('publish-form').addEventListener('submit',async event=>{
     $('pub-files').value='';
     duitRefreshPreviewFiles();
     $('pub-status').textContent='Alterações guardadas no mesmo post. Não foi criado nenhum duplicado.';
+    returnToCalendarAfterSave(editingPublication.id);
     return;
    }
    const networks=selectedNetworks();
@@ -944,8 +952,8 @@ $('publish-form').addEventListener('submit',async event=>{
    $('pub-status').textContent=job.reused
      ? 'Rascunho existente atualizado. O calendário mantém uma única entrada.'
      : 'Rascunho guardado e associado ao post original no calendário.';
-   event.target.reset();handoffData=null;$('editorial-source').style.display='none';$('pub-date').value=dateForInput(3600000);
-   await refreshPublisher();
+   // A gravação e o upload foram confirmados: voltar à lista do Calendário.
+   returnToCalendarAfterSave(job.id);
  }catch(e){$('pub-status').textContent='Erro: '+e.message;}
  finally{button.disabled=false;}
 });
