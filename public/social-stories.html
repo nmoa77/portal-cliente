@@ -82,6 +82,14 @@ body.calendar-embed .sectionnav{padding-bottom:18px}
 @media(max-width:680px){body.calendar-embed main{width:calc(100% - 22px)}}
 </style><style>
 body.accounts-mode #publicacoes,body.accounts-mode .workspace-side,body.accounts-mode .composer-only{display:none!important}
+body.accounts-mode.admin-embed{background:transparent}
+body.accounts-mode.admin-embed main{width:100%;max-width:none;padding:0;margin:0}
+body.accounts-mode.admin-embed .topbar,body.accounts-mode.admin-embed .hero,body.accounts-mode.admin-embed .sectionnav{display:none!important}
+body.accounts-mode.admin-embed .workspace{max-width:none;width:100%}
+body.accounts-mode.admin-embed .workspace-main{width:100%}
+body.accounts-mode.admin-embed .panel{box-shadow:none;margin:0;padding:23px;border-radius:14px}
+body.accounts-mode.admin-embed #contas .kicker{display:none}
+
 body.accounts-mode .workspace{display:block;max-width:990px}
 body.accounts-mode .hero-label{display:none}
 body.composer-mode #contas,body.composer-mode #alertas,body.composer-mode .accounts-only{display:none!important}
@@ -153,6 +161,7 @@ const $=id=>document.getElementById(id);
 const mediaQuery = new URLSearchParams(location.search);
 const mediaMode = mediaQuery.get('mode') === 'compose' || mediaQuery.get('embed') === 'calendar' ? 'compose' : 'accounts';
 document.body.classList.add(mediaMode === 'compose' ? 'composer-mode' : 'accounts-mode');
+if(mediaQuery.get('embed')==='admin' && mediaMode==='accounts') document.body.classList.add('admin-embed');
 if (mediaMode === 'compose') {
  $('media-page-title').textContent = 'Criar conteúdo.';
  $('media-page-subtitle').textContent = 'Escolha o cliente, prepare o conteúdo e guarde-o no calendário.';
