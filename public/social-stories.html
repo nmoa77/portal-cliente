@@ -269,6 +269,10 @@ const emojiRecent=[];
 let emojiCategory='Rostos';
 let emojiCursor=null;
 const captionInput=$('pub-caption');
+function activeEmojiInput(){
+ return $('pub-caption-split')?.checked && !$('per-network-captions').hidden
+  ? $('network-caption') : captionInput;
+}
 const emojiPicker=$('emoji-picker');
 function emojiList(category){
  if(category==='Recentes')return emojiRecent;
@@ -293,16 +297,17 @@ function updateEmojiPicker(){
   // mousedown preventDefault preserves the original textarea selection.
   button.addEventListener('mousedown',event=>event.preventDefault());
   button.addEventListener('click',()=>{
-   const start=emojiCursor?.start??captionInput.selectionStart??captionInput.value.length;
-   const end=emojiCursor?.end??captionInput.selectionEnd??start;
-   const next=captionInput.value.slice(0,start)+emoji+captionInput.value.slice(end);
-   if(Array.from(next).length>2200)return;
-   captionInput.setRangeText(emoji,start,end,'end');
-   const cursor=captionInput.selectionStart;emojiCursor={start:cursor,end:cursor};
-   captionInput.dispatchEvent(new Event('input',{bubbles:true}));
+   const target=activeEmojiInput();
+   const start=emojiCursor?.start??target.selectionStart??target.value.length;
+   const end=emojiCursor?.end??target.selectionEnd??start;
+   const next=target.value.slice(0,start)+emoji+target.value.slice(end);
+   if(next.length>2200)return;
+   target.setRangeText(emoji,start,end,'end');
+   const cursor=target.selectionStart;emojiCursor={start:cursor,end:cursor};
+   target.dispatchEvent(new Event('input',{bubbles:true}));
    emojiRecent.unshift(emoji);
    if(emojiRecent.length>16)emojiRecent.length=16;
-   captionInput.focus();updateEmojiPicker();
+   target.focus();updateEmojiPicker();
   });
   grid.append(button);
  }
@@ -314,10 +319,11 @@ function toggleEmojiPicker(open){
  emojiPicker.hidden=!open;
  $('emoji-toggle').setAttribute('aria-expanded',String(open));
  if(open){updateEmojiPicker();$('emoji-search').focus();}
- else captionInput.focus();
+ else activeEmojiInput().focus();
 }
 $('emoji-toggle').addEventListener('click',()=>{
- emojiCursor={start:captionInput.selectionStart,end:captionInput.selectionEnd};
+ const target=activeEmojiInput();
+ emojiCursor={start:target.selectionStart,end:target.selectionEnd};
  toggleEmojiPicker(emojiPicker.hidden);
 });
 $('emoji-close').addEventListener('click',()=>toggleEmojiPicker(false));
@@ -425,7 +431,7 @@ function refreshCaptionTabs(){
 }
 function initializePerNetworkCaptions(text,captions={}){
  for(const key of Object.keys(perNetworkCaptions))
-  perNetworkCaptions[key]=typeof captions[key]==='string'?captions[key]:text;
+  perNetworkCaptions[key]=typeof captions[key]==='string' && captions[key].length ? captions[key] : text;
  refreshCaptionTabs();
 }
 $('pub-caption-split').addEventListener('change',()=>{
