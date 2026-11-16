@@ -1239,12 +1239,25 @@ async function viewCalendar(main) {
   const editorialMediaIndicator = p => linkedMetaByPost.has(Number(p.id))
     ? ' · Meta '+escapeHtml(linkedMetaByPost.get(Number(p.id)).status)
     : '';
-  const metaMini = j => `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({publication:${j.id}})" class="cal-post"
-      style="display:block;text-decoration:none;background:#f4f0ff;color:#30234a;border-radius:8px;padding:7px;margin-top:5px;"
-      title="Publicação Meta · ${escapeHtml(j.client_company||j.client_name)}">
-      ◎ ${escapeHtml(j.kind==='reel'?'Reel':j.kind==='carousel'?'Carrossel':'Post')} ·
-      ${escapeHtml(j.client_company||j.client_name)} · ${escapeHtml(j.status)}
+  const metaStatusColors = {
+    draft:      { background:'#F2F0F7', border:'#DDD6EB', text:'#463761', icon:'◌', label:'Rascunho' },
+    scheduled:  { background:'#FFF5D6', border:'#F0D88A', text:'#775600', icon:'◷', label:'Agendado' },
+    processing: { background:'#E7F2FF', border:'#B5D7FF', text:'#185A92', icon:'◌', label:'A publicar' },
+    review:     { background:'#FFF0E7', border:'#F4C6A8', text:'#9D3D1B', icon:'!', label:'Rever' },
+    published:  { background:'#E8F7E8', border:'#B7E4B8', text:'#1F6B2A', icon:'✓', label:'Publicado' },
+    failed:     { background:'#FFE9E9', border:'#F3B7B7', text:'#A21D27', icon:'!', label:'Falhou' },
+    cancelled:  { background:'#F1F1F1', border:'#D5D5D5', text:'#666666', icon:'–', label:'Cancelado' }
+  };
+  const metaMini = j => {
+    const status = metaStatusColors[j.status] || metaStatusColors.draft;
+    return `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({publication:${j.id}})" class="cal-post"
+      style="display:block;text-decoration:none;background:${status.background};color:${status.text};border:1px solid ${status.border};border-radius:8px;padding:7px;margin-top:5px;"
+      title="Publicação Meta · ${escapeHtml(j.client_company||j.client_name)} · ${status.label}">
+      <span aria-hidden="true" style="font-weight:800;margin-right:3px">${status.icon}</span>
+      ${escapeHtml(j.kind==='reel'?'Reel':j.kind==='carousel'?'Carrossel':'Post')} ·
+      ${escapeHtml(j.client_company||j.client_name)} · ${status.label}
     </a>`;
+  };
   const storyMini = s => `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({story:${s.id}})" class="cal-post"
     style="display:block;text-decoration:none;background:#fff3b5;color:#1b1b1b;border-radius:8px;padding:7px;margin-top:5px;"
     title="Story ${escapeHtml(s.client_company||s.client_name)}">
