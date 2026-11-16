@@ -221,7 +221,9 @@ body.composer-mode #publicacoes{padding:22px}
 </div>
 <div class="grid"><label>Imagens JPG ou PNG · vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,image/png,video/mp4" multiple required></label>
 <label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
-<p><button type="submit" id="publication-save-button">Guardar publicação</button></p></form>
+<p class="actions"><button type="submit" id="publication-save-button">Guardar publicação</button>
+<button type="button" id="duit-facebook-test-publish" class="secondary" hidden>Publicar teste no Facebook DUIT</button></p>
+<p class="muted" id="duit-test-help" hidden>Este botão envia apenas o rascunho já guardado. Se alterou algum campo, guarde primeiro e volte a abrir o post.</p></form>
 <aside class="duit-live-preview" aria-label="Pré-visualização da publicação">
   <div class="duit-preview-title"><strong>Pré-visualização</strong><select id="duit-preview-platform" aria-label="Pré-visualizar rede"><option value="facebook">Facebook · Feed</option><option value="instagram">Instagram · Feed</option><option value="threads">Threads · Rascunho</option></select></div>
   <div class="duit-preview-card" id="duit-preview-card">
@@ -368,6 +370,9 @@ function populatePublicationEditor(job){
  $('media-page-subtitle').textContent='Altere os dados deste conteúdo, sem criar uma nova publicação.';
  $('publication-form-title').textContent='Editar publicação';
  $('publication-save-button').textContent='Guardar alterações';
+ const facebookOnly=job.status==='draft'&&job.networks.length===1&&job.networks[0]==='facebook';
+ $('duit-facebook-test-publish').hidden=!facebookOnly;
+ $('duit-test-help').hidden=!facebookOnly;
  $('compose-client').value=String(job.client_id);
  syncComposeClient(job.client_id);
  $('pub-account').value=String(job.account_id);
@@ -861,6 +866,29 @@ async function publicationFile(file){
   throw Error('Não foi possível preparar o PNG '+file.name+': '+error.message);
  }finally{bitmap?.close();}
 }
+$('duit-facebook-test-publish').addEventListener('click',async()=>{
+ if(!editingPublication||editingPublication.status!=='draft')return;
+ const button=$('duit-facebook-test-publish');
+ const expectedAccount=String(editingPublication.account_id);
+ const currentNetworks=selectedNetworks();
+ if(String($('pub-account').value)!==expectedAccount||
+    currentNetworks.length!==1||currentNetworks[0]!=='facebook'||
+    $('pub-caption').value!==editingPublication.caption||
+    $('pub-files').files.length>0){
+   $('pub-status').textContent='Existem alterações por guardar. Guarde primeiro e volte a abrir o post.';
+   return;
+ }
+ if(!confirm('CONFIRMAR TESTE REAL: publicar agora esta imagem na página Facebook DUIT? A publicação será visível no Facebook.'))return;
+ button.disabled=true;
+ try{
+  await request('/api/duit-social/publisher/jobs/'+editingPublication.id+'/publish-now',{method:'POST'});
+  $('pub-status').textContent='Envio iniciado. Confirme o resultado no calendário e na página Facebook DUIT.';
+  returnToCalendarAfterSave(editingPublication.id);
+ }catch(e){
+  $('pub-status').textContent='Falha no pedido de publicação: '+e.message;
+  button.disabled=false;
+ }
+});
 function returnToCalendarAfterSave(jobId){
   if(mediaQuery.get('embed')==='calendar' && window.parent!==window){
     window.parent.postMessage({type:'duit-media-publication-saved',jobId:Number(jobId)},window.location.origin);
