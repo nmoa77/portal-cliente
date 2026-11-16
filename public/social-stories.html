@@ -382,9 +382,36 @@ function populatePublicationEditor(job){
  $('per-network-captions').hidden=!$('pub-caption-split').checked;
  initializePerNetworkCaptions(job.caption||'',captions);
  $('pub-date').value=new Date(job.scheduled_at).toLocaleString('sv-SE',{timeZone:'Europe/Lisbon'}).replace(' ','T').slice(0,16);
- // Estas propriedades não são editáveis na API existente. Não sugerir
- // alterações que não possam ser efetivamente guardadas.
- for(const id of ['compose-client','pub-account','pub-kind','pub-ig','pub-fb','pub-threads'])$(id).disabled=true;
+ // Em rascunho pode alterar todos os campos. Um agendamento só pode
+ // ser reaberto em rascunho antes de alterar canais, conta ou ficheiros.
+ const canEdit=job.status==='draft';
+ for(const id of ['compose-client','pub-account','pub-kind','pub-ig','pub-fb','pub-threads',
+                  'pub-caption','pub-caption-split','network-caption','pub-date'])$(id).disabled=!canEdit;
+ if(!canEdit && job.status==='scheduled'){
+   const notice=document.createElement('div');notice.className='muted';
+   notice.style.cssText='background:#fff2be;border-radius:10px;padding:12px;margin:12px 0';
+   notice.textContent='Esta publicação está agendada. Para alterar todos os campos, cancele o agendamento primeiro (sem apagar o conteúdo).';
+   const unlock=document.createElement('button');unlock.type='button';unlock.className='secondary';
+   unlock.style.marginLeft='10px';unlock.textContent='Reabrir como rascunho';
+   unlock.addEventListener('click',async()=>{
+     unlock.disabled=true;
+     try{
+       await request('/api/duit-social/publisher/jobs/'+job.id+'/unschedule',{method:'POST'});
+       const latest=await request('/api/duit-social/publisher/jobs/'+job.id);
+       // Desbloquear e atualizar os dados locais sem criar outro registo.
+       editingPublication=latest;
+       for(const id of ['compose-client','pub-account','pub-kind','pub-ig','pub-fb','pub-threads',
+                         'pub-caption','pub-caption-split','network-caption','pub-date'])$(id).disabled=false;
+       $('pub-files').disabled=false;
+       notice.remove();
+       $('publication-save-button').disabled=false;
+       $('pub-status').textContent='Agendamento cancelado. Pode editar todos os campos e guardar o rascunho.';
+     }catch(e){$('pub-status').textContent='Não foi possível reabrir: '+e.message;unlock.disabled=false;}
+   });
+   notice.append(unlock);
+   $('editorial-source').before(notice);
+ }
+
  $('pub-files').required=false;
  const fileLabel=$('pub-files').closest('label');
  const currentFiles=document.createElement('div');currentFiles.className='existing-upload';
@@ -399,10 +426,11 @@ function populatePublicationEditor(job){
    ? 'Pode manter o ficheiro atual. Se selecionar um novo, substitui o ficheiro da mesma posição.'
    : 'Os ficheiros não podem ser alterados depois do agendamento.';
  $('pub-files').closest('label').append(hint);
- if(job.status==='published'||job.status==='processing'||job.status==='review'){
+ if(!canEdit){
   $('publication-save-button').disabled=true;
-  $('pub-status').textContent='Esta publicação está bloqueada para edição devido ao seu estado.';
+  if(job.status!=='scheduled')$('pub-status').textContent='Publicação em processamento ou publicada: edição bloqueada para evitar envios duplicados.';
  }
+
 }
 
 
@@ -549,7 +577,10 @@ function syncComposeClient(clientId){
   ? 'Conta Meta associada. O conteúdo será guardado como rascunho.'
   : 'Sem conta Meta associada. Ligue-a em Duit Media antes de criar Posts ou Reels.';
 }
-$('compose-client').addEventListener('change',e=>syncComposeClient(e.target.value));
+$('compose-client').addEventListener('change',e=>{
+ syncComposeClient(e.target.value);
+ duitRefreshPreview();
+});
 $('pub-kind').addEventListener('change',e=>{
  if(document.body.classList.contains('composer-mode'))selectMediaKind(e.target.value);
 });
@@ -837,19 +868,33 @@ $('publish-form').addEventListener('submit',async event=>{
    if(editingPublication){
     syncNetworkCaption();
     if(!['draft','scheduled'].includes(editingPublication.status))throw Error('Esta publicação não pode ser editada.');
-    if(files.length&&editingPublication.status!=='draft')throw Error('Os ficheiros de uma publicação agendada não podem ser substituídos.');
-    if(files.length>1&&kind!=='carousel')throw Error('Selecione apenas um ficheiro.');
+    if(editingPublication.status!=='draft')throw Error('Reabra primeiro o post como rascunho para editar.');
+    if(kind!==editingPublication.kind&&!files.length)throw Error('Para alterar o formato escolha o ficheiro correspondente.');
+    if(kind==='carousel'&&files.length>0&&files.length<2)throw Error('Um carrossel precisa de pelo menos duas imagens.');
+    if(files.length>(kind==='carousel'?10:1))throw Error('Quantidade de ficheiros inválida.');
+    const networks=selectedNetworks();
+    if(!networks.length)throw Error('Escolha pelo menos uma rede.');
+    const accountId=Number($('pub-account').value);
+    const accountList=await request('/api/duit-social/meta/accounts');
+    const targetAccount=accountList.find(item=>item.id===accountId);
+    if(!targetAccount)throw Error('Conta Meta não ligada.');
+    if(Number($('compose-client').value)!==targetAccount.client_id)throw Error('A conta Meta não pertence ao cliente selecionado.');
     if(files.some(file=>file.size>80*1024*1024))throw Error('Máximo 80 MB por ficheiro.');
     if(files.some(file=>kind==='reel'?file.type!=='video/mp4':!['image/jpeg','image/png'].includes(file.type)))
       throw Error('Formato de ficheiro inválido.');
     const prepared=[];
     for(const file of files)prepared.push(await publicationFile(file));
-    // A API de edição só altera legenda e data, sem criar um segundo registo.
     await request('/api/duit-social/publisher/jobs/'+editingPublication.id,{
       method:'PATCH',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({caption:$('pub-caption').value,
+      body:JSON.stringify({
+        account_id:accountId,
+        kind,
+        networks,
+        replace_media:kind!==editingPublication.kind,
+        caption:$('pub-caption').value,
         captions:$('pub-caption-split').checked?perNetworkCaptions:{},
-        scheduled_at:new Date($('pub-date').value).toISOString()})
+        scheduled_at:new Date($('pub-date').value).toISOString()
+      })
     });
     for(let i=0;i<prepared.length;i++){
       const uploaded=await fetch('/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/'+i,{
@@ -858,7 +903,10 @@ $('publish-form').addEventListener('submit',async event=>{
       if(!uploaded.ok){const detail=await uploaded.json().catch(()=>({}));
         throw Error(detail.error||'Falha ao substituir o ficheiro');}
     }
-    $('pub-status').textContent='Alterações guardadas. Não foi criada nenhuma publicação nova.';
+    editingPublication=await request('/api/duit-social/publisher/jobs/'+editingPublication.id);
+    $('pub-files').value='';
+    duitRefreshPreviewFiles();
+    $('pub-status').textContent='Alterações guardadas no mesmo post. Não foi criado nenhum duplicado.';
     return;
    }
    const networks=selectedNetworks();
