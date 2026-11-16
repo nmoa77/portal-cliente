@@ -370,9 +370,13 @@ function populatePublicationEditor(job){
  $('media-page-subtitle').textContent='Altere os dados deste conteúdo, sem criar uma nova publicação.';
  $('publication-form-title').textContent='Editar publicação';
  $('publication-save-button').textContent='Guardar alterações';
- const facebookOnly=job.status==='draft'&&job.networks.length===1&&job.networks[0]==='facebook';
- $('duit-facebook-test-publish').hidden=!facebookOnly;
- $('duit-test-help').hidden=!facebookOnly;
+ const facebookOnly=job.networks.length===1&&job.networks[0]==='facebook';
+ const facebookReview=facebookOnly&&job.status==='review'&&job.results?.some(x=>x.network==='facebook'&&['review','processing'].includes(x.status));
+ $('duit-facebook-test-publish').hidden=!(facebookOnly&&job.status==='draft'||facebookReview);
+ $('duit-facebook-test-publish').textContent=facebookReview?'Confirmar falha e repetir teste Facebook':'Publicar teste no Facebook DUIT';
+ $('duit-test-help').hidden=!(facebookOnly&&job.status==='draft'||facebookReview);
+ if(facebookReview)$('duit-test-help').textContent='Confirme primeiro que o post NÃO está na página Facebook DUIT. A repetição envia apenas este post e não cria um novo registo.';
+
  $('compose-client').value=String(job.client_id);
  syncComposeClient(job.client_id);
  $('pub-account').value=String(job.account_id);
@@ -867,8 +871,22 @@ async function publicationFile(file){
  }finally{bitmap?.close();}
 }
 $('duit-facebook-test-publish').addEventListener('click',async()=>{
- if(!editingPublication||editingPublication.status!=='draft')return;
+ if(!editingPublication||!['draft','review'].includes(editingPublication.status))return;
  const button=$('duit-facebook-test-publish');
+ if(editingPublication.status==='review'){
+   if(!confirm('Confirma que verificou a página Facebook DUIT e que ESTE post NÃO está publicado? Vamos repetir o envio uma única vez.'))return;
+   button.disabled=true;
+   try{
+     await request('/api/duit-social/publisher/jobs/'+editingPublication.id+'/reconcile',{
+       method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({network:'facebook',action:'verified_not_published'})
+     });
+     $('pub-status').textContent='Nova tentativa autorizada. Acompanhe o estado no calendário.';
+     returnToCalendarAfterSave(editingPublication.id);
+   }catch(e){$('pub-status').textContent='Não foi possível repetir: '+e.message;button.disabled=false;}
+   return;
+ }
+
  const expectedAccount=String(editingPublication.account_id);
  const currentNetworks=selectedNetworks();
  if(String($('pub-account').value)!==expectedAccount||
