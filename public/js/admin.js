@@ -1360,7 +1360,9 @@ async function viewCalendar(main) {
   const tomorrowTotal = all.filter(p => p.date === tomorrow).length;
 
   const metaDaily = [today,tomorrow].map(dateStr=>{
-    const list=unlinkedMetaJobs.filter(j=>j.calendarDay===dateStr);
+    const visibleDraftIds=new Set(all.filter(p=>p.date===dateStr&&p.status==='draft').map(p=>Number(p.id)));
+    const list=calendarMetaJobs.filter(j=>j.calendarDay===dateStr &&
+      (!j.source_post_id || !visibleDraftIds.has(Number(j.source_post_id))));
     if(!list.length)return '';
     return `<div class="card" style="margin-bottom:12px;"><h3>Publicações Meta · ${fmtDate(dateStr,true)}</h3>
       ${list.map(metaMini).join('')}</div>`;
