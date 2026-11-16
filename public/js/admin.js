@@ -124,7 +124,7 @@ function renderShell() {
   nav.querySelectorAll('.nav-item').forEach(b => {
     b.addEventListener('click', () => {
       if (b.dataset.view === 'duit-media') {
-        go('calendar');
+        window.location.assign('/social-stories.html?mode=accounts');
         return;
       }
       go(b.dataset.view);
@@ -1141,20 +1141,24 @@ function openDuitMediaCalendar(opts = {}) {
   document.getElementById('duit-media-calendar-modal')?.remove();
   const url = new URL('/social-stories.html', window.location.origin);
   url.searchParams.set('embed', 'calendar');
+  url.searchParams.set('mode', 'compose');
+  if (opts.kind) url.searchParams.set('kind', String(opts.kind));
   if (opts.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(opts.date)))
     url.searchParams.set('date', String(opts.date));
   if (opts.client && /^\\d+$/.test(String(opts.client)))
     url.searchParams.set('client', String(opts.client));
   if (Number.isSafeInteger(Number(opts.publication)) && Number(opts.publication) > 0)
     url.searchParams.set('publication', String(opts.publication));
-  if (Number.isSafeInteger(Number(opts.story)) && Number(opts.story) > 0)
+  if (Number.isSafeInteger(Number(opts.story)) && Number(opts.story) > 0){
     url.searchParams.set('story', String(opts.story));
+    url.searchParams.set('kind', 'story');
+  }
   const overlay = document.createElement('div');
   overlay.id = 'duit-media-calendar-modal';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#111c;display:flex;align-items:center;justify-content:center;padding:20px';
   overlay.innerHTML = `<div role="dialog" aria-modal="true" aria-label="Duit Media" style="background:#f3f4f5;border-radius:18px;width:min(1300px,100%);height:min(92vh,100%);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 100px #0005">
     <div style="height:53px;background:#151515;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0 16px;gap:15px">
-      <strong style="font-size:13px;font-weight:800">DUIT MEDIA <span style="color:#ffd200">·</span> Calendário</strong>
+      <strong style="font-size:13px;font-weight:800">CALENDÁRIO <span style="color:#ffd200">·</span> Criar conteúdo</strong>
       <button type="button" id="duit-media-calendar-close" style="background:#ffd200;border:0;color:#111;font-weight:800;border-radius:8px;padding:8px 14px;cursor:pointer">Fechar ✕</button>
     </div>
     <iframe title="Editor Duit Media" src="${url.pathname + url.search}" style="border:0;width:100%;flex:1;min-height:0" allow="clipboard-write"></iframe>
@@ -1234,15 +1238,15 @@ async function viewCalendar(main) {
     <div class="cal-toolbar">
       <div class="cal-filters">
         <button class="cal-filter ${filter === 'all' ? 'active' : ''}" onclick="setCalFilter('all')">Todos</button>
-        ${state.clients.filter(c => (c.social_subs || 0) > 0 || calendarMetaJobs.some(j => Number(j.client_id) === Number(c.id))).map(c => `
+        ${state.clients.filter(c => !c.is_prospect && !c.parent_user_id && !['ana@exemplo.pt','joao@exemplo.pt','rita@exemplo.pt'].includes(String(c.email||'').toLowerCase())).map(c => `
           <button class="cal-filter ${filter == c.id ? 'active' : ''}" onclick="setCalFilter(${c.id})">
             ${escapeHtml(c.company || c.name)}
           </button>
         `).join('')}
       </div>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
-        <button class="btn btn-yellow btn-sm" onclick="openNewPostForDate('${mode === 'day' ? state.calDay : ''}')">${svg('plus')} Novo post</button>
-        <button class="btn btn-yellow btn-sm" onclick="openDuitMediaCalendar({date:'${mode === 'day' ? state.calDay : ''}',client:'${filter === 'all' ? '' : filter}'})">${svg('plus')} Criar Post, Reel ou Story</button>
+        <button class="btn btn-yellow btn-sm" onclick="openDuitMediaCalendar({date:'${mode === 'day' ? state.calDay : ''}',client:'${filter === 'all' ? '' : filter}'})">${svg('plus')} Criar conteúdo</button>
+        <a class="btn btn-ghost btn-sm" href="/social-stories.html?mode=accounts">Gerir contas Meta</a>
         ${filter !== 'all'
           ? `<button class="btn btn-ghost btn-sm" onclick="openGenPosts()">${svg('cal')} Gerar posts do mês</button>`
           : ''}
@@ -1273,7 +1277,7 @@ async function viewCalendar(main) {
       const dayPosts = posts.filter(p => p.date === dateStr);
       const isToday = dateStr === todayISO();
       cells.push(`
-        <div class="cal-day ${isToday ? 'today' : ''}" onclick="openNewPostForDate('${dateStr}')">
+        <div class="cal-day ${isToday ? 'today' : ''}" onclick="openDuitMediaCalendar({date:'${dateStr}',client:'${filter === 'all' ? '' : filter}'})">
           <div class="date">${d}</div>
           ${dayPosts.map(p => {
             const label = p.client_company || p.client_name || '';
