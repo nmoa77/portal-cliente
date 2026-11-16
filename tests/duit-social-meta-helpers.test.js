@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile,canCancelSchedule,isFutureSchedule}
+const {facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile,canCancelSchedule,isFutureSchedule,metaAccountHealth}
   =require('../backend/duit-social-meta-helpers');
 
 test('Facebook carrossel usa parâmetros indexed por fotografia',()=>{
@@ -75,4 +75,15 @@ test('Agendamento precisa de data futura; publicar agora é operação separada'
  assert.equal(isFutureSchedule('2026-11-13T16:10:00Z',now),true);
  assert.equal(isFutureSchedule('2026-11-13T15:59:59Z',now),false);
  assert.equal(isFutureSchedule('qualquer coisa',now),false);
+});
+
+test('Diagnóstico Meta confirma a Página certa e o Instagram ligado',()=>{
+ const page={id:'111',name:'DUIT',instagram_business_account:{id:'222'}};
+ const healthy=metaAccountHealth('111','222',page,{id:'222',username:'duit.pt'});
+ assert.deepEqual(healthy,{pageOk:true,instagramMatches:true,instagramReadable:true});
+ assert.equal(metaAccountHealth('999','222',page,{id:'222'}).pageOk,false);
+ assert.equal(metaAccountHealth('111','333',page,{id:'333'}).instagramMatches,false);
+ assert.equal(metaAccountHealth('111','222',page,{id:'444'}).instagramReadable,false);
+ assert.deepEqual(metaAccountHealth('111',null,{id:'111'},null),
+  {pageOk:true,instagramMatches:true,instagramReadable:false});
 });
