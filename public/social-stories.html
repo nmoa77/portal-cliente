@@ -370,6 +370,33 @@ function populatePublicationEditor(job){
  $('media-page-subtitle').textContent='Altere os dados deste conteúdo, sem criar uma nova publicação.';
  $('publication-form-title').textContent='Editar publicação';
  $('publication-save-button').textContent='Guardar alterações';
+ if(job.status==='review'){
+  const diagnostic=document.createElement('section');
+  diagnostic.id='duit-publish-diagnostic';
+  diagnostic.style.cssText='background:#fff4e5;border:1px solid #efca8b;border-radius:12px;padding:16px;margin:15px 0;color:#332817';
+  const heading=document.createElement('strong');
+  heading.textContent='Publicação por confirmar · diagnóstico da Meta';
+  diagnostic.append(heading);
+  const detail=document.createElement('p');
+  detail.style.cssText='font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0';
+  const statuses=(job.results||[]).map(item=>{
+   const network=item.network==='facebook'?'Facebook':item.network==='instagram'?'Instagram':'Threads';
+   const state=item.status==='published'?'Publicado':item.status==='review'?'Erro / revisão':item.status==='pending'?'Por iniciar':item.status;
+   return network+' — '+state+(item.error?'\\nDetalhe: '+item.error:'');
+  });
+  detail.textContent=statuses.join('\\n\\n')+(job.error?'\\n\\nEstado geral: '+job.error:'');
+  if(!statuses.length)detail.textContent='O serviço ainda não devolveu detalhes por rede.';
+  diagnostic.append(detail);
+  const copy=document.createElement('button');copy.type='button';copy.className='secondary';copy.textContent='Copiar diagnóstico';
+  copy.addEventListener('click',()=>{
+   navigator.clipboard?.writeText(detail.textContent).then(()=>{
+    copy.textContent='Diagnóstico copiado';
+   }).catch(()=>{$('pub-status').textContent=detail.textContent;});
+  });
+  diagnostic.append(copy);
+  $('editorial-source').before(diagnostic);
+ }
+
  const facebookOnly=job.networks.length===1&&job.networks[0]==='facebook';
  const facebookReview=facebookOnly&&job.status==='review'&&job.results?.some(x=>x.network==='facebook'&&['review','processing'].includes(x.status));
  $('duit-facebook-test-publish').hidden=!(facebookOnly&&job.status==='draft'||facebookReview);
