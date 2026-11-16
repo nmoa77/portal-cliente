@@ -136,6 +136,30 @@ body.composer-mode .story{background:#fdfdfd}
 .emoji-grid button{min-height:38px;padding:4px;font-size:23px;background:transparent;border-radius:7px;font-family:Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif}
 .emoji-grid button:hover,.emoji-grid button:focus-visible{background:#fff0a4}
 @media(max-width:580px){.emoji-picker{left:0;right:0;width:100%}.emoji-grid{grid-template-columns:repeat(7,1fr)}}
+</style><style>
+body.composer-mode .workspace,body.composer-mode #publicacoes{max-width:none!important}
+body.composer-mode #publicacoes{padding:22px}
+.duit-composer-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,.9fr);gap:23px;align-items:start;margin-top:18px}
+.duit-composer-layout #publish-form{min-width:0;background:#fff}
+.duit-composer-layout #publish-form>.grid,.duit-composer-layout #publish-form>.actions{margin-bottom:16px}
+.duit-live-preview{position:sticky;top:12px;min-width:0;background:#eef3fa;border-radius:13px;padding:16px}
+.duit-preview-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}
+.duit-preview-title strong{font-size:12px}
+#duit-preview-platform{max-width:210px;min-height:37px;padding:8px;font-size:11px;background:#fff}
+.duit-preview-card{background:#fff;border:1px solid #e4e7ec;border-radius:10px;overflow:hidden}
+.duit-preview-head{display:flex;align-items:center;gap:10px;padding:13px;font-size:12px}
+.duit-preview-avatar{width:39px;height:39px;border-radius:50%;background:#171717;color:#ffd200;display:grid;place-items:center;font-size:16px;font-weight:800;flex:0 0 auto}
+.duit-preview-identity{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}.duit-preview-identity small{font-size:10px;color:#777}
+.duit-preview-copy{padding:0 14px 12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.65;max-height:190px;overflow:auto}
+.duit-preview-copy:empty{display:none}
+.duit-preview-media{background:#f0f2f5;min-height:260px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.duit-preview-media img,.duit-preview-media video{display:block;width:100%;max-height:440px;object-fit:contain;background:#111}
+.duit-preview-placeholder{text-align:center;color:#adb5bc;font-size:64px}.duit-preview-placeholder small{display:block;font-size:11px;max-width:220px;color:#8d949b}
+.duit-preview-count{position:absolute;right:10px;top:10px;background:#111d;color:white;padding:5px 9px;border-radius:7px;font-size:10px}
+.duit-preview-actions{display:flex;justify-content:space-around;gap:6px;padding:13px 9px;border-top:1px solid #eee;color:#666;font-size:11px}
+.duit-live-preview>.muted{margin:12px 0 0}
+.duit-preview-card.is-instagram .duit-preview-actions{font-size:12px}
+@media(max-width:850px){.duit-composer-layout{grid-template-columns:1fr}.duit-live-preview{position:static}}
 </style></head><body>
 <main>
 <div class="topbar"><a class="wordmark" href="/admin.html" aria-label="DUIT">DU<span>!</span>T</a><div class="top-right"><span class="envpill">DUIT MEDIA</span><a class="backlink" href="/admin.html#calendar">← Voltar ao portal</a></div></div>
@@ -157,7 +181,7 @@ body.composer-mode .story{background:#fdfdfd}
 <div class="composer-client-row"><label>Cliente<select id="compose-client" aria-label="Cliente para esta publicação"></select></label><p class="muted" id="compose-client-hint">Selecione o cliente e depois o formato da publicação.</p></div>
 <div id="editorial-source" style="display:none;background:#fff9df;border:1px solid #f2e4a0;border-radius:12px;padding:15px;margin:0 0 22px;font-size:12px;line-height:1.7"></div>
 <p class="muted">Crie o conteúdo para o cliente selecionado. O ficheiro e a legenda ficam guardados como rascunho; a publicação automática permanece desativada durante os testes.</p>
-<form id="publish-form">
+<div class="duit-composer-layout"><form id="publish-form">
 <div class="grid"><label>Conta Meta ligada<select id="pub-account" required></select></label>
 <label>Formato<select id="pub-kind"><option value="post">Post (imagem)</option><option value="carousel">Carrossel (2 a 10 imagens)</option><option value="reel">Reel Instagram (vídeo MP4)</option></select></label></div>
 <p class="actions"><label><input type="checkbox" id="pub-ig" checked> Instagram</label><label><input type="checkbox" id="pub-fb" checked> Facebook</label></p>
@@ -174,6 +198,16 @@ body.composer-mode .story{background:#fdfdfd}
 <div class="grid"><label>Imagens JPG ou PNG · vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,image/png,video/mp4" multiple required></label>
 <label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
 <p><button type="submit" id="publication-save-button">Guardar publicação</button></p></form>
+<aside class="duit-live-preview" aria-label="Pré-visualização da publicação">
+  <div class="duit-preview-title"><strong>Pré-visualização</strong><select id="duit-preview-platform" aria-label="Pré-visualizar rede"><option value="facebook">Facebook · Feed</option><option value="instagram">Instagram · Feed</option></select></div>
+  <div class="duit-preview-card" id="duit-preview-card">
+    <div class="duit-preview-head"><div class="duit-preview-avatar" id="duit-preview-avatar">D</div><div class="duit-preview-identity"><strong id="duit-preview-name">Cliente</strong><small id="duit-preview-subline">Agora mesmo · 🌐</small></div><span aria-hidden="true">···</span></div>
+    <div class="duit-preview-copy" id="duit-preview-copy">O texto da publicação aparecerá aqui.</div>
+    <div class="duit-preview-media" id="duit-preview-media"><div class="duit-preview-placeholder">▧<small>Adicione uma fotografia ou vídeo</small></div></div>
+    <div class="duit-preview-actions" id="duit-preview-actions"><span>♡ Gosto</span><span>◯ Comentário</span><span>➤ Partilha</span></div>
+  </div>
+  <p class="muted">Pré-visualização aproximada. O aspeto final pode variar nas aplicações da Meta.</p>
+</aside></div>
 <p class="muted" id="pub-status" aria-live="polite"></p>
 <div class="actions composer-job-list"><label>Publicações guardadas <select id="pub-filter"><option value="all">Todos os clientes</option></select></label></div>
 <div id="pub-jobs"></div>
@@ -309,6 +343,7 @@ function populatePublicationEditor(job){
  $('pub-account').value=String(job.account_id);
  selectMediaKind(job.kind);
  $('pub-caption').value=job.caption||'';
+ duitRefreshPreview();
  $('pub-ig').checked=job.networks.includes('instagram');
  $('pub-fb').checked=job.networks.includes('facebook');
  $('pub-date').value=new Date(job.scheduled_at).toLocaleString('sv-SE',{timeZone:'Europe/Lisbon'}).replace(' ','T').slice(0,16);
@@ -327,6 +362,54 @@ function populatePublicationEditor(job){
   $('pub-status').textContent='Esta publicação está bloqueada para edição devido ao seu estado.';
  }
 }
+
+const duitPreviewMedia=$('duit-preview-media');
+let duitPreviewUrls=[];
+function duitClearPreviewUrls(){
+ for(const url of duitPreviewUrls)URL.revokeObjectURL(url);
+ duitPreviewUrls=[];
+}
+function duitRefreshPreview(){
+ const channel=$('duit-preview-platform').value;
+ $('duit-preview-card').classList.toggle('is-instagram',channel==='instagram');
+ const account=$('pub-account').selectedOptions[0];
+ const client=$('compose-client').selectedOptions[0];
+ const clientName=client?.textContent?.trim()||account?.textContent?.split('·')[0]?.trim()||'Cliente';
+ $('duit-preview-name').textContent=clientName;
+ $('duit-preview-avatar').textContent=clientName.slice(0,1).toUpperCase()||'D';
+ $('duit-preview-subline').textContent=channel==='instagram'?'Instagram · Pré-visualização':'Agora mesmo · 🌐';
+ $('duit-preview-actions').replaceChildren(...(channel==='instagram'
+   ?['♡ Gostar','◇ Comentar','➤ Partilhar'].map(t=>{const e=document.createElement('span');e.textContent=t;return e;})
+   :['♡ Gosto','◯ Comentário','➤ Partilha'].map(t=>{const e=document.createElement('span');e.textContent=t;return e;})));
+ $('duit-preview-copy').textContent=$('pub-caption').value||'O texto da publicação aparecerá aqui.';
+}
+function duitRefreshPreviewFiles(){
+ duitClearPreviewUrls();
+ const root=duitPreviewMedia;
+ root.replaceChildren();
+ const files=[...$('pub-files').files];
+ if(!files.length){
+  const placeholder=document.createElement('div');placeholder.className='duit-preview-placeholder';
+  placeholder.textContent='▧';const help=document.createElement('small');help.textContent='Adicione uma fotografia ou vídeo';placeholder.append(help);root.append(placeholder);return;
+ }
+ const file=files[0],url=URL.createObjectURL(file);duitPreviewUrls.push(url);
+ const media=document.createElement(file.type==='video/mp4'?'video':'img');
+ media.src=url;
+ if(media.tagName==='VIDEO'){media.controls=true;media.muted=true;media.playsInline=true;}
+ media.addEventListener('error',()=>{root.textContent='Não foi possível pré-visualizar este ficheiro.';});
+ root.append(media);
+ if(files.length>1){
+  const badge=document.createElement('span');badge.className='duit-preview-count';
+  badge.textContent='1 / '+files.length;root.append(badge);
+ }
+}
+$('pub-caption').addEventListener('input',duitRefreshPreview);
+$('pub-account').addEventListener('change',duitRefreshPreview);
+$('compose-client').addEventListener('change',duitRefreshPreview);
+$('duit-preview-platform').addEventListener('change',duitRefreshPreview);
+$('pub-files').addEventListener('change',duitRefreshPreviewFiles);
+window.addEventListener('pagehide',duitClearPreviewUrls);
+
 const mediaMode = mediaQuery.get('mode') === 'compose' || mediaQuery.get('embed') === 'calendar' ? 'compose' : 'accounts';
 document.body.classList.add(mediaMode === 'compose' ? 'composer-mode' : 'accounts-mode');
 if(mediaQuery.get('embed')==='admin' && mediaMode==='accounts') document.body.classList.add('admin-embed');
@@ -843,6 +926,7 @@ $('compose-client').replaceChildren(...socialClients.map(c=>{const o=document.cr
 applyCalendarPreset();
 if(!mediaQuery.get('client'))syncComposeClient($('compose-client').value);
 if(window.pendingPublicationEdit){populatePublicationEditor(window.pendingPublicationEdit);window.pendingPublicationEdit=null;}
+duitRefreshPreview();
 handoffReady=true;applyEditorialHandoff();
 
 const tomorrow=new Date(Date.now()+86400000);const pad=n=>String(n).padStart(2,'0');$('scheduled').value=tomorrow.getFullYear()+'-'+pad(tomorrow.getMonth()+1)+'-'+pad(tomorrow.getDate())+'T'+pad(tomorrow.getHours())+':'+pad(tomorrow.getMinutes());
