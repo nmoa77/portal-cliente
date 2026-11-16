@@ -124,7 +124,7 @@ function renderShell() {
   nav.querySelectorAll('.nav-item').forEach(b => {
     b.addEventListener('click', () => {
       if (b.dataset.view === 'duit-media') {
-        window.location.assign('/social-stories.html');
+        go('calendar');
         return;
       }
       go(b.dataset.view);
