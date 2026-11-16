@@ -1134,6 +1134,39 @@ async function deleteProject(id) {
   catch (err) { toast(err.message, 'cancel'); }
 }
 
+/* Duit Media integrado na agenda: abre o editor no próprio portal.
+   O iframe mantém o OAuth da Meta na mesma origem e só abre em clique real.
+   Ao fechar, a vista do calendário recarrega os dados atuais. */
+function openDuitMediaCalendar(opts = {}) {
+  document.getElementById('duit-media-calendar-modal')?.remove();
+  const url = new URL('/social-stories.html', window.location.origin);
+  url.searchParams.set('embed', 'calendar');
+  if (opts.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(opts.date)))
+    url.searchParams.set('date', String(opts.date));
+  if (opts.client && /^\\d+$/.test(String(opts.client)))
+    url.searchParams.set('client', String(opts.client));
+  if (Number.isSafeInteger(Number(opts.publication)) && Number(opts.publication) > 0)
+    url.searchParams.set('publication', String(opts.publication));
+  if (Number.isSafeInteger(Number(opts.story)) && Number(opts.story) > 0)
+    url.searchParams.set('story', String(opts.story));
+  const overlay = document.createElement('div');
+  overlay.id = 'duit-media-calendar-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#111c;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `<div role="dialog" aria-modal="true" aria-label="Duit Media" style="background:#f3f4f5;border-radius:18px;width:min(1300px,100%);height:min(92vh,100%);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 100px #0005">
+    <div style="height:53px;background:#151515;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0 16px;gap:15px">
+      <strong style="font-size:13px;font-weight:800">DUIT MEDIA <span style="color:#ffd200">·</span> Calendário</strong>
+      <button type="button" id="duit-media-calendar-close" style="background:#ffd200;border:0;color:#111;font-weight:800;border-radius:8px;padding:8px 14px;cursor:pointer">Fechar ✕</button>
+    </div>
+    <iframe title="Editor Duit Media" src="${url.pathname + url.search}" style="border:0;width:100%;flex:1;min-height:0" allow="clipboard-write"></iframe>
+  </div>`;
+  const close = () => { overlay.remove(); if (state.view === 'calendar') go('calendar'); };
+  overlay.querySelector('#duit-media-calendar-close').addEventListener('click', close);
+  overlay.addEventListener('click', ev => { if (ev.target === overlay) close(); });
+  document.body.appendChild(overlay);
+  overlay.querySelector('#duit-media-calendar-close').focus();
+}
+window.openDuitMediaCalendar = openDuitMediaCalendar;
+
 /* =========================================================================
    CALENDÁRIO (editor completo)
    ========================================================================= */
@@ -1159,13 +1192,13 @@ async function viewCalendar(main) {
   const calendarMetaJobs = metaJobs.map(j=>({
     ...j,calendarDay:new Date(j.scheduled_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Lisbon'})
   }));
-  const metaMini = j => `<a href="/social-stories.html?publication=${j.id}" class="cal-post"
+  const metaMini = j => `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({publication:${j.id}})" class="cal-post"
       style="display:block;text-decoration:none;background:#f4f0ff;color:#30234a;border-radius:8px;padding:7px;margin-top:5px;"
       onclick="event.stopPropagation()" title="Publicação Meta · ${escapeHtml(j.client_company||j.client_name)}">
       ◎ ${escapeHtml(j.kind==='reel'?'Reel':j.kind==='carousel'?'Carrossel':'Post')} ·
       ${escapeHtml(j.client_company||j.client_name)} · ${escapeHtml(j.status)}
     </a>`;
-  const storyMini = s => `<a href="/social-stories.html?story=${s.id}" class="cal-post"
+  const storyMini = s => `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({story:${s.id}})" class="cal-post"
     style="display:block;text-decoration:none;background:#fff3b5;color:#1b1b1b;border-radius:8px;padding:7px;margin-top:5px;"
     onclick="event.stopPropagation()" title="Story ${escapeHtml(s.client_company||s.client_name)}">
     ◉ Story · ${escapeHtml(s.client_company||s.client_name)} · ${escapeHtml(s.status)}
@@ -1209,7 +1242,7 @@ async function viewCalendar(main) {
       </div>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
         <button class="btn btn-yellow btn-sm" onclick="openNewPostForDate('${mode === 'day' ? state.calDay : ''}')">${svg('plus')} Novo post</button>
-        <a class="btn btn-yellow btn-sm" href="/social-stories.html">Posts, Reels e Stories Meta ↗</a>
+        <button class="btn btn-yellow btn-sm" onclick="openDuitMediaCalendar({date:'${mode === 'day' ? state.calDay : ''}',client:'${filter === 'all' ? '' : filter}'})">${svg('plus')} Criar Post, Reel ou Story</button>
         ${filter !== 'all'
           ? `<button class="btn btn-ghost btn-sm" onclick="openGenPosts()">${svg('cal')} Gerar posts do mês</button>`
           : ''}
