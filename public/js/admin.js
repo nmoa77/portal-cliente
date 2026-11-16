@@ -92,6 +92,7 @@ function renderShell() {
     { id: 'duit-start', icon: 'sparkle', label: 'DUIT Start', alert: s.unreadDuitStart, alertTitle: `${s.unreadDuitStart || 0} pedido(s) DUIT Start por ler` },
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',alert: s.pendingCancels,         alertTitle: `${s.pendingCancels || 0} cancelamento(s) pendente(s)` },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      alert: s.unreadAdminTickets,     alertTitle: `${s.unreadAdminTickets || 0} ticket(s) com nova resposta de cliente` },
+    { id: 'duit-media', icon: 'cal', label: 'Duit Media' },
     { id: 'metaads',   icon: 'quote',   label: 'Meta Ads' },
     { id: 'metareports', icon: 'cal', label: 'Relatórios Meta' },
     { id: 'announcements', icon: 'sparkle', label: 'Anúncios',
@@ -121,7 +122,13 @@ function renderShell() {
     }).join('')}
   `;
   nav.querySelectorAll('.nav-item').forEach(b => {
-    b.addEventListener('click', () => go(b.dataset.view));
+    b.addEventListener('click', () => {
+      if (b.dataset.view === 'duit-media') {
+        window.location.assign('/social-stories.html');
+        return;
+      }
+      go(b.dataset.view);
+    });
   });
   setActive();
 }
