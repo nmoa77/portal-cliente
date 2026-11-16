@@ -163,7 +163,9 @@ function selectMediaKind(kind) {
  document.querySelectorAll('[data-media-kind]').forEach(b=>b.classList.toggle('active',b.dataset.mediaKind===kind));
  if (!story) {
   $('pub-kind').value=['post','carousel','reel'].includes(kind)?kind:'post';
-  $('pub-kind').dispatchEvent(new Event('change'));
+  $('pub-files').accept='image/jpeg,image/png,video/mp4';
+  $('pub-files').accept = kind==='reel'?'video/mp4':'image/jpeg,image/png';
+  $('pub-files').multiple = kind==='carousel';
  }
 }
 document.querySelectorAll('[data-media-kind]').forEach(b=>b.addEventListener('click',()=>selectMediaKind(b.dataset.mediaKind)));
