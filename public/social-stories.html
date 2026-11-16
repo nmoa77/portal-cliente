@@ -111,6 +111,25 @@ body.composer-mode .composer-job-list{margin-top:28px}
 #compose-client{max-width:450px}
 body.composer-mode .story{background:#fdfdfd}
 @media(max-width:680px){.composer-client-row{grid-template-columns:1fr}}
+</style><style>
+.caption-field{position:relative;margin:22px 0 18px}
+.caption-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.caption-title label{font-size:11px;font-weight:800}
+.caption-field textarea{width:100%;min-height:140px;resize:vertical;font-size:13px;line-height:1.65;font-weight:500}
+.emoji-toggle{background:#f4f4f4;border:1px solid #e6e6e6;font-size:12px;padding:8px 12px;min-height:36px}
+.emoji-toggle:hover,.emoji-toggle[aria-expanded=true]{background:#ffed88}
+.emoji-picker{position:absolute;right:0;top:40px;width:min(390px,100%);z-index:40;background:#fff;border:1px solid #e3e3e3;border-radius:13px;box-shadow:0 14px 40px #0002;padding:13px}
+.emoji-picker[hidden]{display:none!important}
+.emoji-picker-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:12px}
+.emoji-close{background:#f2f2f2;padding:4px 9px;min-height:30px}
+#emoji-search{margin-bottom:9px;width:100%}
+.emoji-categories{display:flex;gap:4px;overflow-x:auto;padding-bottom:8px}
+.emoji-categories button{flex:0 0 auto;background:#f7f7f7;color:#555;min-height:31px;padding:6px 9px;border-radius:7px;font-size:12px}
+.emoji-categories button.active{background:#ffd200;color:#111}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;max-height:220px;overflow:auto;padding-top:7px;border-top:1px solid #eee}
+.emoji-grid button{min-height:38px;padding:4px;font-size:23px;background:transparent;border-radius:7px;font-family:Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif}
+.emoji-grid button:hover,.emoji-grid button:focus-visible{background:#fff0a4}
+@media(max-width:580px){.emoji-picker{left:0;right:0;width:100%}.emoji-grid{grid-template-columns:repeat(7,1fr)}}
 </style></head><body>
 <main>
 <div class="topbar"><a class="wordmark" href="/admin.html" aria-label="DUIT">DU<span>!</span>T</a><div class="top-right"><span class="envpill">DUIT MEDIA</span><a class="backlink" href="/admin.html#calendar">← Voltar ao portal</a></div></div>
@@ -136,7 +155,16 @@ body.composer-mode .story{background:#fdfdfd}
 <div class="grid"><label>Conta Meta ligada<select id="pub-account" required></select></label>
 <label>Formato<select id="pub-kind"><option value="post">Post (imagem)</option><option value="carousel">Carrossel (2 a 10 imagens)</option><option value="reel">Reel Instagram (vídeo MP4)</option></select></label></div>
 <p class="actions"><label><input type="checkbox" id="pub-ig" checked> Instagram</label><label><input type="checkbox" id="pub-fb" checked> Facebook</label></p>
-<p><label>Legenda<textarea id="pub-caption" maxlength="2200" rows="3" style="width:100%;border:1px solid #dedede;border-radius:10px;padding:13px;font:inherit" placeholder="Escreva a legenda…"></textarea></label></p>
+<div class="caption-field">
+  <div class="caption-title"><label for="pub-caption">Legenda</label><button type="button" id="emoji-toggle" class="emoji-toggle" aria-label="Inserir emoji" aria-haspopup="true" aria-controls="emoji-picker" aria-expanded="false">☺ Emojis</button></div>
+  <textarea id="pub-caption" maxlength="2200" rows="4" placeholder="Escreva a legenda…"></textarea>
+  <div id="emoji-picker" class="emoji-picker" hidden>
+    <div class="emoji-picker-header"><strong>Escolha um emoji</strong><button type="button" id="emoji-close" class="emoji-close" aria-label="Fechar emojis">✕</button></div>
+    <input id="emoji-search" type="search" placeholder="Pesquisar emoji…" aria-label="Pesquisar emojis">
+    <div id="emoji-categories" class="emoji-categories" role="group" aria-label="Categorias de emojis"></div>
+    <div id="emoji-grid" class="emoji-grid" aria-label="Emojis disponíveis"></div>
+  </div>
+</div>
 <div class="grid"><label>Imagens JPG ou PNG · vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,image/png,video/mp4" multiple required></label>
 <label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
 <p><button type="submit">Guardar publicação</button></p></form>
@@ -160,6 +188,83 @@ body.composer-mode .story{background:#fdfdfd}
 <script>
 const $=id=>document.getElementById(id);
 const mediaQuery = new URLSearchParams(location.search);
+// Seletor de emojis local para a legenda; não depende de serviços externos.
+const emojiSets={
+  'Recentes':'',
+  'Rostos':'😀 😃 😄 😁 😆 😅 😂 🤣 😊 🙂 🙃 😉 😍 🥰 😘 😋 😎 🤩 🥳 😏 😌 😔 😢 😭 😤 😡 🤯 😱 🥺 🥹 🤔 🤗 🤭 🫢 🤫 😴 🤒 🤠 😇 😈 👻 💀',
+  'Gestos':'👍 👎 👌 ✌️ 🤞 🤟 🤘 🤙 👏 🙌 👐 🤝 🙏 💪 👊 ✊ 👋 🫶 🫰 👉 👈 👆 👇 ☝️ ✍️ 🤳',
+  'Corações':'❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💖 💗 💓 💕 💞 💘 💝 💔 ❤️‍🔥 ❤️‍🩹 💯',
+  'Símbolos':'✨ ⭐ 🌟 💫 ⚡ 🔥 💥 💢 💬 💭 ✅ ☑️ ❌ ❗ ❓ ✔️ ➡️ ⬅️ ⬆️ ⬇️ 🔝 🔜 ♻️ ⚠️ 🎯 📍 📌 🔗 🔔 🛑',
+  'Objetos':'📱 💻 🖥️ 📷 📸 🎥 🎬 🎨 🖌️ 🖍️ 📝 📅 🗓️ 📈 📊 💡 💰 💳 🛍️ 🎁 🎉 🎊 🏆 🥇 🏅 🎵 🎧 ☕ ⏰ 📣 📢',
+  'Natureza':'🌞 ☀️ 🌤️ 🌈 🌙 🌍 🌎 🌱 🌿 🍀 🌸 🌺 🌻 🌷 🌹 🌳 🌊 🏖️ 🏔️ 🌴 🐶 🐱 🦋 🐝',
+  'Comida':'🍕 🍔 🍟 🌮 🥗 🍎 🍊 🍋 🍓 🍉 🍇 🍒 🥑 🍞 🧀 🍰 🎂 🍩 🍫 🍪 ☕ 🧃 🍹 🥂',
+  'Desporto':'⚽ 🏀 🏐 🎾 🏋️ 🤸 🚴 🏃 🚶 🏊 🧘 🥊 🏆 🥇 💪 🔥 ⚡'
+};
+const emojiKeywords={'🙏':'obrigado rezar agradecer','🔥':'fogo destaque','💪':'força ginásio treino','😂':'rir gargalhada','❤️':'amor coração','😍':'adoro apaixonado','👍':'gosto polegar','👏':'palmas aplausos','🎉':'festa celebrar','✨':'brilho magia','📣':'anúncio comunicar','📱':'telemóvel telefone','📅':'calendário agenda','🎯':'objetivo alvo','✅':'confirmado certo','📍':'localização lugar','💡':'ideia','🎨':'design arte','📸':'fotografia imagem','☕':'café','🚀':'lançamento foguete','🥳':'celebrar festa','🎁':'presente oferta','💛':'amarelo coração','⚽':'futebol','🏋️':'treino musculação'};
+const emojiRecent=[];
+let emojiCategory='Rostos';
+let emojiCursor=null;
+const captionInput=$('pub-caption');
+const emojiPicker=$('emoji-picker');
+function emojiList(category){
+ if(category==='Recentes')return emojiRecent;
+ return (emojiSets[category]||'').split(/\s+/u).filter(Boolean);
+}
+function updateEmojiPicker(){
+ const q=$('emoji-search').value.trim().toLocaleLowerCase('pt-PT');
+ $('emoji-categories').replaceChildren(...Object.keys(emojiSets).map(category=>{
+  const button=document.createElement('button');button.type='button';button.textContent=category;
+  button.classList.toggle('active',category===emojiCategory);
+  button.addEventListener('click',()=>{emojiCategory=category;updateEmojiPicker();});
+  return button;
+ }));
+ const list=q?[...new Set(Object.keys(emojiSets).flatMap(emojiList))].filter(e=>
+  (emojiKeywords[e]||'').toLocaleLowerCase('pt-PT').includes(q) ||
+  Object.entries(emojiSets).some(([name,values])=>name.toLocaleLowerCase('pt-PT').includes(q)&&values.includes(e))
+ ):emojiList(emojiCategory);
+ const grid=$('emoji-grid');grid.replaceChildren();
+ if(!list.length){const msg=document.createElement('p');msg.className='muted';msg.textContent='Sem emojis encontrados.';grid.append(msg);return;}
+ for(const emoji of list){
+  const button=document.createElement('button');button.type='button';button.textContent=emoji;button.title=emojiKeywords[emoji]||'Inserir emoji';
+  // mousedown preventDefault preserves the original textarea selection.
+  button.addEventListener('mousedown',event=>event.preventDefault());
+  button.addEventListener('click',()=>{
+   const start=emojiCursor?.start??captionInput.selectionStart??captionInput.value.length;
+   const end=emojiCursor?.end??captionInput.selectionEnd??start;
+   const next=captionInput.value.slice(0,start)+emoji+captionInput.value.slice(end);
+   if(Array.from(next).length>2200)return;
+   captionInput.setRangeText(emoji,start,end,'end');
+   const cursor=captionInput.selectionStart;emojiCursor={start:cursor,end:cursor};
+   captionInput.dispatchEvent(new Event('input',{bubbles:true}));
+   emojiRecent.unshift(emoji);
+   if(emojiRecent.length>16)emojiRecent.length=16;
+   captionInput.focus();updateEmojiPicker();
+  });
+  grid.append(button);
+ }
+}
+['keyup','click','select','input'].forEach(eventName=>captionInput.addEventListener(eventName,()=>{
+ emojiCursor={start:captionInput.selectionStart,end:captionInput.selectionEnd};
+}));
+function toggleEmojiPicker(open){
+ emojiPicker.hidden=!open;
+ $('emoji-toggle').setAttribute('aria-expanded',String(open));
+ if(open){updateEmojiPicker();$('emoji-search').focus();}
+ else captionInput.focus();
+}
+$('emoji-toggle').addEventListener('click',()=>{
+ emojiCursor={start:captionInput.selectionStart,end:captionInput.selectionEnd};
+ toggleEmojiPicker(emojiPicker.hidden);
+});
+$('emoji-close').addEventListener('click',()=>toggleEmojiPicker(false));
+$('emoji-search').addEventListener('input',updateEmojiPicker);
+document.addEventListener('pointerdown',event=>{
+ if(!emojiPicker.hidden&&!emojiPicker.contains(event.target)&&event.target!==$('emoji-toggle'))toggleEmojiPicker(false);
+});
+document.addEventListener('keydown',event=>{
+ if(event.key==='Escape'&&!emojiPicker.hidden)toggleEmojiPicker(false);
+});
+
 // O administrador pode preparar um post editorial no calendário.
 let handoffData=null;
 let handoffReady=false;
