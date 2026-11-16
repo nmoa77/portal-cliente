@@ -147,6 +147,52 @@ function register(app) {
       FROM duit_meta_accounts a JOIN users u ON a.client_id=u.id ORDER BY a.client_id,a.id`).all();
     res.json(rows);
   });
+  // Diagnóstico só de leitura. Nunca publica nem altera contas na Meta.
+  router.get('/accounts/:id/check',async(req,res)=>{
+    const accountId=Number(req.params.id);
+    if(!Number.isSafeInteger(accountId)||accountId<=0)return res.status(400).json({error:'Conta inválida'});
+    const account=db.prepare('SELECT * FROM duit_meta_accounts WHERE id=?').get(accountId);
+    if(!account)return res.status(404).json({error:'Conta Meta não encontrada'});
+    const config=cfg();
+    if(!config)return res.status(503).json({error:'Credenciais Meta ainda não configuradas'});
+    let token;
+    try{token=decrypt(account.access_token_encrypted,config.key);}
+    catch(_){return res.status(503).json({error:'O token da conta não pode ser decifrado. Volte a autorizar a Página.'});}
+    try{
+      const page=await graph(account.facebook_page_id,{
+        fields:'id,name,instagram_business_account',access_token:token
+      });
+      if(String(page.id)!==String(account.facebook_page_id))
+        return res.status(502).json({error:'A Meta devolveu uma Página inesperada'});
+      const expectedIg=String(account.instagram_business_id||'');
+      const actualIg=String(page.instagram_business_account?.id||'');
+      // Se a associação Instagram mudou fora do portal, não afirmar
+      // que está autorizada a publicar na conta antiga.
+      const instagramMatch=!expectedIg||expectedIg===actualIg;
+      let username=null,instagramReadable=false;
+      if(expectedIg&&instagramMatch){
+        try{
+          const profile=await graph(expectedIg,{fields:'id,username',access_token:token});
+          instagramReadable=String(profile.id)===expectedIg;
+          username=instagramReadable?String(profile.username||''):null;
+        }catch(_){instagramReadable=false;}
+      }
+      res.set('Cache-Control','no-store');
+      res.json({
+        page_ok:true,page_name:String(page.name||account.facebook_page_name),
+        facebook_page_id:account.facebook_page_id,
+        instagram_connected:!!expectedIg,
+        instagram_matches_page:instagramMatch,
+        instagram_readable:instagramReadable,
+        instagram_username:username,
+        checked_at:new Date().toISOString()
+      });
+    }catch(e){
+      // Não devolver tokens, respostas completas nem URL da API ao browser.
+      console.warn('[duit-social] verificação Meta:',accountId,e.message);
+      res.status(502).json({error:'A Meta não confirmou acesso a esta Página. Verifique permissões e volte a autorizar se necessário.'});
+    }
+  });
   router.post('/connect',(req,res)=>{
     const config=cfg();
     if(!config)return res.status(503).json({error:'A ligação Meta ainda não está configurada no Railway'});
