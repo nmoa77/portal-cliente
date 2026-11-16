@@ -1359,32 +1359,29 @@ async function viewCalendar(main) {
   const todayTotal    = all.filter(p => p.date === today).length;
   const tomorrowTotal = all.filter(p => p.date === tomorrow).length;
 
-  const metaDaily = [today,tomorrow].map(dateStr=>{
-    const visibleDraftIds=new Set(all.filter(p=>p.date===dateStr&&p.status==='draft').map(p=>Number(p.id)));
-    const list=calendarMetaJobs.filter(j=>j.calendarDay===dateStr &&
-      (!j.source_post_id || !visibleDraftIds.has(Number(j.source_post_id))));
-    if(!list.length)return '';
-    return `<div class="card" style="margin-bottom:12px;"><h3>Publicações Meta · ${fmtDate(dateStr,true)}</h3>
-      ${list.map(metaMini).join('')}</div>`;
-  }).join('');
-  const storyDaily = [today, tomorrow].map(dateStr => {
-    const list=calendarStories.filter(s => s.calendarDay===dateStr);
-    if(!list.length)return '';
-    return `<div class="card" style="margin-bottom:12px;"><h3>Stories · ${fmtDate(dateStr,true)}</h3>
-      ${list.map(storyMini).join('')}</div>`;
-  }).join('');
+  // As Stories e publicações Meta pertencem ao próprio dia da agenda.
+  // Um trabalho Meta ligado ao post editorial não gera segunda entrada
+  // quando o respetivo post já está visível no dia.
+  const extrasForDay = dateStr => {
+    const shownEditorial=new Set(
+      all.filter(p=>p.date===dateStr&&p.status==='draft').map(p=>Number(p.id))
+    );
+    return {
+      stories:calendarStories.filter(item=>item.calendarDay===dateStr),
+      meta:calendarMetaJobs.filter(item=>item.calendarDay===dateStr &&
+        (!item.source_post_id || !shownEditorial.has(Number(item.source_post_id))))
+    };
+  };
   main.innerHTML = `
     ${pageHead}
-    ${storyDaily}
-    ${metaDaily}
-    <div class="grid" style="gap:18px">
-      ${dayBlock('Hoje', today, todayPosts, todayTotal)}
-      ${dayBlock('Amanhã', tomorrow, tomorrowPosts, tomorrowTotal)}
+    <div class="grid" style="gap:18px;align-items:start">
+      ${dayBlock('Hoje',today,todayPosts,todayTotal,extrasForDay(today),metaMini,storyMini)}
+      ${dayBlock('Amanhã',tomorrow,tomorrowPosts,tomorrowTotal,extrasForDay(tomorrow),metaMini,storyMini)}
     </div>
   `;
 }
 
-function dayBlock(title, dateStr, drafts, totalForDay) {
+function dayBlock(title, dateStr, drafts, totalForDay, extras={meta:[],stories:[]}, metaMini=()=>'', storyMini=()=>'') {
   // O contentor mostra apenas rascunhos. O resumo conta o que está por fazer
   // versus o que já foi tratado (scheduled/published/cancelled = "fora da lista").
   const allDoneButHadWork = drafts.length === 0 && totalForDay > 0;
@@ -1395,9 +1392,18 @@ function dayBlock(title, dateStr, drafts, totalForDay) {
         ? `${totalForDay} post${totalForDay === 1 ? '' : 's'} já tratado${totalForDay === 1 ? '' : 's'}`
         : 'Sem posts agendados.');
 
+  const extraCount=extras.meta.length+extras.stories.length;
+  // Se existem trabalhos para publicar ou Stories, não apresentar o estado
+  // "tudo tratado" por cima de conteúdos ainda pendentes.
+  const extraHtml=[
+    ...extras.stories.map(storyMini),
+    ...extras.meta.map(metaMini)
+  ].join('');
   let bodyHtml;
   if (drafts.length > 0) {
     bodyHtml = `<div class="day-list">${drafts.map(p => dayPostRow(p)).join('')}</div>`;
+  } else if (extraCount > 0) {
+    bodyHtml='';
   } else if (allDoneButHadWork) {
     bodyHtml = `
       <div style="text-align:center; padding:36px 16px; color:var(--text);">
@@ -1414,16 +1420,20 @@ function dayBlock(title, dateStr, drafts, totalForDay) {
     bodyHtml = `<div class="empty" style="padding:30px 0;">Sem posts agendados para este dia.</div>`;
   }
 
+  const daySummary=extraCount && drafts.length===0
+    ? `${extraCount} conteúdo${extraCount===1?'':'s'} na agenda`
+    : summary;
   return `
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:10px; flex-wrap:wrap;">
         <div>
           <h3 style="margin:0;">${title} <span style="color:var(--muted); font-weight:400; font-size:14px;">· ${fmtDate(dateStr, true)}</span></h3>
-          <div style="font-size:12px; color:var(--muted); margin-top:4px;">${summary}</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">${daySummary}</div>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="openNewPostForDate('${dateStr}')">${svg('plus')} Adicionar</button>
       </div>
       ${bodyHtml}
+      ${extraHtml ? `<div class="day-list" style="display:grid;gap:8px;margin-top:10px">${extraHtml}</div>` : ''}
     </div>
   `;
 }
