@@ -1164,6 +1164,18 @@ function openDuitMediaCalendar(opts = {}) {
   overlay.querySelector('#duit-media-calendar-close').addEventListener('click', close);
   overlay.addEventListener('click', ev => { if (ev.target === overlay) close(); });
   document.body.appendChild(overlay);
+  if(opts.handoff){
+    const iframe=overlay.querySelector('iframe');
+    iframe.addEventListener('load',()=>{
+      iframe.contentWindow?.postMessage({
+        type:'duit-media-editorial-handoff',
+        caption:String(opts.handoff.caption||''),
+        inspiration:String(opts.handoff.inspiration||''),
+        story:String(opts.handoff.story||''),
+        sourceId:Number(opts.handoff.sourceId)||null,
+      },window.location.origin);
+    },{once:true});
+  }
   overlay.querySelector('#duit-media-calendar-close').focus();
 }
 window.openDuitMediaCalendar = openDuitMediaCalendar;
@@ -1549,6 +1561,7 @@ function openNewPostForDate(dateStr) {
   sel.innerHTML = state.clients.filter(c => (c.social_subs || 0) > 0).map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   if (state.calClientFilter !== 'all') sel.value = state.calClientFilter;
   document.getElementById('mp-delete-btn').style.display = 'none';
+  document.getElementById('mp-transfer-media-btn').style.display = 'none';
   const sw = document.getElementById('mp-suggestion-wrap');
   if (sw) sw.style.display = 'none';
   openModal('modal-post');
@@ -1577,6 +1590,7 @@ async function openEditPost(id) {
   sel.innerHTML = eligible.map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   sel.value = p.user_id;
   document.getElementById('mp-delete-btn').style.display = '';
+  document.getElementById('mp-transfer-media-btn').style.display = '';
   const sw = document.getElementById('mp-suggestion-wrap');
   const sv = document.getElementById('mp-suggestion-view');
   if (sw && sv) {
@@ -3760,4 +3774,31 @@ document.addEventListener('click', async (e) => {
       go('calendar');
     } catch (err) { toast(err.message, 'cancel'); }
   }
+});
+
+// O cliente edita o planeamento editorial existente. Só o administrador
+// tem este botão e faz a passagem para o compositor Meta; não publica nada.
+document.getElementById('mp-transfer-media-btn')?.addEventListener('click',async()=>{
+  const id=Number(document.getElementById('mp-id').value);
+  if(!Number.isSafeInteger(id)||id<=0)return toast('Guarde primeiro o post no calendário.','cancel');
+  const client=Number(document.getElementById('mp-user').value);
+  const date=document.getElementById('mp-date').value;
+  const caption=document.getElementById('mp-text').value;
+  const inspiration=document.getElementById('mp-inspiration').value;
+  const story=document.getElementById('mp-story').value;
+  const status=document.getElementById('mp-status').value;
+  const button=document.getElementById('mp-transfer-media-btn');
+  button.disabled=true;
+  try{
+    // Guarda eventuais alterações editoriais antes da preparação, sem
+    // alterar o estado e sem criar publicações remotas.
+    await api('/api/social-posts/'+id,{
+      method:'PATCH',body:{user_id:client,date,text:caption,
+        inspiration:inspiration.trim()||null,story:story.trim()||null,status}
+    });
+    closeModal('modal-post');
+    openDuitMediaCalendar({client,date,kind:'post',
+      handoff:{sourceId:id,caption,inspiration,story}});
+  }catch(err){toast('Não foi possível preparar o post: '+err.message,'cancel');}
+  finally{button.disabled=false;}
 });
