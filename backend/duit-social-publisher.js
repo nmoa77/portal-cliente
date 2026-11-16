@@ -95,10 +95,21 @@ function testRestriction(job){
  return null;
 }
 function validateJobMedia(job){
- const rows=db.prepare('SELECT position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id);
- return validateMediaSet(job.kind,rows)
-   ? {ok:true}
-   : {ok:false,error:'Carregue os ficheiros por ordem e no formato adequado'};
+ const rows=db.prepare('SELECT position,mime,name FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id);
+ if(!validateMediaSet(job.kind,rows))
+   return {ok:false,error:'Carregue os ficheiros por ordem e no formato adequado'};
+ // A Graph API de fotografias indica um limite de 10 MB por imagem.
+ // Validar antes de pedir à Meta que tente descarregar o ficheiro.
+ if(job.kind!=='reel' && JSON.parse(job.networks).includes('facebook')){
+   for(const item of rows){
+     let bytes=0;
+     try{bytes=fs.statSync(mediaPath(job.id,item.name)).size;}
+     catch(_){return {ok:false,error:'Ficheiro da publicação não encontrado no armazenamento'};}
+     if(bytes>=10*1024*1024)
+       return {ok:false,error:'O Facebook aceita fotografias inferiores a 10 MB. Reduza o ficheiro e guarde novamente antes de publicar.'};
+   }
+ }
+ return {ok:true};
 }
 
 function signedUrl(id){
