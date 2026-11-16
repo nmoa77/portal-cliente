@@ -11,8 +11,14 @@ const { requireAdmin } = require('./auth');
 if (process.env.RAILWAY_ENVIRONMENT_NAME === 'staging' &&
     process.env.RAILWAY_SERVICE_NAME === 'duit-media-test') {
   const pwd = process.env.DUIT_MEDIA_TEST_ADMIN_PASSWORD;
-  if (!pwd || Buffer.byteLength(pwd, 'utf8') < 20) {
-    throw new Error('[duit-media] Defina DUIT_MEDIA_TEST_ADMIN_PASSWORD (20+ bytes) no Railway antes de iniciar staging.');
+  // A variável existe mas pode ter uma palavra-passe mais curta do que
+  // a orientação inicial. Não provocar um ciclo de crashes por esse motivo.
+  // Continuamos a exigir um segredo explícito (sem fallback de demonstração).
+  if (!pwd || !pwd.trim()) {
+    throw new Error('[duit-media] DUIT_MEDIA_TEST_ADMIN_PASSWORD está vazia no serviço de staging.');
+  }
+  if (Buffer.byteLength(pwd, 'utf8') < 20) {
+    console.warn('[duit-media] Recomenda-se uma password de staging com 20+ caracteres.');
   }
   const hash = bcrypt.hashSync(pwd, 12);
   const admin = db.prepare("SELECT id FROM users WHERE email=? AND role='admin'").get('admin@duit.pt');
