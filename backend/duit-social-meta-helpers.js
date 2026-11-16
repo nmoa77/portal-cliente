@@ -47,4 +47,12 @@ function isFutureSchedule(value,now=Date.now()){
  const timestamp=Date.parse(value);
  return Number.isFinite(timestamp)&&timestamp>now;
 }
-module.exports={facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile,canCancelSchedule,isFutureSchedule};
+function metaAccountHealth(expectedPageId,expectedInstagramId,page,profile){
+ const pageOk=!!page&&String(page.id)===String(expectedPageId);
+ const expected=String(expectedInstagramId||'');
+ const linked=String(page?.instagram_business_account?.id||'');
+ const instagramMatches=pageOk&&(!expected||expected===linked);
+ const instagramReadable=!!expected&&instagramMatches&&!!profile&&String(profile.id)===expected;
+ return {pageOk,instagramMatches,instagramReadable};
+}
+module.exports={facebookCarouselParams,isFacebookReelPublished,validateFacebookReelUploadUrl,validateMediaSet,validMetaPostId,canReconcile,canCancelSchedule,isFutureSchedule,metaAccountHealth};
