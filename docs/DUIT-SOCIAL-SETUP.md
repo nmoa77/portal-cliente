@@ -227,3 +227,19 @@ integração antes de ativar na produção.
 - **Ainda não há ligação automática entre posts editoriais antigos e
   trabalhos Meta**: os dois fluxos continuam separados para evitar publicar
   indevidamente conteúdos de planeamento antigo.
+
+## Diagnóstico de contas Meta — 16/11/2026
+
+Após ligar explicitamente uma Página Facebook ao cliente no portal, o
+administrador dispõe de **Verificar ligação**. Esta operação só faz pedidos
+GET à Graph API (leitura, sem publicar):
+- verifica que o ID da Página devolvido corresponde à conta guardada;
+- verifica se a associação da conta profissional Instagram continua a mesma;
+- quando há Instagram associado, tenta ler o ID e o username com o token
+  da Página e mostra se a autorização continua funcional.
+
+O diagnóstico não importa outras Páginas, não altera a Meta e nunca devolve
+segredos ou access tokens para o browser. Se a associação Instagram mudar ou
+as permissões expirarem, deve voltar a autorizar a Página. Isto não substitui
+um teste real de publicação nem garante que todas as permissões de escrita
+estejam aprovadas.
