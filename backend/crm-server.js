@@ -5,6 +5,27 @@ const bcrypt = require('bcryptjs');
 const express = require('express');
 const db = require('./db');
 const { requireAdmin } = require('./auth');
+// A instalação de staging usa uma base nova: nunca deixar credenciais demo
+// acessíveis num endereço público. A password é fornecida só como variável
+// protegida do serviço, não no repositório nem nos logs.
+if (process.env.RAILWAY_ENVIRONMENT_NAME === 'staging' &&
+    process.env.RAILWAY_SERVICE_NAME === 'duit-media-test') {
+  const pwd = process.env.DUIT_MEDIA_TEST_ADMIN_PASSWORD;
+  if (!pwd || Buffer.byteLength(pwd, 'utf8') < 20) {
+    throw new Error('[duit-media] Defina DUIT_MEDIA_TEST_ADMIN_PASSWORD (20+ bytes) no Railway antes de iniciar staging.');
+  }
+  const hash = bcrypt.hashSync(pwd, 12);
+  const admin = db.prepare("SELECT id FROM users WHERE email=? AND role='admin'").get('admin@duit.pt');
+  if (!admin) {
+    db.prepare("INSERT INTO users (name,email,password_hash,role,company,is_active) VALUES (?,?,?,?,?,1)")
+      .run('Admin Duit Media','admin@duit.pt',hash,'admin','DUIT');
+  } else {
+    db.prepare("UPDATE users SET password_hash=?,is_active=1 WHERE id=?").run(hash,admin.id);
+  }
+  db.prepare("UPDATE users SET is_active=0 WHERE email IN ('ana@exemplo.pt','joao@exemplo.pt','rita@exemplo.pt')").run();
+  console.log('[duit-media] Credenciais de administração staging configuradas; utilizadores demo desativados.');
+}
+
 
 /*
  * Camada adicional de prospeção comercial DUIT.
