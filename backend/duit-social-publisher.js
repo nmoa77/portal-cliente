@@ -113,7 +113,20 @@ async function graph(node,params,token,method='POST'){
  const options={method,signal:AbortSignal.timeout(30000)};
  if(method==='POST')options.body=fields;else url.search=fields.toString();
  const res=await fetch(url,options),json=await res.json().catch(()=>({}));
- if(!res.ok||json.error)throw Error(json.error?.message||'Meta HTTP '+res.status);
+ if(!res.ok||json.error){
+  const err=json?.error||{};
+  const safeNode=String(node).replace(/^\\d+/, '[page]');
+  const fields=[
+   'Meta '+method+' '+safeNode+' · HTTP '+res.status,
+   'code '+(Number.isInteger(err.code)?err.code:'n/d'),
+   ...(Number.isInteger(err.error_subcode)?['subcode '+err.error_subcode]:[]),
+   ...(err.type?['type '+String(err.type).slice(0,55)]:[]),
+   String(err.message||'Resposta da Meta sem descrição').slice(0,180),
+   ...(err.error_user_msg?['detalhe: '+String(err.error_user_msg).slice(0,110)]:[]),
+   ...(err.fbtrace_id?['trace '+String(err.fbtrace_id).slice(0,90)]:[])
+  ];
+  throw Error(fields.join(' · '));
+ }
  return json;
 }
 async function waitContainer(id,token){
