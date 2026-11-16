@@ -228,7 +228,8 @@ async function publish(job){
   db.prepare("UPDATE duit_publish_jobs SET status='review',error='Verificar os canais pendentes antes de repetir' WHERE id=?").run(job.id);
  }else{
   db.prepare("UPDATE duit_publish_jobs SET status='published',error=NULL WHERE id=?").run(job.id);
-  try{removeMedia(job.id);}catch(e){console.warn('[duit-social] limpar ficheiro:',e.message);}
+  // Manter os ficheiros guardados no volume para edição e histórico visual.
+  // Só apagar na exclusão explícita do rascunho.
  }
 }
 function register(app){
@@ -240,7 +241,7 @@ function register(app){
   const sig=String(req.query.sig||'');
   if(!/^[0-9a-f]{64}$/.test(sig)||!crypto.timingSafeEqual(Buffer.from(sig,'hex'),Buffer.from(expected,'hex')))return res.sendStatus(403);
   const media=db.prepare('SELECT m.*,j.status FROM duit_publish_media m JOIN duit_publish_jobs j ON m.job_id=j.id WHERE m.id=?').get(id);
-  if(!media||media.status==='published')return res.sendStatus(404);
+  if(!media)return res.sendStatus(404);
   res.set('Cache-Control','private, no-store');res.type(media.mime);res.sendFile(mediaPath(media.job_id,media.name));
  });
  const router=express.Router();router.use(requireAdmin);
@@ -414,6 +415,7 @@ function register(app){
  router.post('/jobs/:id/resume-pending',(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   if(!job||job.status!=='review')return res.status(409).json({error:'Esta publicação não está em revisão'});
+  if(JSON.parse(job.networks).includes('threads'))return res.status(409).json({error:'Threads ainda não está ligado. Não é possível retomar a publicação automática.'});
   // Apenas trabalhos ainda por iniciar podem ser retomados. Nunca alterar
   // canais em revisão ou já publicados.
   const pending=db.prepare("SELECT COUNT(*) AS c FROM duit_publish_results WHERE job_id=? AND status='pending'").get(job.id).c;
@@ -473,6 +475,7 @@ function register(app){
  router.post('/jobs/:id/publish-now',(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   if(!job||job.status!=='draft')return res.status(409).json({error:'A publicação já não é um rascunho'});
+  if(JSON.parse(job.networks).includes('threads'))return res.status(409).json({error:'A publicação Threads precisa de autorização específica. Mantenha o rascunho até a integração estar configurada.'});
   const valid=validateJobMedia(job);
   if(!valid.ok)return res.status(400).json({error:valid.error});
   if(!enabled())return res.status(503).json({error:'O motor Meta ainda não está configurado nem ativado'});
