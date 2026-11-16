@@ -206,7 +206,7 @@ function register(app) {
     auth.searchParams.set('redirect_uri',config.callback);
     auth.searchParams.set('response_type','code');
     auth.searchParams.set('state',state);
-    auth.searchParams.set('scope','pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish');
+    auth.searchParams.set('scope','pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish,business_management');
     res.json({url:auth.href});
   });
   router.delete('/accounts/:id',(req,res)=>{
