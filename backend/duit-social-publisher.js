@@ -77,6 +77,11 @@ const publicRoot=()=>String(process.env.DUIT_SOCIAL_PUBLIC_URL||'').replace(/\/$
 const signingKey=()=>process.env.DUIT_SOCIAL_MEDIA_SIGNING_KEY||'';
 const enabled=()=>process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'&&!!cfg()&&/^https:\/\//.test(publicRoot())&&signingKey().length>=32;
 function mediaPath(job,name){return path.join(folder,'job-'+job+'-'+name);}
+// Em staging, só um clique explícito em «Publicar teste» autoriza
+// o worker a tratar aquele trabalho. Agendamentos antigos ficam intocados.
+if(!db.prepare("PRAGMA table_info(duit_publish_jobs)").all().some(c=>c.name==='test_manual_approved'))
+ db.exec("ALTER TABLE duit_publish_jobs ADD COLUMN test_manual_approved INTEGER NOT NULL DEFAULT 0");
+const isManualTest=()=>Boolean(String(process.env.DUIT_SOCIAL_TEST_ONLY_PAGE_ID||'').trim());
 function testRestriction(job){
  const pageId=String(process.env.DUIT_SOCIAL_TEST_ONLY_PAGE_ID||'').trim();
  if(!pageId)return null;
@@ -511,12 +516,14 @@ function register(app){
   const valid=validateJobMedia(job);
   if(!valid.ok)return res.status(400).json({error:valid.error});
   if(!enabled())return res.status(503).json({error:'O motor Meta ainda não está configurado nem ativado'});
-  // O worker recolhe o conteúdo imediatamente, sem bloquear o pedido HTTP.
-  db.prepare("UPDATE duit_publish_jobs SET scheduled_at=?,status='scheduled' WHERE id=?")
-    .run(new Date().toISOString(),job.id);
-  res.json({ok:true,status:'scheduled'});
+  // O worker só tratará este ID após consentimento explícito neste pedido.
+  const changed=db.prepare("UPDATE duit_publish_jobs SET scheduled_at=?,status='scheduled',test_manual_approved=? WHERE id=? AND status='draft'")
+    .run(new Date().toISOString(),isManualTest()?1:0,job.id);
+  if(!changed.changes)return res.status(409).json({error:'O estado da publicação mudou.'});
+  res.json({ok:true,status:'scheduled',manualTest:isManualTest()});
  });
  router.post('/jobs/:id/schedule',(req,res)=>{
+  if(isManualTest())return res.status(403).json({error:'Em modo de teste o agendamento automático está bloqueado. Use «Publicar teste» apenas no post DUIT.'});
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   if(job&&JSON.parse(job.networks).includes('threads'))return res.status(409).json({error:'Threads ainda necessita de ligação própria. Este conteúdo pode ficar guardado como rascunho, mas não pode ser agendado automaticamente.'});
   if(!job||job.status!=='draft')return res.status(409).json({error:'Já não é um rascunho'});
@@ -558,10 +565,12 @@ function register(app){
   const tick=async()=>{
    if(busy||!enabled())return;busy=true;
    try{
-    const jobs=db.prepare("SELECT * FROM duit_publish_jobs WHERE status='scheduled' AND scheduled_at<=? ORDER BY scheduled_at LIMIT 3").all(new Date().toISOString());
+    const jobs=db.prepare("SELECT * FROM duit_publish_jobs WHERE status='scheduled' AND scheduled_at<=? AND (?=0 OR test_manual_approved=1) ORDER BY scheduled_at LIMIT 3")
+      .all(new Date().toISOString(),isManualTest()?1:0);
     for(const job of jobs){
      if(testRestriction(job))continue; // não tocar nos agendamentos de outros clientes
-     const claimed=db.prepare("UPDATE duit_publish_jobs SET status='processing' WHERE id=? AND status='scheduled'").run(job.id);
+     const claimed=db.prepare("UPDATE duit_publish_jobs SET status='processing',test_manual_approved=0 WHERE id=? AND status='scheduled' AND (?=0 OR test_manual_approved=1)")
+       .run(job.id,isManualTest()?1:0);
      if(!claimed.changes)continue;
      try{await publish(job);}catch(e){
       db.prepare("UPDATE duit_publish_jobs SET status='review',error=? WHERE id=?").run(e.message.slice(0,500),job.id);
