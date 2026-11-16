@@ -1155,7 +1155,7 @@ function openDuitMediaCalendar(opts = {}) {
   overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#111c;display:flex;align-items:center;justify-content:center;padding:20px';
   overlay.innerHTML = `<div role="dialog" aria-modal="true" aria-label="Duit Media" style="background:#f3f4f5;border-radius:18px;width:min(1300px,100%);height:min(92vh,100%);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 100px #0005">
     <div style="height:53px;background:#151515;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0 16px;gap:15px">
-      <strong style="font-size:13px;font-weight:800">CALENDÁRIO <span style="color:#ffd200">·</span> Criar conteúdo</strong>
+      <strong style="font-size:13px;font-weight:800">CALENDÁRIO <span style="color:#ffd200">·</span> ${opts.publication || opts.story ? 'Editar conteúdo' : 'Criar conteúdo'}</strong>
       <button type="button" id="duit-media-calendar-close" style="background:#ffd200;border:0;color:#111;font-weight:800;border-radius:8px;padding:8px 14px;cursor:pointer">Fechar ✕</button>
     </div>
     <iframe title="Editor Duit Media" src="${url.pathname + url.search}" style="border:0;width:100%;flex:1;min-height:0" allow="clipboard-write"></iframe>
