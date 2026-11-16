@@ -101,7 +101,7 @@ body.calendar-embed .sectionnav{padding-bottom:18px}
 <label>Formato<select id="pub-kind"><option value="post">Post (imagem)</option><option value="carousel">Carrossel (2 a 10 imagens)</option><option value="reel">Reel Instagram (vídeo MP4)</option></select></label></div>
 <p class="actions"><label><input type="checkbox" id="pub-ig" checked> Instagram</label><label><input type="checkbox" id="pub-fb" checked> Facebook</label></p>
 <p><label>Legenda<textarea id="pub-caption" maxlength="2200" rows="3" style="width:100%;border:1px solid #dedede;border-radius:10px;padding:13px;font:inherit" placeholder="Escreva a legenda…"></textarea></label></p>
-<div class="grid"><label>Imagens JPG ou vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,video/mp4" multiple required></label>
+<div class="grid"><label>Imagens JPG ou PNG · vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,image/png,video/mp4" multiple required></label>
 <label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
 <p><button type="submit">Guardar publicação</button></p></form>
 <p class="muted" id="pub-status" aria-live="polite"></p>
@@ -363,9 +363,33 @@ $('pub-filter').addEventListener('change',()=>refreshPublisher().catch(e=>$('pub
 $('pub-kind').addEventListener('change',()=>{
  const reel=$('pub-kind').value==='reel';
  $('pub-fb').disabled=false;
- $('pub-files').accept=reel?'video/mp4':'image/jpeg';
+ $('pub-files').accept=reel?'video/mp4':'image/jpeg,image/png';
  $('pub-files').multiple=$('pub-kind').value==='carousel';
 });
+// A Meta recebe JPEG para Posts/Carrosséis; converter PNG no browser
+// antes de enviar, sem alterar o ficheiro original do utilizador.
+async function publicationFile(file){
+ if(file.type!=='image/png')return file;
+ let bitmap;
+ try{
+  bitmap=await createImageBitmap(file);
+  if(!bitmap.width||!bitmap.height||bitmap.width*bitmap.height>40000000)
+    throw Error('PNG demasiado grande para converter (máximo 40 megapíxeis).');
+  const canvas=document.createElement('canvas');
+  canvas.width=bitmap.width;canvas.height=bitmap.height;
+  const ctx=canvas.getContext('2d');
+  if(!ctx)throw Error('Não foi possível converter o PNG.');
+  // O JPEG não suporta transparência: áreas transparentes passam a branco.
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(bitmap,0,0);
+  const jpeg=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.94));
+  if(!jpeg)throw Error('Não foi possível converter o PNG para JPEG.');
+  if(jpeg.size>80*1024*1024)throw Error('JPEG convertido ultrapassa 80 MB.');
+  return new File([jpeg],file.name.replace(/\\.png$/i,'')+'.jpg',{type:'image/jpeg'});
+ }catch(error){
+  throw Error('Não foi possível preparar o PNG '+file.name+': '+error.message);
+ }finally{bitmap?.close();}
+}
 $('publish-form').addEventListener('submit',async event=>{
  event.preventDefault();const button=event.target.querySelector('button[type=submit]');button.disabled=true;
  try{
@@ -374,7 +398,9 @@ $('publish-form').addEventListener('submit',async event=>{
    if(!networks.length)throw Error('Escolha pelo menos uma rede');
    if(files.length<(kind==='carousel'?2:1)||files.length>(kind==='carousel'?10:1))throw Error('Quantidade inválida de ficheiros');
    if(files.some(file=>file.size>80*1024*1024))throw Error('Máximo 80 MB por ficheiro');
-   if(files.some(file=>kind==='reel'?file.type!=='video/mp4':file.type!=='image/jpeg'))throw Error('Use apenas MP4 para Reels ou JPG para Posts/Carrosséis');
+   if(files.some(file=>kind==='reel'?file.type!=='video/mp4':!['image/jpeg','image/png'].includes(file.type)))throw Error('Use apenas MP4 para Reels ou JPG/PNG para Posts/Carrosséis');
+   const preparedFiles=[];
+   for(const file of files)preparedFiles.push(await publicationFile(file));
    const accountId=Number($('pub-account').value);
    const connected=await request('/api/duit-social/meta/accounts');
    const account=connected.find(x=>x.id===accountId);if(!account)throw Error('Conta desligada');
@@ -387,9 +413,9 @@ $('publish-form').addEventListener('submit',async event=>{
      })
    });
    try {
-     for(let i=0;i<files.length;i++){
+     for(let i=0;i<preparedFiles.length;i++){
        const response=await fetch('/api/duit-social/publisher/jobs/'+job.id+'/files/'+i,{
-         method:'PUT',credentials:'same-origin',headers:{'Content-Type':files[i].type},body:files[i]
+         method:'PUT',credentials:'same-origin',headers:{'Content-Type':preparedFiles[i].type},body:preparedFiles[i]
        });
        if(!response.ok){const info=await response.json().catch(()=>({}));throw Error(info.error||'Upload falhou');}
      }
