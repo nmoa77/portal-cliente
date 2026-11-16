@@ -1250,12 +1250,17 @@ async function viewCalendar(main) {
   };
   const metaMini = j => {
     const status = metaStatusColors[j.status] || metaStatusColors.draft;
+    const channels = Array.isArray(j.networks) ? j.networks : [];
+    const channelLabel = channels.map(network => ({
+      instagram:'Instagram',facebook:'Facebook',threads:'Threads'
+    }[network] || network)).join(' + ') || 'Rede por definir';
+    const typeLabel = j.kind==='reel'?'Reel':j.kind==='carousel'?'Carrossel':'Post';
+    const clientLabel = j.client_company||j.client_name||'Cliente';
     return `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({publication:${j.id}})" class="cal-post"
       style="display:block;text-decoration:none;background:${status.background};color:${status.text};border:1px solid ${status.border};border-radius:8px;padding:7px;margin-top:5px;"
-      title="Publicação Meta · ${escapeHtml(j.client_company||j.client_name)} · ${status.label}">
+      title="${escapeHtml(typeLabel+' · '+clientLabel+' · '+channelLabel+' · '+status.label)}">
       <span aria-hidden="true" style="font-weight:800;margin-right:3px">${status.icon}</span>
-      ${escapeHtml(j.kind==='reel'?'Reel':j.kind==='carousel'?'Carrossel':'Post')} ·
-      ${escapeHtml(j.client_company||j.client_name)} · ${status.label}
+      ${escapeHtml(typeLabel)} · ${escapeHtml(clientLabel)} · ${escapeHtml(channelLabel)} · ${status.label}
     </a>`;
   };
   const storyMini = s => `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({story:${s.id}})" class="cal-post"
