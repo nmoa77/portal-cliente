@@ -28,6 +28,32 @@ CREATE TABLE IF NOT EXISTS duit_publish_results(
 if(!db.prepare("PRAGMA table_info(duit_publish_jobs)").all().some(c=>c.name==='source_post_id'))
  db.exec("ALTER TABLE duit_publish_jobs ADD COLUMN source_post_id INTEGER");
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_duit_publish_editorial_source ON duit_publish_jobs(source_post_id) WHERE source_post_id IS NOT NULL");
+// Conciliar rascunhos legados criados durante os testes (antes de existir
+// source_post_id). Só liga se cliente, dia e legenda coincidirem exatamente
+// e se a correspondência for inequívoca em ambos os sentidos. Nunca apaga.
+try {
+ const legacy=db.prepare("SELECT id,client_id,caption,scheduled_at FROM duit_publish_jobs WHERE source_post_id IS NULL AND status='draft'").all();
+ const editorial=db.prepare("SELECT id,user_id,date,text FROM social_posts").all();
+ const possibilities=[];
+ for(const job of legacy){
+  const day=new Date(job.scheduled_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Lisbon'});
+  const candidates=editorial.filter(p=>p.user_id===job.client_id&&p.date===day&&
+    String(p.text||'').trim()===String(job.caption||'').trim());
+  if(candidates.length===1)possibilities.push({jobId:job.id,postId:candidates[0].id});
+ }
+ const counts=new Map();
+ for(const pair of possibilities)counts.set(pair.postId,(counts.get(pair.postId)||0)+1);
+ let linked=0;
+ for(const pair of possibilities){
+  if(counts.get(pair.postId)!==1)continue;
+  const existing=db.prepare("SELECT id FROM duit_publish_jobs WHERE source_post_id=?").get(pair.postId);
+  if(existing)continue;
+  const change=db.prepare("UPDATE duit_publish_jobs SET source_post_id=? WHERE id=? AND source_post_id IS NULL")
+   .run(pair.postId,pair.jobId);
+  linked+=change.changes;
+ }
+ if(linked)console.log('[duit-media] rascunhos editoriais reconciliados:',linked);
+}catch(error){console.warn('[duit-media] conciliação conservadora:',error.message)}
 const publicRoot=()=>String(process.env.DUIT_SOCIAL_PUBLIC_URL||'').replace(/\/$/,'');
 const signingKey=()=>process.env.DUIT_SOCIAL_MEDIA_SIGNING_KEY||'';
 const enabled=()=>process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'&&!!cfg()&&/^https:\/\//.test(publicRoot())&&signingKey().length>=32;
