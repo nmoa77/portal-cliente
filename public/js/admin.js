@@ -123,10 +123,6 @@ function renderShell() {
   `;
   nav.querySelectorAll('.nav-item').forEach(b => {
     b.addEventListener('click', () => {
-      if (b.dataset.view === 'duit-media') {
-        window.location.assign('/social-stories.html?mode=accounts');
-        return;
-      }
       go(b.dataset.view);
     });
   });
@@ -164,6 +160,7 @@ async function go(view) {
     else if (view === 'plans')    await viewPlans(main);
     else if (view === 'projects') await viewProjects(main);
     else if (view === 'calendar') await viewCalendar(main);
+    else if (view === 'duit-media') await viewDuitMedia(main);
     else if (view === 'quotes')   await viewQuotes(main);
     else if (view === 'duit-start') {
       if(typeof window.duitViewStart!=='function'){
@@ -1170,6 +1167,19 @@ function openDuitMediaCalendar(opts = {}) {
   overlay.querySelector('#duit-media-calendar-close').focus();
 }
 window.openDuitMediaCalendar = openDuitMediaCalendar;
+
+/* Gestão de ligações Meta dentro do painel, preservando o menu do portal. */
+async function viewDuitMedia(main) {
+  main.innerHTML = `
+    <div class="page-head">
+      <div><div class="eyebrow">GESTÃO DE REDES SOCIAIS</div><h1>Duit Media</h1>
+      <p class="lede">Ligue e verifique as contas Facebook e Instagram de cada cliente. Crie os conteúdos no Calendário.</p></div>
+      <div class="page-head-actions"><button class="btn btn-yellow btn-sm" onclick="go('calendar')">${svg('cal')} Abrir calendário</button></div>
+    </div>
+    <iframe title="Contas ligadas Duit Media" src="/social-stories.html?mode=accounts&embed=admin"
+      style="display:block;width:100%;height:580px;min-height:450px;border:0;background:transparent;border-radius:16px"
+      loading="eager"></iframe>`;
+}
 
 /* =========================================================================
    CALENDÁRIO (editor completo)
