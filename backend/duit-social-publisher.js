@@ -197,9 +197,7 @@ function removeMedia(jobId){
 function cleanupCompleted(){
  // Repetir limpeza após reinício se a eliminação física falhou, sem republicar.
  const completed=db.prepare("SELECT id FROM duit_publish_jobs WHERE status='published'").all();
- for(const job of completed){
-  try{removeMedia(job.id);}catch(e){console.warn('[duit-social] cleanup pendente',job.id,e.message);}
- }
+ // Ficheiros publicados devem permanecer disponíveis no histórico visual.
 }
 async function publish(job){
  if(JSON.parse(job.networks).includes('threads'))throw Error('Publicação Threads não configurada; requer autorização específica.');
@@ -366,33 +364,51 @@ function register(app){
  });
  router.patch('/jobs/:id',(req,res)=>{
    const id=Number(req.params.id);
+   if(!Number.isSafeInteger(id)||id<=0)return res.status(400).json({error:'Publicação inválida'});
    const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(id);
    if(!job)return res.status(404).json({error:'Publicação não encontrada'});
-   if(!['draft','scheduled'].includes(job.status))
-     return res.status(409).json({error:'Publicação em processamento ou revisão. Não é possível editar.'});
-   const caption=req.body?.caption;
-   const captions=req.body?.captions;
-   const checkedCaptions=checkCaptions(captions);
-   if(!checkedCaptions)return res.status(400).json({error:'Legendas das redes inválidas'});
-   const scheduledAt=req.body?.scheduled_at;
-   if(caption===undefined && scheduledAt===undefined && captions===undefined)
-     return res.status(400).json({error:'Indique a legenda ou a data'});
-   if(caption!==undefined&&(typeof caption!=='string'||caption.length>2200))
-     return res.status(400).json({error:'Legenda inválida'});
-   if(scheduledAt!==undefined&&
-      (typeof scheduledAt!=='string'||!Number.isFinite(Date.parse(scheduledAt))))
-     return res.status(400).json({error:'Data inválida'});
-   if(job.status==='scheduled'&&!enabled())
-     return res.status(503).json({error:'Motor Meta desativado. Não é possível reagendar publicações.'});
-   // Atualização condicional: o worker pode ter iniciado entretanto.
-   const changed=db.prepare(`UPDATE duit_publish_jobs
-      SET caption=?,scheduled_at=?,captions_json=? WHERE id=? AND status=?`)
-     .run(caption===undefined?job.caption:caption,
-          scheduledAt===undefined?job.scheduled_at:new Date(scheduledAt).toISOString(),
-          captions===undefined?job.captions_json:JSON.stringify(checkedCaptions),
-          id,job.status);
-   if(!changed.changes)return res.status(409).json({error:'A publicação mudou de estado. Atualize a lista.'});
-   res.json({ok:true});
+   if(job.status!=='draft')
+     return res.status(409).json({error:'Para editar todos os campos, cancele primeiro o agendamento. Publicações em processamento ou publicadas não podem ser modificadas.'});
+   const body=req.body||{};
+   const caption=body.caption===undefined?job.caption:body.caption;
+   const date=body.scheduled_at===undefined?job.scheduled_at:body.scheduled_at;
+   const kind=body.kind===undefined?job.kind:body.kind;
+   const accountId=body.account_id===undefined?job.account_id:Number(body.account_id);
+   const networks=body.networks===undefined?JSON.parse(job.networks):body.networks;
+   const captions=body.captions===undefined?JSON.parse(job.captions_json||'{}'):checkCaptions(body.captions);
+   if(typeof caption!=='string'||caption.length>2200||typeof date!=='string'||
+      !Number.isFinite(Date.parse(date))||!['post','carousel','reel'].includes(kind)||
+      !Array.isArray(networks)||networks.length<1||new Set(networks).size!==networks.length||
+      networks.some(n=>!['instagram','facebook','threads'].includes(n))||!captions)
+     return res.status(400).json({error:'Dados da publicação inválidos'});
+   const account=db.prepare('SELECT * FROM duit_meta_accounts WHERE id=?').get(accountId);
+   if(!account)return res.status(400).json({error:'Conta Meta inválida ou desligada'});
+   if(networks.includes('instagram')&&!account.instagram_business_id)
+     return res.status(400).json({error:'Instagram profissional não associado a esta conta'});
+   const isDifferentKind=kind!==job.kind;
+   // A mudança de formato só é confirmada depois de fornecer novos ficheiros;
+   // evita apagar o ficheiro anterior num simples clique de edição.
+   if(isDifferentKind&&!body.replace_media)
+     return res.status(400).json({error:'Para mudar o formato selecione o novo ficheiro.'});
+   const changed=db.transaction(()=>{
+     const update=db.prepare(`UPDATE duit_publish_jobs SET client_id=?,account_id=?,kind=?,
+       caption=?,captions_json=?,networks=?,scheduled_at=?,source_post_id=?
+       WHERE id=? AND status='draft'`).run(
+         account.client_id,accountId,kind,caption,JSON.stringify(captions),
+         JSON.stringify(networks),new Date(date).toISOString(),
+         account.client_id===job.client_id?job.source_post_id:null,id);
+     if(!update.changes)return false;
+     db.prepare('DELETE FROM duit_publish_results WHERE job_id=?').run(id);
+     for(const network of networks)
+       db.prepare('INSERT INTO duit_publish_results(job_id,network) VALUES (?,?)').run(id,network);
+     return true;
+   })();
+   if(!changed)return res.status(409).json({error:'O estado da publicação mudou. Atualize a página.'});
+   if(isDifferentKind){
+     // Só é autorizado em rascunhos. A interface exige ficheiros substitutos.
+     try{removeMedia(id);}catch(e){console.error('[duit-media] troca de formato:',e);}
+   }
+   res.json({ok:true,client_id:account.client_id,kind,media_reset:isDifferentKind});
  });
  router.put('/jobs/:id/files/:position',express.raw({type:()=>true,limit:'80mb'}),(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
