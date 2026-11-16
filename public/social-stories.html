@@ -82,6 +82,20 @@ body.calendar-embed .sectionnav{padding-bottom:18px}
 @media(max-width:680px){body.calendar-embed main{width:calc(100% - 22px)}}
 </style><style>
 body.accounts-mode #publicacoes,body.accounts-mode .workspace-side,body.accounts-mode .composer-only{display:none!important}
+/* Vista Android: acesso direto às Stories preparadas, sem painéis de desktop. */
+body.stories-mobile #contas,body.stories-mobile #publicacoes,body.stories-mobile #story-nova,
+body.stories-mobile .format-switch,body.stories-mobile .accounts-only{display:none!important}
+body.stories-mobile .workspace{display:block;max-width:760px}
+body.stories-mobile .workspace-main,body.stories-mobile .workspace-side{display:contents}
+body.stories-mobile #alertas,body.stories-mobile #stories-section{display:block!important}
+body.stories-mobile #stories-section{order:0}
+body.stories-mobile #stories{display:grid;gap:12px}
+body.stories-mobile #stories .story{border:1px solid #e6e6e6;border-radius:14px;padding:16px;background:#fff;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+body.stories-mobile #stories .actions{display:flex;gap:8px;flex-wrap:wrap}
+body.stories-mobile #stories .actions button{min-height:44px}
+body.stories-mobile #alertas{margin-top:18px}
+@media(max-width:680px){body.stories-mobile main{width:calc(100% - 24px)}body.stories-mobile .story .actions{width:100%}}
+
 body.accounts-mode.admin-embed{background:transparent}
 body.accounts-mode.admin-embed main{width:100%;max-width:none;padding:0;margin:0}
 body.accounts-mode.admin-embed .topbar,body.accounts-mode.admin-embed .hero,body.accounts-mode.admin-embed .sectionnav{display:none!important}
@@ -583,7 +597,13 @@ $('duit-preview-platform').addEventListener('change',duitRefreshPreview);
 $('pub-files').addEventListener('change',duitRefreshPreviewFiles);
 window.addEventListener('pagehide',duitClearPreviewUrls);
 
+const mobileStories=mediaQuery.get('mode')==='stories'||mediaQuery.has('story');
 const mediaMode = mediaQuery.get('mode') === 'compose' || mediaQuery.get('embed') === 'calendar' ? 'compose' : 'accounts';
+if(mobileStories){
+ document.body.classList.add('stories-mobile');
+ $('media-page-title').textContent='Stories no Android.';
+ $('media-page-subtitle').textContent='Prepare a partilha, termine no Instagram e confirme quando publicar.';
+}
 document.body.classList.add(mediaMode === 'compose' ? 'composer-mode' : 'accounts-mode');
 if(mediaQuery.get('embed')==='admin' && mediaMode==='accounts') document.body.classList.add('admin-embed');
 if (mediaMode === 'compose') {
@@ -651,6 +671,8 @@ const preparedFiles=new Map();
 function makeButton(label,action,cls=''){const b=document.createElement('button');b.textContent=label;b.className=cls;b.addEventListener('click',action);return b;}
 async function refresh(){
 const rows=await request('/api/duit-social/stories');preparedFiles.clear();const root=$('stories');root.replaceChildren();
+const chosenStory=Number(mediaQuery.get('story')||0);
+if(chosenStory>0&&rows.some(s=>s.id===chosenStory))rows.sort((a,b)=>(b.id===chosenStory)-(a.id===chosenStory));
 if(!rows.length){root.textContent='Ainda não existem Stories.';return;}
 for(const s of rows){const item=document.createElement('article');item.className='story';if(s.id===Number(new URLSearchParams(location.search).get('story')))item.style.outline='2px solid #ffd200';const info=document.createElement('div');info.innerHTML='<strong>'+escapeHtml(s.client_company||s.client_name)+'</strong><div class="muted">'+dateLabel(s.scheduled_at)+' · '+escapeHtml(s.status)+'</div>';
 const actions=document.createElement('div');actions.className='actions';
@@ -663,7 +685,9 @@ if(s.status!=='published'){
  actions.append(makeButton('Já publiquei',async()=>{if(!confirm('A Story foi publicada no Instagram? O ficheiro será eliminado do portal.'))return;await request('/api/duit-social/stories/'+s.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'published'})});refresh();},'secondary'));
  actions.append(makeButton('Apagar',async()=>{if(!confirm('Apagar esta Story?'))return;await request('/api/duit-social/stories/'+s.id,{method:'DELETE'});refresh();},'danger'));
 }
-item.append(info,actions);root.append(item);}
+item.append(info,actions);root.append(item);
+if(chosenStory===s.id){item.setAttribute('tabindex','-1');requestAnimationFrame(()=>{item.scrollIntoView({block:'center'});item.focus({preventScroll:true});});}
+}
 }
 async function getStoryFile(s){
 const r=await fetch(s.media_url,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Não foi possível obter a Story');
