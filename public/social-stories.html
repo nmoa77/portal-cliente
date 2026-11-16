@@ -97,7 +97,9 @@ body.composer-mode .workspace{display:block;max-width:1030px}
 body.composer-mode .workspace-main,body.composer-mode .workspace-side{display:contents}
 body.composer-mode .panel{margin-bottom:18px}
 body.composer-mode #stories-section{display:none}
-body.composer-mode:not(.editing-existing) .composer-job-list,body.composer-mode:not(.editing-existing) #pub-jobs{display:none}
+/* Criar conteúdo é sempre um formulário novo. O histórico vive no calendário. */
+body.composer-mode .composer-job-list{display:none!important}
+body.composer-mode:not(.editing-existing) #pub-jobs{display:none!important}
 .format-switch{display:flex;gap:8px;margin:0 0 20px;flex-wrap:wrap}
 .format-switch button{background:#fff;border:1px solid #e7e7e7;color:#555;min-width:90px}
 .format-switch button.active{background:#ffd200;color:#111;border-color:#ffd200}
@@ -441,8 +443,12 @@ async function refreshPublisher(accounts){
  select.value=clients.has(previous)||previous==='all'?previous:'all';
  const targetJob=Number.isSafeInteger(targetId)?jobs.find(job=>Number(job.id)===targetId):null;
  if(targetJob)select.value=String(targetJob.client_id);
- const filtered=select.value==='all'?jobs:jobs.filter(job=>String(job.client_id)===select.value);
- if(!filtered.length){root.textContent='Sem publicações para este cliente.';return;}
+ // No editor integrado no Calendário nunca mostrar histórico geral.
+ // Quando se abre uma publicação existente, mostrar apenas esse registo.
+ const filtered=mediaMode==='compose'
+   ? (targetJob?[targetJob]:[])
+   : (select.value==='all'?jobs:jobs.filter(job=>String(job.client_id)===select.value));
+ if(!filtered.length){root.textContent=mediaMode==='compose'?'':'Sem publicações para este cliente.';return;}
  for(const job of filtered){
    const div=document.createElement('div');div.className='story';
    if(Number(job.id)===targetId){div.id='publication-'+job.id;div.style.outline='2px solid #ffd200';}
