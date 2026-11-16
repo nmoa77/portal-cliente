@@ -89,6 +89,11 @@ body.composer-mode .workspace{display:block;max-width:1030px}
 body.composer-mode .workspace-main,body.composer-mode .workspace-side{display:contents}
 body.composer-mode .panel{margin-bottom:18px}
 body.composer-mode #stories-section{display:none}
+body.composer-mode:not(.editing-existing) .composer-job-list,body.composer-mode:not(.editing-existing) #pub-jobs{display:none}
+.format-switch{display:flex;gap:8px;margin:0 0 20px;flex-wrap:wrap}
+.format-switch button{background:#fff;border:1px solid #e7e7e7;color:#555;min-width:90px}
+.format-switch button.active{background:#ffd200;color:#111;border-color:#ffd200}
+body.composer-mode #publicacoes,body.composer-mode #story-nova{max-width:1030px}
 body.composer-mode.story-mode #publicacoes{display:none}
 body.composer-mode:not(.story-mode) #story-nova{display:none}
 body.composer-mode .hero-label{display:none}
@@ -102,7 +107,10 @@ body.composer-mode .story{background:#fdfdfd}
 <main>
 <div class="topbar"><a class="wordmark" href="/admin.html" aria-label="DUIT">DU<span>!</span>T</a><div class="top-right"><span class="envpill">DUIT MEDIA</span><a class="backlink" href="/admin.html#calendar">← Voltar ao portal</a></div></div>
 <header class="hero"><div><span class="eyebrow">GESTÃO DE REDES SOCIAIS / DUIT MEDIA</span><h1 id="media-page-title">Contas ligadas.</h1><p class="muted" id="media-page-subtitle">Ligue as contas Facebook e Instagram dos clientes. As publicações são criadas no Calendário.</p></div><div class="hero-label">DUIT MEDIA · CONTAS</div></header>
-<nav class="sectionnav" aria-label="Secções da Duit Media"><a href="/admin.html#calendar">← Calendário</a><a href="#contas" class="accounts-only">Contas ligadas</a><a href="#publicacoes" class="composer-only">Criar conteúdo</a></nav>
+<nav class="sectionnav" aria-label="Secções da Duit Media"><a href="/admin.html#calendar">← Calendário</a><a href="#contas" class="accounts-only">Contas ligadas</a></nav>
+<div class="format-switch composer-only" aria-label="Tipo de conteúdo">
+<button type="button" data-media-kind="post">Post</button><button type="button" data-media-kind="carousel">Carrossel</button><button type="button" data-media-kind="reel">Reel</button><button type="button" data-media-kind="story">Story</button>
+</div>
 <div class="workspace"><div class="workspace-main">
 <section class="panel" id="contas"><p class="kicker">01 / LIGAÇÕES</p><h2>Contas Instagram e Facebook</h2>
 <p class="muted">Ligue as Páginas e contas profissionais dos clientes através da Meta. Esta etapa ainda não publica nada automaticamente.</p>
@@ -152,23 +160,31 @@ if (mediaMode === 'compose') {
 function selectMediaKind(kind) {
  const story = kind === 'story';
  document.body.classList.toggle('story-mode', story);
+ document.querySelectorAll('[data-media-kind]').forEach(b=>b.classList.toggle('active',b.dataset.mediaKind===kind));
  if (!story) {
   $('pub-kind').value=['post','carousel','reel'].includes(kind)?kind:'post';
   $('pub-kind').dispatchEvent(new Event('change'));
  }
 }
+document.querySelectorAll('[data-media-kind]').forEach(b=>b.addEventListener('click',()=>selectMediaKind(b.dataset.mediaKind)));
 if(mediaMode==='compose')selectMediaKind(mediaQuery.get('kind')||'post');
 function syncComposeClient(clientId){
  const id=String(clientId||'');
  $('client').value=id;
- const opt=[...$('pub-account').options].find(o=>o.dataset.clientId===id);
+ const options=[...$('pub-account').options];
+ options.forEach(o=>{o.hidden=o.disabled=o.dataset.clientId!==id;});
+ const opt=options.find(o=>o.dataset.clientId===id);
  if(opt) $('pub-account').value=opt.value;
- const hasAccount=Boolean(opt);
- $('compose-client-hint').textContent=hasAccount
-  ? 'Conta Meta associada. As publicações ficam em rascunho até ativar o motor.'
-  : 'Este cliente ainda não tem conta Meta ligada. Ligue-a primeiro em Duit Media.';
+ else $('pub-account').selectedIndex=-1;
+ $('compose-client-hint').textContent=opt
+  ? 'Conta Meta associada. O conteúdo será guardado como rascunho.'
+  : 'Sem conta Meta associada. Ligue-a em Duit Media antes de criar Posts ou Reels.';
 }
 $('compose-client').addEventListener('change',e=>syncComposeClient(e.target.value));
+$('pub-kind').addEventListener('change',e=>{
+ if(document.body.classList.contains('composer-mode'))selectMediaKind(e.target.value);
+});
+
 
 if(mediaQuery.get('embed')==='calendar') document.body.classList.add('calendar-embed');
 function applyCalendarPreset(){
@@ -615,7 +631,7 @@ if(!mediaQuery.get('client'))syncComposeClient($('compose-client').value);
 
 const tomorrow=new Date(Date.now()+86400000);const pad=n=>String(n).padStart(2,'0');$('scheduled').value=tomorrow.getFullYear()+'-'+pad(tomorrow.getMonth()+1)+'-'+pad(tomorrow.getDate())+'T'+pad(tomorrow.getHours())+':'+pad(tomorrow.getMinutes());
 if(mediaQuery.has('date'))applyCalendarPreset();
-if(mediaQuery.has('story')){document.body.classList.add('story-mode');$('stories-section').style.display='block';}
-if(mediaQuery.has('publication')){$('pub-jobs').scrollIntoView({block:'nearest'});}
+if(mediaQuery.has('story')){document.body.classList.add('story-mode','editing-existing');$('stories-section').style.display='block';}
+if(mediaQuery.has('publication')){document.body.classList.add('editing-existing');$('pub-jobs').scrollIntoView({block:'nearest'});}
 await refresh();}catch(e){$('stories').textContent=e.message;}})();
 </script></body></html>
