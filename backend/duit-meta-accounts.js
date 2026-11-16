@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const express = require('express');
 const db = require('./db');
 const { requireAdmin } = require('./auth');
+const {metaAccountHealth}=require('./duit-social-meta-helpers');
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS duit_meta_oauth_states (
@@ -165,15 +166,12 @@ function register(app) {
       if(String(page.id)!==String(account.facebook_page_id))
         return res.status(502).json({error:'A Meta devolveu uma Página inesperada'});
       const expectedIg=String(account.instagram_business_id||'');
-      const actualIg=String(page.instagram_business_account?.id||'');
-      // Se a associação Instagram mudou fora do portal, não afirmar
-      // que está autorizada a publicar na conta antiga.
-      const instagramMatch=!expectedIg||expectedIg===actualIg;
+      const linked=metaAccountHealth(account.facebook_page_id,expectedIg,page,null);
       let username=null,instagramReadable=false;
-      if(expectedIg&&instagramMatch){
+      if(expectedIg&&linked.instagramMatches){
         try{
           const profile=await graph(expectedIg,{fields:'id,username',access_token:token});
-          instagramReadable=String(profile.id)===expectedIg;
+          instagramReadable=metaAccountHealth(account.facebook_page_id,expectedIg,page,profile).instagramReadable;
           username=instagramReadable?String(profile.username||''):null;
         }catch(_){instagramReadable=false;}
       }
@@ -182,7 +180,7 @@ function register(app) {
         page_ok:true,page_name:String(page.name||account.facebook_page_name),
         facebook_page_id:account.facebook_page_id,
         instagram_connected:!!expectedIg,
-        instagram_matches_page:instagramMatch,
+        instagram_matches_page:linked.instagramMatches,
         instagram_readable:instagramReadable,
         instagram_username:username,
         checked_at:new Date().toISOString()
