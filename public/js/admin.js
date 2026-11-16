@@ -1218,6 +1218,14 @@ async function viewCalendar(main) {
   const calendarMetaJobs = metaJobs.map(j=>({
     ...j,calendarDay:new Date(j.scheduled_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Lisbon'})
   }));
+  // A mesma publicação tem um registo editorial e um destino Meta.
+  // Mostrá-los juntos no calendário como UMA entrada quando associados.
+  const linkedMetaByPost = new Map(calendarMetaJobs.filter(j=>j.source_post_id)
+    .map(j=>[Number(j.source_post_id),j]));
+  const unlinkedMetaJobs = calendarMetaJobs.filter(j=>!j.source_post_id);
+  const editorialMediaIndicator = p => linkedMetaByPost.has(Number(p.id))
+    ? ' · Meta '+escapeHtml(linkedMetaByPost.get(Number(p.id)).status)
+    : '';
   const metaMini = j => `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({publication:${j.id}})" class="cal-post"
       style="display:block;text-decoration:none;background:#f4f0ff;color:#30234a;border-radius:8px;padding:7px;margin-top:5px;"
       title="Publicação Meta · ${escapeHtml(j.client_company||j.client_name)}">
@@ -1309,11 +1317,11 @@ async function viewCalendar(main) {
                  onclick="event.stopPropagation(); openEditPost(${p.id})">
               <span style="font-weight:600">${escapeHtml(label)}</span>
               <span style="opacity:.75">·</span>
-              ${escapeHtml(p.text.slice(0, 18))}${p.text.length > 18 ? '…' : ''}
+              ${escapeHtml(p.text.slice(0, 18))}${p.text.length > 18 ? '…' : ''}${editorialMediaIndicator(p)}
             </div>
           `;}).join('')}
           ${calendarStories.filter(s => s.calendarDay === dateStr).map(storyMini).join('')}
-          ${calendarMetaJobs.filter(j => j.calendarDay === dateStr).map(metaMini).join('')}
+          ${unlinkedMetaJobs.filter(j => j.calendarDay === dateStr).map(metaMini).join('')}
         </div>
       `);
     }
@@ -1352,7 +1360,7 @@ async function viewCalendar(main) {
   const tomorrowTotal = all.filter(p => p.date === tomorrow).length;
 
   const metaDaily = [today,tomorrow].map(dateStr=>{
-    const list=calendarMetaJobs.filter(j=>j.calendarDay===dateStr);
+    const list=unlinkedMetaJobs.filter(j=>j.calendarDay===dateStr);
     if(!list.length)return '';
     return `<div class="card" style="margin-bottom:12px;"><h3>Publicações Meta · ${fmtDate(dateStr,true)}</h3>
       ${list.map(metaMini).join('')}</div>`;
