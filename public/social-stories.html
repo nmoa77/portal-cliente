@@ -360,12 +360,28 @@ async function refreshMeta(){
     label.innerHTML='<strong>'+escapeHtml(account.client_company||account.client_name)+'</strong>'+
       '<div class="muted">'+escapeHtml(account.facebook_page_name)+
       ' · '+(account.instagram_business_id?'Instagram profissional ligado':'Sem Instagram profissional')+'</div>';
+    const check=makeButton('Verificar ligação',async()=>{
+      check.disabled=true;
+      try{
+        const result=await request('/api/duit-social/meta/accounts/'+account.id+'/check');
+        const details=[
+          result.page_ok?'Facebook: acesso confirmado':'Facebook: sem confirmação',
+          !result.instagram_connected?'Instagram: não associado':
+            (result.instagram_matches_page&&result.instagram_readable
+              ?'Instagram: acesso confirmado'+(result.instagram_username?' (@'+result.instagram_username+')':'')
+              :'Instagram: ligação desatualizada ou sem autorização')
+        ];
+        $('meta-status').textContent=details.join(' · ');
+      }catch(e){$('meta-status').textContent='Não foi possível confirmar: '+e.message;}
+      finally{check.disabled=false;}
+    },'secondary');
     const btn=makeButton('Desligar',async()=>{
       if(!confirm('Desligar esta Página Meta do portal DUIT?'))return;
       await request('/api/duit-social/meta/accounts/'+account.id,{method:'DELETE'});
       await refreshMeta();
     },'secondary');
-    block.append(label,btn);root.append(block);
+    const buttons=document.createElement('div');buttons.className='actions';buttons.append(check,btn);
+    block.append(label,buttons);root.append(block);
   }
 }
 $('meta-connect').addEventListener('click',async()=>{
