@@ -79,7 +79,13 @@ function originOk(req, res, next) {
 }
 function register(app) {
   const router = express.Router();
-  router.use(requireAdmin);
+  // O ficheiro assinado é validado exclusivamente pelo publicador.
+  // Ignorar este router de Stories só para a rota específica da Meta.
+  router.use((req,res,next)=>{
+    if(req.method==='GET' && /^\/publisher\/media\/[1-9]\d*$/.test(req.path))
+      return next('router');
+    return requireAdmin(req,res,next);
+  });
   router.use(originOk);
 
   router.get('/push/public-key', (req, res) => {
