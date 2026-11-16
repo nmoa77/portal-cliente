@@ -289,3 +289,51 @@ ponta a ponta e confirmar aprovação para utilização.
 
 O portal **não cria contas na Meta** e a app **não fica automaticamente
 autorizada** a publicar só por ter App ID e Secret.
+
+## Arranque do ambiente de ensaio — 16/11/2026
+
+Verificado pela integração Railway: o projeto `Portal cliente` **só tem** o
+ambiente `production` e o serviço `portal-cliente` a seguir `main`.
+A preparação da Duit Media **não deve reutilizar o domínio e a base de dados
+reais** para testes.
+
+### Procedimento no painel Railway
+
+1. No projeto `Portal cliente`, abrir o seletor do ambiente em cima,
+   escolher `+ New Environment` e criar `staging` com
+   `Duplicate Environment`. A duplicação coloca alterações em estado
+   pendente; **rever as variáveis, domínio, branch e volumes antes de fazer
+   Deploy**. Alternativamente usar ambiente vazio, se se pretender
+   configurar tudo de raiz.
+2. Em `staging`, configurar a origem GitHub do serviço para a branch
+   `feature/duit-social-stories-v1`; em `production` confirmar que fica
+   `main`. Não usar domínio `cliente.duit.pt` no ensaio.
+3. Confirmar que a base de dados de staging utiliza um volume **próprio**
+   em `/data` e `DATABASE_PATH` aponta para o ficheiro nesse volume.
+   Não copiar a base de dados real de clientes nem partilhar credenciais
+   de produção; rever as variáveis herdadas na duplicação e desativar
+   email, faturação, prospeção e outras integrações que possam disparar
+   ações reais.
+4. Manter `DUIT_SOCIAL_PUBLISH_ENABLED=false` e
+   `DUIT_SOCIAL_REMINDERS_ENABLED=false` durante os testes de OAuth.
+5. Adicionar um domínio `*.up.railway.app` exclusivo do staging. É este
+   domínio que definirá o callback de teste:
+   `https://DOMINIO-DO-STAGING/api/duit-social/meta/callback`.
+6. Na Meta Developers, adicionar **esse URI exato** ao mecanismo OAuth
+   compatível com o caso de utilização da app. Manter o callback de
+   produção configurado apenas para quando a funcionalidade for publicada.
+7. Definir as variáveis Meta apenas no staging, sem enviar o App Secret,
+   tokens de utilizador nem chaves em mensagens ou no GitHub.
+8. Ligar primeiro a Página DUIT, validar a seleção correta e o diagnóstico
+   de acesso. Só depois testar a Página Seven Fitness Club. **Não publicar
+   conteúdo de teste em contas reais sem aprovação explícita.**
+
+### Alinhamento com a configuração Meta testada
+
+Na autorização do portal foi adicionado `business_management` aos scopes
+existentes, pois a listagem `me/accounts` no Graph API Explorer apenas
+passou a apresentar Páginas depois de concedida essa permissão no
+portefólio utilizado. Esta permissão deve estar incluída na autorização e,
+quando aplicável, no processo de revisão da Meta. Não confundir os
+`instagram_basic`/`instagram_content_publish` do Facebook Login com os
+scopes do Instagram Login direto.
