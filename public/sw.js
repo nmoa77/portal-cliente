@@ -1,5 +1,5 @@
 /* DUIT Portal — Service Worker */
-const VERSION = 'duit-v42';
+const VERSION = 'duit-v43';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -101,8 +101,8 @@ self.addEventListener('push', event => {
   try { payload = event.data?.json() || {}; } catch (_) {}
   const title = String(payload.title || 'DUIT · Story pronta').slice(0,120);
   const body = String(payload.body || 'Tem uma Story para publicar.').slice(0,240);
-  const raw = String(payload.url || '/social-stories.html');
-  const target = raw.startsWith('/social-stories.html') ? raw : '/social-stories.html';
+  const raw = String(payload.url || '/social-stories.html?mode=stories');
+  const target = raw.startsWith('/social-stories.html?story=') || raw==='/social-stories.html?mode=stories' ? raw : '/social-stories.html?mode=stories';
   event.waitUntil(self.registration.showNotification(title, {
     body,
     tag: 'duit-story-' + target,
@@ -114,7 +114,7 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || '/social-stories.html', self.location.origin).href;
+  const target = new URL(event.notification.data?.url || '/social-stories.html?mode=stories', self.location.origin).href;
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({ type:'window', includeUncontrolled:true });
     const current = windows.find(client => new URL(client.url).pathname === '/social-stories.html');
