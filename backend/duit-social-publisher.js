@@ -54,6 +54,25 @@ try {
  }
  if(linked)console.log('[duit-media] rascunhos editoriais reconciliados:',linked);
 }catch(error){console.warn('[duit-media] conciliação conservadora:',error.message)}
+// Legendas específicas por rede, preservadas na base de dados.
+if(!db.prepare("PRAGMA table_info(duit_publish_jobs)").all().some(c=>c.name==='captions_json'))
+ db.exec("ALTER TABLE duit_publish_jobs ADD COLUMN captions_json TEXT NOT NULL DEFAULT '{}'");
+function checkCaptions(value){
+ if(value===undefined)return {};
+ if(!value||Array.isArray(value)||typeof value!=='object')return null;
+ const result={};
+ for(const [network,caption] of Object.entries(value)){
+  if(!['facebook','instagram','threads'].includes(network)||typeof caption!=='string'||caption.length>2200)return null;
+  result[network]=caption;
+ }
+ return result;
+}
+function captionFor(job,network){
+ try{
+  const captions=JSON.parse(job.captions_json||'{}');
+  return typeof captions[network]==='string'?captions[network]:job.caption;
+ }catch(_){return job.caption;}
+}
 const publicRoot=()=>String(process.env.DUIT_SOCIAL_PUBLIC_URL||'').replace(/\/$/,'');
 const signingKey=()=>process.env.DUIT_SOCIAL_MEDIA_SIGNING_KEY||'';
 const enabled=()=>process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'&&!!cfg()&&/^https:\/\//.test(publicRoot())&&signingKey().length>=32;
@@ -183,6 +202,7 @@ function cleanupCompleted(){
  }
 }
 async function publish(job){
+ if(JSON.parse(job.networks).includes('threads'))throw Error('Publicação Threads não configurada; requer autorização específica.');
  const account=db.prepare('SELECT * FROM duit_meta_accounts WHERE id=? AND client_id=?').get(job.account_id,job.client_id);
  if(!account)throw Error('Conta Meta não ligada');
  const items=db.prepare('SELECT * FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id);
@@ -192,8 +212,8 @@ async function publish(job){
   db.prepare("UPDATE duit_publish_results SET status='processing' WHERE job_id=? AND network=?").run(job.id,status.network);
   try{
    const result=status.network==='instagram'
-     ? await sendInstagram(job,items,account,token)
-     : await sendFacebook(job,items,account,token);
+     ? await sendInstagram({...job,caption:captionFor(job,'instagram')},items,account,token)
+     : await sendFacebook({...job,caption:captionFor(job,'facebook')},items,account,token);
    if(!result?.id)throw Error('Meta não confirmou o identificador publicado');
    db.prepare("UPDATE duit_publish_results SET status='published',remote_id=?,error=NULL WHERE job_id=? AND network=?")
      .run(String(result.id),job.id,status.network);
@@ -299,9 +319,10 @@ function register(app){
    files:db.prepare('SELECT id,position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id)})));
  });
  router.post('/jobs',(req,res)=>{
-  const {client_id,account_id,kind,networks,caption='',scheduled_at,source_post_id}=req.body||{};
+  const {client_id,account_id,kind,networks,caption='',captions,scheduled_at,source_post_id}=req.body||{};
+  const validCaptions=checkCaptions(captions);
   if(!['post','carousel','reel'].includes(kind)||!Array.isArray(networks)||networks.length<1||
-   networks.some(n=>!['instagram','facebook'].includes(n))||new Set(networks).size!==networks.length||
+   (!validCaptions)||networks.some(n=>!['instagram','facebook','threads'].includes(n))||new Set(networks).size!==networks.length||
    typeof caption!=='string'||caption.length>2200||!Number.isFinite(Date.parse(scheduled_at)))
    return res.status(400).json({error:'Formato, canais ou data inválidos'});
   const account=db.prepare('SELECT * FROM duit_meta_accounts WHERE id=? AND client_id=?').get(account_id,client_id);
@@ -335,8 +356,8 @@ function register(app){
     }
   }
   const id=db.transaction(()=>{
-   const result=db.prepare('INSERT INTO duit_publish_jobs(client_id,account_id,kind,caption,networks,scheduled_at,source_post_id) VALUES (?,?,?,?,?,?,?)')
-     .run(account.client_id,account.id,kind,caption,JSON.stringify(networks),new Date(scheduled_at).toISOString(),sourceId);
+   const result=db.prepare('INSERT INTO duit_publish_jobs(client_id,account_id,kind,caption,networks,scheduled_at,source_post_id,captions_json) VALUES (?,?,?,?,?,?,?,?)')
+     .run(account.client_id,account.id,kind,caption,JSON.stringify(networks),new Date(scheduled_at).toISOString(),sourceId,JSON.stringify(validCaptions));
    for(const network of networks)db.prepare('INSERT INTO duit_publish_results(job_id,network) VALUES (?,?)').run(result.lastInsertRowid,network);
    return result.lastInsertRowid;
   })();
@@ -349,8 +370,11 @@ function register(app){
    if(!['draft','scheduled'].includes(job.status))
      return res.status(409).json({error:'Publicação em processamento ou revisão. Não é possível editar.'});
    const caption=req.body?.caption;
+   const captions=req.body?.captions;
+   const checkedCaptions=checkCaptions(captions);
+   if(!checkedCaptions)return res.status(400).json({error:'Legendas das redes inválidas'});
    const scheduledAt=req.body?.scheduled_at;
-   if(caption===undefined && scheduledAt===undefined)
+   if(caption===undefined && scheduledAt===undefined && captions===undefined)
      return res.status(400).json({error:'Indique a legenda ou a data'});
    if(caption!==undefined&&(typeof caption!=='string'||caption.length>2200))
      return res.status(400).json({error:'Legenda inválida'});
@@ -361,9 +385,10 @@ function register(app){
      return res.status(503).json({error:'Motor Meta desativado. Não é possível reagendar publicações.'});
    // Atualização condicional: o worker pode ter iniciado entretanto.
    const changed=db.prepare(`UPDATE duit_publish_jobs
-      SET caption=?,scheduled_at=? WHERE id=? AND status=?`)
+      SET caption=?,scheduled_at=?,captions_json=? WHERE id=? AND status=?`)
      .run(caption===undefined?job.caption:caption,
           scheduledAt===undefined?job.scheduled_at:new Date(scheduledAt).toISOString(),
+          captions===undefined?job.captions_json:JSON.stringify(checkedCaptions),
           id,job.status);
    if(!changed.changes)return res.status(409).json({error:'A publicação mudou de estado. Atualize a lista.'});
    res.json({ok:true});
@@ -458,6 +483,7 @@ function register(app){
  });
  router.post('/jobs/:id/schedule',(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
+  if(job&&JSON.parse(job.networks).includes('threads'))return res.status(409).json({error:'Threads ainda necessita de ligação própria. Este conteúdo pode ficar guardado como rascunho, mas não pode ser agendado automaticamente.'});
   if(!job||job.status!=='draft')return res.status(409).json({error:'Já não é um rascunho'});
   const valid=validateJobMedia(job);
   if(!valid.ok)return res.status(400).json({error:valid.error});
