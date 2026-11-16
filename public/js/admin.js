@@ -1161,8 +1161,21 @@ function openDuitMediaCalendar(opts = {}) {
     <iframe title="Editor Duit Media" src="${url.pathname + url.search}" style="border:0;width:100%;flex:1;min-height:0" allow="clipboard-write"></iframe>
   </div>`;
   const close = () => { overlay.remove(); if (state.view === 'calendar') go('calendar'); };
-  overlay.querySelector('#duit-media-calendar-close').addEventListener('click', close);
-  overlay.addEventListener('click', ev => { if (ev.target === overlay) close(); });
+  // O editor informa o painel apenas após o servidor confirmar a gravação.
+  // Validar origem, iframe emissor e identificador do trabalho.
+  const onSaved = event => {
+    if(event.origin !== window.location.origin ||
+       event.source !== overlay.querySelector('iframe')?.contentWindow ||
+       event.data?.type !== 'duit-media-publication-saved' ||
+       !Number.isSafeInteger(event.data.jobId) || event.data.jobId <= 0) return;
+    window.removeEventListener('message',onSaved);
+    close();
+    toast('Publicação guardada no calendário.','check');
+  };
+  window.addEventListener('message',onSaved);
+  const closeAndDetach = () => {window.removeEventListener('message',onSaved);close();};
+  overlay.querySelector('#duit-media-calendar-close').addEventListener('click', closeAndDetach);
+  overlay.addEventListener('click', ev => { if (ev.target === overlay) closeAndDetach(); });
   document.body.appendChild(overlay);
   if(opts.handoff){
     const iframe=overlay.querySelector('iframe');
