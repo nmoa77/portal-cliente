@@ -130,6 +130,7 @@ body.composer-mode .story{background:#fdfdfd}
 </section>
 <section class="panel" id="publicacoes"><p class="kicker">CALENDÁRIO / POST · REEL · CARROSSEL</p><h2>Criar publicação</h2>
 <div class="composer-client-row"><label>Cliente<select id="compose-client" aria-label="Cliente para esta publicação"></select></label><p class="muted" id="compose-client-hint">Selecione o cliente e depois o formato da publicação.</p></div>
+<div id="editorial-source" style="display:none;background:#fff9df;border:1px solid #f2e4a0;border-radius:12px;padding:15px;margin:0 0 22px;font-size:12px;line-height:1.7"></div>
 <p class="muted">Crie o conteúdo para o cliente selecionado. O ficheiro e a legenda ficam guardados como rascunho; a publicação automática permanece desativada durante os testes.</p>
 <form id="publish-form">
 <div class="grid"><label>Conta Meta ligada<select id="pub-account" required></select></label>
@@ -159,6 +160,30 @@ body.composer-mode .story{background:#fdfdfd}
 <script>
 const $=id=>document.getElementById(id);
 const mediaQuery = new URLSearchParams(location.search);
+// O administrador pode preparar um post editorial no calendário.
+let handoffData=null;
+let handoffReady=false;
+function applyEditorialHandoff(){
+ if(!handoffReady||!handoffData)return;
+ $('pub-caption').value=handoffData.caption||'';
+ const content=$('editorial-source');
+ const parts=[];
+ if(handoffData.sourceId)parts.push('<strong>Planeamento #'+Number(handoffData.sourceId)+'</strong>');
+ if(handoffData.inspiration)parts.push('<div><strong>Inspiração:</strong> '+escapeHtml(handoffData.inspiration)+'</div>');
+ if(handoffData.story)parts.push('<div><strong>Story sugerida:</strong> '+escapeHtml(handoffData.story)+'</div>');
+ content.innerHTML=parts.join('');
+ content.style.display=parts.length?'block':'none';
+}
+window.addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==window.parent)return;
+ if(event.data?.type!=='duit-media-editorial-handoff')return;
+ handoffData={sourceId:Number(event.data.sourceId)||null,
+  caption:String(event.data.caption||'').slice(0,2200),
+  inspiration:String(event.data.inspiration||'').slice(0,3000),
+  story:String(event.data.story||'').slice(0,3000)};
+ applyEditorialHandoff();
+});
+
 const mediaMode = mediaQuery.get('mode') === 'compose' || mediaQuery.get('embed') === 'calendar' ? 'compose' : 'accounts';
 document.body.classList.add(mediaMode === 'compose' ? 'composer-mode' : 'accounts-mode');
 if(mediaQuery.get('embed')==='admin' && mediaMode==='accounts') document.body.classList.add('admin-embed');
@@ -639,6 +664,7 @@ $('meta-client').replaceChildren(...socialClients.map(c=>{const o=document.creat
 $('compose-client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
 applyCalendarPreset();
 if(!mediaQuery.get('client'))syncComposeClient($('compose-client').value);
+handoffReady=true;applyEditorialHandoff();
 
 const tomorrow=new Date(Date.now()+86400000);const pad=n=>String(n).padStart(2,'0');$('scheduled').value=tomorrow.getFullYear()+'-'+pad(tomorrow.getMonth()+1)+'-'+pad(tomorrow.getDate())+'T'+pad(tomorrow.getHours())+':'+pad(tomorrow.getMinutes());
 if(mediaQuery.has('date'))applyCalendarPreset();
