@@ -488,12 +488,20 @@ function register(app){
     }
     return res.json({ok:true,status:left?'review':'published'});
   }
-  // O administrador confirmou que NÃO existe publicação remota neste canal.
-  // Apenas este canal fica pendente; canais já publicados não voltam a publicar.
-  db.prepare("UPDATE duit_publish_results SET status='pending',remote_id=NULL,error=NULL WHERE job_id=? AND network=?").run(id,network);
-  db.prepare("UPDATE duit_publish_jobs SET status='scheduled',scheduled_at=?,error=NULL WHERE id=?")
-    .run(new Date().toISOString(),id);
-  res.json({ok:true,status:'scheduled'});
+  // A confirmação do administrador autoriza APENAS a reentrega daquele canal.
+  // Em staging a autorização manual é por publicação, nunca para toda a fila.
+  if(isManualTest()){
+    const testError=testRestriction(job);
+    if(testError)return res.status(409).json({error:testError});
+    if(network!=='facebook')return res.status(409).json({error:'Teste limitado ao Facebook DUIT.'});
+  }
+  const updated=db.transaction(()=>{
+    db.prepare("UPDATE duit_publish_results SET status='pending',remote_id=NULL,error=NULL WHERE job_id=? AND network=?").run(id,network);
+    return db.prepare("UPDATE duit_publish_jobs SET status='scheduled',scheduled_at=?,error=NULL,test_manual_approved=? WHERE id=? AND status='review'")
+      .run(new Date().toISOString(),isManualTest()?1:0,id).changes;
+  })();
+  if(!updated)return res.status(409).json({error:'O estado mudou. Atualize o calendário.'});
+  res.json({ok:true,status:'scheduled',manualTest:isManualTest()});
  });
  router.post('/jobs/:id/unschedule',(req,res)=>{
   const id=Number(req.params.id);
