@@ -3,8 +3,8 @@
 ## Situação
 
 Esta ramificação acrescenta preparação e partilha de Stories, agenda e alertas Android,
-e a ligação de contas profissionais à Meta. A publicação automática de Posts,
-Carrosséis e Reels **ainda não está implementada**. Não executar em produção
+e a ligação de contas profissionais à Meta. Existe código para publicação de Posts,
+Carrosséis e Reels, mas **a publicação real ainda não foi validada**. Não executar em produção
 sem validar os percursos em dispositivo Android e no ambiente de testes Railway.
 
 ## Configuração técnica
@@ -110,8 +110,7 @@ ficheiros estáticos públicos.
 ### Aviso
 
 Não se deve marcar a PR como concluída sem testar publicação e confirmação
-reais no ambiente autorizado. Esta versão inclui a estrutura do publicador,
-não a integração completa Facebook Reels.
+reais no ambiente autorizado. Esta versão inclui o fluxo Facebook Reels, ainda sem validação real e sem ativação.
 
 ## Clientes atuais e futuros
 
@@ -243,3 +242,50 @@ segredos ou access tokens para o browser. Se a associação Instagram mudar ou
 as permissões expirarem, deve voltar a autorizar a Página. Isto não substitui
 um teste real de publicação nem garante que todas as permissões de escrita
 estejam aprovadas.
+
+## Meta Developers: configuração inicial verificada — 16/11/2026
+
+O projeto Railway `Portal cliente` possui um domínio personalizado:
+`https://cliente.duit.pt` (além de `duit.pt` e do domínio Railway).
+Escolher **um único domínio canónico** para OAuth. A opção preferida é
+`cliente.duit.pt`, porque concentra o portal de clientes.
+
+URI OAuth **previsto para produção**, após merge/deploy e autorização:
+```text
+https://cliente.duit.pt/api/duit-social/meta/callback
+```
+**Não tentar testar este URI na produção enquanto a branch não tiver sido
+integrada**: o endpoint não existe na `main` atualmente.
+
+Procedimento:
+1. Criar na Meta Developers a app **DUIT Social**, associada ao negócio
+   que tem autorização para gerir as Páginas dos clientes.
+2. Escolher o fluxo **Facebook Login** / Facebook Login for Business
+   compatível com Páginas. Não utilizar credenciais do fluxo alternativo
+   Instagram Login; são APIs e permissões diferentes.
+3. Configurar os OAuth Redirect URIs do **ambiente de ensaio**, quando
+   existir esse ambiente separado. Depois da validação, acrescentar o
+   URI canónico indicado acima para produção.
+4. Autorizar as permissões pedidas pelo código:
+   `pages_show_list`, `pages_read_engagement`,
+   `pages_manage_posts`, `instagram_basic`,
+   `instagram_content_publish`.
+   Confirmar também permissões adicionais exigidas pela versão da API
+   ou pelo acesso aos ativos via Meta Business Portfolio.
+5. Conceder funções de teste/aplicação necessárias à conta que vai ligar
+   DUIT e Seven Fitness. Para outros clientes fora dos utilizadores com
+   funções da app pode ser necessária revisão/aprovação e acesso avançado.
+6. Guardar o **App ID** e o **App Secret** apenas num cofre de segredos
+   e nas variáveis protegidas do Railway. Nunca colar segredos em tickets,
+   GitHub ou conversas.
+7. Antes de publicar, verificar o diagnóstico de ligação de cada Página e
+   testar autorização e publicação num ambiente seguro com uma conta de teste.
+
+Variáveis finais por definir no serviço/ambiente correto:
+`DUIT_META_APP_ID`, `DUIT_META_APP_SECRET`,
+`DUIT_META_REDIRECT_URI`, `DUIT_META_ENCRYPTION_KEY`.
+Manter `DUIT_SOCIAL_PUBLISH_ENABLED=false` até terminar testes de
+ponta a ponta e confirmar aprovação para utilização.
+
+O portal **não cria contas na Meta** e a app **não fica automaticamente
+autorizada** a publicar só por ter App ID e Secret.
