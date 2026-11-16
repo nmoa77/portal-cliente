@@ -474,8 +474,14 @@ $('meta-connect').addEventListener('click',async()=>{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({client_id:Number($('meta-client').value)})
     });
-    // Abrir OAuth em navegação de topo: estado e cookie SameSite=Lax.
-    location.assign(result.url);
+    // A Meta bloqueia OAuth dentro de iframes. Quando o editor está
+    // integrado no calendário, sair do iframe para o separador principal.
+    // O callback retorna à página da Duit Media na mesma origem.
+    if (window.self !== window.top) {
+      window.top.location.assign(result.url);
+    } else {
+      window.location.assign(result.url);
+    }
   }catch(e){$('meta-status').textContent=e.message;button.disabled=false;}
 });
 
