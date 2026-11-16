@@ -23,6 +23,11 @@ CREATE TABLE IF NOT EXISTS duit_publish_results(
  network TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'pending',
  remote_id TEXT,error TEXT,PRIMARY KEY(job_id,network)
 );`);
+// A publicação editorial e o trabalho Meta pertencem à mesma entrada
+// do calendário. A chave única impede duplicações por cliques repetidos.
+if(!db.prepare("PRAGMA table_info(duit_publish_jobs)").all().some(c=>c.name==='source_post_id'))
+ db.exec("ALTER TABLE duit_publish_jobs ADD COLUMN source_post_id INTEGER");
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_duit_publish_editorial_source ON duit_publish_jobs(source_post_id) WHERE source_post_id IS NOT NULL");
 const publicRoot=()=>String(process.env.DUIT_SOCIAL_PUBLIC_URL||'').replace(/\/$/,'');
 const signingKey=()=>process.env.DUIT_SOCIAL_MEDIA_SIGNING_KEY||'';
 const enabled=()=>process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'&&!!cfg()&&/^https:\/\//.test(publicRoot())&&signingKey().length>=32;
@@ -236,7 +241,7 @@ function register(app){
    const clientId=req.query.client_id===undefined?null:Number(req.query.client_id);
    if(clientId!==null&&(!Number.isSafeInteger(clientId)||clientId<=0))
      return res.status(400).json({error:'Cliente inválido'});
-   const rows=db.prepare(`SELECT j.id,j.client_id,j.account_id,j.kind,j.scheduled_at,j.status,
+   const rows=db.prepare(`SELECT j.id,j.client_id,j.account_id,j.kind,j.scheduled_at,j.status,j.source_post_id,
        j.networks,j.error,u.name AS client_name,u.company AS client_company
        FROM duit_publish_jobs j JOIN users u ON u.id=j.client_id
        WHERE j.scheduled_at>=? AND j.scheduled_at<?
@@ -268,7 +273,7 @@ function register(app){
    files:db.prepare('SELECT id,position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id)})));
  });
  router.post('/jobs',(req,res)=>{
-  const {client_id,account_id,kind,networks,caption='',scheduled_at}=req.body||{};
+  const {client_id,account_id,kind,networks,caption='',scheduled_at,source_post_id}=req.body||{};
   if(!['post','carousel','reel'].includes(kind)||!Array.isArray(networks)||networks.length<1||
    networks.some(n=>!['instagram','facebook'].includes(n))||new Set(networks).size!==networks.length||
    typeof caption!=='string'||caption.length>2200||!Number.isFinite(Date.parse(scheduled_at)))
@@ -276,9 +281,22 @@ function register(app){
   const account=db.prepare('SELECT * FROM duit_meta_accounts WHERE id=? AND client_id=?').get(account_id,client_id);
   if(!account)return res.status(400).json({error:'Selecione primeiro a conta Meta deste cliente'});
   if(networks.includes('instagram')&&!account.instagram_business_id)return res.status(400).json({error:'Instagram profissional não ligado'});
+  const sourceId=source_post_id===undefined||source_post_id===null?null:Number(source_post_id);
+  if(sourceId!==null){
+    if(!Number.isSafeInteger(sourceId)||sourceId<=0)return res.status(400).json({error:'Post editorial inválido'});
+    const source=db.prepare('SELECT id FROM social_posts WHERE id=? AND user_id=?').get(sourceId,client_id);
+    if(!source)return res.status(404).json({error:'Post editorial não encontrado neste cliente'});
+    const existing=db.prepare('SELECT id,status FROM duit_publish_jobs WHERE source_post_id=?').get(sourceId);
+    if(existing){
+      if(existing.status!=='draft')
+        return res.status(409).json({error:'Este post já foi preparado na Duit Media. Abra a publicação existente no calendário.'});
+      // Reutilizar o mesmo rascunho; não criar outro trabalho.
+      return res.json({id:existing.id,reused:true});
+    }
+  }
   const id=db.transaction(()=>{
-   const result=db.prepare('INSERT INTO duit_publish_jobs(client_id,account_id,kind,caption,networks,scheduled_at) VALUES (?,?,?,?,?,?)')
-     .run(account.client_id,account.id,kind,caption,JSON.stringify(networks),new Date(scheduled_at).toISOString());
+   const result=db.prepare('INSERT INTO duit_publish_jobs(client_id,account_id,kind,caption,networks,scheduled_at,source_post_id) VALUES (?,?,?,?,?,?,?)')
+     .run(account.client_id,account.id,kind,caption,JSON.stringify(networks),new Date(scheduled_at).toISOString(),sourceId);
    for(const network of networks)db.prepare('INSERT INTO duit_publish_results(job_id,network) VALUES (?,?)').run(result.lastInsertRowid,network);
    return result.lastInsertRowid;
   })();
