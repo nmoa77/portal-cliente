@@ -1194,13 +1194,13 @@ async function viewCalendar(main) {
   }));
   const metaMini = j => `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({publication:${j.id}})" class="cal-post"
       style="display:block;text-decoration:none;background:#f4f0ff;color:#30234a;border-radius:8px;padding:7px;margin-top:5px;"
-      onclick="event.stopPropagation()" title="Publicação Meta · ${escapeHtml(j.client_company||j.client_name)}">
+      title="Publicação Meta · ${escapeHtml(j.client_company||j.client_name)}">
       ◎ ${escapeHtml(j.kind==='reel'?'Reel':j.kind==='carousel'?'Carrossel':'Post')} ·
       ${escapeHtml(j.client_company||j.client_name)} · ${escapeHtml(j.status)}
     </a>`;
   const storyMini = s => `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({story:${s.id}})" class="cal-post"
     style="display:block;text-decoration:none;background:#fff3b5;color:#1b1b1b;border-radius:8px;padding:7px;margin-top:5px;"
-    onclick="event.stopPropagation()" title="Story ${escapeHtml(s.client_company||s.client_name)}">
+    title="Story ${escapeHtml(s.client_company||s.client_name)}">
     ◉ Story · ${escapeHtml(s.client_company||s.client_name)} · ${escapeHtml(s.status)}
   </a>`;
 
