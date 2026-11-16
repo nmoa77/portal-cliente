@@ -320,7 +320,8 @@ function register(app){
    hasSigningKey:signingKey().length>=32,
    hasPersistentStorage:!!process.env.DATABASE_PATH,
    connectedAccounts:connected,
-   workerEnabled:process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'
+   workerEnabled:process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true',
+   testOnlyNetwork:isManualTest()?testNetwork():null
   };
   res.json(config);
  });
