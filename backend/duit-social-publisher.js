@@ -77,6 +77,18 @@ const publicRoot=()=>String(process.env.DUIT_SOCIAL_PUBLIC_URL||'').replace(/\/$
 const signingKey=()=>process.env.DUIT_SOCIAL_MEDIA_SIGNING_KEY||'';
 const enabled=()=>process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'&&!!cfg()&&/^https:\/\//.test(publicRoot())&&signingKey().length>=32;
 function mediaPath(job,name){return path.join(folder,'job-'+job+'-'+name);}
+function testRestriction(job){
+ const pageId=String(process.env.DUIT_SOCIAL_TEST_ONLY_PAGE_ID||'').trim();
+ if(!pageId)return null;
+ const account=db.prepare('SELECT facebook_page_id FROM duit_meta_accounts WHERE id=? AND client_id=?')
+   .get(job.account_id,job.client_id);
+ if(!account||String(account.facebook_page_id)!==pageId)
+   return 'Modo de teste: só é permitida a Página Facebook DUIT.';
+ const networks=JSON.parse(job.networks||'[]');
+ if(networks.length!==1||networks[0]!=='facebook')
+   return 'Modo de teste: escolha exclusivamente Facebook, sem Instagram ou Threads.';
+ return null;
+}
 function validateJobMedia(job){
  const rows=db.prepare('SELECT position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id);
  return validateMediaSet(job.kind,rows)
@@ -200,6 +212,8 @@ function cleanupCompleted(){
  // Ficheiros publicados devem permanecer disponíveis no histórico visual.
 }
 async function publish(job){
+ const testError=testRestriction(job);
+ if(testError)throw Error(testError);
  if(JSON.parse(job.networks).includes('threads'))throw Error('Publicação Threads não configurada; requer autorização específica.');
  const account=db.prepare('SELECT * FROM duit_meta_accounts WHERE id=? AND client_id=?').get(job.account_id,job.client_id);
  if(!account)throw Error('Conta Meta não ligada');
@@ -491,6 +505,8 @@ function register(app){
  router.post('/jobs/:id/publish-now',(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   if(!job||job.status!=='draft')return res.status(409).json({error:'A publicação já não é um rascunho'});
+  const testError=testRestriction(job);
+  if(testError)return res.status(409).json({error:testError});
   if(JSON.parse(job.networks).includes('threads'))return res.status(409).json({error:'A publicação Threads precisa de autorização específica. Mantenha o rascunho até a integração estar configurada.'});
   const valid=validateJobMedia(job);
   if(!valid.ok)return res.status(400).json({error:valid.error});
@@ -504,6 +520,8 @@ function register(app){
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   if(job&&JSON.parse(job.networks).includes('threads'))return res.status(409).json({error:'Threads ainda necessita de ligação própria. Este conteúdo pode ficar guardado como rascunho, mas não pode ser agendado automaticamente.'});
   if(!job||job.status!=='draft')return res.status(409).json({error:'Já não é um rascunho'});
+  const testError=testRestriction(job);
+  if(testError)return res.status(409).json({error:testError});
   const valid=validateJobMedia(job);
   if(!valid.ok)return res.status(400).json({error:valid.error});
   if(!enabled())return res.status(503).json({error:'Publicação automática desativada até configuração e testes'});
@@ -542,6 +560,7 @@ function register(app){
    try{
     const jobs=db.prepare("SELECT * FROM duit_publish_jobs WHERE status='scheduled' AND scheduled_at<=? ORDER BY scheduled_at LIMIT 3").all(new Date().toISOString());
     for(const job of jobs){
+     if(testRestriction(job))continue; // não tocar nos agendamentos de outros clientes
      const claimed=db.prepare("UPDATE duit_publish_jobs SET status='processing' WHERE id=? AND status='scheduled'").run(job.id);
      if(!claimed.changes)continue;
      try{await publish(job);}catch(e){
