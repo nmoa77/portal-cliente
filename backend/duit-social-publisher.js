@@ -286,6 +286,20 @@ function register(app){
     if(!Number.isSafeInteger(sourceId)||sourceId<=0)return res.status(400).json({error:'Post editorial inválido'});
     const source=db.prepare('SELECT id FROM social_posts WHERE id=? AND user_id=?').get(sourceId,client_id);
     if(!source)return res.status(404).json({error:'Post editorial não encontrado neste cliente'});
+    // Reaproveitar um rascunho de teste criado antes desta associação,
+    // apenas quando há correspondência EXATA e única de cliente, texto e dia.
+    const exactJobs=db.prepare("SELECT id,caption,scheduled_at FROM duit_publish_jobs WHERE source_post_id IS NULL AND status='draft' AND client_id=?")
+      .all(client_id).filter(j=>j.caption.trim()===caption.trim() &&
+        new Date(j.scheduled_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Lisbon'})===
+        db.prepare("SELECT date FROM social_posts WHERE id=?").get(sourceId)?.date);
+    if(exactJobs.length===1){
+      const matches=db.prepare("SELECT COUNT(*) AS c FROM social_posts WHERE user_id=? AND date=? AND trim(text)=trim(?)")
+        .get(client_id,db.prepare("SELECT date FROM social_posts WHERE id=?").get(sourceId).date,caption.trim());
+      if(matches.c===1){
+        db.prepare("UPDATE duit_publish_jobs SET source_post_id=? WHERE id=? AND source_post_id IS NULL")
+          .run(sourceId,exactJobs[0].id);
+      }
+    }
     const existing=db.prepare('SELECT id,status FROM duit_publish_jobs WHERE source_post_id=?').get(sourceId);
     if(existing){
       if(existing.status!=='draft')
