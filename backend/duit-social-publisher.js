@@ -82,16 +82,25 @@ function mediaPath(job,name){return path.join(folder,'job-'+job+'-'+name);}
 if(!db.prepare("PRAGMA table_info(duit_publish_jobs)").all().some(c=>c.name==='test_manual_approved'))
  db.exec("ALTER TABLE duit_publish_jobs ADD COLUMN test_manual_approved INTEGER NOT NULL DEFAULT 0");
 const isManualTest=()=>Boolean(String(process.env.DUIT_SOCIAL_TEST_ONLY_PAGE_ID||'').trim());
+function testNetwork(){
+ return String(process.env.DUIT_SOCIAL_TEST_ONLY_NETWORK||'facebook').trim();
+}
 function testRestriction(job){
  const pageId=String(process.env.DUIT_SOCIAL_TEST_ONLY_PAGE_ID||'').trim();
  if(!pageId)return null;
- const account=db.prepare('SELECT facebook_page_id FROM duit_meta_accounts WHERE id=? AND client_id=?')
+ const network=testNetwork();
+ if(!['facebook','instagram'].includes(network))
+   return 'Modo de teste inválido: rede não suportada.';
+ const account=db.prepare('SELECT facebook_page_id,instagram_business_id FROM duit_meta_accounts WHERE id=? AND client_id=?')
    .get(job.account_id,job.client_id);
  if(!account||String(account.facebook_page_id)!==pageId)
-   return 'Modo de teste: só é permitida a Página Facebook DUIT.';
+   return 'Modo de teste: só é permitida a conta Meta da DUIT.';
+ const igId=String(process.env.DUIT_SOCIAL_TEST_ONLY_INSTAGRAM_ID||'').trim();
+ if(network==='instagram'&&(!igId||String(account.instagram_business_id)!==igId))
+   return 'Modo de teste: só é permitida a conta Instagram profissional da DUIT.';
  const networks=JSON.parse(job.networks||'[]');
- if(networks.length!==1||networks[0]!=='facebook')
-   return 'Modo de teste: escolha exclusivamente Facebook, sem Instagram ou Threads.';
+ if(networks.length!==1||networks[0]!==network)
+   return 'Modo de teste: escolha exclusivamente '+(network==='instagram'?'Instagram':'Facebook')+' DUIT.';
  return null;
 }
 function validateJobMedia(job){
@@ -517,7 +526,7 @@ function register(app){
   if(isManualTest()){
     const testError=testRestriction(job);
     if(testError)return res.status(409).json({error:testError});
-    if(network!=='facebook')return res.status(409).json({error:'Teste limitado ao Facebook DUIT.'});
+    if(network!==testNetwork())return res.status(409).json({error:'Teste limitado à rede DUIT autorizada.'});
   }
   const updated=db.transaction(()=>{
     db.prepare("UPDATE duit_publish_results SET status='pending',remote_id=NULL,error=NULL WHERE job_id=? AND network=?").run(id,network);
@@ -555,7 +564,7 @@ function register(app){
   res.json({ok:true,status:'scheduled',manualTest:isManualTest()});
  });
  router.post('/jobs/:id/schedule',(req,res)=>{
-  if(isManualTest())return res.status(403).json({error:'Em modo de teste o agendamento automático está bloqueado. Use «Publicar teste» apenas no post DUIT.'});
+  if(isManualTest())return res.status(403).json({error:'Em modo de teste o agendamento automático está bloqueado. Use «Publicar teste» apenas no post da DUIT.'});
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   if(job&&JSON.parse(job.networks).includes('threads'))return res.status(409).json({error:'Threads ainda necessita de ligação própria. Este conteúdo pode ficar guardado como rascunho, mas não pode ser agendado automaticamente.'});
   if(!job||job.status!=='draft')return res.status(409).json({error:'Já não é um rascunho'});
