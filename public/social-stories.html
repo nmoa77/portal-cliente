@@ -97,7 +97,11 @@ body.composer-mode .workspace{display:block;max-width:1030px}
 body.composer-mode .workspace-main,body.composer-mode .workspace-side{display:contents}
 body.composer-mode .panel{margin-bottom:18px}
 body.composer-mode #stories-section{display:none}
-/* Criar conteúdo é sempre um formulário novo. O histórico vive no calendário. */
+/* Criação limpa; edição abre exclusivamente o conteúdo selecionado. */
+body.composer-mode.editing-existing .format-switch{display:none!important}
+body.composer-mode.editing-existing #pub-jobs{display:none!important}
+body.composer-mode.editing-existing #pub-files:disabled{opacity:.65}
+
 body.composer-mode .composer-job-list{display:none!important}
 body.composer-mode:not(.editing-existing) #pub-jobs{display:none!important}
 .format-switch{display:flex;gap:8px;margin:0 0 20px;flex-wrap:wrap}
@@ -149,7 +153,7 @@ body.composer-mode .story{background:#fdfdfd}
 </div><p class="muted" id="meta-status" aria-live="polite">A verificar configuração…</p>
 <div id="meta-pending" style="margin:12px 0"></div><div id="meta-accounts"></div>
 </section>
-<section class="panel" id="publicacoes"><p class="kicker">CALENDÁRIO / POST · REEL · CARROSSEL</p><h2>Criar publicação</h2>
+<section class="panel" id="publicacoes"><p class="kicker">CALENDÁRIO / POST · REEL · CARROSSEL</p><h2 id="publication-form-title">Criar publicação</h2>
 <div class="composer-client-row"><label>Cliente<select id="compose-client" aria-label="Cliente para esta publicação"></select></label><p class="muted" id="compose-client-hint">Selecione o cliente e depois o formato da publicação.</p></div>
 <div id="editorial-source" style="display:none;background:#fff9df;border:1px solid #f2e4a0;border-radius:12px;padding:15px;margin:0 0 22px;font-size:12px;line-height:1.7"></div>
 <p class="muted">Crie o conteúdo para o cliente selecionado. O ficheiro e a legenda ficam guardados como rascunho; a publicação automática permanece desativada durante os testes.</p>
@@ -169,7 +173,7 @@ body.composer-mode .story{background:#fdfdfd}
 </div>
 <div class="grid"><label>Imagens JPG ou PNG · vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,image/png,video/mp4" multiple required></label>
 <label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
-<p><button type="submit">Guardar publicação</button></p></form>
+<p><button type="submit" id="publication-save-button">Guardar publicação</button></p></form>
 <p class="muted" id="pub-status" aria-live="polite"></p>
 <div class="actions composer-job-list"><label>Publicações guardadas <select id="pub-filter"><option value="all">Todos os clientes</option></select></label></div>
 <div id="pub-jobs"></div>
@@ -291,6 +295,38 @@ window.addEventListener('message',event=>{
  applyEditorialHandoff();
 });
 
+let editingPublication=null;
+function populatePublicationEditor(job){
+ if(!job)return;
+ editingPublication=job;
+ document.body.classList.add('editing-existing');
+ $('media-page-title').textContent='Editar publicação.';
+ $('media-page-subtitle').textContent='Altere os dados deste conteúdo, sem criar uma nova publicação.';
+ $('publication-form-title').textContent='Editar publicação';
+ $('publication-save-button').textContent='Guardar alterações';
+ $('compose-client').value=String(job.client_id);
+ syncComposeClient(job.client_id);
+ $('pub-account').value=String(job.account_id);
+ selectMediaKind(job.kind);
+ $('pub-caption').value=job.caption||'';
+ $('pub-ig').checked=job.networks.includes('instagram');
+ $('pub-fb').checked=job.networks.includes('facebook');
+ $('pub-date').value=new Date(job.scheduled_at).toLocaleString('sv-SE',{timeZone:'Europe/Lisbon'}).replace(' ','T').slice(0,16);
+ // Estas propriedades não são editáveis na API existente. Não sugerir
+ // alterações que não possam ser efetivamente guardadas.
+ for(const id of ['compose-client','pub-account','pub-kind','pub-ig','pub-fb'])$(id).disabled=true;
+ $('pub-files').required=false;
+ $('pub-files').disabled=job.status!=='draft';
+ const hint=document.createElement('p');hint.id='publication-files-help';hint.className='muted';
+ hint.textContent=job.status==='draft'
+   ? 'Pode manter o ficheiro atual. Se selecionar um novo, substitui o ficheiro da mesma posição.'
+   : 'Os ficheiros não podem ser alterados depois do agendamento.';
+ $('pub-files').closest('label').append(hint);
+ if(job.status==='published'||job.status==='processing'||job.status==='review'){
+  $('publication-save-button').disabled=true;
+  $('pub-status').textContent='Esta publicação está bloqueada para edição devido ao seu estado.';
+ }
+}
 const mediaMode = mediaQuery.get('mode') === 'compose' || mediaQuery.get('embed') === 'calendar' ? 'compose' : 'accounts';
 document.body.classList.add(mediaMode === 'compose' ? 'composer-mode' : 'accounts-mode');
 if(mediaQuery.get('embed')==='admin' && mediaMode==='accounts') document.body.classList.add('admin-embed');
@@ -442,7 +478,10 @@ async function refreshPublisher(accounts){
  }
  select.value=clients.has(previous)||previous==='all'?previous:'all';
  const targetJob=Number.isSafeInteger(targetId)?jobs.find(job=>Number(job.id)===targetId):null;
- if(targetJob)select.value=String(targetJob.client_id);
+ if(targetJob){
+  select.value=String(targetJob.client_id);
+  if(mediaMode==='compose'&&!editingPublication)populatePublicationEditor(targetJob);
+ }
  // No editor integrado no Calendário nunca mostrar histórico geral.
  // Quando se abre uma publicação existente, mostrar apenas esse registo.
  const filtered=mediaMode==='compose'
@@ -605,6 +644,31 @@ $('publish-form').addEventListener('submit',async event=>{
  event.preventDefault();const button=event.target.querySelector('button[type=submit]');button.disabled=true;
  try{
    const kind=$('pub-kind').value,files=Array.from($('pub-files').files);
+   if(editingPublication){
+    if(!['draft','scheduled'].includes(editingPublication.status))throw Error('Esta publicação não pode ser editada.');
+    if(files.length&&editingPublication.status!=='draft')throw Error('Os ficheiros de uma publicação agendada não podem ser substituídos.');
+    if(files.length>1&&kind!=='carousel')throw Error('Selecione apenas um ficheiro.');
+    if(files.some(file=>file.size>80*1024*1024))throw Error('Máximo 80 MB por ficheiro.');
+    if(files.some(file=>kind==='reel'?file.type!=='video/mp4':!['image/jpeg','image/png'].includes(file.type)))
+      throw Error('Formato de ficheiro inválido.');
+    const prepared=[];
+    for(const file of files)prepared.push(await publicationFile(file));
+    // A API de edição só altera legenda e data, sem criar um segundo registo.
+    await request('/api/duit-social/publisher/jobs/'+editingPublication.id,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({caption:$('pub-caption').value,
+        scheduled_at:new Date($('pub-date').value).toISOString()})
+    });
+    for(let i=0;i<prepared.length;i++){
+      const uploaded=await fetch('/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/'+i,{
+        method:'PUT',credentials:'same-origin',headers:{'Content-Type':prepared[i].type},body:prepared[i]
+      });
+      if(!uploaded.ok){const detail=await uploaded.json().catch(()=>({}));
+        throw Error(detail.error||'Falha ao substituir o ficheiro');}
+    }
+    $('pub-status').textContent='Alterações guardadas. Não foi criada nenhuma publicação nova.';
+    return;
+   }
    const networks=[$('pub-ig').checked?'instagram':null,$('pub-fb').checked?'facebook':null].filter(Boolean);
    if(!networks.length)throw Error('Escolha pelo menos uma rede');
    if(files.length<(kind==='carousel'?2:1)||files.length>(kind==='carousel'?10:1))throw Error('Quantidade inválida de ficheiros');
@@ -783,6 +847,6 @@ handoffReady=true;applyEditorialHandoff();
 const tomorrow=new Date(Date.now()+86400000);const pad=n=>String(n).padStart(2,'0');$('scheduled').value=tomorrow.getFullYear()+'-'+pad(tomorrow.getMonth()+1)+'-'+pad(tomorrow.getDate())+'T'+pad(tomorrow.getHours())+':'+pad(tomorrow.getMinutes());
 if(mediaQuery.has('date'))applyCalendarPreset();
 if(mediaQuery.has('story')){document.body.classList.add('story-mode','editing-existing');$('stories-section').style.display='block';}
-if(mediaQuery.has('publication')){document.body.classList.add('editing-existing');$('pub-jobs').scrollIntoView({block:'nearest'});}
+if(mediaQuery.has('publication'))document.body.classList.add('editing-existing');
 await refresh();}catch(e){$('stories').textContent=e.message;}})();
 </script></body></html>
