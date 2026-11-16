@@ -508,6 +508,7 @@ $('publish-form').addEventListener('submit',async event=>{
      method:'POST',headers:{'Content-Type':'application/json'},
      body:JSON.stringify({
        account_id:accountId,client_id:account.client_id,kind,networks,
+       source_post_id:handoffData?.sourceId||null,
        caption:$('pub-caption').value,
        scheduled_at:new Date($('pub-date').value).toISOString()
      })
@@ -523,8 +524,10 @@ $('publish-form').addEventListener('submit',async event=>{
      await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
      throw e;
    }
-   $('pub-status').textContent='Rascunho guardado. Escolha Agendar quando a Meta estiver configurada.';
-   event.target.reset();$('pub-date').value=dateForInput(3600000);
+   $('pub-status').textContent=job.reused
+     ? 'Rascunho existente atualizado. O calendário mantém uma única entrada.'
+     : 'Rascunho guardado e associado ao post original no calendário.';
+   event.target.reset();handoffData=null;$('editorial-source').style.display='none';$('pub-date').value=dateForInput(3600000);
    await refreshPublisher();
  }catch(e){$('pub-status').textContent='Erro: '+e.message;}
  finally{button.disabled=false;}
