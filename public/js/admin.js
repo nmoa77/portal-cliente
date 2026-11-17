@@ -131,7 +131,7 @@ function renderShell() {
 
 function setActive() {
   document.querySelectorAll('.nav-item').forEach(b => {
-    b.classList.toggle('active', b.dataset.view === state.view);
+    b.classList.toggle('active', b.dataset.view === state.view || (b.dataset.view === 'duit-media' && state.view === 'duit-media-stories'));
   });
 }
 
@@ -161,6 +161,7 @@ async function go(view) {
     else if (view === 'projects') await viewProjects(main);
     else if (view === 'calendar') await viewCalendar(main);
     else if (view === 'duit-media') await viewDuitMedia(main);
+    else if (view === 'duit-media-stories') await viewDuitMediaStories(main);
     else if (view === 'quotes')   await viewQuotes(main);
     else if (view === 'duit-start') {
       if(typeof window.duitViewStart!=='function'){
@@ -1200,12 +1201,31 @@ async function viewDuitMedia(main) {
       <div><div class="eyebrow">GESTÃO DE REDES SOCIAIS</div><h1>Duit Media</h1>
       <p class="lede">Ligue e verifique as contas Facebook e Instagram de cada cliente. Crie os conteúdos no Calendário.</p></div>
       <div class="page-head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
-        <a class="btn btn-yellow btn-sm" href="/social-stories.html?mode=stories" style="text-decoration:none">${svg('bell')} Stories no Android</a>
+        <button class="btn btn-yellow btn-sm" onclick="go('duit-media-stories')">${svg('bell')} Stories no Android</button>
         <button class="btn btn-ghost btn-sm" onclick="go('calendar')">${svg('cal')} Abrir calendário</button>
       </div>
     </div>
     <iframe title="Contas ligadas Duit Media" src="/social-stories.html?mode=accounts&embed=admin"
       style="display:block;width:100%;height:580px;min-height:450px;border:0;background:transparent;border-radius:16px"
+      loading="eager"></iframe>`;
+}
+
+/* Stories dentro do portal (menu lateral permanece visível).
+   O modo standalone continua disponível para abertura direta em Android,
+   onde as APIs Web Push e partilha exigem contexto de topo. */
+async function viewDuitMediaStories(main) {
+  main.innerHTML = `
+    <div class="page-head">
+      <div><div class="eyebrow">GESTÃO DE REDES SOCIAIS / DUIT MEDIA</div><h1>Stories no Android</h1>
+      <p class="lede">Consulte os Stories preparados e as notificações. Para ativar alertas ou partilhar no Android, abra a vista no telemóvel.</p></div>
+      <div class="page-head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="go('duit-media')">Contas ligadas</button>
+        <button class="btn btn-ghost btn-sm" onclick="go('calendar')">Calendário</button>
+        <a class="btn btn-yellow btn-sm" href="/social-stories.html?mode=stories&standalone=1" target="_blank" rel="noopener">Abrir no Android ↗</a>
+      </div>
+    </div>
+    <iframe title="Stories Duit Media" src="/social-stories.html?mode=stories&embed=admin"
+      style="display:block;width:100%;height:780px;min-height:550px;border:0;background:transparent;border-radius:16px"
       loading="eager"></iframe>`;
 }
 
