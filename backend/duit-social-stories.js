@@ -214,6 +214,34 @@ function register(app) {
     }
   });
 
+  // Reenvio intencional para uma Story já guardada, sem voltar a criar conteúdo.
+  router.post('/stories/:id/notify', async (req,res)=>{
+    const id=Number(req.params.id);
+    if(!Number.isSafeInteger(id)||id<=0)return res.status(400).json({error:'Story inválida'});
+    const story=findStory(id);
+    if(!story||!story.media_name)return res.status(404).json({error:'Story ou ficheiro indisponível'});
+    if(story.status!=='ready')return res.status(409).json({error:'Apenas Stories prontas podem enviar aviso imediato'});
+    if(!vapidConfig())return res.status(503).json({error:'Notificações ainda não configuradas'});
+    const subscriptions=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions WHERE user_id=?').all(req.user.id);
+    let sent=0;
+    for(const row of subscriptions){
+      try{
+        await sendPush(JSON.parse(row.subscription_json),{
+          title:'DUIT · Story pronta para partilhar',
+          body:(story.client_company||story.client_name||'DUIT')+' · Abra a Story no Android e publique no Instagram.',
+          url:'/social-stories.html?story='+story.id
+        });
+        sent++;
+      }catch(error){
+        if([404,410].includes(error.status))
+          db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=? AND user_id=?').run(row.endpoint,req.user.id);
+        else console.warn('[duit-social] reenvio push:',error.message);
+      }
+    }
+    if(sent)db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
+    res.json({sent,total:subscriptions.length});
+  });
+
   router.get('/stories/:id/media', (req, res) => {
     const story = findStory(Number(req.params.id));
     if (!story || !story.media_name) return res.status(404).json({error:'Ficheiro indisponível'});
