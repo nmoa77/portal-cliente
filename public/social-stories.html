@@ -14,8 +14,8 @@
   const isEmbedded = q.get('embed') === 'admin' || q.get('embed') === 'calendar';
   const isStories = q.get('mode') === 'stories' || q.has('story');
   const isCompose = q.get('mode') === 'compose' || q.has('publication');
-  if(isProduction && !isEmbedded && !isStories && !isCompose) {
-    window.location.replace('/admin.html#duit-media');
+  if(isProduction && !isEmbedded && !isCompose && !q.has('standalone')) {
+    window.location.replace(isStories ? '/admin.html#duit-media-stories' : '/admin.html#duit-media');
   }
 })();
 </script>
@@ -122,6 +122,14 @@ body.stories-mobile .story.story-target .actions button{width:100%;min-height:52
 body.stories-mobile #alertas{margin-top:18px}
 @media(max-width:680px){body.stories-mobile main{width:calc(100% - 24px)}body.stories-mobile .story .actions{width:100%}}
 
+/* Stories integrados no menu do portal: retirar cabeçalho próprio,
+   sem alterar o modo standalone utilizado no Android. */
+body.stories-mobile.admin-embed{background:transparent}
+body.stories-mobile.admin-embed main{width:100%;max-width:none;margin:0;padding:0}
+body.stories-mobile.admin-embed .topbar,
+body.stories-mobile.admin-embed .hero,
+body.stories-mobile.admin-embed .sectionnav{display:none!important}
+body.stories-mobile.admin-embed .workspace{max-width:none;width:100%}
 body.accounts-mode.admin-embed{background:transparent}
 body.accounts-mode.admin-embed main{width:100%;max-width:none;padding:0;margin:0}
 body.accounts-mode.admin-embed .topbar,body.accounts-mode.admin-embed .hero,body.accounts-mode.admin-embed .sectionnav{display:none!important}
@@ -642,7 +650,7 @@ if(mobileStories){
  $('media-page-subtitle').textContent='Prepare a partilha, termine no Instagram e confirme quando publicar.';
 }
 document.body.classList.add(mediaMode === 'compose' ? 'composer-mode' : 'accounts-mode');
-if(mediaQuery.get('embed')==='admin' && mediaMode==='accounts') document.body.classList.add('admin-embed');
+if(mediaQuery.get('embed')==='admin') document.body.classList.add('admin-embed');
 if (mediaMode === 'compose') {
  $('media-page-title').textContent = 'Criar conteúdo.';
  $('media-page-subtitle').textContent = 'Escolha o cliente, prepare o conteúdo e guarde-o no calendário.';
