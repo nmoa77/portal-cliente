@@ -383,7 +383,7 @@ async function viewProspects(main) {
 }
 
 async function convertProspect(id, name) {
-  if (!confirm(`Converter "${name}" em cliente final?\n\nSerá enviado um email com password inicial e o utilizador passa a ter acesso ao portal.`)) return;
+  if (!await window.duitConfirm(`Converter "${name}" em cliente final?\n\nSerá enviado um email com password inicial e o utilizador passa a ter acesso ao portal.`)) return;
   try {
     await api(`/api/prospects/${id}/convert`, { method: 'POST' });
     toast('Prospect convertido em cliente. Email com credenciais enviado.', 'check');
@@ -392,7 +392,7 @@ async function convertProspect(id, name) {
 }
 
 async function deleteProspect(id, name) {
-  if (!confirm(`Apagar o prospect "${name}"?\n\nIsto remove definitivamente o utilizador e todos os orçamentos associados. Esta ação não pode ser desfeita.`)) return;
+  if (!await window.duitConfirm(`Apagar o prospect "${name}"?\n\nIsto remove definitivamente o utilizador e todos os orçamentos associados. Esta ação não pode ser desfeita.`)) return;
   try {
     await api(`/api/prospects/${id}`, { method: 'DELETE' });
     toast('Prospect apagado.');
@@ -491,13 +491,13 @@ function selectClient(id) {
 }
 
 async function deleteClient(id, name) {
-  if (!confirm(`Apagar cliente "${name}"? Isto apaga também subscrições, projetos e tudo o que lhe está associado.`)) return;
+  if (!await window.duitConfirm(`Apagar cliente "${name}"? Isto apaga também subscrições, projetos e tudo o que lhe está associado.`)) return;
   try { await api(`/api/clients/${id}`, { method: 'DELETE' }); toast('Cliente apagado.'); go('clients'); }
   catch (err) { toast(err.message, 'cancel'); }
 }
 
 async function activateClient(id, name) {
-  if (!confirm(`Ativar a conta de "${name}"?\n\nSerá gerada uma password aleatória e enviada por email para o cliente entrar no portal.`)) return;
+  if (!await window.duitConfirm(`Ativar a conta de "${name}"?\n\nSerá gerada uma password aleatória e enviada por email para o cliente entrar no portal.`)) return;
   try {
     await api(`/api/clients/${id}/activate`, { method: 'POST' });
     toast('Conta ativada. Email com credenciais enviado.', 'check');
@@ -507,7 +507,7 @@ async function activateClient(id, name) {
 }
 
 async function deactivateClient(id, name) {
-  if (!confirm(`Desativar a conta de "${name}"?\n\nO cliente perde acesso ao portal mas todos os dados (subscrições, projetos, histórico) ficam preservados. Pode ativar novamente mais tarde.`)) return;
+  if (!await window.duitConfirm(`Desativar a conta de "${name}"?\n\nO cliente perde acesso ao portal mas todos os dados (subscrições, projetos, histórico) ficam preservados. Pode ativar novamente mais tarde.`)) return;
   try {
     await api(`/api/clients/${id}/deactivate`, { method: 'POST' });
     toast('Conta desativada. Acesso suspenso.', 'check');
@@ -594,7 +594,7 @@ async function renderNotesPanel(uid) {
 }
 
 async function deleteNote(id) {
-  if (!confirm('Apagar esta nota?')) return;
+  if (!await window.duitConfirm('Apagar esta nota?')) return;
   try { await api(`/api/notes/${id}`, { method: 'DELETE' }); renderNotesPanel(state.selectedClientId); }
   catch (err) { toast(err.message, 'cancel'); }
 }
@@ -899,7 +899,7 @@ function recomputeSubTotals() {
 }
 
 async function deleteSub(id) {
-  if (!confirm('Apagar esta subscrição?')) return;
+  if (!await window.duitConfirm('Apagar esta subscrição?')) return;
   try { await api(`/api/subscriptions/${id}`, { method: 'DELETE' }); toast('Subscrição apagada.'); go('subs'); }
   catch (err) { toast(err.message, 'cancel'); }
 }
@@ -952,7 +952,7 @@ async function viewPlans(main) {
 }
 
 async function deletePlan(id) {
-  if (!confirm('Apagar este plano?')) return;
+  if (!await window.duitConfirm('Apagar este plano?')) return;
   try { await api(`/api/plans/${id}`, { method: 'DELETE' }); toast('Plano apagado.'); go('plans'); }
   catch (err) { toast(err.message, 'cancel'); }
 }
@@ -1127,7 +1127,7 @@ async function loadProjectThread(id) {
 }
 
 async function deleteProject(id) {
-  if (!confirm('Apagar este projeto?')) return;
+  if (!await window.duitConfirm('Apagar este projeto?')) return;
   try { await api(`/api/projects/${id}`, { method: 'DELETE' }); toast('Projeto apagado.'); go('projects'); }
   catch (err) { toast(err.message, 'cancel'); }
 }
@@ -1966,7 +1966,7 @@ async function viewQuotes(main) {
 }
 
 async function sendQuote(id){
-  if(!confirm('Enviar este orçamento ao cliente agora?'))return;
+  if(!await window.duitConfirm('Enviar este orçamento ao cliente agora?'))return;
   try{
     await api(`/api/quotes/${id}/send`,{method:'POST'});
     toast('Orçamento enviado ao cliente.','check');
@@ -2049,7 +2049,7 @@ async function openQuotePayments(id){
 }
 
 async function deleteQuotePayment(quoteId,paymentId){
-  if(!confirm('Apagar este pagamento?'))return;
+  if(!await window.duitConfirm('Apagar este pagamento?'))return;
   try{
     await api(`/api/quotes/${quoteId}/payments/${paymentId}`,{method:'DELETE'});
     document.getElementById('modal-quote-payments')?.remove();
@@ -2059,7 +2059,7 @@ async function deleteQuotePayment(quoteId,paymentId){
 }
 
 async function resendQuote(id) {
-  if (!confirm('Reenviar este orçamento ao cliente? O motivo de rejeição anterior será limpo e o estado volta a "enviado".')) return;
+  if (!await window.duitConfirm('Reenviar este orçamento ao cliente? O motivo de rejeição anterior será limpo e o estado volta a "enviado".')) return;
   try {
     await api(`/api/quotes/${id}/resend`, { method: 'POST' });
     toast('Orçamento reenviado ao cliente.', 'check');
@@ -2243,7 +2243,7 @@ function recomputeQuoteTotals() {
 async function resendQuoteFromModal() {
   const id = document.getElementById('q-id').value;
   if (!id) return;
-  if (!confirm('Reenviar este orçamento ao cliente? O motivo de rejeição será limpo e o estado volta a "enviado".')) return;
+  if (!await window.duitConfirm('Reenviar este orçamento ao cliente? O motivo de rejeição será limpo e o estado volta a "enviado".')) return;
   try {
     await api(`/api/quotes/${id}/resend`, { method: 'POST' });
     toast('Orçamento reenviado ao cliente.', 'check');
@@ -2999,7 +2999,7 @@ async function toggleAdCampaignStatus(id) {
 }
 
 async function deleteAdCampaign(id, label) {
-  if (!confirm(`Apagar a campanha "${label}"?\n\nIsto apaga também todos os conjuntos e anúncios associados, com as estatísticas.`)) return;
+  if (!await window.duitConfirm(`Apagar a campanha "${label}"?\n\nIsto apaga também todos os conjuntos e anúncios associados, com as estatísticas.`)) return;
   try {
     await api(`/api/ad-campaigns/${id}`, { method: 'DELETE' });
     toast('Campanha apagada.');
@@ -3007,7 +3007,7 @@ async function deleteAdCampaign(id, label) {
   } catch (err) { toast(err.message, 'cancel'); }
 }
 async function deleteAdSet(id) {
-  if (!confirm('Apagar este conjunto e os anúncios incluídos?')) return;
+  if (!await window.duitConfirm('Apagar este conjunto e os anúncios incluídos?')) return;
   try {
     await api(`/api/ad-sets/${id}`, { method: 'DELETE' });
     toast('Conjunto apagado.');
@@ -3082,7 +3082,7 @@ function renderVocabEditor() {
 }
 
 async function resetVocab() {
-  if (!confirm('Repor todas as listas para os valores predefinidos?\n\nAs entradas adicionadas manualmente serão removidas. As campanhas, conjuntos e anúncios já criados não são afetados (mantêm os valores guardados).')) return;
+  if (!await window.duitConfirm('Repor todas as listas para os valores predefinidos?\n\nAs entradas adicionadas manualmente serão removidas. As campanhas, conjuntos e anúncios já criados não são afetados (mantêm os valores guardados).')) return;
   try {
     await api('/api/ad-vocabularies/reset', { method: 'POST' });
     state.adVocab = null;
@@ -3105,7 +3105,7 @@ async function addVocabValue(category) {
 }
 
 async function removeVocabValue(id) {
-  if (!confirm('Remover esta opção do vocabulário?')) return;
+  if (!await window.duitConfirm('Remover esta opção do vocabulário?')) return;
   try {
     await api(`/api/ad-vocabularies/${id}`, { method: 'DELETE' });
     state.adVocab = null;
@@ -3115,7 +3115,7 @@ async function removeVocabValue(id) {
 }
 
 async function deleteAdCreative(id) {
-  if (!confirm('Apagar este anúncio e as suas estatísticas?')) return;
+  if (!await window.duitConfirm('Apagar este anúncio e as suas estatísticas?')) return;
   try {
     await api(`/api/ad-creatives/${id}`, { method: 'DELETE' });
     toast('Anúncio apagado.');
@@ -3265,7 +3265,7 @@ function toLocalDateTime(s) {
 }
 
 async function deleteAnnouncement(id, title) {
-  if (!confirm(`Apagar o anúncio "${title}"?\n\nDesaparece imediatamente da área de todos os clientes.`)) return;
+  if (!await window.duitConfirm(`Apagar o anúncio "${title}"?\n\nDesaparece imediatamente da área de todos os clientes.`)) return;
   try {
     await api(`/api/admin/announcements/${id}`, { method: 'DELETE' });
     toast('Anúncio apagado.');
@@ -3274,7 +3274,7 @@ async function deleteAnnouncement(id, title) {
 }
 
 async function resetAnnouncementDismissals(id) {
-  if (!confirm('Limpar as dispensas deste anúncio?\n\nClientes que já o tinham dispensado vão voltar a vê-lo no topo da Home.')) return;
+  if (!await window.duitConfirm('Limpar as dispensas deste anúncio?\n\nClientes que já o tinham dispensado vão voltar a vê-lo no topo da Home.')) return;
   try {
     await api(`/api/admin/announcements/${id}/reset-dismissals`, { method: 'POST' });
     toast('Anúncio reposto para todos os clientes.', 'check');
@@ -3424,8 +3424,8 @@ async function viewProfile(main) {
 }
 
 /* Modal/confirmação de wipe */
-function openWipeDb() {
-  const phrase = prompt(
+async function openWipeDb() {
+  const phrase = await window.duitPrompt(
     'Vão ser apagados TODOS os dados da base de dados (clientes, projetos, faturas, calendário, etc.).\n\n' +
     'A sua conta de admin mantém-se. Esta ação não tem volta.\n\n' +
     'Para confirmar, escreva exactamente: APAGAR TUDO'
@@ -3893,7 +3893,7 @@ document.addEventListener('submit', async (e) => {
 document.addEventListener('click', async (e) => {
   if (e.target.id === 'mp-delete-btn') {
     const id = document.getElementById('mp-id').value;
-    if (!id || !confirm('Apagar este post?')) return;
+    if (!id || !await window.duitConfirm('Apagar este post?')) return;
     try {
       await api(`/api/social-posts/${id}`, { method: 'DELETE' });
       closeModal('modal-post');
