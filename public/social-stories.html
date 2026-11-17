@@ -3,6 +3,22 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#ffd200">
+<script>
+/* DUIT_MEDIA_PORTAL_ACCOUNTS_ROUTE_V1:
+   As ligações Meta são geridas no painel DUIT, com menu lateral.
+   Manter o modo incorporado e as vistas de Stories/composição intactos.
+   Após OAuth, a Meta devolve à página standalone: regressar ao painel. */
+(function(){
+  const q = new URLSearchParams(window.location.search);
+  const isProduction = window.location.hostname === 'cliente.duit.pt';
+  const isEmbedded = q.get('embed') === 'admin' || q.get('embed') === 'calendar';
+  const isStories = q.get('mode') === 'stories' || q.has('story');
+  const isCompose = q.get('mode') === 'compose' || q.has('publication');
+  if(isProduction && !isEmbedded && !isStories && !isCompose) {
+    window.location.replace('/admin.html#duit-media');
+  }
+})();
+</script>
 <title>Duit Media · Gestão de redes sociais</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <style>
