@@ -3394,6 +3394,14 @@ async function viewProfile(main) {
           <div class="modal-actions"><button class="btn btn-yellow" type="submit">Atualizar password</button></div>
         </form>
         <hr style="border:none; border-top:1px solid var(--line); margin:18px 0;">
+        <h4 style="margin-bottom:8px;">🔐 Entrar com biometria</h4>
+        <p style="color:var(--muted);font-size:13px;line-height:1.6;">
+          Registe uma passkey no Android para entrar com impressão digital, rosto ou bloqueio do dispositivo.
+          A sua palavra-passe continua a funcionar. Disponível apenas para administradores.
+        </p>
+        <button class="btn btn-yellow btn-block" id="passkey-register-button" type="button" onclick="window.duitPasskeyRegister()">Ativar biometria neste dispositivo</button>
+        <div id="passkey-registered-list" style="font-size:12px;color:var(--muted);margin:14px 0 20px">A consultar dispositivos…</div>
+
         <h4 style="margin-bottom:8px;">Preferências</h4>
         <p style="color:var(--muted); font-size:13px; margin-bottom:10px;">Tema claro ou escuro. Fica guardado neste navegador.</p>
         <button class="btn btn-ghost btn-block" onclick="toggleTheme()">${svg('sparkle')} Alternar tema</button>
@@ -3412,6 +3420,7 @@ async function viewProfile(main) {
       </button>
     </div>
   `;
+  window.duitPasskeyRender?.();
 }
 
 /* Modal/confirmação de wipe */
