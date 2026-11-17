@@ -1580,24 +1580,37 @@ function dayPostRow(p) {
 
 // Ação direta da lista: abre a Duit Media com o cliente e a legenda deste post.
 // Não modifica o planeamento nem publica automaticamente.
-function subirPostListaParaMedia(id) {
+async function subirPostListaParaMedia(id) {
   const p=(state.calPostsCache||[]).find(item=>Number(item.id)===Number(id));
   if(!p){toast('Post não encontrado no calendário.','cancel');return;}
   const client=Number(p.user_id);
   if(!Number.isSafeInteger(client)||client<=0){
     toast('Este post não tem um cliente válido.','cancel');return;
   }
-  openDuitMediaCalendar({
-    client,
-    date:p.date,
-    kind:'post',
-    handoff:{
-      sourceId:Number(p.id),
-      caption:String(p.text||''),
-      inspiration:String(p.inspiration||''),
-      story:String(p.story||'')
-    }
+  await abrirPostEditorialNaMedia({
+    client,date:p.date,kind:'post',
+    handoff:{sourceId:Number(p.id),caption:String(p.text||''),
+      inspiration:String(p.inspiration||''),story:String(p.story||'')}
   });
+}
+
+// Se já existe trabalho Media para o post, reabrir o mesmo ID e os
+// ficheiros guardados. Nunca apresentar um novo formulário vazio.
+async function abrirPostEditorialNaMedia(opts){
+  try{
+    const jobs=await api('/api/duit-social/publisher/jobs');
+    const existing=(Array.isArray(jobs)?jobs:[]).find(j=>
+      Number(j.source_post_id)===Number(opts.handoff?.sourceId) &&
+      Number(j.client_id)===Number(opts.client));
+    if(existing){
+      openDuitMediaCalendar({client:opts.client,publication:existing.id});
+      return;
+    }
+  }catch(e){
+    toast('Não foi possível verificar o rascunho Media: '+e.message,'cancel');
+    return;
+  }
+  openDuitMediaCalendar(opts);
 }
 
 async function quickSetStatus(id, status) {
@@ -3902,7 +3915,7 @@ document.getElementById('mp-transfer-media-btn')?.addEventListener('click',async
         inspiration:inspiration.trim()||null,story:story.trim()||null,status}
     });
     closeModal('modal-post');
-    openDuitMediaCalendar({client,date,kind:'post',
+    await abrirPostEditorialNaMedia({client,date,kind:'post',
       handoff:{sourceId:id,caption,inspiration,story}});
   }catch(err){toast('Não foi possível preparar o post: '+err.message,'cancel');}
   finally{button.disabled=false;}
