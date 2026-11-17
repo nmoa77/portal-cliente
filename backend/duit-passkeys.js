@@ -123,12 +123,25 @@ function register(app){
    // Sem email: pedir ao Android uma passkey detetável deste domínio.
    // O servidor identifica o administrador através do ID da credencial assinada.
    const email=String(req.body?.email||'').trim().toLowerCase().slice(0,254);
+   // Preferir a credencial já utilizada neste navegador quando indicada.
+   // É apenas um identificador público, nunca substitui a assinatura WebAuthn.
+   const preferredId=typeof req.body?.credentialId==='string' && req.body.credentialId.length<=1024
+     ?req.body.credentialId:'';
    let user=null,credentials=null;
+   if(!email && preferredId){
+     const previous=db.prepare(`SELECT k.id,k.transports,k.user_id
+       FROM duit_admin_passkeys k JOIN users u ON u.id=k.user_id
+       WHERE k.id=? AND u.role='admin' AND COALESCE(u.is_active,1)<>0`).get(preferredId);
+     if(previous){
+       user=adminById(previous.user_id);
+       credentials=[previous];
+     }
+   }
    if(email){
      user=db.prepare("SELECT id,email FROM users WHERE lower(email)=? AND role='admin' AND COALESCE(is_active,1)<>0").get(email);
      credentials=user?db.prepare('SELECT id,transports FROM duit_admin_passkeys WHERE user_id=?').all(user.id):[];
      if(!credentials.length)return jsonFail(res,'Não existe biometria registada para esta conta.');
-   }else{
+   }else if(!credentials){
      const any=db.prepare("SELECT 1 FROM duit_admin_passkeys k JOIN users u ON u.id=k.user_id WHERE u.role='admin' AND COALESCE(u.is_active,1)<>0 LIMIT 1").get();
      if(!any)return jsonFail(res,'Ainda não existem passkeys de administrador registadas.');
    }
