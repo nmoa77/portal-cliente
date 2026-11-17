@@ -1239,6 +1239,12 @@ async function viewCalendar(main) {
   const linkedMetaByPost = new Map(calendarMetaJobs.filter(j=>j.source_post_id)
     .map(j=>[Number(j.source_post_id),j]));
   const unlinkedMetaJobs = calendarMetaJobs.filter(j=>!j.source_post_id);
+  const displayEditorialStatus = p => {
+    const meta=linkedMetaByPost.get(Number(p.id));
+    // Cor de publicação derivada da Meta, sem tocar no estado editorial
+    // nem acionar a sincronização bidirecional com Google Sheets.
+    return meta?.status==='published'?'published':p.status;
+  };
   const editorialMediaIndicator = p => linkedMetaByPost.has(Number(p.id))
     ? ' · Meta '+escapeHtml(linkedMetaByPost.get(Number(p.id)).status)
     : '';
@@ -1347,8 +1353,8 @@ async function viewCalendar(main) {
           ${dayPosts.map(p => {
             const label = p.client_company || p.client_name || '';
             return `
-            <div class="cal-post ${p.status}"
-                 title="${escapeHtml(label + ' · ' + p.text + ' · ' + p.status)}"
+            <div class="cal-post ${displayEditorialStatus(p)}"
+                 title="${escapeHtml(label + ' · ' + p.text + ' · ' + displayEditorialStatus(p))}"
                  onclick="event.stopPropagation(); openEditPost(${p.id})">
               <span style="font-weight:600">${escapeHtml(label)}</span>
               <span style="opacity:.75">·</span>
@@ -1387,8 +1393,8 @@ async function viewCalendar(main) {
   state.calPostsCache = all;
   // Vista diária funciona como to-do: só mostra os rascunhos pendentes.
   // Quando o admin avança o estado (Agendar / Publicado / Cancelar), o post sai daqui.
-  const todayPosts    = all.filter(p => p.date === today    && p.status === 'draft').sort(sortByStatusThenNet);
-  const tomorrowPosts = all.filter(p => p.date === tomorrow && p.status === 'draft').sort(sortByStatusThenNet);
+  const todayPosts    = all.filter(p => p.date === today    && p.status === 'draft' && displayEditorialStatus(p)!=='published').sort(sortByStatusThenNet);
+  const tomorrowPosts = all.filter(p => p.date === tomorrow && p.status === 'draft' && displayEditorialStatus(p)!=='published').sort(sortByStatusThenNet);
   // Total real de posts agendados para cada dia (todos os estados) — usado para
   // distinguir "dia sem trabalho marcado" de "tudo feito".
   const todayTotal    = all.filter(p => p.date === today).length;
