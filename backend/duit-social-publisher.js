@@ -561,7 +561,7 @@ function register(app){
   if(!enabled())return res.status(503).json({error:'O motor Meta ainda não está configurado nem ativado'});
   // O worker só tratará este ID após consentimento explícito neste pedido.
   const changed=db.prepare("UPDATE duit_publish_jobs SET scheduled_at=?,status='scheduled',test_manual_approved=? WHERE id=? AND status='draft'")
-    .run(new Date().toISOString(),isManualTest()?1:0,job.id);
+    .run(new Date().toISOString(),1,job.id);
   if(!changed.changes)return res.status(409).json({error:'O estado da publicação mudou.'});
   res.json({ok:true,status:'scheduled',manualTest:isManualTest()});
  });
@@ -591,7 +591,7 @@ function register(app){
   if(!isFutureSchedule(job.scheduled_at))
     return res.status(400).json({error:'A data já passou. Escolha uma data futura.'});
   const changed=db.prepare("UPDATE duit_publish_jobs SET status='scheduled',test_manual_approved=? WHERE id=? AND status='draft'")
-    .run(isManualTest()?1:0,job.id);
+    .run(1,job.id);
   if(!changed.changes)return res.status(409).json({error:'O estado mudou; atualize a lista'});
   res.json({ok:true,status:'scheduled',manualTest:isManualTest(),scheduled_at:job.scheduled_at});
  });
@@ -622,12 +622,12 @@ function register(app){
   const tick=async()=>{
    if(busy||!enabled())return;busy=true;
    try{
-    const jobs=db.prepare("SELECT * FROM duit_publish_jobs WHERE status='scheduled' AND scheduled_at<=? AND (?=0 OR test_manual_approved=1) ORDER BY scheduled_at LIMIT 3")
-      .all(new Date().toISOString(),isManualTest()?1:0);
+    const jobs=db.prepare("SELECT * FROM duit_publish_jobs WHERE status='scheduled' AND scheduled_at<=? AND test_manual_approved=1 ORDER BY scheduled_at LIMIT 3")
+      .all(new Date().toISOString());
     for(const job of jobs){
      if(testRestriction(job))continue; // não tocar nos agendamentos de outros clientes
-     const claimed=db.prepare("UPDATE duit_publish_jobs SET status='processing',test_manual_approved=0 WHERE id=? AND status='scheduled' AND (?=0 OR test_manual_approved=1)")
-       .run(job.id,isManualTest()?1:0);
+     const claimed=db.prepare("UPDATE duit_publish_jobs SET status='processing',test_manual_approved=0 WHERE id=? AND status='scheduled' AND test_manual_approved=1")
+       .run(job.id);
      if(!claimed.changes)continue;
      try{await publish(job);}catch(e){
       db.prepare("UPDATE duit_publish_jobs SET status='review',error=? WHERE id=?").run(e.message.slice(0,500),job.id);
