@@ -60,10 +60,11 @@
     const email=document.getElementById('email')?.value.trim();
     if(err){err.textContent='';err.classList.remove('show');}
     if(!supported())return showError('Este dispositivo/navegador não suporta passkeys.',err);
-    if(!email)return showError('Indique primeiro o seu email.',err);
+    // Sem email: o Android apresenta diretamente as passkeys deste portal.
+    // Se o email já estiver preenchido, mantém-se o login vinculado à conta.
     if(button)button.disabled=true;
     try{
-      const data=await post('/login/options',{email});
+      const data=await post('/login/options',email?{email}:{});
       const credential=await navigator.credentials.get({publicKey:requestOptions(data.options)});
       if(!credential)throw Error('Autenticação não concluída.');
       await post('/login/verify',{challengeId:data.challengeId,userId:data.userId,credential:asJSON(credential)});
