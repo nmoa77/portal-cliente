@@ -87,7 +87,7 @@ function register(app){
      userID:new Uint8Array(Buffer.from('duit-admin:'+user.id)),
      attestationType:'none',
      excludeCredentials:existing.map(k=>({id:k.id,transports:JSON.parse(k.transports)})),
-     authenticatorSelection:{residentKey:'preferred',userVerification:'required'},
+     authenticatorSelection:{residentKey:'required',requireResidentKey:true,userVerification:'required'},
      supportedAlgorithmIDs:[-7,-257]
    });
    const challengeId=newChallenge(user.id,'register',options.challenge);
@@ -120,25 +120,36 @@ function register(app){
  });
  router.post('/login/options',limitLogin,async(req,res)=>{
   try{
+   // Sem email: pedir ao Android uma passkey detetável deste domínio.
+   // O servidor identifica o administrador através do ID da credencial assinada.
    const email=String(req.body?.email||'').trim().toLowerCase().slice(0,254);
-   if(!email)return jsonFail(res,'Indique o email de administrador.');
-   const user=db.prepare("SELECT id,email FROM users WHERE lower(email)=? AND role='admin' AND COALESCE(is_active,1)<>0").get(email);
-   const credentials=user?db.prepare('SELECT id,transports FROM duit_admin_passkeys WHERE user_id=?').all(user.id):[];
-   if(!credentials.length)return jsonFail(res,'Não existe biometria registada para esta conta.');
-   const options=await generateAuthenticationOptions({
-     rpID:RP_ID,userVerification:'required',
-     allowCredentials:credentials.map(k=>({id:k.id,transports:JSON.parse(k.transports)}))
-   });
-   res.json({options,challengeId:newChallenge(user.id,'login',options.challenge),userId:user.id});
+   let user=null,credentials=null;
+   if(email){
+     user=db.prepare("SELECT id,email FROM users WHERE lower(email)=? AND role='admin' AND COALESCE(is_active,1)<>0").get(email);
+     credentials=user?db.prepare('SELECT id,transports FROM duit_admin_passkeys WHERE user_id=?').all(user.id):[];
+     if(!credentials.length)return jsonFail(res,'Não existe biometria registada para esta conta.');
+   }else{
+     const any=db.prepare("SELECT 1 FROM duit_admin_passkeys k JOIN users u ON u.id=k.user_id WHERE u.role='admin' AND COALESCE(u.is_active,1)<>0 LIMIT 1").get();
+     if(!any)return jsonFail(res,'Ainda não existem passkeys de administrador registadas.');
+   }
+   const opts={rpID:RP_ID,userVerification:'required'};
+   if(credentials)opts.allowCredentials=credentials.map(k=>({id:k.id,transports:JSON.parse(k.transports)}));
+   const options=await generateAuthenticationOptions(opts);
+   res.json({options,challengeId:newChallenge(user?.id??null,'login',options.challenge),
+     userId:user?.id??null});
   }catch(e){console.warn('[passkey] login options',e.message);jsonFail(res,'Não foi possível iniciar a autenticação.',500);}
  });
  router.post('/login/verify',limitLogin,async(req,res)=>{
   try{
-   const userId=Number(req.body?.userId);
-   const expectedChallenge=takeChallenge(req.body?.challengeId,userId,'login');
+   // Sem email, a identificação vem da passkey e é confirmada pela assinatura.
+   const assertedUserId=req.body?.userId==null?null:Number(req.body.userId);
+   const credentialId=String(req.body?.credential?.id||'');
+   const key=db.prepare('SELECT * FROM duit_admin_passkeys WHERE id=?').get(credentialId);
+   const user=key?adminById(key.user_id):null;
+   const expectedChallenge=takeChallenge(req.body?.challengeId,assertedUserId,'login');
    if(!expectedChallenge)return jsonFail(res,'A autenticação expirou. Tente novamente.',401);
-   const key=db.prepare('SELECT * FROM duit_admin_passkeys WHERE id=? AND user_id=?').get(String(req.body?.credential?.id||''),userId);
-   const user=adminById(userId);
+   if(assertedUserId!==null && (!key||key.user_id!==assertedUserId))
+     return jsonFail(res,'Passkey não corresponde ao administrador.',401);
    if(!key||!user)return jsonFail(res,'Passkey não reconhecida.',401);
    const verification=await verifyAuthenticationResponse({
      response:req.body.credential,expectedChallenge,expectedOrigin:EXPECTED_ORIGIN,expectedRPID:RP_ID,
