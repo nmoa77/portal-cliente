@@ -2,6 +2,9 @@
 (function(){
   'use strict';
   const endpoint='/api/auth/passkeys';
+  // O ID da credencial não é secreto: serve só para pedir diretamente a
+  // passkey já utilizada neste navegador, evitando a lista de contas.
+  const preferredCredentialKey='duit-admin-preferred-passkey-v1';
   const textError=e=>e?.name==='NotAllowedError'
     ? 'Operação cancelada ou não autorizada no dispositivo.'
     : e?.message||'Falha na autenticação biométrica.';
@@ -64,10 +67,13 @@
     // Se o email já estiver preenchido, mantém-se o login vinculado à conta.
     if(button)button.disabled=true;
     try{
-      const data=await post('/login/options',email?{email}:{});
+      let savedId='';
+      try{savedId=localStorage.getItem(preferredCredentialKey)||'';}catch(_){}
+      const data=await post('/login/options',email?{email}:(savedId?{credentialId:savedId}:{}));
       const credential=await navigator.credentials.get({publicKey:requestOptions(data.options)});
       if(!credential)throw Error('Autenticação não concluída.');
       await post('/login/verify',{challengeId:data.challengeId,userId:data.userId,credential:asJSON(credential)});
+      try{localStorage.setItem(preferredCredentialKey,credential.id);}catch(_){}
       window.location.assign('/admin.html');
     }catch(e){showError(textError(e),err);}
     finally{if(button)button.disabled=false;}
@@ -87,6 +93,7 @@
       if(!credential)throw Error('Registo cancelado.');
       await post('/register/verify',{challengeId:data.challengeId,credential:asJSON(credential),
         label:/Android/i.test(navigator.userAgent)?'Android':'Dispositivo pessoal'});
+      try{localStorage.setItem(preferredCredentialKey,credential.id);}catch(_){}
       if(typeof window.toast==='function')window.toast('Biometria ativada neste dispositivo.','check');
       await window.duitPasskeyRender();
     }catch(e){showError(textError(e));}
@@ -117,6 +124,7 @@
           try{
             const answer=await fetch(endpoint+'/register/'+encodeURIComponent(key.id),{method:'DELETE',credentials:'same-origin',headers:{'Content-Type':'application/json'}});
             if(!answer.ok)throw Error('Não foi possível remover.');
+            try{if(localStorage.getItem(preferredCredentialKey)===key.id)localStorage.removeItem(preferredCredentialKey);}catch(_){}
             await window.duitPasskeyRender();
           }catch(e){showError(textError(e));}
         });
