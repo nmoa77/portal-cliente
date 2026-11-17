@@ -1174,7 +1174,8 @@ $('push-status').textContent=result.delivered+' de '+result.total+' notificaçõ
 $('new-story').addEventListener('submit',async e=>{
 e.preventDefault();const button=e.target.querySelector('button[type=submit]');button.disabled=true;$('feedback').textContent='A guardar…';
 try{const file=$('media').files[0];if(!file||file.size>80*1024*1024)throw Error('Máximo 80 MB por Story');
-const parts=$('scheduled').value.match(/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})$/);if(!parts)throw Error('Data inválida');
+const selectedDate=$('scheduled').value;
+if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(selectedDate))throw Error('Data inválida. Escolha novamente a data e hora.');
 // datetime-local corresponde à hora do dispositivo. Avisar se não está em Portugal.
 if(Intl.DateTimeFormat().resolvedOptions().timeZone!=='Europe/Lisbon'&&!confirm('O telemóvel não está definido para a hora de Portugal. Continuar com o horário local do dispositivo?'))return;
 const date=new Date($('scheduled').value);if(!Number.isFinite(date.getTime()))throw Error('Data inválida');
