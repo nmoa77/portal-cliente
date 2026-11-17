@@ -1199,7 +1199,10 @@ async function viewDuitMedia(main) {
     <div class="page-head">
       <div><div class="eyebrow">GESTÃO DE REDES SOCIAIS</div><h1>Duit Media</h1>
       <p class="lede">Ligue e verifique as contas Facebook e Instagram de cada cliente. Crie os conteúdos no Calendário.</p></div>
-      <div class="page-head-actions"><button class="btn btn-yellow btn-sm" onclick="go('calendar')">${svg('cal')} Abrir calendário</button></div>
+      <div class="page-head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn btn-yellow btn-sm" href="/social-stories.html?mode=stories" style="text-decoration:none">${svg('bell')} Stories no Android</a>
+        <button class="btn btn-ghost btn-sm" onclick="go('calendar')">${svg('cal')} Abrir calendário</button>
+      </div>
     </div>
     <iframe title="Contas ligadas Duit Media" src="/social-stories.html?mode=accounts&embed=admin"
       style="display:block;width:100%;height:580px;min-height:450px;border:0;background:transparent;border-radius:16px"
