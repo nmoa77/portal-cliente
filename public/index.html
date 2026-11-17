@@ -72,6 +72,9 @@
           <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16M13 5l7 7-7 7"/></svg>
         </button>
 
+        <button class="btn btn-block duit-passkey-button" id="passkey-login-button" type="button" hidden style="margin-top:12px;border:1px solid #d5d5d5;background:transparent;color:inherit;padding:13px;border-radius:10px;cursor:pointer;">🔐 Entrar com biometria</button>
+        <div style="font-size:11px;opacity:.7;margin:8px 0 15px;">Disponível apenas para administradores que já ativaram uma passkey no Perfil.</div>
+
         <div class="duit-form-assist">
           <a href="#" id="forgotLink">Esqueceu-se da palavra-passe? <span aria-hidden="true">↗</span></a>
         </div>
@@ -207,5 +210,6 @@
     }
   });
 </script>
+<script src="/js/passkeys.js?v=20261117a" defer></script>
 </body>
 </html>
