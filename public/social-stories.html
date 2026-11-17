@@ -259,9 +259,15 @@ body.composer-mode #publicacoes{padding:22px}
 </section>
 <section class="panel" id="story-nova"><p class="kicker">CALENDÁRIO / STORY</p><h2>Nova Story</h2><form id="new-story">
 <div class="grid"><label>Cliente<select id="client" required></select></label>
-<label>Data e hora em Portugal<input id="scheduled" type="datetime-local" required></label></div>
+<label>Quando pretende partilhar?<select id="story-timing"><option value="now" selected>Partilhar agora</option><option value="schedule">Agendar para mais tarde</option></select></label></div>
+<p id="story-schedule-wrap" hidden><label>Data e hora em Portugal<input id="scheduled" type="datetime-local"></label></p>
 <p><label>Imagem ou vídeo finalizado<input type="file" id="media" accept="image/jpeg,image/png,image/webp,video/mp4" required></label></p>
-<button type="submit">Guardar Story</button></form><p id="feedback" aria-live="polite"></p>
+<button type="submit" id="story-save-button">Guardar e preparar para Android</button></form><p id="feedback" aria-live="polite"></p>
+<div id="story-share-success" hidden style="margin-top:15px;padding:16px;border:1px solid #B7E4B8;background:#E8F7E8;border-radius:12px">
+<strong>Story pronta para partilhar</strong>
+<p style="font-size:12px;line-height:1.6">Abra a Story no Android para terminar a publicação no Instagram. A DUIT Media não publica automaticamente a Story.</p>
+<a id="story-share-link" href="#" target="_blank" rel="noopener" style="display:inline-block;background:#161616;color:#fff;border-radius:9px;padding:11px 16px;font-weight:700;text-decoration:none">Abrir Story no Android</a>
+</div>
 </section>
 <section class="panel" id="stories-section"><p class="kicker">03 / STORIES</p><h2>Stories preparadas</h2><p class="muted">A partilha abre o menu do Android. Escolha Instagram Stories quando disponível. A publicação só é confirmada no portal depois de carregar em «Já publiquei».</p><div id="stories">A carregar…</div></section></div></div>
 </main>
@@ -1171,19 +1177,59 @@ $('push-status').textContent=result.delivered+' de '+result.total+' notificaçõ
 }catch(error){$('push-status').textContent=error.message;}
 });
 
+function syncStoryTiming(){
+ const immediate=$('story-timing').value==='now';
+ $('story-schedule-wrap').hidden=immediate;
+ $('scheduled').required=!immediate;
+ $('story-save-button').textContent=immediate?'Guardar e preparar para Android':'Agendar Story';
+}
+$('story-timing').addEventListener('change',syncStoryTiming);
+syncStoryTiming();
 $('new-story').addEventListener('submit',async e=>{
-e.preventDefault();const button=e.target.querySelector('button[type=submit]');button.disabled=true;$('feedback').textContent='A guardar…';
-try{const file=$('media').files[0];if(!file||file.size>80*1024*1024)throw Error('Máximo 80 MB por Story');
-const selectedDate=$('scheduled').value;
-if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(selectedDate))throw Error('Data inválida. Escolha novamente a data e hora.');
-// datetime-local corresponde à hora do dispositivo. Avisar se não está em Portugal.
-if(Intl.DateTimeFormat().resolvedOptions().timeZone!=='Europe/Lisbon'&&!confirm('O telemóvel não está definido para a hora de Portugal. Continuar com o horário local do dispositivo?'))return;
-const date=new Date($('scheduled').value);if(!Number.isFinite(date.getTime()))throw Error('Data inválida');
-const story=await request('/api/duit-social/stories',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:Number($('client').value),scheduled_at:date.toISOString(),status:'scheduled'})});
-try{const r=await fetch('/api/duit-social/stories/'+story.id+'/media',{method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file});const data=await r.json();if(!r.ok)throw Error(data?.error||'Falha no upload');}
-catch(e){await request('/api/duit-social/stories/'+story.id,{method:'DELETE'});throw e;}
-$('feedback').textContent='Story guardada no portal.';e.target.reset();await refresh();
-}catch(e){$('feedback').textContent=e.message;$('feedback').className='error';}finally{button.disabled=false;}
+ e.preventDefault();
+ const button=$('story-save-button');
+ button.disabled=true;
+ $('feedback').className='';
+ $('feedback').textContent='A guardar…';
+ $('story-share-success').hidden=true;
+ try{
+  const file=$('media').files[0];
+  if(!file||file.size>80*1024*1024)throw Error('Escolha uma imagem ou vídeo até 80 MB.');
+  const immediate=$('story-timing').value==='now';
+  const payload={client_id:Number($('client').value),immediate};
+  if(!immediate){
+   const date=new Date($('scheduled').value);
+   if(!Number.isFinite(date.getTime()))throw Error('Selecione uma data e hora válidas.');
+   if(Intl.DateTimeFormat().resolvedOptions().timeZone!=='Europe/Lisbon'&&!confirm('O dispositivo não está definido para a hora de Portugal. Continuar com o horário local?'))return;
+   payload.scheduled_at=date.toISOString();
+   payload.status='scheduled';
+  }
+  const story=await request('/api/duit-social/stories',{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+  });
+  try{
+   const upload=await fetch('/api/duit-social/stories/'+story.id+'/media',{
+     method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file
+   });
+   const result=await upload.json().catch(()=>null);
+   if(!upload.ok)throw Error(result?.error||'Não foi possível guardar o ficheiro.');
+  }catch(error){
+   await request('/api/duit-social/stories/'+story.id,{method:'DELETE'}).catch(()=>null);
+   throw error;
+  }
+  $('feedback').textContent=immediate?'Story preparada para partilhar agora no Android.':'Story agendada com sucesso.';
+  if(immediate){
+   const url='/social-stories.html?mode=stories&story='+story.id;
+   $('story-share-link').href=url;
+   $('story-share-success').hidden=false;
+  }
+  e.target.reset();
+  syncStoryTiming();
+  await refresh();
+ }catch(error){
+  $('feedback').className='error';
+  $('feedback').textContent=error.message;
+ }finally{button.disabled=false;}
 });
 (async()=>{try{const me=await request('/api/auth/me');if(me.role!=='admin')throw Error('Acesso reservado à DUIT');
 $('pub-date').value=dateForInput(60*60*1000);
