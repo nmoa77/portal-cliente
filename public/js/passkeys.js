@@ -81,7 +81,8 @@
   function showError(message,element){
     if(element){element.textContent=message;element.classList.add('show');}
     else if(typeof window.toast==='function')window.toast(message,'cancel');
-    else alert(message);
+    else if(window.duitToast)window.duitToast(message,'error');
+    else console.warn('[DUIT]',message);
   }
   window.duitPasskeyRegister=async function(){
     if(!supported())return showError('Este dispositivo/navegador não suporta passkeys.');
@@ -120,7 +121,7 @@
         const remove=document.createElement('button');remove.className='btn btn-ghost btn-sm';
         remove.type='button';remove.textContent='Remover';
         remove.addEventListener('click',async()=>{
-          if(!confirm('Remover esta passkey? O login por palavra-passe mantém-se disponível.'))return;
+          if(!await window.duitConfirm('Remover esta passkey? O login por palavra-passe mantém-se disponível.'))return;
           try{
             const answer=await fetch(endpoint+'/register/'+encodeURIComponent(key.id),{method:'DELETE',credentials:'same-origin',headers:{'Content-Type':'application/json'}});
             if(!answer.ok)throw Error('Não foi possível remover.');
