@@ -1236,10 +1236,17 @@ async function viewDuitMediaStories(main) {
 async function viewCalendar(main) {
   if (!state.calDay) state.calDay = todayISO();
   const mode = state.calMode;
+  // Calendário exclusivo dos clientes com subscrição ATIVA de gestão social.
+  const socialClientIds = new Set(state.clients.filter(c =>
+    Number(c.social_subs || 0) > 0 && !c.is_prospect && !c.parent_user_id
+  ).map(c => Number(c.id)));
+  if (state.calClientFilter !== 'all' && !socialClientIds.has(Number(state.calClientFilter))) {
+    state.calClientFilter = 'all';
+  }
   const filter = state.calClientFilter;
   // Mostrar Stories juntamente com os posts, sem alterar os fluxos antigos.
   const storyRows = await api('/api/duit-social/stories').catch(() => []);
-  const calendarStories = storyRows.filter(s => filter === 'all' || String(s.client_id) === String(filter))
+  const calendarStories = storyRows.filter(s => socialClientIds.has(Number(s.client_id)) && (filter === 'all' || String(s.client_id) === String(filter)))
     .map(s => ({ ...s, calendarDay: new Date(s.scheduled_at)
       .toLocaleDateString('sv-SE', { timeZone:'Europe/Lisbon' }) }));
   // Trabalhos do publicador Meta aparecem no mesmo calendário, distintos
@@ -1252,7 +1259,7 @@ async function viewCalendar(main) {
   const metaQuery = new URLSearchParams({start:windowStart,end:windowEnd});
   if(filter!=='all')metaQuery.set('client_id',String(filter));
   const metaJobs = await api('/api/duit-social/publisher/calendar?'+metaQuery.toString()).catch(()=>[]);
-  const calendarMetaJobs = metaJobs.map(j=>({
+  const calendarMetaJobs = metaJobs.filter(j=>socialClientIds.has(Number(j.client_id))).map(j=>({
     ...j,calendarDay:new Date(j.scheduled_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Lisbon'})
   }));
   // A mesma publicação tem um registo editorial e um destino Meta.
@@ -1293,11 +1300,18 @@ async function viewCalendar(main) {
       ${escapeHtml(typeLabel)} · ${escapeHtml(clientLabel)} · ${escapeHtml(channelLabel)} · ${status.label}
     </a>`;
   };
-  const storyMini = s => `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({story:${s.id}})" class="cal-post"
-    style="display:block;text-decoration:none;background:#fff3b5;color:#1b1b1b;border-radius:8px;padding:7px;margin-top:5px;"
-    title="Story ${escapeHtml(s.client_company||s.client_name)}">
-    ◉ Story · ${escapeHtml(s.client_company||s.client_name)} · ${escapeHtml(s.status)}
-  </a>`;
+  const storyMini = s => {
+    const published = s.status === 'published';
+    const bg = published ? '#E8F7E8' : '#fff3b5';
+    const border = published ? '#B7E4B8' : '#F0D88A';
+    const color = published ? '#1F6B2A' : '#1b1b1b';
+    const label = published ? 'Publicado' : s.status === 'scheduled' ? 'Agendado' : s.status === 'ready' ? 'Pronto' : 'Rascunho';
+    return `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({story:${s.id}})" class="cal-post"
+      style="display:block;text-decoration:none;background:${bg};color:${color};border:1px solid ${border};border-radius:8px;padding:7px;margin-top:5px;"
+      title="Story ${escapeHtml(s.client_company||s.client_name)} · ${label}">
+      ${published ? '✓' : '◉'} Story · ${escapeHtml(s.client_company||s.client_name)} · ${label}
+    </a>`;
+  };
 
   const pageHead = `
     <div class="page-head">
@@ -1329,7 +1343,7 @@ async function viewCalendar(main) {
     <div class="cal-toolbar">
       <div class="cal-filters">
         <button class="cal-filter ${filter === 'all' ? 'active' : ''}" onclick="setCalFilter('all')">Todos</button>
-        ${state.clients.filter(c => !c.is_prospect && !c.parent_user_id && !['ana@exemplo.pt','joao@exemplo.pt','rita@exemplo.pt'].includes(String(c.email||'').toLowerCase())).map(c => `
+        ${state.clients.filter(c => socialClientIds.has(Number(c.id))).map(c => `
           <button class="cal-filter ${filter == c.id ? 'active' : ''}" onclick="setCalFilter(${c.id})">
             ${escapeHtml(c.company || c.name)}
           </button>
@@ -1356,7 +1370,7 @@ async function viewCalendar(main) {
     const month = state.calMonth;
     const qs = new URLSearchParams({ month });
     if (filter !== 'all') qs.set('user_id', filter);
-    const posts = await api(`/api/social-posts?${qs.toString()}`);
+    const posts = (await api(`/api/social-posts?${qs.toString()}`)).filter(p => socialClientIds.has(Number(p.user_id)));
     state.calPostsCache = posts;
     const days = daysOfMonth(month);
     const first = dayOfWeekISO(month, 1);
@@ -1409,7 +1423,7 @@ async function viewCalendar(main) {
     const qs = new URLSearchParams({ month: mo });
     if (filter !== 'all') qs.set('user_id', filter);
     const rows = await api(`/api/social-posts?${qs.toString()}`);
-    all.push(...rows);
+    all.push(...rows.filter(p => socialClientIds.has(Number(p.user_id))));
   }
   state.calPostsCache = all;
   // Vista diária funciona como to-do: só mostra os rascunhos pendentes.
