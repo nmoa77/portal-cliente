@@ -1309,7 +1309,8 @@ async function viewCalendar(main) {
         `).join('')}
       </div>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
-        <button class="btn btn-yellow btn-sm" onclick="openDuitMediaCalendar({date:'${mode === 'day' ? state.calDay : ''}',client:'${filter === 'all' ? '' : filter}'})">${svg('plus')} Criar conteúdo</button>
+        <button class="btn btn-yellow btn-sm" onclick="openNewPostForDate('${mode === 'day' ? state.calDay : ''}')">${svg('plus')} Novo post</button>
+        <button class="btn btn-ghost btn-sm" onclick="openDuitMediaCalendar({date:'${mode === 'day' ? state.calDay : ''}',client:'${filter === 'all' ? '' : filter}'})">Criar conteúdo Meta / Story</button>
         <a class="btn btn-ghost btn-sm" href="/social-stories.html?mode=accounts">Gerir contas Meta</a>
         ${filter !== 'all'
           ? `<button class="btn btn-ghost btn-sm" onclick="openGenPosts()">${svg('cal')} Gerar posts do mês</button>`
@@ -1341,7 +1342,7 @@ async function viewCalendar(main) {
       const dayPosts = posts.filter(p => p.date === dateStr);
       const isToday = dateStr === todayISO();
       cells.push(`
-        <div class="cal-day ${isToday ? 'today' : ''}" onclick="openDuitMediaCalendar({date:'${dateStr}',client:'${filter === 'all' ? '' : filter}'})">
+        <div class="cal-day ${isToday ? 'today' : ''}" onclick="openNewPostForDate('${dateStr}')">
           <div class="date">${d}</div>
           ${dayPosts.map(p => {
             const label = p.client_company || p.client_name || '';
