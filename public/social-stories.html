@@ -83,6 +83,9 @@ body.calendar-embed .sectionnav{padding-bottom:18px}
 </style><style>
 body.accounts-mode #publicacoes,body.accounts-mode .workspace-side,body.accounts-mode .composer-only{display:none!important}
 /* Vista Android: acesso direto às Stories preparadas, sem painéis de desktop. */
+body.stories-mobile.accounts-mode .workspace-side{display:contents!important}
+body.stories-mobile.accounts-mode #stories-section,body.stories-mobile.accounts-mode #alertas{display:block!important}
+#story-schedule-wrap[hidden],#story-share-success[hidden]{display:none!important}
 body.stories-mobile #contas,body.stories-mobile #publicacoes,body.stories-mobile #story-nova,
 body.stories-mobile .format-switch,body.stories-mobile .accounts-only{display:none!important}
 body.stories-mobile .workspace{display:block;max-width:760px}
