@@ -593,6 +593,7 @@ app.get('/api/clients', requireAdmin, (req, res) => {
                JOIN subscriptions s ON s.id = si.subscription_id
                JOIN plans p ON p.id = si.plan_id
               WHERE s.user_id = u.id
+                AND s.status = 'active'
                 AND p.category = 'social'
                 AND si.status = 'active') AS social_subs
        FROM users u WHERE u.role='client' AND u.is_prospect=0 AND u.parent_user_id IS NULL ORDER BY u.is_active ASC, u.name`
