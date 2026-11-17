@@ -269,7 +269,8 @@ body.composer-mode #publicacoes{padding:22px}
 </div>
 <div class="grid"><label>Imagens JPG ou PNG · vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,image/png,video/mp4" multiple required></label>
 <label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
-<p class="actions"><button type="submit" id="publication-save-button">Guardar publicação</button>
+<p class="actions"><button type="submit" id="publication-save-button" data-save-action="draft">Guardar rascunho</button>
+<button type="submit" id="publication-publish-button" data-save-action="publish" class="secondary">Publicar agora</button>
 <button type="button" id="duit-facebook-test-publish" class="secondary" hidden>Publicar teste DUIT</button>
 <button type="button" id="duit-schedule-test" class="secondary" hidden>Agendar teste Instagram DUIT</button></p>
 <p class="muted" id="duit-test-help" hidden>Este botão envia apenas o rascunho já guardado. Se alterou algum campo, guarde primeiro e volte a abrir o post.</p></form>
@@ -519,6 +520,7 @@ function populatePublicationEditor(job){
        $('pub-files').disabled=false;
        notice.remove();
        $('publication-save-button').disabled=false;
+       $('publication-publish-button').disabled=false;
        $('pub-status').textContent='Agendamento cancelado. Pode editar todos os campos e guardar o rascunho.';
      }catch(e){$('pub-status').textContent='Não foi possível reabrir: '+e.message;unlock.disabled=false;}
    });
@@ -542,6 +544,7 @@ function populatePublicationEditor(job){
  $('pub-files').closest('label').append(hint);
  if(!canEdit){
   $('publication-save-button').disabled=true;
+  $('publication-publish-button').disabled=true;
   if(job.status!=='scheduled')$('pub-status').textContent='Publicação em processamento ou publicada: edição bloqueada para evitar envios duplicados.';
  }
 
@@ -1110,8 +1113,35 @@ function returnToCalendarAfterSave(jobId){
     window.location.assign('/admin.html#calendar');
   }
 }
+// Duas ações: guardar somente ou guardar, verificar ficheiros e pedir publicação.
+let publicationSaveBusy=false;
+async function finishMediaSave(jobId,expectedFiles,shouldPublish){
+ const saved=await request('/api/duit-social/publisher/jobs/'+jobId);
+ if(!saved || !Array.isArray(saved.files) || saved.files.length<expectedFiles)
+   throw Error('O ficheiro ainda não está confirmado no armazenamento. O rascunho foi mantido; não foi enviado à Meta.');
+ if(shouldPublish){
+   if(!confirm('Publicar agora nas redes selecionadas? O conteúdo ficará visível publicamente.')) {
+     $('pub-status').textContent='Rascunho guardado. Publicação cancelada.';
+     returnToCalendarAfterSave(jobId);
+     return;
+   }
+   try{
+     await request('/api/duit-social/publisher/jobs/'+jobId+'/publish-now',{method:'POST'});
+   }catch(error){
+     $('pub-status').textContent='Rascunho e ficheiros guardados. A publicação não foi iniciada: '+error.message;
+     return;
+   }
+   $('pub-status').textContent='Conteúdo guardado e envio para a Meta solicitado.';
+ }
+ returnToCalendarAfterSave(jobId);
+}
 $('publish-form').addEventListener('submit',async event=>{
- event.preventDefault();const button=event.target.querySelector('button[type=submit]');button.disabled=true;
+ event.preventDefault();
+ if(publicationSaveBusy)return;
+ const shouldPublish=event.submitter?.dataset.saveAction==='publish';
+ publicationSaveBusy=true;
+ const buttons=[$('publication-save-button'),$('publication-publish-button')];
+ buttons.forEach(b=>b.disabled=true);
  try{
    const kind=$('pub-kind').value,files=Array.from($('pub-files').files);
    if(editingPublication){
@@ -1156,7 +1186,7 @@ $('publish-form').addEventListener('submit',async event=>{
     $('pub-files').value='';
     duitRefreshPreviewFiles();
     $('pub-status').textContent='Alterações guardadas no mesmo post. Não foi criado nenhum duplicado.';
-    returnToCalendarAfterSave(editingPublication.id);
+    await finishMediaSave(editingPublication.id,editingPublication.kind==='carousel'?Math.max(2,editingPublication.files.length):1,shouldPublish);
     return;
    }
    const networks=selectedNetworks();
@@ -1180,6 +1210,18 @@ $('publish-form').addEventListener('submit',async event=>{
        scheduled_at:new Date($('pub-date').value).toISOString()
      })
    });
+   // Um POST pode devolver um rascunho existente quando veio do calendário.
+   // Atualizar os campos desse registo, sem criar nem eliminar duplicados.
+   if(job.reused){
+     await request('/api/duit-social/publisher/jobs/'+job.id,{
+       method:'PATCH',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({
+         account_id:accountId,kind,networks,caption:$('pub-caption').value,
+         captions:$('pub-caption-split').checked?perNetworkCaptions:{},
+         scheduled_at:new Date($('pub-date').value).toISOString()
+       })
+     });
+   }
    try {
      for(let i=0;i<preparedFiles.length;i++){
        const response=await fetch('/api/duit-social/publisher/jobs/'+job.id+'/files/'+i,{
@@ -1188,16 +1230,21 @@ $('publish-form').addEventListener('submit',async event=>{
        if(!response.ok){const info=await response.json().catch(()=>({}));throw Error(info.error||'Upload falhou');}
      }
    }catch(e){
-     await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
+     // Nunca apagar um rascunho anterior se o upload de substituição falhar.
+     if(!job.reused) await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'}).catch(()=>{});
      throw e;
    }
    $('pub-status').textContent=job.reused
      ? 'Rascunho existente atualizado. O calendário mantém uma única entrada.'
      : 'Rascunho guardado e associado ao post original no calendário.';
-   // A gravação e o upload foram confirmados: voltar à lista do Calendário.
-   returnToCalendarAfterSave(job.id);
+   // Confirmar na BD os ficheiros associados antes de sair ou publicar.
+   await finishMediaSave(job.id,preparedFiles.length,shouldPublish);
  }catch(e){$('pub-status').textContent='Erro: '+e.message;}
- finally{button.disabled=false;}
+ finally{
+   publicationSaveBusy=false;
+   const locked=editingPublication&&editingPublication.status!=='draft';
+   buttons.forEach(b=>b.disabled=!!locked);
+ }
 });
 
 async function refreshMeta(){
