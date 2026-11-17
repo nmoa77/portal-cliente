@@ -139,15 +139,21 @@ function register(app) {
   });
 
   router.post('/stories', (req, res) => {
-    const { client_id, scheduled_at, status = 'draft' } = req.body || {};
-    if (!Number.isInteger(Number(client_id)) || !validSchedule(scheduled_at))
-      return res.status(400).json({error:'Cliente e data/hora com fuso horário são obrigatórios'});
-    if (!['draft','scheduled'].includes(status))
+    const { client_id, scheduled_at, status = 'draft', immediate = false } = req.body || {};
+    const clientId=Number(client_id);
+    if (!Number.isSafeInteger(clientId)||clientId<=0)
+      return res.status(400).json({error:'Selecione um cliente válido'});
+    if (immediate !== true && !validSchedule(scheduled_at))
+      return res.status(400).json({error:'Selecione uma data e hora válidas para agendar'});
+    if (immediate !== true && !['draft','scheduled'].includes(status))
       return res.status(400).json({error:'Estado inválido'});
-    const client = db.prepare("SELECT id FROM users WHERE id=? AND role='client'").get(Number(client_id));
+    const client = db.prepare("SELECT id FROM users WHERE id=? AND role='client'").get(clientId);
     if (!client) return res.status(400).json({error:'Cliente inválido'});
+    // Partilhar agora prepara para o Android, sem publicar na Meta.
+    const storyDate=immediate===true?new Date().toISOString():new Date(scheduled_at).toISOString();
+    const initialStatus=immediate===true?'ready':status;
     const result = db.prepare('INSERT INTO duit_social_stories(client_id,scheduled_at,status) VALUES (?,?,?)')
-      .run(client.id, new Date(scheduled_at).toISOString(), status);
+      .run(client.id, storyDate, initialStatus);
     res.status(201).json(publicRow(findStory(result.lastInsertRowid)));
   });
 
