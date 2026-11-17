@@ -309,6 +309,7 @@ body.composer-mode #publicacoes{padding:22px}
 </section>
 <section class="panel" id="stories-section"><p class="kicker">03 / STORIES</p><h2>Stories preparadas</h2><p class="muted">A partilha abre o menu do Android. Escolha Instagram Stories quando disponível. A publicação só é confirmada no portal depois de carregar em «Já publiquei».</p><div id="stories">A carregar…</div></section></div></div>
 </main>
+<script src="/js/duit-dialogs.js?v=20261117b"></script>
 <script>
 const $=id=>document.getElementById(id);
 const mediaQuery = new URLSearchParams(location.search);
@@ -785,8 +786,8 @@ if(s.has_media){
  }
 }
 if(s.status!=='published'){
- actions.append(makeButton('Já publiquei',async()=>{if(!confirm('A Story foi publicada no Instagram? O ficheiro será eliminado do portal.'))return;await request('/api/duit-social/stories/'+s.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'published'})});refresh();},'secondary'));
- actions.append(makeButton('Apagar',async()=>{if(!confirm('Apagar esta Story?'))return;await request('/api/duit-social/stories/'+s.id,{method:'DELETE'});refresh();},'danger'));
+ actions.append(makeButton('Já publiquei',async()=>{if(!await window.duitConfirm('A Story foi publicada no Instagram? O ficheiro será eliminado do portal.'))return;await request('/api/duit-social/stories/'+s.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'published'})});refresh();},'secondary'));
+ actions.append(makeButton('Apagar',async()=>{if(!await window.duitConfirm('Apagar esta Story?'))return;await request('/api/duit-social/stories/'+s.id,{method:'DELETE'});refresh();},'danger'));
 }
 if(!targeted)item.append(info);
  item.append(actions);root.append(item);
@@ -806,7 +807,7 @@ async function prepareShare(s,button){
     try{
       preparedFiles.set(s.id,await getStoryFile(s));
       button.textContent='Partilhar agora';
-    }catch(e){button.textContent='Preparar partilha';alert(e.message);}
+    }catch(e){button.textContent='Preparar partilha';window.duitToast(e.message);}
     finally{button.disabled=false;}
     return;
   }
@@ -815,11 +816,11 @@ async function prepareShare(s,button){
     if(navigator.canShare?.({files:[file]})&&navigator.share){
       const share=navigator.share({files:[file]});await share;
     } else {
-      alert('O Android não permite partilhar este ficheiro. Use «Descarregar».');
+      window.duitToast('O Android não permite partilhar este ficheiro. Use «Descarregar».');
     }
-  }catch(e){if(e.name!=='AbortError')alert('Falha na partilha: '+e.message);}
+  }catch(e){if(e.name!=='AbortError')window.duitToast('Falha na partilha: '+e.message);}
 }
-async function downloadStory(s){try{const file=await getStoryFile(s);const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){alert(e.message);}}
+async function downloadStory(s){try{const file=await getStoryFile(s);const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){window.duitToast(e.message);}}
 
 
 
@@ -888,9 +889,9 @@ async function refreshPublisher(accounts){
    const actions=document.createElement('div');actions.className='actions';
    if(['draft','scheduled'].includes(job.status)){
      actions.append(makeButton('Editar',async()=>{
-       const nextCaption=prompt('Editar legenda:',job.caption);
+       const nextCaption=await window.duitPrompt('Editar legenda:',job.caption);
        if(nextCaption===null)return;
-       const nextDate=prompt('Data e hora (YYYY-MM-DDTHH:mm em Portugal):',
+       const nextDate=await window.duitPrompt('Data e hora (YYYY-MM-DDTHH:mm em Portugal):',
          new Date(job.scheduled_at).toLocaleString('sv-SE',{timeZone:'Europe/Lisbon'}).replace(' ','T').slice(0,16));
        if(nextDate===null)return;
        if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(nextDate)){
@@ -913,21 +914,21 @@ async function refreshPublisher(accounts){
        catch(e){$('pub-status').textContent=e.message;}
      }));
      actions.append(makeButton('Publicar agora',async()=>{
-       if(!confirm('Publicar este conteúdo agora nas redes selecionadas?'))return;
+       if(!await window.duitConfirm('Publicar este conteúdo agora nas redes selecionadas?'))return;
        try{
          await request('/api/duit-social/publisher/jobs/'+job.id+'/publish-now',{method:'POST'});
          await refreshPublisher();
        }catch(e){$('pub-status').textContent=e.message;}
      },'secondary'));
      actions.append(makeButton('Apagar',async()=>{
-       if(!confirm('Eliminar este rascunho e ficheiros?'))return;
+       if(!await window.duitConfirm('Eliminar este rascunho e ficheiros?'))return;
        await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
        await refreshPublisher();
      },'secondary'));
    }
    if(job.status==='scheduled'){
      actions.append(makeButton('Cancelar agendamento',async()=>{
-       if(!confirm('Cancelar este agendamento? O conteúdo e os ficheiros ficam guardados como rascunho.'))return;
+       if(!await window.duitConfirm('Cancelar este agendamento? O conteúdo e os ficheiros ficam guardados como rascunho.'))return;
        try{
          await request('/api/duit-social/publisher/jobs/'+job.id+'/unschedule',{method:'POST'});
          await refreshPublisher();
@@ -941,7 +942,7 @@ async function refreshPublisher(accounts){
      const uncertain=job.results.some(r=>r.status==='review'||r.status==='processing');
      const neverSent=job.results.some(r=>r.status==='pending');
      if(neverSent&&!uncertain)actions.append(makeButton('Retomar apenas canais não iniciados',async()=>{
-       if(!confirm('Repor na fila APENAS os canais que ainda não foram enviados?'))return;
+       if(!await window.duitConfirm('Repor na fila APENAS os canais que ainda não foram enviados?'))return;
        try{
          await request('/api/duit-social/publisher/jobs/'+job.id+'/resume-pending',{method:'POST'});
          await refreshPublisher();
@@ -951,7 +952,7 @@ async function refreshPublisher(accounts){
      for(const item of job.results.filter(r=>r.status==='review'||r.status==='processing')){
        const channel=item.network==='instagram'?'Instagram':'Facebook';
        actions.append(makeButton('Já publicado · '+channel,async()=>{
-         const id=prompt('Confirme na Meta e indique o ID da publicação em '+channel+'. Sem este ID, não alteramos o estado.');
+         const id=await window.duitPrompt('Confirme na Meta e indique o ID da publicação em '+channel+'. Sem este ID, não alteramos o estado.');
          if(!id)return;
          try{
            await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
@@ -962,7 +963,7 @@ async function refreshPublisher(accounts){
          }catch(e){$('pub-status').textContent=e.message;}
        },'secondary'));
        actions.append(makeButton('Não publicado · '+channel,async()=>{
-         if(!confirm('Verificou na Meta que este conteúdo NÃO foi publicado em '+channel+'? O portal irá tentar publicar novamente APENAS nesse canal.'))return;
+         if(!await window.duitConfirm('Verificou na Meta que este conteúdo NÃO foi publicado em '+channel+'? O portal irá tentar publicar novamente APENAS nesse canal.'))return;
          try{
            await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
              method:'POST',headers:{'Content-Type':'application/json'},
@@ -1058,7 +1059,7 @@ $('duit-schedule-test').addEventListener('click',async()=>{
    return;
  }
  const when=new Date(savedDate).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon',dateStyle:'short',timeStyle:'short'});
- if(!confirm('CONFIRMAR AGENDAMENTO REAL: publicar automaticamente no Instagram DUIT em '+when+' (hora de Portugal)? Este conteúdo ficará visível no Instagram.'))return;
+ if(!await window.duitConfirm('CONFIRMAR AGENDAMENTO REAL: publicar automaticamente no Instagram DUIT em '+when+' (hora de Portugal)? Este conteúdo ficará visível no Instagram.'))return;
  button.disabled=true;
  try{
    await request('/api/duit-social/publisher/jobs/'+job.id+'/schedule',{
@@ -1073,7 +1074,7 @@ $('duit-facebook-test-publish').addEventListener('click',async()=>{
  if(!editingPublication||!['draft','review'].includes(editingPublication.status))return;
  const button=$('duit-facebook-test-publish');
  if(editingPublication.status==='review'){
-   if(!confirm('Confirma que verificou o '+duitTestNetworkName()+' DUIT e que ESTE post NÃO está publicado? Vamos repetir o envio uma única vez.'))return;
+   if(!await window.duitConfirm('Confirma que verificou o '+duitTestNetworkName()+' DUIT e que ESTE post NÃO está publicado? Vamos repetir o envio uma única vez.'))return;
    button.disabled=true;
    try{
      await request('/api/duit-social/publisher/jobs/'+editingPublication.id+'/reconcile',{
@@ -1095,7 +1096,7 @@ $('duit-facebook-test-publish').addEventListener('click',async()=>{
    $('pub-status').textContent='Existem alterações por guardar. Guarde primeiro e volte a abrir o post.';
    return;
  }
- if(!confirm('CONFIRMAR TESTE REAL: publicar agora este conteúdo no '+duitTestNetworkName()+' da DUIT? A publicação será visível na rede.'))return;
+ if(!await window.duitConfirm('CONFIRMAR TESTE REAL: publicar agora este conteúdo no '+duitTestNetworkName()+' da DUIT? A publicação será visível na rede.'))return;
  button.disabled=true;
  try{
   await request('/api/duit-social/publisher/jobs/'+editingPublication.id+'/publish-now',{method:'POST'});
@@ -1120,7 +1121,7 @@ async function finishMediaSave(jobId,expectedFiles,shouldPublish){
  if(!saved || !Array.isArray(saved.files) || saved.files.length<expectedFiles)
    throw Error('O ficheiro ainda não está confirmado no armazenamento. O rascunho foi mantido; não foi enviado à Meta.');
  if(shouldPublish){
-   if(!confirm('Publicar agora nas redes selecionadas? O conteúdo ficará visível publicamente.')) {
+   if(!await window.duitConfirm('Publicar agora nas redes selecionadas? O conteúdo ficará visível publicamente.')) {
      $('pub-status').textContent='Rascunho guardado. Publicação cancelada.';
      returnToCalendarAfterSave(jobId);
      return;
@@ -1302,7 +1303,7 @@ async function refreshMeta(){
       finally{check.disabled=false;}
     },'secondary');
     const btn=makeButton('Desligar',async()=>{
-      if(!confirm('Desligar esta Página Meta do portal DUIT?'))return;
+      if(!await window.duitConfirm('Desligar esta Página Meta do portal DUIT?'))return;
       await request('/api/duit-social/meta/accounts/'+account.id,{method:'DELETE'});
       await refreshMeta();
     },'secondary');
@@ -1396,7 +1397,7 @@ $('new-story').addEventListener('submit',async e=>{
   if(!immediate){
    const date=new Date($('scheduled').value);
    if(!Number.isFinite(date.getTime()))throw Error('Selecione uma data e hora válidas.');
-   if(Intl.DateTimeFormat().resolvedOptions().timeZone!=='Europe/Lisbon'&&!confirm('O dispositivo não está definido para a hora de Portugal. Continuar com o horário local?'))return;
+   if(Intl.DateTimeFormat().resolvedOptions().timeZone!=='Europe/Lisbon'&&!await window.duitConfirm('O dispositivo não está definido para a hora de Portugal. Continuar com o horário local?'))return;
    payload.scheduled_at=date.toISOString();
    payload.status='scheduled';
   }
