@@ -1,0 +1,60 @@
+name: Generate DUIT Android icons from official logo
+
+on:
+  push:
+    branches:
+      - feature/duit-social-stories-v1
+    paths:
+      - '.github/workflows/duit-pwa-icons.yml'
+      - 'public/logo-branco.png'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-icons:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/duit-social-stories-v1
+          persist-credentials: true
+      - name: Install Pillow
+        run: python -m pip install --disable-pip-version-check pillow
+      - name: Generate icons from the original DUIT artwork
+        shell: python
+        run: |
+          from PIL import Image, ImageDraw
+          from pathlib import Path
+          src=Image.open("public/logo-branco.png").convert("RGBA")
+          # Keep the original pixels and proportions; remove transparent margins only.
+          alpha=src.getchannel("A")
+          bounds=alpha.getbbox()
+          if bounds:
+              src=src.crop(bounds)
+          dest=Path("public/icons")
+          dest.mkdir(parents=True,exist_ok=True)
+          def make(size,maskable=False):
+              canvas=Image.new("RGBA",(size,size),(10,10,10,255))
+              if not maskable:
+                  # Square launcher image with DUIT dark rounded panel.
+                  canvas=Image.new("RGBA",(size,size),(0,0,0,0))
+                  ImageDraw.Draw(canvas).rounded_rectangle((0,0,size-1,size-1),radius=int(size*.19),fill=(10,10,10,255))
+              max_width=int(size*(.64 if maskable else .82))
+              max_height=int(size*(.36 if maskable else .52))
+              scale=min(max_width/src.width,max_height/src.height)
+              logo=src.resize((max(1,round(src.width*scale)),max(1,round(src.height*scale))),Image.Resampling.LANCZOS)
+              canvas.alpha_composite(logo,((size-logo.width)//2,(size-logo.height)//2))
+              return canvas
+          make(192).save(dest/"icon-192.png",optimize=True)
+          make(512).save(dest/"icon-512.png",optimize=True)
+          make(512,True).save(dest/"icon-maskable-512.png",optimize=True)
+      - name: Commit updated icons to staging branch only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/icons/icon-192.png public/icons/icon-512.png public/icons/icon-maskable-512.png
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(pwa): regenerate Android icons from original DUIT logo"
+          git push origin HEAD:feature/duit-social-stories-v1
