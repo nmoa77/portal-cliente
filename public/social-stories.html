@@ -412,6 +412,10 @@ function applyEditorialHandoff(){
      : 'Este cliente não tem conta Meta ligada. Ligue-a primeiro em Duit Media.';
  }
  $('pub-caption').value=handoffData.caption||'';
+ // Alterar .value por JavaScript não dispara o evento input.
+ // Atualizar explicitamente o preview após receber o texto do Calendário.
+ if($('pub-caption-split').checked) initializePerNetworkCaptions($('pub-caption').value);
+ duitRefreshPreview();
  const content=$('editorial-source');
  const parts=[];
  if(handoffData.sourceId)parts.push('<strong>Planeamento #'+Number(handoffData.sourceId)+'</strong>');
