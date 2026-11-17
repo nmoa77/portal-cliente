@@ -1141,9 +1141,9 @@ function openDuitMediaCalendar(opts = {}) {
   url.searchParams.set('embed', 'calendar');
   url.searchParams.set('mode', 'compose');
   if (opts.kind) url.searchParams.set('kind', String(opts.kind));
-  if (opts.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(opts.date)))
+  if (opts.date && /^\d{4}-\d{2}-\d{2}$/.test(String(opts.date)))
     url.searchParams.set('date', String(opts.date));
-  if (opts.client && /^\\d+$/.test(String(opts.client)))
+  if (opts.client && /^\d+$/.test(String(opts.client)))
     url.searchParams.set('client', String(opts.client));
   if (Number.isSafeInteger(Number(opts.publication)) && Number(opts.publication) > 0)
     url.searchParams.set('publication', String(opts.publication));
