@@ -321,7 +321,8 @@ function register(app){
    hasPersistentStorage:!!process.env.DATABASE_PATH,
    connectedAccounts:connected,
    workerEnabled:process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true',
-   testOnlyNetwork:isManualTest()?testNetwork():null
+   testOnlyNetwork:isManualTest()?testNetwork():null,
+   testScheduleEnabled:isManualTest()&&testNetwork()==='instagram'&&process.env.DUIT_SOCIAL_TEST_SCHEDULE_ENABLED==='true'
   };
   res.json(config);
  });
@@ -565,20 +566,34 @@ function register(app){
   res.json({ok:true,status:'scheduled',manualTest:isManualTest()});
  });
  router.post('/jobs/:id/schedule',(req,res)=>{
-  if(isManualTest())return res.status(403).json({error:'Em modo de teste o agendamento automático está bloqueado. Use «Publicar teste» apenas no post da DUIT.'});
-  const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
-  if(job&&JSON.parse(job.networks).includes('threads'))return res.status(409).json({error:'Threads ainda necessita de ligação própria. Este conteúdo pode ficar guardado como rascunho, mas não pode ser agendado automaticamente.'});
+  const id=Number(req.params.id);
+  if(!Number.isSafeInteger(id)||id<=0)return res.status(400).json({error:'Publicação inválida'});
+  const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(id);
   if(!job||job.status!=='draft')return res.status(409).json({error:'Já não é um rascunho'});
+  if(JSON.parse(job.networks).includes('threads'))
+    return res.status(409).json({error:'Threads necessita de ligação própria; mantenha o rascunho.'});
   const testError=testRestriction(job);
   if(testError)return res.status(409).json({error:testError});
+  if(isManualTest()){
+    // O teste agendado é autorizado por clique num rascunho específico.
+    // Nenhum agendamento legado ou de outro cliente é ativado.
+    if(process.env.DUIT_SOCIAL_TEST_SCHEDULE_ENABLED!=='true'||testNetwork()!=='instagram')
+      return res.status(403).json({error:'Agendamento de teste ainda não autorizado neste ambiente.'});
+    if(req.body?.confirm_test_schedule!==true)
+      return res.status(400).json({error:'Confirme explicitamente este agendamento de teste.'});
+    const minutes=(Date.parse(job.scheduled_at)-Date.now())/60000;
+    if(!Number.isFinite(minutes)||minutes<2||minutes>1440)
+      return res.status(400).json({error:'Para o teste DUIT, escolha entre 2 minutos e 24 horas a partir de agora.'});
+  }
   const valid=validateJobMedia(job);
   if(!valid.ok)return res.status(400).json({error:valid.error});
-  if(!enabled())return res.status(503).json({error:'Publicação automática desativada até configuração e testes'});
+  if(!enabled())return res.status(503).json({error:'O motor de publicação não está ativado'});
   if(!isFutureSchedule(job.scheduled_at))
-    return res.status(400).json({error:'A data já passou. Escolha uma data futura ou utilize «Publicar agora».'});
-  const changed=db.prepare("UPDATE duit_publish_jobs SET status='scheduled' WHERE id=? AND status='draft'").run(job.id);
+    return res.status(400).json({error:'A data já passou. Escolha uma data futura.'});
+  const changed=db.prepare("UPDATE duit_publish_jobs SET status='scheduled',test_manual_approved=? WHERE id=? AND status='draft'")
+    .run(isManualTest()?1:0,job.id);
   if(!changed.changes)return res.status(409).json({error:'O estado mudou; atualize a lista'});
-  res.json({ok:true,status:'scheduled'});
+  res.json({ok:true,status:'scheduled',manualTest:isManualTest(),scheduled_at:job.scheduled_at});
  });
  router.delete('/jobs/:id',(req,res)=>{
   const id=Number(req.params.id);
