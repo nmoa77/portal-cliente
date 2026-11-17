@@ -14,7 +14,6 @@ const {
 // Registo e autenticação WebAuthn / Passkeys (apenas admin).
 const app = express();
 const PORT = process.env.PORT || 3000;
-require('./duit-passkeys').register(app);
 
 // Atrás do proxy do Railway (ou qualquer reverse proxy HTTPS) — necessário para
 // o cookie `secure: true` funcionar e para req.ip refletir o cliente real.
@@ -22,6 +21,8 @@ app.set('trust proxy', 1);
 
 app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
+// WebAuthn precisa de JSON e cookies antes de tratar os pedidos.
+require('./duit-passkeys').register(app);
 
 // Site público DUIT — servido pelo mesmo serviço Railway, apenas nos hosts duit.pt / www.duit.pt.
 const websiteRoot = path.join(__dirname, '..', 'website');
