@@ -1570,11 +1570,34 @@ function dayPostRow(p) {
       </div>
       <div class="dp-actions">
         ${actionButtons}
+        <button class="btn btn-yellow btn-sm" type="button" onclick="subirPostListaParaMedia(${p.id})" title="Preparar este post na Duit Media">Subir para Media</button>
         <button class="btn btn-ghost btn-sm" onclick="openEditPost(${p.id})" title="Editar">${svg('edit')}</button>
         ${p.status !== 'cancelled' ? `<button class="btn btn-icon" title="Cancelar post" onclick="quickSetStatus(${p.id}, 'cancelled')">✕</button>` : ''}
       </div>
     </div>
   `;
+}
+
+// Ação direta da lista: abre a Duit Media com o cliente e a legenda deste post.
+// Não modifica o planeamento nem publica automaticamente.
+function subirPostListaParaMedia(id) {
+  const p=(state.calPostsCache||[]).find(item=>Number(item.id)===Number(id));
+  if(!p){toast('Post não encontrado no calendário.','cancel');return;}
+  const client=Number(p.user_id);
+  if(!Number.isSafeInteger(client)||client<=0){
+    toast('Este post não tem um cliente válido.','cancel');return;
+  }
+  openDuitMediaCalendar({
+    client,
+    date:p.date,
+    kind:'post',
+    handoff:{
+      sourceId:Number(p.id),
+      caption:String(p.text||''),
+      inspiration:String(p.inspiration||''),
+      story:String(p.story||'')
+    }
+  });
 }
 
 async function quickSetStatus(id, status) {
