@@ -1187,6 +1187,7 @@ function openDuitMediaCalendar(opts = {}) {
         inspiration:String(opts.handoff.inspiration||''),
         story:String(opts.handoff.story||''),
         sourceId:Number(opts.handoff.sourceId)||null,
+        clientId:Number(opts.client)||null,
       },window.location.origin);
     },{once:true});
   }
