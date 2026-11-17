@@ -1,0 +1,1368 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffd200">
+<title>Duit Media · Gestão de redes sociais</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
+:root{font-family:Montserrat,system-ui,-apple-system,sans-serif;color:#171717;background:#f3f4f5;--yellow:#ffd200;--ink:#121212;--line:#e9e9e9;--muted:#717171}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}body{margin:0;background:#f3f4f5}a{color:inherit;text-decoration:none}
+button,input,select,textarea{font:inherit}
+main{width:min(1270px,calc(100% - 72px));margin:0 auto;padding:0 0 75px}
+.topbar{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:1px solid #e0e0e0}
+.wordmark{color:#111;font-weight:900;letter-spacing:-2px;font-size:27px;display:inline-block}.wordmark span{color:#dfb500}
+.backlink{font-size:12px;font-weight:700;border:1px solid #dedede;background:#fff;padding:12px 18px;border-radius:11px;transition:background .2s}.backlink:hover{background:#fff5bd}
+.hero{padding:40px 0 26px;display:flex;justify-content:space-between;align-items:flex-end;gap:18px}
+.hero .eyebrow,.eyebrow{font-size:10px;letter-spacing:2.1px;font-weight:800;color:#898989;text-transform:uppercase}
+h1{font-size:clamp(27px,3.2vw,39px);line-height:1.18;letter-spacing:-1.6px;margin:12px 0 10px;font-weight:800}
+.hero .muted{margin:0;font-size:12px;line-height:1.7}
+.hero-label{border:1px solid #e2e2e2;border-radius:999px;background:#fff;padding:10px 14px;font-size:10px;color:#777;font-weight:700;letter-spacing:.4px;white-space:nowrap}
+.sectionnav{display:flex;gap:7px;overflow-x:auto;padding:0 0 24px;scrollbar-width:thin}
+.sectionnav a{display:inline-flex;align-items:center;padding:11px 17px;border-radius:10px;background:#e9eaec;color:#555;font-size:11px;font-weight:800;white-space:nowrap;transition:.2s}
+.sectionnav a:first-child{background:#171717;color:#fff}
+.sectionnav a:hover{background:#ffd200;color:#111}
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 315px;gap:20px;align-items:start}
+.workspace-main,.workspace-side{min-width:0;display:flex;flex-direction:column;gap:20px}
+.panel{border-radius:17px;background:#fff;border:1px solid #ebebeb;padding:28px;box-shadow:0 5px 24px #00000007;min-width:0;scroll-margin-top:25px}
+.panel>h2{font-size:17px;letter-spacing:-.6px;line-height:1.4;font-weight:800;margin:0 0 9px}
+.panel>p.muted{margin:0 0 22px}
+.panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.kicker{font-size:10px;font-weight:800;color:#a6a6a6;letter-spacing:1.5px;text-transform:uppercase;margin:0 0 6px}
+.muted{color:#858585;font-size:11px;line-height:1.75}
+.panel small{color:#888}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:17px}
+label{font-size:11px;font-weight:800;display:grid;gap:9px;color:#303030}
+input:not([type=checkbox]),select,textarea{min-height:45px;width:100%;padding:12px 13px;background:#fbfbfb;border:1px solid #e4e4e4;border-radius:9px;color:#1a1a1a;font-size:12px;font-weight:600;outline:none;transition:border .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{border-color:#c2a200;box-shadow:0 0 0 3px #ffd2002b}
+textarea{resize:vertical;line-height:1.65;font-weight:500!important;min-height:96px}
+input[type=file]{font-weight:500;font-size:11px;padding:10px}
+input[type=checkbox]{width:15px;height:15px;accent-color:#ffd200;flex-shrink:0}
+button{border:0;background:#ffd200;color:#111;padding:13px 18px;min-height:43px;border-radius:9px;font-size:11px;font-weight:800;cursor:pointer;transition:filter .15s,transform .15s}
+button:hover{filter:brightness(.96);transform:translateY(-1px)}
+button:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.secondary{background:#f1f1f1;color:#222}.danger{background:#fff1ef;color:#b12d22}
+.actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px}
+.actions>label:has(input[type=checkbox]),#publish-form>p.actions>label{display:inline-flex;flex-direction:row;align-items:center;gap:9px;padding:9px 12px;background:#f7f7f7;border:1px solid #ededed;border-radius:8px;font-size:11px}
+#meta-client{max-width:330px!important;flex:1;min-width:175px}
+#meta-status,#pub-status,#push-status{padding:11px 0;margin:4px 0!important;font-size:11px}
+#meta-accounts>*,#meta-pending>*{border-color:#ededed!important;border-radius:10px!important}
+#meta-accounts button{background:#f3f3f3!important}
+#meta-accounts button:hover{background:#ffeb83!important}
+#pub-filter{min-width:210px}
+#pub-jobs{font-size:12px}
+#publish-form>p{margin:17px 0}
+#publish-form>p.actions{margin:16px 0}
+#publish-form>p:last-child{margin-bottom:14px}
+#publish-form .grid+ p{margin-top:18px}
+#feedback{min-height:20px;color:#666;font-size:11px}
+.error{color:#b91c1c!important}
+.story{padding:15px;border:1px solid #eee;border-radius:11px;margin:12px 0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center}
+.story strong{font-size:12px}.story .muted{margin-top:5px}
+.preview{width:100%;max-height:450px;object-fit:contain;border-radius:10px;background:#eee}
+.compact-panel{background:#1b1b1b;border-color:#1b1b1b;color:#fff}
+.compact-panel .muted{color:#b3b3b3}.compact-panel h2{color:#fff}
+.compact-panel button.secondary{background:#3b3b3b;color:#fff}
+.compact-panel .kicker{color:#ffd200}
+#stories{font-size:12px}
+.topbar .top-right{display:flex;align-items:center;gap:12px}
+.envpill{background:#fff3b0;color:#725e00;font-size:10px;font-weight:800;border-radius:20px;padding:8px 11px}
+@media(max-width:1020px){.workspace{grid-template-columns:1fr}.workspace-side{display:grid;grid-template-columns:1fr 1fr}.workspace-side>.panel:last-child{grid-column:1/-1}}
+@media(max-width:680px){main{width:calc(100% - 28px)}.topbar{min-height:68px}.topbar .backlink{font-size:10px;padding:9px}.hero{padding-top:25px;align-items:flex-start}.hero-label{display:none}.panel{padding:19px;border-radius:14px}.grid,.workspace-side,.story{grid-template-columns:1fr}.workspace-side>.panel:last-child{grid-column:auto}.actions{align-items:stretch}.sectionnav a{padding:10px 12px}}
+</style>
+<style>
+body.calendar-embed{background:#f3f4f5}
+body.calendar-embed main{width:min(1160px,calc(100% - 40px));padding:20px 0 45px}
+body.calendar-embed .topbar,body.calendar-embed .hero-label{display:none}
+body.calendar-embed .hero{padding:4px 0 18px}
+body.calendar-embed .hero h1{font-size:27px}
+body.calendar-embed .sectionnav{padding-bottom:18px}
+@media(max-width:680px){body.calendar-embed main{width:calc(100% - 22px)}}
+</style><style>
+body.accounts-mode #publicacoes,body.accounts-mode .workspace-side,body.accounts-mode .composer-only{display:none!important}
+/* Vista Android: acesso direto às Stories preparadas, sem painéis de desktop. */
+body.stories-mobile.accounts-mode .workspace-side{display:contents!important}
+body.stories-mobile.accounts-mode #stories-section,body.stories-mobile.accounts-mode #alertas{display:block!important}
+#story-schedule-wrap[hidden],#story-share-success[hidden]{display:none!important}
+body.stories-mobile #contas,body.stories-mobile #publicacoes,body.stories-mobile #story-nova,
+body.stories-mobile .format-switch,body.stories-mobile .accounts-only,body.stories-mobile .stories-nav-link{display:none!important}
+body.stories-mobile .workspace{display:block;max-width:760px}
+body.stories-mobile .workspace-main,body.stories-mobile .workspace-side{display:contents}
+body.stories-mobile #alertas,body.stories-mobile #stories-section{display:block!important}
+body.stories-mobile #stories-section{order:0}
+body.stories-mobile #stories{display:grid;gap:12px}
+body.stories-mobile #stories .story{border:1px solid #e6e6e6;border-radius:14px;padding:16px;background:#fff;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+body.stories-mobile #stories .actions{display:flex;gap:8px;flex-wrap:wrap}
+body.stories-mobile #stories .actions button{min-height:44px}
+body.stories-mobile .story.story-target{display:block!important;border:2px solid #ffd200!important}
+body.stories-mobile .story.story-target .actions{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+body.stories-mobile .story.story-target .actions button{width:100%;min-height:52px}
+.story-target-preview{display:flex;align-items:center;justify-content:center;background:#111;border-radius:14px;overflow:hidden;aspect-ratio:9/16;max-height:65vh;margin:14px auto;width:min(100%,340px);color:#fff}
+.story-target-preview img,.story-target-preview video{width:100%;height:100%;object-fit:contain}
+.story-target-hint{font-size:12px;line-height:1.6;color:#555;margin:8px 0}
+
+body.stories-mobile #alertas{margin-top:18px}
+@media(max-width:680px){body.stories-mobile main{width:calc(100% - 24px)}body.stories-mobile .story .actions{width:100%}}
+
+body.accounts-mode.admin-embed{background:transparent}
+body.accounts-mode.admin-embed main{width:100%;max-width:none;padding:0;margin:0}
+body.accounts-mode.admin-embed .topbar,body.accounts-mode.admin-embed .hero,body.accounts-mode.admin-embed .sectionnav{display:none!important}
+body.accounts-mode.admin-embed .workspace{max-width:none;width:100%}
+body.accounts-mode.admin-embed .workspace-main{width:100%}
+body.accounts-mode.admin-embed .panel{box-shadow:none;margin:0;padding:23px;border-radius:14px}
+body.accounts-mode.admin-embed #contas .kicker{display:none}
+
+body.accounts-mode .workspace{display:block;max-width:990px}
+body.accounts-mode .hero-label{display:none}
+body.composer-mode #contas,body.composer-mode #alertas,body.composer-mode .accounts-only{display:none!important}
+body.composer-mode .workspace{display:block;max-width:1030px}
+body.composer-mode .workspace-main,body.composer-mode .workspace-side{display:contents}
+body.composer-mode .panel{margin-bottom:18px}
+body.composer-mode #stories-section{display:none}
+/* Criação limpa; edição abre exclusivamente o conteúdo selecionado. */
+body.composer-mode.editing-existing .format-switch{display:none!important}
+body.composer-mode.editing-existing #pub-jobs{display:none!important}
+body.composer-mode.editing-existing #pub-files:disabled{opacity:.65}
+
+body.composer-mode .composer-job-list{display:none!important}
+body.composer-mode:not(.editing-existing) #pub-jobs{display:none!important}
+.format-switch{display:flex;gap:8px;margin:0 0 20px;flex-wrap:wrap}
+.format-switch button{background:#fff;border:1px solid #e7e7e7;color:#555;min-width:90px}
+.format-switch button.active{background:#ffd200;color:#111;border-color:#ffd200}
+body.composer-mode #publicacoes,body.composer-mode #story-nova{max-width:1030px}
+body.composer-mode.story-mode #publicacoes{display:none}
+body.composer-mode:not(.story-mode) #story-nova{display:none}
+body.composer-mode .hero-label{display:none}
+body.composer-mode .composer-job-list{margin-top:28px}
+.composer-client-row{display:grid;grid-template-columns:minmax(180px,1fr) 1fr;gap:14px;align-items:end;margin:14px 0 24px;background:#f8f8f8;border:1px solid #ededed;padding:17px;border-radius:12px}
+.composer-client-row .muted{margin:0}
+#compose-client{max-width:450px}
+body.composer-mode .story{background:#fdfdfd}
+@media(max-width:680px){.composer-client-row{grid-template-columns:1fr}}
+</style><style>
+.caption-field{position:relative;margin:22px 0 18px}
+.caption-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px}
+.caption-title label{font-size:11px;font-weight:800}
+.caption-field textarea{width:100%;min-height:140px;resize:vertical;font-size:13px;line-height:1.65;font-weight:500}
+.emoji-toggle{background:#f4f4f4;border:1px solid #e6e6e6;font-size:12px;padding:8px 12px;min-height:36px}
+.emoji-toggle:hover,.emoji-toggle[aria-expanded=true]{background:#ffed88}
+.emoji-picker{position:absolute;right:0;top:40px;width:min(390px,100%);z-index:40;background:#fff;border:1px solid #e3e3e3;border-radius:13px;box-shadow:0 14px 40px #0002;padding:13px}
+.emoji-picker[hidden]{display:none!important}
+.emoji-picker-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:12px}
+.emoji-close{background:#f2f2f2;padding:4px 9px;min-height:30px}
+#emoji-search{margin-bottom:9px;width:100%}
+.emoji-categories{display:flex;gap:4px;overflow-x:auto;padding-bottom:8px}
+.emoji-categories button{flex:0 0 auto;background:#f7f7f7;color:#555;min-height:31px;padding:6px 9px;border-radius:7px;font-size:12px}
+.emoji-categories button.active{background:#ffd200;color:#111}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:3px;max-height:220px;overflow:auto;padding-top:7px;border-top:1px solid #eee}
+.emoji-grid button{min-height:38px;padding:4px;font-size:23px;background:transparent;border-radius:7px;font-family:Apple Color Emoji,Segoe UI Emoji,Noto Color Emoji,sans-serif}
+.emoji-grid button:hover,.emoji-grid button:focus-visible{background:#fff0a4}
+@media(max-width:580px){.emoji-picker{left:0;right:0;width:100%}.emoji-grid{grid-template-columns:repeat(7,1fr)}}
+</style><style>
+body.composer-mode .workspace,body.composer-mode #publicacoes{max-width:none!important}
+body.composer-mode #publicacoes{padding:22px}
+.duit-composer-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,.9fr);gap:23px;align-items:start;margin-top:18px}
+.duit-composer-layout #publish-form{min-width:0;background:#fff}
+.duit-composer-layout #publish-form>.grid,.duit-composer-layout #publish-form>.actions{margin-bottom:16px}
+.duit-live-preview{position:sticky;top:12px;min-width:0;background:#eef3fa;border-radius:13px;padding:16px}
+.duit-preview-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:15px}
+.duit-preview-title strong{font-size:12px}
+#duit-preview-platform{max-width:210px;min-height:37px;padding:8px;font-size:11px;background:#fff}
+.duit-preview-card{background:#fff;border:1px solid #e4e7ec;border-radius:10px;overflow:hidden}
+.duit-preview-head{display:flex;align-items:center;gap:10px;padding:13px;font-size:12px}
+.duit-preview-avatar{width:39px;height:39px;border-radius:50%;background:#171717;color:#ffd200;display:grid;place-items:center;font-size:16px;font-weight:800;flex:0 0 auto}
+.duit-preview-identity{min-width:0;flex:1;display:flex;flex-direction:column;gap:4px}.duit-preview-identity small{font-size:10px;color:#777}
+.duit-preview-copy{padding:0 14px 12px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.65;max-height:190px;overflow:auto}
+.duit-preview-copy:empty{display:none}
+.duit-preview-media{background:#f0f2f5;min-height:260px;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.duit-preview-media img,.duit-preview-media video{display:block;width:100%;max-height:440px;object-fit:contain;background:#111}
+.duit-preview-placeholder{text-align:center;color:#adb5bc;font-size:64px}.duit-preview-placeholder small{display:block;font-size:11px;max-width:220px;color:#8d949b}
+.duit-preview-count{position:absolute;right:10px;top:10px;background:#111d;color:white;padding:5px 9px;border-radius:7px;font-size:10px}
+.duit-preview-actions{display:flex;justify-content:space-around;gap:6px;padding:13px 9px;border-top:1px solid #eee;color:#666;font-size:11px}
+.duit-live-preview>.muted{margin:12px 0 0}
+.duit-preview-card.is-instagram .duit-preview-actions{font-size:12px}
+@media(max-width:850px){.duit-composer-layout{grid-template-columns:1fr}.duit-live-preview{position:static}}
+</style><style>
+.caption-mode{padding:12px 0 16px}
+.caption-mode label{display:flex;align-items:center;gap:10px;font-size:12px;text-transform:none}
+.caption-mode label input{width:16px;height:16px}
+.caption-mode .muted{margin:7px 0 0;font-weight:400}
+.per-network-captions[hidden]{display:none!important}
+.per-network-captions{background:#f7f7f7;border-radius:10px;border:1px solid #ededed;padding:13px;margin-top:12px}
+.network-caption-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+.network-caption-tabs button{background:#fff;border:1px solid #ddd;min-height:34px;padding:8px 12px}
+.network-caption-tabs button.active{background:#ffd200;border-color:#ffd200}
+#network-caption{background:#fff}
+#pub-threads:not(:checked) ~ span{opacity:.75}
+.existing-upload{display:flex;align-items:center;gap:8px;margin:8px 0 4px;background:#f6f6f6;border-radius:9px;padding:9px;font-size:11px;color:#555}
+.existing-upload img{width:55px;height:55px;object-fit:cover;border-radius:7px}
+</style></head><body>
+<main>
+<div class="topbar"><a class="wordmark" href="/admin.html" aria-label="DUIT">DU<span>!</span>T</a><div class="top-right"><span class="envpill">DUIT MEDIA</span><a class="backlink" href="/admin.html#calendar">← Voltar ao portal</a></div></div>
+<header class="hero"><div><span class="eyebrow">GESTÃO DE REDES SOCIAIS / DUIT MEDIA</span><h1 id="media-page-title">Contas ligadas.</h1><p class="muted" id="media-page-subtitle">Ligue as contas Facebook e Instagram dos clientes. As publicações são criadas no Calendário.</p></div><div class="hero-label">DUIT MEDIA · CONTAS</div></header>
+<nav class="sectionnav" aria-label="Secções da Duit Media"><a href="/admin.html#calendar">← Calendário</a><a href="/social-stories.html?mode=stories" class="stories-nav-link">🔔 Stories no Android</a><a href="#contas" class="accounts-only">Contas ligadas</a></nav>
+<div class="format-switch composer-only" aria-label="Tipo de conteúdo">
+<button type="button" data-media-kind="post">Post</button><button type="button" data-media-kind="carousel">Carrossel</button><button type="button" data-media-kind="reel">Reel</button><button type="button" data-media-kind="story">Story</button>
+</div>
+<div class="workspace"><div class="workspace-main">
+<section class="panel" id="contas"><p class="kicker">01 / LIGAÇÕES</p><h2>Contas Instagram e Facebook</h2>
+<p class="muted">Ligue as Páginas e contas profissionais dos clientes através da Meta. Esta etapa ainda não publica nada automaticamente.</p>
+<div class="actions">
+<select id="meta-client" aria-label="Cliente para ligar à Meta" style="max-width:280px"></select>
+<button id="meta-connect" type="button">Ligar conta Meta</button>
+</div><p class="muted" id="meta-status" aria-live="polite">A verificar configuração…</p>
+<div id="meta-pending" style="margin:12px 0"></div><div id="meta-accounts"></div>
+</section>
+<section class="panel" id="publicacoes"><p class="kicker">CALENDÁRIO / POST · REEL · CARROSSEL</p><h2 id="publication-form-title">Criar publicação</h2>
+<div class="composer-client-row"><label>Cliente<select id="compose-client" aria-label="Cliente para esta publicação"></select></label><p class="muted" id="compose-client-hint">Selecione o cliente e depois o formato da publicação.</p></div>
+<div id="editorial-source" style="display:none;background:#fff9df;border:1px solid #f2e4a0;border-radius:12px;padding:15px;margin:0 0 22px;font-size:12px;line-height:1.7"></div>
+<p class="muted">Crie o conteúdo para o cliente selecionado. O ficheiro e a legenda ficam guardados como rascunho; a publicação automática permanece desativada durante os testes.</p>
+<div class="duit-composer-layout"><form id="publish-form">
+<div class="grid"><label>Conta Meta ligada<select id="pub-account" required></select></label>
+<label>Formato<select id="pub-kind"><option value="post">Post (imagem)</option><option value="carousel">Carrossel (2 a 10 imagens)</option><option value="reel">Reel Instagram (vídeo MP4)</option></select></label></div>
+<p class="actions"><label><input type="checkbox" id="pub-ig" checked> Instagram</label><label><input type="checkbox" id="pub-fb" checked> Facebook</label><label><input type="checkbox" id="pub-threads"> Threads <span class="muted">(rascunho)</span></label></p>
+<div class="caption-field">
+<div class="caption-mode"><label><input id="pub-caption-split" type="checkbox"> Personalizar legenda para cada rede</label><p class="muted">Pode usar um texto comum ou ajustar Facebook, Instagram e Threads separadamente.</p></div>
+  <div class="caption-title"><label for="pub-caption">Legenda</label><button type="button" id="emoji-toggle" class="emoji-toggle" aria-label="Inserir emoji" aria-haspopup="true" aria-controls="emoji-picker" aria-expanded="false">☺ Emojis</button></div>
+  <textarea id="pub-caption" maxlength="2200" rows="4" placeholder="Escreva a legenda…"></textarea>
+  <div class="per-network-captions" id="per-network-captions" hidden>
+    <div class="network-caption-tabs" role="group" aria-label="Escolher rede para editar legenda">
+      <button type="button" data-caption-network="instagram">Instagram</button>
+      <button type="button" data-caption-network="facebook">Facebook</button>
+      <button type="button" data-caption-network="threads">Threads</button>
+    </div>
+    <p class="muted" id="network-caption-info">Legenda específica da rede selecionada.</p>
+    <textarea id="network-caption" maxlength="2200" rows="4" placeholder="Escreva a legenda para esta rede…"></textarea>
+  </div>
+  <div id="emoji-picker" class="emoji-picker" hidden>
+    <div class="emoji-picker-header"><strong>Escolha um emoji</strong><button type="button" id="emoji-close" class="emoji-close" aria-label="Fechar emojis">✕</button></div>
+    <input id="emoji-search" type="search" placeholder="Pesquisar emoji…" aria-label="Pesquisar emojis">
+    <div id="emoji-categories" class="emoji-categories" role="group" aria-label="Categorias de emojis"></div>
+    <div id="emoji-grid" class="emoji-grid" aria-label="Emojis disponíveis"></div>
+  </div>
+</div>
+<div class="grid"><label>Imagens JPG ou PNG · vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,image/png,video/mp4" multiple required></label>
+<label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
+<p class="actions"><button type="submit" id="publication-save-button">Guardar publicação</button>
+<button type="button" id="duit-facebook-test-publish" class="secondary" hidden>Publicar teste DUIT</button>
+<button type="button" id="duit-schedule-test" class="secondary" hidden>Agendar teste Instagram DUIT</button></p>
+<p class="muted" id="duit-test-help" hidden>Este botão envia apenas o rascunho já guardado. Se alterou algum campo, guarde primeiro e volte a abrir o post.</p></form>
+<aside class="duit-live-preview" aria-label="Pré-visualização da publicação">
+  <div class="duit-preview-title"><strong>Pré-visualização</strong><select id="duit-preview-platform" aria-label="Pré-visualizar rede"><option value="facebook">Facebook · Feed</option><option value="instagram">Instagram · Feed</option><option value="threads">Threads · Rascunho</option></select></div>
+  <div class="duit-preview-card" id="duit-preview-card">
+    <div class="duit-preview-head"><div class="duit-preview-avatar" id="duit-preview-avatar">D</div><div class="duit-preview-identity"><strong id="duit-preview-name">Cliente</strong><small id="duit-preview-subline">Agora mesmo · 🌐</small></div><span aria-hidden="true">···</span></div>
+    <div class="duit-preview-copy" id="duit-preview-copy">O texto da publicação aparecerá aqui.</div>
+    <div class="duit-preview-media" id="duit-preview-media"><div class="duit-preview-placeholder">▧<small>Adicione uma fotografia ou vídeo</small></div></div>
+    <div class="duit-preview-actions" id="duit-preview-actions"><span>♡ Gosto</span><span>◯ Comentário</span><span>➤ Partilha</span></div>
+  </div>
+  <p class="muted">Pré-visualização aproximada. O aspeto final pode variar nas aplicações da Meta.</p>
+</aside></div>
+<p class="muted" id="pub-status" aria-live="polite"></p>
+<div class="actions composer-job-list"><label>Publicações guardadas <select id="pub-filter"><option value="all">Todos os clientes</option></select></label></div>
+<div id="pub-jobs"></div>
+</section>
+</div><div class="workspace-side"><section class="panel compact-panel" id="alertas"><p class="kicker">04 / ALERTAS</p><h2>Notificações no Android</h2>
+<p class="muted">Instale o portal no ecrã inicial e permita notificações. Receberá um aviso quando chegar a hora das Stories agendadas.</p>
+<div class="actions"><button id="enable-push" type="button">Ativar notificações</button><button id="test-push" type="button" class="secondary">Enviar teste</button></div>
+<p class="muted" id="push-status" aria-live="polite">A verificar compatibilidade…</p>
+</section>
+<section class="panel" id="story-nova"><p class="kicker">CALENDÁRIO / STORY</p><h2>Nova Story</h2><form id="new-story">
+<div class="grid"><label>Cliente<select id="client" required></select></label>
+<label>Quando pretende partilhar?<select id="story-timing"><option value="now" selected>Partilhar agora</option><option value="schedule">Agendar para mais tarde</option></select></label></div>
+<p id="story-schedule-wrap" hidden><label>Data e hora em Portugal<input id="scheduled" type="datetime-local"></label></p>
+<p><label>Imagem ou vídeo finalizado<input type="file" id="media" accept="image/jpeg,image/png,image/webp,video/mp4" required></label></p>
+<button type="submit" id="story-save-button">Guardar e preparar para Android</button></form><p id="feedback" aria-live="polite"></p>
+<div id="story-share-success" hidden style="margin-top:15px;padding:16px;border:1px solid #B7E4B8;background:#E8F7E8;border-radius:12px">
+<strong>Story pronta para partilhar</strong>
+<p style="font-size:12px;line-height:1.6">Abra a Story no Android para terminar a publicação no Instagram. A DUIT Media não publica automaticamente a Story.</p>
+<a id="story-share-link" href="#" target="_blank" rel="noopener" style="display:inline-block;background:#161616;color:#fff;border-radius:9px;padding:11px 16px;font-weight:700;text-decoration:none">Abrir Story no Android</a>
+<button id="story-notify-now" type="button" class="secondary" style="margin-left:9px">Enviar notificação ao Android</button>
+<p id="story-notify-feedback" style="font-size:12px;margin:9px 0 0" aria-live="polite"></p>
+</div>
+</section>
+<section class="panel" id="stories-section"><p class="kicker">03 / STORIES</p><h2>Stories preparadas</h2><p class="muted">A partilha abre o menu do Android. Escolha Instagram Stories quando disponível. A publicação só é confirmada no portal depois de carregar em «Já publiquei».</p><div id="stories">A carregar…</div></section></div></div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const mediaQuery = new URLSearchParams(location.search);
+// Seletor de emojis local para a legenda; não depende de serviços externos.
+const emojiSets={
+  'Recentes':'',
+  'Rostos':'😀 😃 😄 😁 😆 😅 😂 🤣 😊 🙂 🙃 😉 😍 🥰 😘 😋 😎 🤩 🥳 😏 😌 😔 😢 😭 😤 😡 🤯 😱 🥺 🥹 🤔 🤗 🤭 🫢 🤫 😴 🤒 🤠 😇 😈 👻 💀',
+  'Gestos':'👍 👎 👌 ✌️ 🤞 🤟 🤘 🤙 👏 🙌 👐 🤝 🙏 💪 👊 ✊ 👋 🫶 🫰 👉 👈 👆 👇 ☝️ ✍️ 🤳',
+  'Corações':'❤️ 🧡 💛 💚 💙 💜 🖤 🤍 🤎 💖 💗 💓 💕 💞 💘 💝 💔 ❤️‍🔥 ❤️‍🩹 💯',
+  'Símbolos':'✨ ⭐ 🌟 💫 ⚡ 🔥 💥 💢 💬 💭 ✅ ☑️ ❌ ❗ ❓ ✔️ ➡️ ⬅️ ⬆️ ⬇️ 🔝 🔜 ♻️ ⚠️ 🎯 📍 📌 🔗 🔔 🛑',
+  'Objetos':'📱 💻 🖥️ 📷 📸 🎥 🎬 🎨 🖌️ 🖍️ 📝 📅 🗓️ 📈 📊 💡 💰 💳 🛍️ 🎁 🎉 🎊 🏆 🥇 🏅 🎵 🎧 ☕ ⏰ 📣 📢',
+  'Natureza':'🌞 ☀️ 🌤️ 🌈 🌙 🌍 🌎 🌱 🌿 🍀 🌸 🌺 🌻 🌷 🌹 🌳 🌊 🏖️ 🏔️ 🌴 🐶 🐱 🦋 🐝',
+  'Comida':'🍕 🍔 🍟 🌮 🥗 🍎 🍊 🍋 🍓 🍉 🍇 🍒 🥑 🍞 🧀 🍰 🎂 🍩 🍫 🍪 ☕ 🧃 🍹 🥂',
+  'Desporto':'⚽ 🏀 🏐 🎾 🏋️ 🤸 🚴 🏃 🚶 🏊 🧘 🥊 🏆 🥇 💪 🔥 ⚡'
+};
+const emojiKeywords={'🙏':'obrigado rezar agradecer','🔥':'fogo destaque','💪':'força ginásio treino','😂':'rir gargalhada','❤️':'amor coração','😍':'adoro apaixonado','👍':'gosto polegar','👏':'palmas aplausos','🎉':'festa celebrar','✨':'brilho magia','📣':'anúncio comunicar','📱':'telemóvel telefone','📅':'calendário agenda','🎯':'objetivo alvo','✅':'confirmado certo','📍':'localização lugar','💡':'ideia','🎨':'design arte','📸':'fotografia imagem','☕':'café','🚀':'lançamento foguete','🥳':'celebrar festa','🎁':'presente oferta','💛':'amarelo coração','⚽':'futebol','🏋️':'treino musculação'};
+const emojiRecent=[];
+let emojiCategory='Rostos';
+let emojiCursor=null;
+const captionInput=$('pub-caption');
+function activeEmojiInput(){
+ return $('pub-caption-split')?.checked && !$('per-network-captions').hidden
+  ? $('network-caption') : captionInput;
+}
+const emojiPicker=$('emoji-picker');
+function emojiList(category){
+ if(category==='Recentes')return emojiRecent;
+ return (emojiSets[category]||'').split(/\s+/u).filter(Boolean);
+}
+function updateEmojiPicker(){
+ const q=$('emoji-search').value.trim().toLocaleLowerCase('pt-PT');
+ $('emoji-categories').replaceChildren(...Object.keys(emojiSets).map(category=>{
+  const button=document.createElement('button');button.type='button';button.textContent=category;
+  button.classList.toggle('active',category===emojiCategory);
+  button.addEventListener('click',()=>{emojiCategory=category;updateEmojiPicker();});
+  return button;
+ }));
+ const list=q?[...new Set(Object.keys(emojiSets).flatMap(emojiList))].filter(e=>
+  (emojiKeywords[e]||'').toLocaleLowerCase('pt-PT').includes(q) ||
+  Object.entries(emojiSets).some(([name,values])=>name.toLocaleLowerCase('pt-PT').includes(q)&&values.includes(e))
+ ):emojiList(emojiCategory);
+ const grid=$('emoji-grid');grid.replaceChildren();
+ if(!list.length){const msg=document.createElement('p');msg.className='muted';msg.textContent='Sem emojis encontrados.';grid.append(msg);return;}
+ for(const emoji of list){
+  const button=document.createElement('button');button.type='button';button.textContent=emoji;button.title=emojiKeywords[emoji]||'Inserir emoji';
+  // mousedown preventDefault preserves the original textarea selection.
+  button.addEventListener('mousedown',event=>event.preventDefault());
+  button.addEventListener('click',()=>{
+   const target=activeEmojiInput();
+   const start=emojiCursor?.start??target.selectionStart??target.value.length;
+   const end=emojiCursor?.end??target.selectionEnd??start;
+   const next=target.value.slice(0,start)+emoji+target.value.slice(end);
+   if(next.length>2200)return;
+   target.setRangeText(emoji,start,end,'end');
+   const cursor=target.selectionStart;emojiCursor={start:cursor,end:cursor};
+   target.dispatchEvent(new Event('input',{bubbles:true}));
+   emojiRecent.unshift(emoji);
+   if(emojiRecent.length>16)emojiRecent.length=16;
+   target.focus();updateEmojiPicker();
+  });
+  grid.append(button);
+ }
+}
+['keyup','click','select','input'].forEach(eventName=>captionInput.addEventListener(eventName,()=>{
+ emojiCursor={start:captionInput.selectionStart,end:captionInput.selectionEnd};
+}));
+function toggleEmojiPicker(open){
+ emojiPicker.hidden=!open;
+ $('emoji-toggle').setAttribute('aria-expanded',String(open));
+ if(open){updateEmojiPicker();$('emoji-search').focus();}
+ else activeEmojiInput().focus();
+}
+$('emoji-toggle').addEventListener('click',()=>{
+ const target=activeEmojiInput();
+ emojiCursor={start:target.selectionStart,end:target.selectionEnd};
+ toggleEmojiPicker(emojiPicker.hidden);
+});
+$('emoji-close').addEventListener('click',()=>toggleEmojiPicker(false));
+$('emoji-search').addEventListener('input',updateEmojiPicker);
+document.addEventListener('pointerdown',event=>{
+ if(!emojiPicker.hidden&&!emojiPicker.contains(event.target)&&event.target!==$('emoji-toggle'))toggleEmojiPicker(false);
+});
+document.addEventListener('keydown',event=>{
+ if(event.key==='Escape'&&!emojiPicker.hidden)toggleEmojiPicker(false);
+});
+
+// O administrador pode preparar um post editorial no calendário.
+let handoffData=null;
+let handoffReady=false;
+function applyEditorialHandoff(){
+ if(!handoffReady||!handoffData)return;
+ $('pub-caption').value=handoffData.caption||'';
+ const content=$('editorial-source');
+ const parts=[];
+ if(handoffData.sourceId)parts.push('<strong>Planeamento #'+Number(handoffData.sourceId)+'</strong>');
+ if(handoffData.inspiration)parts.push('<div><strong>Inspiração:</strong> '+escapeHtml(handoffData.inspiration)+'</div>');
+ if(handoffData.story)parts.push('<div><strong>Story sugerida:</strong> '+escapeHtml(handoffData.story)+'</div>');
+ content.innerHTML=parts.join('');
+ content.style.display=parts.length?'block':'none';
+}
+window.addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==window.parent)return;
+ if(event.data?.type!=='duit-media-editorial-handoff')return;
+ handoffData={sourceId:Number(event.data.sourceId)||null,
+  caption:String(event.data.caption||'').slice(0,2200),
+  inspiration:String(event.data.inspiration||'').slice(0,3000),
+  story:String(event.data.story||'').slice(0,3000)};
+ applyEditorialHandoff();
+});
+
+let editingPublication=null;
+let duitTestNetwork='facebook';
+let duitTestScheduleEnabled=false;
+const duitTestNetworkName=()=>duitTestNetwork==='instagram'?'Instagram':'Facebook';
+function populatePublicationEditor(job){
+ if(!job)return;
+ editingPublication=job;
+ document.body.classList.add('editing-existing');
+ $('media-page-title').textContent='Editar publicação.';
+ $('media-page-subtitle').textContent='Altere os dados deste conteúdo, sem criar uma nova publicação.';
+ $('publication-form-title').textContent='Editar publicação';
+ $('publication-save-button').textContent='Guardar alterações';
+ if(job.status==='review'){
+  const diagnostic=document.createElement('section');
+  diagnostic.id='duit-publish-diagnostic';
+  diagnostic.style.cssText='background:#fff4e5;border:1px solid #efca8b;border-radius:12px;padding:16px;margin:15px 0;color:#332817';
+  const heading=document.createElement('strong');
+  heading.textContent='Publicação por confirmar · diagnóstico da Meta';
+  diagnostic.append(heading);
+  const detail=document.createElement('p');
+  detail.style.cssText='font-size:12px;line-height:1.7;white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0';
+  const statuses=(job.results||[]).map(item=>{
+   const network=item.network==='facebook'?'Facebook':item.network==='instagram'?'Instagram':'Threads';
+   const state=item.status==='published'?'Publicado':item.status==='review'?'Erro / revisão':item.status==='pending'?'Por iniciar':item.status;
+   return network+' — '+state+(item.error?'\\nDetalhe: '+item.error:'');
+  });
+  detail.textContent=statuses.join('\\n\\n')+(job.error?'\\n\\nEstado geral: '+job.error:'');
+  if(!statuses.length)detail.textContent='O serviço ainda não devolveu detalhes por rede.';
+  diagnostic.append(detail);
+  const copy=document.createElement('button');copy.type='button';copy.className='secondary';copy.textContent='Copiar diagnóstico';
+  copy.addEventListener('click',()=>{
+   navigator.clipboard?.writeText(detail.textContent).then(()=>{
+    copy.textContent='Diagnóstico copiado';
+   }).catch(()=>{$('pub-status').textContent=detail.textContent;});
+  });
+  diagnostic.append(copy);
+  $('editorial-source').before(diagnostic);
+ }
+
+ const testOnly=job.networks.length===1&&job.networks[0]===duitTestNetwork;
+ $('duit-schedule-test').hidden=!(duitTestScheduleEnabled&&duitTestNetwork==='instagram'&&testOnly&&job.status==='draft');
+ const testReview=testOnly&&job.status==='review'&&job.results?.some(x=>x.network===duitTestNetwork&&['review','processing'].includes(x.status));
+ $('duit-facebook-test-publish').hidden=!((testOnly&&job.status==='draft')||testReview);
+ $('duit-facebook-test-publish').textContent=testReview?'Confirmar falha e repetir teste '+duitTestNetworkName():'Publicar teste no '+duitTestNetworkName()+' DUIT';
+ $('duit-test-help').hidden=!((testOnly&&job.status==='draft')||testReview);
+ if(testReview)$('duit-test-help').textContent='Confirme primeiro que o post NÃO está no '+duitTestNetworkName()+' DUIT. A repetição usa o mesmo registo.';
+
+ $('compose-client').value=String(job.client_id);
+ syncComposeClient(job.client_id);
+ $('pub-account').value=String(job.account_id);
+ selectMediaKind(job.kind);
+ $('pub-caption').value=job.caption||'';
+ duitRefreshPreview();
+ $('pub-ig').checked=job.networks.includes('instagram');
+ $('pub-fb').checked=job.networks.includes('facebook');
+ $('pub-threads').checked=job.networks.includes('threads');
+ let captions={};try{captions=JSON.parse(job.captions_json||'{}')}catch(_){}
+ $('pub-caption-split').checked=Object.keys(captions).length>0;
+ $('per-network-captions').hidden=!$('pub-caption-split').checked;
+ initializePerNetworkCaptions(job.caption||'',captions);
+ $('pub-date').value=new Date(job.scheduled_at).toLocaleString('sv-SE',{timeZone:'Europe/Lisbon'}).replace(' ','T').slice(0,16);
+ // Em rascunho pode alterar todos os campos. Um agendamento só pode
+ // ser reaberto em rascunho antes de alterar canais, conta ou ficheiros.
+ const canEdit=job.status==='draft';
+ for(const id of ['compose-client','pub-account','pub-kind','pub-ig','pub-fb','pub-threads',
+                  'pub-caption','pub-caption-split','network-caption','pub-date'])$(id).disabled=!canEdit;
+ if(!canEdit && job.status==='scheduled'){
+   const notice=document.createElement('div');notice.className='muted';
+   notice.style.cssText='background:#fff2be;border-radius:10px;padding:12px;margin:12px 0';
+   notice.textContent='Esta publicação está agendada. Para alterar todos os campos, cancele o agendamento primeiro (sem apagar o conteúdo).';
+   const unlock=document.createElement('button');unlock.type='button';unlock.className='secondary';
+   unlock.style.marginLeft='10px';unlock.textContent='Reabrir como rascunho';
+   unlock.addEventListener('click',async()=>{
+     unlock.disabled=true;
+     try{
+       await request('/api/duit-social/publisher/jobs/'+job.id+'/unschedule',{method:'POST'});
+       const latest=await request('/api/duit-social/publisher/jobs/'+job.id);
+       // Desbloquear e atualizar os dados locais sem criar outro registo.
+       editingPublication=latest;
+       for(const id of ['compose-client','pub-account','pub-kind','pub-ig','pub-fb','pub-threads',
+                         'pub-caption','pub-caption-split','network-caption','pub-date'])$(id).disabled=false;
+       $('pub-files').disabled=false;
+       notice.remove();
+       $('publication-save-button').disabled=false;
+       $('pub-status').textContent='Agendamento cancelado. Pode editar todos os campos e guardar o rascunho.';
+     }catch(e){$('pub-status').textContent='Não foi possível reabrir: '+e.message;unlock.disabled=false;}
+   });
+   notice.append(unlock);
+   $('editorial-source').before(notice);
+ }
+
+ $('pub-files').required=false;
+ const fileLabel=$('pub-files').closest('label');
+ const currentFiles=document.createElement('div');currentFiles.className='existing-upload';
+ if(job.files?.length){
+  currentFiles.textContent='Ficheiro(s) guardado(s): '+job.files.length+' · Pode manter sem voltar a carregar.';
+ }else currentFiles.textContent='Ainda não existe ficheiro guardado nesta publicação.';
+ fileLabel.append(currentFiles);
+ duitRefreshPreviewFiles();
+ $('pub-files').disabled=job.status!=='draft';
+ const hint=document.createElement('p');hint.id='publication-files-help';hint.className='muted';
+ hint.textContent=job.status==='draft'
+   ? 'Pode manter o ficheiro atual. Se selecionar um novo, substitui o ficheiro da mesma posição.'
+   : 'Os ficheiros não podem ser alterados depois do agendamento.';
+ $('pub-files').closest('label').append(hint);
+ if(!canEdit){
+  $('publication-save-button').disabled=true;
+  if(job.status!=='scheduled')$('pub-status').textContent='Publicação em processamento ou publicada: edição bloqueada para evitar envios duplicados.';
+ }
+
+}
+
+
+let activeCaptionNetwork='instagram';
+let perNetworkCaptions={instagram:'',facebook:'',threads:''};
+const networkCheckboxes={instagram:$('pub-ig'),facebook:$('pub-fb'),threads:$('pub-threads')};
+function selectedNetworks(){
+ return Object.entries(networkCheckboxes).filter(([,el])=>el.checked).map(([name])=>name);
+}
+function syncNetworkCaption(){
+ if(!Object.prototype.hasOwnProperty.call(perNetworkCaptions,activeCaptionNetwork))return;
+ perNetworkCaptions[activeCaptionNetwork]=$('network-caption').value;
+}
+function refreshCaptionTabs(){
+ const networks=selectedNetworks();
+ const tabs=[...document.querySelectorAll('[data-caption-network]')];
+ for(const tab of tabs)tab.hidden=!networks.includes(tab.dataset.captionNetwork);
+ if(!networks.includes(activeCaptionNetwork))activeCaptionNetwork=networks[0]||'instagram';
+ for(const tab of tabs)tab.classList.toggle('active',tab.dataset.captionNetwork===activeCaptionNetwork);
+ $('network-caption').value=perNetworkCaptions[activeCaptionNetwork]??'';
+ $('network-caption-info').textContent=activeCaptionNetwork==='threads'
+  ? 'Threads: pode preparar o texto, mas a publicação automática requer uma ligação Threads própria.'
+  : 'Legenda específica para '+(activeCaptionNetwork==='facebook'?'Facebook.':'Instagram.');
+ if(networks.includes(activeCaptionNetwork))$('duit-preview-platform').value=activeCaptionNetwork;
+ duitRefreshPreview();
+}
+function initializePerNetworkCaptions(text,captions={}){
+ for(const key of Object.keys(perNetworkCaptions))
+  perNetworkCaptions[key]=typeof captions[key]==='string' && captions[key].length ? captions[key] : text;
+ refreshCaptionTabs();
+}
+$('pub-caption-split').addEventListener('change',()=>{
+ const active=$('pub-caption-split').checked;
+ $('per-network-captions').hidden=!active;
+ if(active)initializePerNetworkCaptions($('pub-caption').value,perNetworkCaptions);
+ duitRefreshPreview();
+});
+for(const tab of document.querySelectorAll('[data-caption-network]'))tab.addEventListener('click',()=>{
+ syncNetworkCaption();
+ activeCaptionNetwork=tab.dataset.captionNetwork;
+ refreshCaptionTabs();
+});
+$('network-caption').addEventListener('input',()=>{
+ syncNetworkCaption();
+ duitRefreshPreview();
+});
+for(const input of Object.values(networkCheckboxes))input.addEventListener('change',refreshCaptionTabs);
+
+const duitPreviewMedia=$('duit-preview-media');
+let duitPreviewUrls=[];
+function duitClearPreviewUrls(){
+ for(const url of duitPreviewUrls)URL.revokeObjectURL(url);
+ duitPreviewUrls=[];
+}
+function duitRefreshPreview(){
+ const channel=$('duit-preview-platform').value;
+ $('duit-preview-card').classList.toggle('is-instagram',channel==='instagram');
+ const account=$('pub-account').selectedOptions[0];
+ const client=$('compose-client').selectedOptions[0];
+ const clientName=client?.textContent?.trim()||account?.textContent?.split('·')[0]?.trim()||'Cliente';
+ $('duit-preview-name').textContent=clientName;
+ $('duit-preview-avatar').textContent=clientName.slice(0,1).toUpperCase()||'D';
+ $('duit-preview-subline').textContent=channel==='instagram'?'Instagram · Pré-visualização':'Agora mesmo · 🌐';
+ $('duit-preview-actions').replaceChildren(...(channel==='instagram'
+   ?['♡ Gostar','◇ Comentar','➤ Partilhar'].map(t=>{const e=document.createElement('span');e.textContent=t;return e;})
+   :['♡ Gosto','◯ Comentário','➤ Partilha'].map(t=>{const e=document.createElement('span');e.textContent=t;return e;})));
+ const isSplit=$('pub-caption-split').checked;
+ const caption=isSplit
+  ? (channel===activeCaptionNetwork?$('network-caption').value:(perNetworkCaptions[channel]??$('pub-caption').value))
+  : $('pub-caption').value;
+ $('duit-preview-copy').textContent=caption||'O texto da publicação aparecerá aqui.';
+}
+function duitRefreshPreviewFiles(){
+ duitClearPreviewUrls();
+ const root=duitPreviewMedia;
+ root.replaceChildren();
+ const files=[...$('pub-files').files];
+ if(!files.length){
+  if(editingPublication?.files?.length){
+   const file=editingPublication.files[0];
+   const media=document.createElement(file.mime==='video/mp4'?'video':'img');
+   media.src='/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/'+file.id;
+   if(media.tagName==='VIDEO'){media.controls=true;media.muted=true;media.playsInline=true;}
+   media.addEventListener('error',()=>{
+    root.textContent='O ficheiro guardado não pôde ser carregado. Verifique o armazenamento.';
+   });
+   root.append(media);
+   if(editingPublication.files.length>1){
+    const badge=document.createElement('span');badge.className='duit-preview-count';
+    badge.textContent='1 / '+editingPublication.files.length;root.append(badge);
+   }
+   return;
+  }
+  const placeholder=document.createElement('div');placeholder.className='duit-preview-placeholder';
+  placeholder.textContent='▧';const help=document.createElement('small');help.textContent='Adicione uma fotografia ou vídeo';placeholder.append(help);root.append(placeholder);return;
+ }
+ const file=files[0],url=URL.createObjectURL(file);duitPreviewUrls.push(url);
+ const media=document.createElement(file.type==='video/mp4'?'video':'img');
+ media.src=url;
+ if(media.tagName==='VIDEO'){media.controls=true;media.muted=true;media.playsInline=true;}
+ media.addEventListener('error',()=>{root.textContent='Não foi possível pré-visualizar este ficheiro.';});
+ root.append(media);
+ if(files.length>1){
+  const badge=document.createElement('span');badge.className='duit-preview-count';
+  badge.textContent='1 / '+files.length;root.append(badge);
+ }
+}
+$('pub-caption').addEventListener('input',duitRefreshPreview);
+$('pub-account').addEventListener('change',duitRefreshPreview);
+$('compose-client').addEventListener('change',duitRefreshPreview);
+$('duit-preview-platform').addEventListener('change',duitRefreshPreview);
+$('pub-files').addEventListener('change',duitRefreshPreviewFiles);
+window.addEventListener('pagehide',duitClearPreviewUrls);
+
+const mobileStories=mediaQuery.get('mode')==='stories'||mediaQuery.has('story');
+const mediaMode = mediaQuery.get('mode') === 'compose' || mediaQuery.get('embed') === 'calendar' ? 'compose' : 'accounts';
+if(mobileStories){
+ document.body.classList.add('stories-mobile');
+ $('media-page-title').textContent='Stories no Android.';
+ $('media-page-subtitle').textContent='Prepare a partilha, termine no Instagram e confirme quando publicar.';
+}
+document.body.classList.add(mediaMode === 'compose' ? 'composer-mode' : 'accounts-mode');
+if(mediaQuery.get('embed')==='admin' && mediaMode==='accounts') document.body.classList.add('admin-embed');
+if (mediaMode === 'compose') {
+ $('media-page-title').textContent = 'Criar conteúdo.';
+ $('media-page-subtitle').textContent = 'Escolha o cliente, prepare o conteúdo e guarde-o no calendário.';
+}
+function selectMediaKind(kind) {
+ const story = kind === 'story';
+ document.body.classList.toggle('story-mode', story);
+ document.querySelectorAll('[data-media-kind]').forEach(b=>b.classList.toggle('active',b.dataset.mediaKind===kind));
+ if (!story) {
+  $('pub-kind').value=['post','carousel','reel'].includes(kind)?kind:'post';
+  $('pub-files').accept='image/jpeg,image/png,video/mp4';
+  $('pub-files').accept = kind==='reel'?'video/mp4':'image/jpeg,image/png';
+  $('pub-files').multiple = kind==='carousel';
+ }
+}
+document.querySelectorAll('[data-media-kind]').forEach(b=>b.addEventListener('click',()=>selectMediaKind(b.dataset.mediaKind)));
+if(mediaMode==='compose')selectMediaKind(mediaQuery.get('kind')||'post');
+function syncComposeClient(clientId){
+ const id=String(clientId||'');
+ $('client').value=id;
+ const options=[...$('pub-account').options];
+ options.forEach(o=>{o.hidden=o.disabled=o.dataset.clientId!==id;});
+ const opt=options.find(o=>o.dataset.clientId===id);
+ if(opt) $('pub-account').value=opt.value;
+ else $('pub-account').selectedIndex=-1;
+ $('compose-client-hint').textContent=opt
+  ? 'Conta Meta associada. O conteúdo será guardado como rascunho.'
+  : 'Sem conta Meta associada. Ligue-a em Duit Media antes de criar Posts ou Reels.';
+}
+$('compose-client').addEventListener('change',e=>{
+ syncComposeClient(e.target.value);
+ duitRefreshPreview();
+});
+$('pub-kind').addEventListener('change',e=>{
+ if(document.body.classList.contains('composer-mode'))selectMediaKind(e.target.value);
+});
+
+
+if(mediaQuery.get('embed')==='calendar') document.body.classList.add('calendar-embed');
+function applyCalendarPreset(){
+ const date=mediaQuery.get('date');
+ const client=mediaQuery.get('client');
+ if(date && /^\\d{4}-\\d{2}-\\d{2}$/.test(date)){
+  const time=($('pub-date').value||'').slice(11,16)||'15:00';
+  $('pub-date').value=date+'T'+time;
+  $('scheduled').value=date+'T'+time;
+ }
+ if(client && /^\\d+$/.test(client)){
+  $('meta-client').value=client;
+  $('compose-client').value=client;
+  $('client').value=client;
+  const candidate=[...$('pub-account').options].find(o=>o.dataset.clientId===client);
+  if(candidate) $('pub-account').value=candidate.value;
+  syncComposeClient(client);
+ }
+}
+
+async function request(url,opts={}){const res=await fetch(url,{credentials:'same-origin',...opts});if(res.status===401){location.href='/index.html';throw Error('Inicie sessão.')}
+const body=await res.json().catch(()=>null);if(!res.ok)throw Error(body?.error||'Erro de comunicação');return body;}
+function escapeHtml(x){return String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function dateLabel(s){return new Intl.DateTimeFormat('pt-PT',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Lisbon'}).format(new Date(s));}
+const preparedFiles=new Map();
+function makeButton(label,action,cls=''){const b=document.createElement('button');b.textContent=label;b.className=cls;b.addEventListener('click',action);return b;}
+async function refresh(){
+const rows=await request('/api/duit-social/stories');preparedFiles.clear();const root=$('stories');root.replaceChildren();
+const chosenStory=Number(mediaQuery.get('story')||0);
+const singleStory=Number.isSafeInteger(chosenStory)&&chosenStory>0;
+if(singleStory)document.body.classList.add('stories-target-mode');
+else document.body.classList.remove('stories-target-mode');
+if(chosenStory>0&&rows.some(s=>s.id===chosenStory))rows.sort((a,b)=>(b.id===chosenStory)-(a.id===chosenStory));
+if(!rows.length){root.textContent='Ainda não existem Stories.';return;}
+if(singleStory&&!rows.some(item=>item.id===chosenStory)){
+ root.textContent='Esta Story não está disponível. Pode ter sido publicada ou eliminada.';
+ return;
+}
+for(const s of rows){
+ if(singleStory&&s.id!==chosenStory)continue;
+ const item=document.createElement('article');item.className='story';
+ const targeted=singleStory&&s.id===chosenStory;
+ if(targeted)item.classList.add('story-target');
+ const info=document.createElement('div');
+ const safeStatus=s.status==='ready'?'Pronta para enviar':s.status==='published'?'Publicada':s.status==='scheduled'?'Agendada':'Rascunho';
+ info.innerHTML='<strong>'+escapeHtml(s.client_company||s.client_name)+'</strong><div class="muted">'+dateLabel(s.scheduled_at)+' · '+safeStatus+'</div>';
+ if(targeted&&s.has_media){
+  const preview=document.createElement('div');preview.className='story-target-preview';
+  const media=document.createElement(s.media_mime==='video/mp4'?'video':'img');
+  media.src=s.media_url;
+  if(media.tagName==='VIDEO'){media.muted=true;media.controls=true;media.playsInline=true;}
+  preview.append(media);item.append(info,preview);
+  const hint=document.createElement('p');hint.className='story-target-hint';
+  hint.textContent='Toque em «Partilhar no Instagram», escolha o Instagram no menu Android e termine a Story na aplicação.';
+  item.append(hint);
+ }
+const actions=document.createElement('div');actions.className='actions';
+if(s.has_media){
+ const btn=makeButton(targeted?'A preparar Story…':'Preparar partilha',()=>prepareShare(s,btn),'');
+ actions.append(btn);
+ actions.append(makeButton('Descarregar',()=>downloadStory(s),'secondary'));
+ if(targeted){
+  btn.disabled=true;
+  getStoryFile(s).then(file=>{
+   preparedFiles.set(s.id,file);
+   btn.textContent='Partilhar no Instagram';
+   btn.disabled=false;
+  }).catch(error=>{
+   btn.textContent='Tentar preparar novamente';
+   btn.disabled=false;
+   const alert=document.createElement('p');alert.className='story-target-hint';
+   alert.textContent='Não foi possível preparar o ficheiro: '+error.message;
+   actions.before(alert);
+  });
+ }
+}
+if(s.status!=='published'){
+ actions.append(makeButton('Já publiquei',async()=>{if(!confirm('A Story foi publicada no Instagram? O ficheiro será eliminado do portal.'))return;await request('/api/duit-social/stories/'+s.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'published'})});refresh();},'secondary'));
+ actions.append(makeButton('Apagar',async()=>{if(!confirm('Apagar esta Story?'))return;await request('/api/duit-social/stories/'+s.id,{method:'DELETE'});refresh();},'danger'));
+}
+if(!targeted)item.append(info);
+ item.append(actions);root.append(item);
+if(chosenStory===s.id){item.setAttribute('tabindex','-1');requestAnimationFrame(()=>{item.scrollIntoView({block:'center'});item.focus({preventScroll:true});});}
+}
+}
+async function getStoryFile(s){
+const r=await fetch(s.media_url,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Não foi possível obter a Story');
+const blob=await r.blob();const ext=blob.type==='video/mp4'?'mp4':blob.type==='image/png'?'png':blob.type==='image/webp'?'webp':'jpg';
+return new File([blob],'DUIT-'+s.id+'.'+ext,{type:blob.type});
+}
+async function prepareShare(s,button){
+  // O Android exige que navigator.share seja chamado no clique do utilizador.
+  // Por isso, o download decorre antes e o segundo toque inicia a partilha.
+  if(!preparedFiles.has(s.id)){
+    button.disabled=true;button.textContent='A preparar ficheiro…';
+    try{
+      preparedFiles.set(s.id,await getStoryFile(s));
+      button.textContent='Partilhar agora';
+    }catch(e){button.textContent='Preparar partilha';alert(e.message);}
+    finally{button.disabled=false;}
+    return;
+  }
+  const file=preparedFiles.get(s.id);
+  try{
+    if(navigator.canShare?.({files:[file]})&&navigator.share){
+      const share=navigator.share({files:[file]});await share;
+    } else {
+      alert('O Android não permite partilhar este ficheiro. Use «Descarregar».');
+    }
+  }catch(e){if(e.name!=='AbortError')alert('Falha na partilha: '+e.message);}
+}
+async function downloadStory(s){try{const file=await getStoryFile(s);const url=URL.createObjectURL(file);const a=document.createElement('a');a.href=url;a.download=file.name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}catch(e){alert(e.message);}}
+
+
+
+function dateForInput(offset=0){
+ const date=new Date(Date.now()+offset);const pad=n=>String(n).padStart(2,'0');
+ return date.getFullYear()+'-'+pad(date.getMonth()+1)+'-'+pad(date.getDate())+'T'+pad(date.getHours())+':'+pad(date.getMinutes());
+}
+async function refreshPublisher(accounts){
+ const config=await request('/api/duit-social/publisher/config');
+ if(['facebook','instagram'].includes(config.testOnlyNetwork))duitTestNetwork=config.testOnlyNetwork;
+ duitTestScheduleEnabled=config.testScheduleEnabled===true;
+ const checks=[
+   ['Credenciais da Meta',config.hasMetaCredentials],
+   ['Ficheiros acessíveis por HTTPS',config.hasPublicMediaUrl],
+   ['Assinatura de ficheiros',config.hasSigningKey],
+   ['Armazenamento persistente',config.hasPersistentStorage],
+   ['Contas ligadas ('+config.connectedAccounts+')',config.connectedAccounts>0],
+   ['Motor de publicação ativado',config.workerEnabled]
+ ];
+ $('pub-status').textContent=config.enabled
+  ? 'Pronto para agendar. Confirme primeiro os testes com a Meta.'
+  : 'Configuração necessária: '+checks.filter(x=>!x[1]).map(x=>x[0]).join(' · ')+'.';
+ const list=accounts||await request('/api/duit-social/meta/accounts');
+ $('pub-account').replaceChildren(...list.map(c=>{
+   const option=document.createElement('option');option.value=c.id;
+   option.textContent=(c.client_company||c.client_name)+' · '+c.facebook_page_name;
+   option.dataset.clientId=String(c.client_id);
+   return option;
+ }));
+ const jobs=await request('/api/duit-social/publisher/jobs');const root=$('pub-jobs');root.replaceChildren();
+ const targetId=Number(new URLSearchParams(location.search).get('publication'));
+ if(Number.isSafeInteger(targetId)&&targetId>0&&!jobs.some(job=>Number(job.id)===targetId)){
+   try{
+     const target=await request('/api/duit-social/publisher/jobs/'+targetId);
+     jobs.unshift(target);
+   }catch(_){}
+ }
+ const select=$('pub-filter');const previous=select.value;
+ const clients=new Map();
+ for(const job of jobs)clients.set(String(job.client_id),job.client_company||job.client_name||'Cliente '+job.client_id);
+ select.replaceChildren();
+ const all=document.createElement('option');all.value='all';all.textContent='Todos os clientes';select.append(all);
+ for(const [id,label] of clients){
+   const option=document.createElement('option');option.value=id;option.textContent=label;select.append(option);
+ }
+ select.value=clients.has(previous)||previous==='all'?previous:'all';
+ const targetJob=Number.isSafeInteger(targetId)?jobs.find(job=>Number(job.id)===targetId):null;
+ if(targetJob){
+  select.value=String(targetJob.client_id);
+  if(mediaMode==='compose'&&!editingPublication)window.pendingPublicationEdit=targetJob;
+ }
+ // No editor integrado no Calendário nunca mostrar histórico geral.
+ // Quando se abre uma publicação existente, mostrar apenas esse registo.
+ const filtered=mediaMode==='compose'
+   ? (targetJob?[targetJob]:[])
+   : (select.value==='all'?jobs:jobs.filter(job=>String(job.client_id)===select.value));
+ if(!filtered.length){root.textContent=mediaMode==='compose'?'':'Sem publicações para este cliente.';return;}
+ for(const job of filtered){
+   const div=document.createElement('div');div.className='story';
+   if(Number(job.id)===targetId){div.id='publication-'+job.id;div.style.outline='2px solid #ffd200';}
+   const title=document.createElement('div');
+   title.innerHTML='<strong>'+escapeHtml(job.client_company||job.client_name||'Cliente')+' · '+escapeHtml(job.kind)+'</strong><div class="muted">'+escapeHtml(job.networks.join(' + '))+' · '+
+     dateLabel(job.scheduled_at)+' · '+escapeHtml(job.status)+'</div>'+
+     job.results.map(x=>'<div class="muted">'+escapeHtml(x.network)+': '+escapeHtml(x.status)+
+     (x.error?' · '+escapeHtml(x.error):'')+'</div>').join('');
+   const actions=document.createElement('div');actions.className='actions';
+   if(['draft','scheduled'].includes(job.status)){
+     actions.append(makeButton('Editar',async()=>{
+       const nextCaption=prompt('Editar legenda:',job.caption);
+       if(nextCaption===null)return;
+       const nextDate=prompt('Data e hora (YYYY-MM-DDTHH:mm em Portugal):',
+         new Date(job.scheduled_at).toLocaleString('sv-SE',{timeZone:'Europe/Lisbon'}).replace(' ','T').slice(0,16));
+       if(nextDate===null)return;
+       if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(nextDate)){
+         $('pub-status').textContent='Data inválida';return;
+       }
+       const local=new Date(nextDate);
+       if(!Number.isFinite(local.getTime())){$('pub-status').textContent='Data inválida';return;}
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id,{
+           method:'PATCH',headers:{'Content-Type':'application/json'},
+           body:JSON.stringify({caption:nextCaption,scheduled_at:local.toISOString()})
+         });
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+   }
+   if(job.status==='draft'){
+     actions.append(makeButton('Agendar',async()=>{
+       try{await request('/api/duit-social/publisher/jobs/'+job.id+'/schedule',{method:'POST'});await refreshPublisher();}
+       catch(e){$('pub-status').textContent=e.message;}
+     }));
+     actions.append(makeButton('Publicar agora',async()=>{
+       if(!confirm('Publicar este conteúdo agora nas redes selecionadas?'))return;
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id+'/publish-now',{method:'POST'});
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+     actions.append(makeButton('Apagar',async()=>{
+       if(!confirm('Eliminar este rascunho e ficheiros?'))return;
+       await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
+       await refreshPublisher();
+     },'secondary'));
+   }
+   if(job.status==='scheduled'){
+     actions.append(makeButton('Cancelar agendamento',async()=>{
+       if(!confirm('Cancelar este agendamento? O conteúdo e os ficheiros ficam guardados como rascunho.'))return;
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id+'/unschedule',{method:'POST'});
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+   }
+   if(job.status==='review'){
+     const warn=document.createElement('p');warn.className='muted';
+     warn.textContent='Atenção: confirme o estado real da publicação na Meta antes de alterar qualquer canal.';
+     actions.append(warn);
+     const uncertain=job.results.some(r=>r.status==='review'||r.status==='processing');
+     const neverSent=job.results.some(r=>r.status==='pending');
+     if(neverSent&&!uncertain)actions.append(makeButton('Retomar apenas canais não iniciados',async()=>{
+       if(!confirm('Repor na fila APENAS os canais que ainda não foram enviados?'))return;
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id+'/resume-pending',{method:'POST'});
+         await refreshPublisher();
+       }catch(e){$('pub-status').textContent=e.message;}
+     },'secondary'));
+
+     for(const item of job.results.filter(r=>r.status==='review'||r.status==='processing')){
+       const channel=item.network==='instagram'?'Instagram':'Facebook';
+       actions.append(makeButton('Já publicado · '+channel,async()=>{
+         const id=prompt('Confirme na Meta e indique o ID da publicação em '+channel+'. Sem este ID, não alteramos o estado.');
+         if(!id)return;
+         try{
+           await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
+             method:'POST',headers:{'Content-Type':'application/json'},
+             body:JSON.stringify({network:item.network,action:'confirm_published',remote_id:id.trim()})
+           });
+           await refreshPublisher();
+         }catch(e){$('pub-status').textContent=e.message;}
+       },'secondary'));
+       actions.append(makeButton('Não publicado · '+channel,async()=>{
+         if(!confirm('Verificou na Meta que este conteúdo NÃO foi publicado em '+channel+'? O portal irá tentar publicar novamente APENAS nesse canal.'))return;
+         try{
+           await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
+             method:'POST',headers:{'Content-Type':'application/json'},
+             body:JSON.stringify({network:item.network,action:'verified_not_published'})
+           });
+           await refreshPublisher();
+         }catch(e){$('pub-status').textContent=e.message;}
+       },'secondary'));
+     }
+   }
+   const content=document.createElement('div');
+   if(job.caption){
+     const cap=document.createElement('p');cap.style.whiteSpace='pre-wrap';cap.style.fontSize='13px';
+     cap.textContent=job.caption;content.append(cap);
+   }
+   if(job.files?.length){
+     const details=document.createElement('details');
+     const summary=document.createElement('summary');summary.textContent='Ver imagens/vídeo ('+job.files.length+')';
+     details.append(summary);
+     const files=document.createElement('div');files.className='actions';files.style.marginTop='10px';
+     for(const media of job.files){
+       const url='/api/duit-social/publisher/jobs/'+job.id+'/files/'+media.id;
+       const preview=document.createElement(media.mime==='video/mp4'?'video':'img');
+       preview.src=url;preview.style.maxWidth='150px';preview.style.maxHeight='220px';
+       preview.style.borderRadius='9px';preview.style.objectFit='contain';
+       if(media.mime==='video/mp4')preview.controls=true;
+       files.append(preview);
+     }
+     details.append(files);content.append(details);
+   }
+   const combined=document.createElement('div');combined.append(title,content);
+   div.append(combined,actions);root.append(div);
+   if(Number(job.id)===targetId)requestAnimationFrame(()=>div.scrollIntoView({block:'center'}));
+ }
+}
+$('pub-filter').addEventListener('change',()=>refreshPublisher().catch(e=>$('pub-status').textContent=e.message));
+$('pub-kind').addEventListener('change',()=>{
+ const reel=$('pub-kind').value==='reel';
+ $('pub-fb').disabled=false;
+ $('pub-files').accept=reel?'video/mp4':'image/jpeg,image/png';
+ $('pub-files').multiple=$('pub-kind').value==='carousel';
+});
+// A Meta recebe JPEG para Posts/Carrosséis; converter PNG no browser
+// antes de enviar, sem alterar o ficheiro original do utilizador.
+async function publicationFile(file){
+ if(file.type!=='image/png')return file;
+ let bitmap;
+ try{
+  bitmap=await createImageBitmap(file);
+  if(!bitmap.width||!bitmap.height||bitmap.width*bitmap.height>40000000)
+    throw Error('PNG demasiado grande para converter (máximo 40 megapíxeis).');
+  const canvas=document.createElement('canvas');
+  canvas.width=bitmap.width;canvas.height=bitmap.height;
+  const ctx=canvas.getContext('2d');
+  if(!ctx)throw Error('Não foi possível converter o PNG.');
+  // O JPEG não suporta transparência: áreas transparentes passam a branco.
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(bitmap,0,0);
+  const jpeg=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.94));
+  if(!jpeg)throw Error('Não foi possível converter o PNG para JPEG.');
+  if(jpeg.size>80*1024*1024)throw Error('JPEG convertido ultrapassa 80 MB.');
+  return new File([jpeg],file.name.replace(/\\.png$/i,'')+'.jpg',{type:'image/jpeg'});
+ }catch(error){
+  throw Error('Não foi possível preparar o PNG '+file.name+': '+error.message);
+ }finally{bitmap?.close();}
+}
+$('duit-schedule-test').addEventListener('click',async()=>{
+ const job=editingPublication;
+ if(!job||job.status!=='draft'||!duitTestScheduleEnabled||duitTestNetwork!=='instagram')return;
+ const button=$('duit-schedule-test');
+ const selected=selectedNetworks();
+ const savedDate=new Date(job.scheduled_at).getTime();
+ const enteredDate=new Date($('pub-date').value).getTime();
+ const selectedAccount=Number($('pub-account').value);
+ let savedCaptions={};
+ try{savedCaptions=JSON.parse(job.captions_json||'{}')}catch(_){}
+ syncNetworkCaption();
+ const currentCaptions=$('pub-caption-split').checked
+   ? Object.fromEntries(selected.map(network=>[network,perNetworkCaptions[network]??$('pub-caption').value]))
+   : {};
+ const captionsUnchanged=Object.keys(savedCaptions).length===0
+   ? Object.keys(currentCaptions).length===0
+   : selected.every(network=>(currentCaptions[network]??job.caption)===(savedCaptions[network]??job.caption));
+ if(selected.length!==1||selected[0]!=='instagram'||selectedAccount!==Number(job.account_id)||
+    $('pub-kind').value!==job.kind||$('pub-caption').value!==job.caption||
+    enteredDate!==savedDate||!captionsUnchanged||$('pub-files').files.length>0){
+   $('pub-status').textContent='Existem alterações por guardar. Guarde primeiro e volte a abrir este rascunho para agendar.';
+   return;
+ }
+ const delayMinutes=(savedDate-Date.now())/60000;
+ if(!Number.isFinite(delayMinutes)||delayMinutes<2||delayMinutes>1440){
+   $('pub-status').textContent='Escolha uma hora entre 2 minutos e 24 horas no futuro. Guarde e reabra o rascunho.';
+   return;
+ }
+ const when=new Date(savedDate).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon',dateStyle:'short',timeStyle:'short'});
+ if(!confirm('CONFIRMAR AGENDAMENTO REAL: publicar automaticamente no Instagram DUIT em '+when+' (hora de Portugal)? Este conteúdo ficará visível no Instagram.'))return;
+ button.disabled=true;
+ try{
+   await request('/api/duit-social/publisher/jobs/'+job.id+'/schedule',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({confirm_test_schedule:true})
+   });
+   $('pub-status').textContent='Agendamento de teste confirmado para '+when+'.';
+   returnToCalendarAfterSave(job.id);
+ }catch(error){$('pub-status').textContent='Falha no agendamento: '+error.message;button.disabled=false;}
+});
+$('duit-facebook-test-publish').addEventListener('click',async()=>{
+ if(!editingPublication||!['draft','review'].includes(editingPublication.status))return;
+ const button=$('duit-facebook-test-publish');
+ if(editingPublication.status==='review'){
+   if(!confirm('Confirma que verificou o '+duitTestNetworkName()+' DUIT e que ESTE post NÃO está publicado? Vamos repetir o envio uma única vez.'))return;
+   button.disabled=true;
+   try{
+     await request('/api/duit-social/publisher/jobs/'+editingPublication.id+'/reconcile',{
+       method:'POST',headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({network:duitTestNetwork,action:'verified_not_published'})
+     });
+     $('pub-status').textContent='Nova tentativa autorizada. Acompanhe o estado no calendário.';
+     returnToCalendarAfterSave(editingPublication.id);
+   }catch(e){$('pub-status').textContent='Não foi possível repetir: '+e.message;button.disabled=false;}
+   return;
+ }
+
+ const expectedAccount=String(editingPublication.account_id);
+ const currentNetworks=selectedNetworks();
+ if(String($('pub-account').value)!==expectedAccount||
+    currentNetworks.length!==1||currentNetworks[0]!==duitTestNetwork||
+    $('pub-caption').value!==editingPublication.caption||
+    $('pub-files').files.length>0){
+   $('pub-status').textContent='Existem alterações por guardar. Guarde primeiro e volte a abrir o post.';
+   return;
+ }
+ if(!confirm('CONFIRMAR TESTE REAL: publicar agora este conteúdo no '+duitTestNetworkName()+' da DUIT? A publicação será visível na rede.'))return;
+ button.disabled=true;
+ try{
+  await request('/api/duit-social/publisher/jobs/'+editingPublication.id+'/publish-now',{method:'POST'});
+  $('pub-status').textContent='Envio iniciado. Confirme o resultado no calendário e no '+duitTestNetworkName()+' DUIT.';
+  returnToCalendarAfterSave(editingPublication.id);
+ }catch(e){
+  $('pub-status').textContent='Falha no pedido de publicação: '+e.message;
+  button.disabled=false;
+ }
+});
+function returnToCalendarAfterSave(jobId){
+  if(mediaQuery.get('embed')==='calendar' && window.parent!==window){
+    window.parent.postMessage({type:'duit-media-publication-saved',jobId:Number(jobId)},window.location.origin);
+  }else{
+    window.location.assign('/admin.html#calendar');
+  }
+}
+$('publish-form').addEventListener('submit',async event=>{
+ event.preventDefault();const button=event.target.querySelector('button[type=submit]');button.disabled=true;
+ try{
+   const kind=$('pub-kind').value,files=Array.from($('pub-files').files);
+   if(editingPublication){
+    syncNetworkCaption();
+    if(!['draft','scheduled'].includes(editingPublication.status))throw Error('Esta publicação não pode ser editada.');
+    if(editingPublication.status!=='draft')throw Error('Reabra primeiro o post como rascunho para editar.');
+    if(kind!==editingPublication.kind&&!files.length)throw Error('Para alterar o formato escolha o ficheiro correspondente.');
+    if(kind==='carousel'&&files.length>0&&files.length<2)throw Error('Um carrossel precisa de pelo menos duas imagens.');
+    if(files.length>(kind==='carousel'?10:1))throw Error('Quantidade de ficheiros inválida.');
+    const networks=selectedNetworks();
+    if(!networks.length)throw Error('Escolha pelo menos uma rede.');
+    const accountId=Number($('pub-account').value);
+    const accountList=await request('/api/duit-social/meta/accounts');
+    const targetAccount=accountList.find(item=>item.id===accountId);
+    if(!targetAccount)throw Error('Conta Meta não ligada.');
+    if(Number($('compose-client').value)!==targetAccount.client_id)throw Error('A conta Meta não pertence ao cliente selecionado.');
+    if(files.some(file=>file.size>80*1024*1024))throw Error('Máximo 80 MB por ficheiro.');
+    if(files.some(file=>kind==='reel'?file.type!=='video/mp4':!['image/jpeg','image/png'].includes(file.type)))
+      throw Error('Formato de ficheiro inválido.');
+    const prepared=[];
+    for(const file of files)prepared.push(await publicationFile(file));
+    await request('/api/duit-social/publisher/jobs/'+editingPublication.id,{
+      method:'PATCH',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        account_id:accountId,
+        kind,
+        networks,
+        replace_media:kind!==editingPublication.kind,
+        caption:$('pub-caption').value,
+        captions:$('pub-caption-split').checked?perNetworkCaptions:{},
+        scheduled_at:new Date($('pub-date').value).toISOString()
+      })
+    });
+    for(let i=0;i<prepared.length;i++){
+      const uploaded=await fetch('/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/'+i,{
+        method:'PUT',credentials:'same-origin',headers:{'Content-Type':prepared[i].type},body:prepared[i]
+      });
+      if(!uploaded.ok){const detail=await uploaded.json().catch(()=>({}));
+        throw Error(detail.error||'Falha ao substituir o ficheiro');}
+    }
+    editingPublication=await request('/api/duit-social/publisher/jobs/'+editingPublication.id);
+    $('pub-files').value='';
+    duitRefreshPreviewFiles();
+    $('pub-status').textContent='Alterações guardadas no mesmo post. Não foi criado nenhum duplicado.';
+    returnToCalendarAfterSave(editingPublication.id);
+    return;
+   }
+   const networks=selectedNetworks();
+   if(!networks.length)throw Error('Escolha pelo menos uma rede');
+   if(files.length<(kind==='carousel'?2:1)||files.length>(kind==='carousel'?10:1))throw Error('Quantidade inválida de ficheiros');
+   if(files.some(file=>file.size>80*1024*1024))throw Error('Máximo 80 MB por ficheiro');
+   if(files.some(file=>kind==='reel'?file.type!=='video/mp4':!['image/jpeg','image/png'].includes(file.type)))throw Error('Use apenas MP4 para Reels ou JPG/PNG para Posts/Carrosséis');
+   const preparedFiles=[];
+   for(const file of files)preparedFiles.push(await publicationFile(file));
+   syncNetworkCaption();
+   const accountId=Number($('pub-account').value);
+   const connected=await request('/api/duit-social/meta/accounts');
+   const account=connected.find(x=>x.id===accountId);if(!account)throw Error('Conta desligada');
+   const job=await request('/api/duit-social/publisher/jobs',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({
+       account_id:accountId,client_id:account.client_id,kind,networks,
+       source_post_id:handoffData?.sourceId||null,
+       caption:$('pub-caption').value,
+       captions:$('pub-caption-split').checked?perNetworkCaptions:{},
+       scheduled_at:new Date($('pub-date').value).toISOString()
+     })
+   });
+   try {
+     for(let i=0;i<preparedFiles.length;i++){
+       const response=await fetch('/api/duit-social/publisher/jobs/'+job.id+'/files/'+i,{
+         method:'PUT',credentials:'same-origin',headers:{'Content-Type':preparedFiles[i].type},body:preparedFiles[i]
+       });
+       if(!response.ok){const info=await response.json().catch(()=>({}));throw Error(info.error||'Upload falhou');}
+     }
+   }catch(e){
+     await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
+     throw e;
+   }
+   $('pub-status').textContent=job.reused
+     ? 'Rascunho existente atualizado. O calendário mantém uma única entrada.'
+     : 'Rascunho guardado e associado ao post original no calendário.';
+   // A gravação e o upload foram confirmados: voltar à lista do Calendário.
+   returnToCalendarAfterSave(job.id);
+ }catch(e){$('pub-status').textContent='Erro: '+e.message;}
+ finally{button.disabled=false;}
+});
+
+async function refreshMeta(){
+  const status=$('meta-status');
+  const config=await request('/api/duit-social/meta/config');
+  $('meta-connect').disabled=!config.enabled;
+  status.textContent=config.enabled
+    ? 'Ligação disponível. Selecione o cliente e autorize a Página Facebook na Meta.'
+    : 'Falta configurar a aplicação Meta no Railway.';
+  const pending=await request('/api/duit-social/meta/pending');
+  const chooser=$('meta-pending');chooser.replaceChildren();
+  if(pending.pages?.length){
+    const help=document.createElement('p');help.className='muted';
+    help.textContent='A Meta apresentou várias Páginas. Selecione apenas a Página deste cliente. As restantes não serão ligadas.';
+    const select=document.createElement('select');
+    for(const page of pending.pages){
+      const option=document.createElement('option');option.value=page.id;
+      option.textContent=page.name+(page.instagram_business_id?' · Instagram ligado':' · Só Facebook');
+      select.append(option);
+    }
+    const confirmButton=makeButton('Confirmar esta Página',async()=>{
+      try{
+        await request('/api/duit-social/meta/select-page',{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({page_id:select.value})
+        });
+        await refreshMeta();
+      }catch(e){$('meta-status').textContent=e.message;}
+    });
+    chooser.append(help,select,confirmButton);
+  }
+  const accounts=await request('/api/duit-social/meta/accounts');
+  await refreshPublisher(accounts);
+  const root=$('meta-accounts');root.replaceChildren();
+  if(!accounts.length){root.textContent='Ainda não existem contas ligadas.';return;}
+  for(const account of accounts){
+    const block=document.createElement('div');block.className='story';
+    const label=document.createElement('div');
+    label.innerHTML='<strong>'+escapeHtml(account.client_company||account.client_name)+'</strong>'+
+      '<div class="muted">'+escapeHtml(account.facebook_page_name)+
+      ' · '+(account.instagram_business_id?'Instagram profissional ligado':'Sem Instagram profissional')+'</div>';
+    const check=makeButton('Verificar ligação',async()=>{
+      check.disabled=true;
+      try{
+        const result=await request('/api/duit-social/meta/accounts/'+account.id+'/check');
+        const details=[
+          result.page_ok?'Facebook: acesso confirmado':'Facebook: sem confirmação',
+          !result.instagram_connected?'Instagram: não associado':
+            (result.instagram_matches_page&&result.instagram_readable
+              ?'Instagram: acesso confirmado'+(result.instagram_username?' (@'+result.instagram_username+')':'')
+              :'Instagram: ligação desatualizada ou sem autorização')
+        ];
+        $('meta-status').textContent=details.join(' · ');
+      }catch(e){$('meta-status').textContent='Não foi possível confirmar: '+e.message;}
+      finally{check.disabled=false;}
+    },'secondary');
+    const btn=makeButton('Desligar',async()=>{
+      if(!confirm('Desligar esta Página Meta do portal DUIT?'))return;
+      await request('/api/duit-social/meta/accounts/'+account.id,{method:'DELETE'});
+      await refreshMeta();
+    },'secondary');
+    const buttons=document.createElement('div');buttons.className='actions';buttons.append(check,btn);
+    block.append(label,buttons);root.append(block);
+  }
+}
+$('meta-connect').addEventListener('click',async()=>{
+  const button=$('meta-connect');button.disabled=true;
+  try{
+    const result=await request('/api/duit-social/meta/connect',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client_id:Number($('meta-client').value)})
+    });
+    // A Meta bloqueia OAuth dentro de iframes. Quando o editor está
+    // integrado no calendário, sair do iframe para o separador principal.
+    // O callback retorna à página da Duit Media na mesma origem.
+    if (window.self !== window.top) {
+      window.top.location.assign(result.url);
+    } else {
+      window.location.assign(result.url);
+    }
+  }catch(e){$('meta-status').textContent=e.message;button.disabled=false;}
+});
+
+function toUint8Array(base64url){
+const base64=base64url.replace(/-/g,'+').replace(/_/g,'/');
+const binary=atob(base64+'='.repeat((4-base64.length%4)%4));
+return Uint8Array.from(binary,c=>c.charCodeAt(0));
+}
+async function setupPush(){
+const indicator=$('push-status');
+if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
+indicator.textContent='Este navegador não suporta notificações Web Push. Pode continuar a partilhar Stories manualmente.';return;
+}
+const settings=await request('/api/duit-social/push/public-key');
+if(!settings.enabled){indicator.textContent='Notificações por configurar no servidor (chaves VAPID em falta).';return;}
+const registration=await navigator.serviceWorker.register('/sw.js');
+const permission=await Notification.requestPermission();
+if(permission!=='granted'){indicator.textContent='Notificações não autorizadas no Android.';return;}
+const subscription=await registration.pushManager.subscribe({
+userVisibleOnly:true,applicationServerKey:toUint8Array(settings.publicKey)
+});
+await request('/api/duit-social/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subscription.toJSON()})});
+indicator.textContent='Notificações ativas neste dispositivo. Faça um teste para confirmar.';
+}
+$('enable-push').addEventListener('click',async()=>{
+$('enable-push').disabled=true;
+try{await setupPush();}catch(error){$('push-status').textContent='Erro: '+error.message;}
+finally{$('enable-push').disabled=false;}
+});
+$('test-push').addEventListener('click',async()=>{
+try{const result=await request('/api/duit-social/push/test',{method:'POST'});
+$('push-status').textContent=result.delivered+' de '+result.total+' notificações aceites pelo serviço Push (a entrega no Android depende do sistema).';
+}catch(error){$('push-status').textContent=error.message;}
+});
+
+$('story-notify-now').addEventListener('click',async()=>{
+ const id=Number($('story-notify-now').dataset.storyId);
+ if(!Number.isSafeInteger(id)||id<=0)return;
+ const button=$('story-notify-now');
+ button.disabled=true;
+ try{
+  const result=await request('/api/duit-social/stories/'+id+'/notify',{method:'POST'});
+  $('story-notify-feedback').textContent=result.sent>0
+   ? 'Aviso enviado para '+result.sent+' dispositivo(s). Confirme se apareceu no Android.'
+   : 'Nenhum dispositivo recebeu o envio. No Android, abra Stories e toque em «Ativar notificações».';
+ }catch(error){$('story-notify-feedback').textContent='Erro: '+error.message;}
+ finally{button.disabled=false;}
+});
+function syncStoryTiming(){
+ const immediate=$('story-timing').value==='now';
+ $('story-schedule-wrap').hidden=immediate;
+ $('scheduled').required=!immediate;
+ $('story-save-button').textContent=immediate?'Guardar e preparar para Android':'Agendar Story';
+}
+$('story-timing').addEventListener('change',syncStoryTiming);
+syncStoryTiming();
+$('new-story').addEventListener('submit',async e=>{
+ e.preventDefault();
+ const button=$('story-save-button');
+ button.disabled=true;
+ $('feedback').className='';
+ $('feedback').textContent='A guardar…';
+ $('story-share-success').hidden=true;
+ try{
+  const file=$('media').files[0];
+  if(!file||file.size>80*1024*1024)throw Error('Escolha uma imagem ou vídeo até 80 MB.');
+  const immediate=$('story-timing').value==='now';
+  const payload={client_id:Number($('client').value),immediate};
+  if(!immediate){
+   const date=new Date($('scheduled').value);
+   if(!Number.isFinite(date.getTime()))throw Error('Selecione uma data e hora válidas.');
+   if(Intl.DateTimeFormat().resolvedOptions().timeZone!=='Europe/Lisbon'&&!confirm('O dispositivo não está definido para a hora de Portugal. Continuar com o horário local?'))return;
+   payload.scheduled_at=date.toISOString();
+   payload.status='scheduled';
+  }
+  const story=await request('/api/duit-social/stories',{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+  });
+  let uploadResult=null;
+  try{
+   const upload=await fetch('/api/duit-social/stories/'+story.id+'/media',{
+     method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file
+   });
+   uploadResult=await upload.json().catch(()=>null);
+   if(!upload.ok)throw Error(uploadResult?.error||'Não foi possível guardar o ficheiro.');
+  }catch(error){
+   await request('/api/duit-social/stories/'+story.id,{method:'DELETE'}).catch(()=>null);
+   throw error;
+  }
+  const push=uploadResult?.notification;
+  $('feedback').textContent=immediate
+    ? (push?.sent>0
+      ? 'Story guardada. Notificação enviada para '+push.sent+' dispositivo(s). Confirme a receção no Android.'
+      : 'Story guardada e pronta para Android. Nenhuma notificação foi enviada. No telemóvel, abra a área Stories, toque em «Ativar notificações» e depois em «Enviar teste».')
+    : 'Story agendada com sucesso.';
+  if(immediate){
+   const url='/social-stories.html?mode=stories&story='+story.id;
+   $('story-share-link').href=url;
+   $('story-notify-now').dataset.storyId=String(story.id);
+   $('story-notify-feedback').textContent='';
+   $('story-share-success').hidden=false;
+  }
+  e.target.reset();
+  syncStoryTiming();
+  await refresh();
+ }catch(error){
+  $('feedback').className='error';
+  $('feedback').textContent=error.message;
+ }finally{button.disabled=false;}
+});
+(async()=>{try{const me=await request('/api/auth/me');if(me.role!=='admin')throw Error('Acesso reservado à DUIT');
+$('pub-date').value=dateForInput(60*60*1000);
+const clients=await request('/api/clients');const demoEmails=new Set(['ana@exemplo.pt','joao@exemplo.pt','rita@exemplo.pt']);
+const socialClients=clients.filter(c=>!c.is_prospect && !c.parent_user_id && !demoEmails.has(String(c.email||'').toLowerCase()));$('client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
+$('meta-client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));await refreshMeta();
+$('compose-client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
+applyCalendarPreset();
+if(!mediaQuery.get('client'))syncComposeClient($('compose-client').value);
+if(window.pendingPublicationEdit){populatePublicationEditor(window.pendingPublicationEdit);window.pendingPublicationEdit=null;}
+else refreshCaptionTabs();
+duitRefreshPreview();
+handoffReady=true;applyEditorialHandoff();
+
+const tomorrow=new Date(Date.now()+86400000);const pad=n=>String(n).padStart(2,'0');$('scheduled').value=tomorrow.getFullYear()+'-'+pad(tomorrow.getMonth()+1)+'-'+pad(tomorrow.getDate())+'T'+pad(tomorrow.getHours())+':'+pad(tomorrow.getMinutes());
+if(mediaQuery.has('date'))applyCalendarPreset();
+if(mediaQuery.has('story')){document.body.classList.add('story-mode','editing-existing');$('stories-section').style.display='block';}
+if(mediaQuery.has('publication'))document.body.classList.add('editing-existing');
+await refresh();}catch(e){$('stories').textContent=e.message;}})();
+</script></body></html>

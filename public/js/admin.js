@@ -92,6 +92,7 @@ function renderShell() {
     { id: 'duit-start', icon: 'sparkle', label: 'DUIT Start', alert: s.unreadDuitStart, alertTitle: `${s.unreadDuitStart || 0} pedido(s) DUIT Start por ler` },
     { id: 'cancels',   icon: 'cancel',  label: 'Cancelamentos',alert: s.pendingCancels,         alertTitle: `${s.pendingCancels || 0} cancelamento(s) pendente(s)` },
     { id: 'support',   icon: 'chat',    label: 'Suporte',      alert: s.unreadAdminTickets,     alertTitle: `${s.unreadAdminTickets || 0} ticket(s) com nova resposta de cliente` },
+    { id: 'duit-media', icon: 'cal', label: 'Duit Media' },
     { id: 'metaads',   icon: 'quote',   label: 'Meta Ads' },
     { id: 'metareports', icon: 'cal', label: 'Relatórios Meta' },
     { id: 'announcements', icon: 'sparkle', label: 'Anúncios',
@@ -121,7 +122,9 @@ function renderShell() {
     }).join('')}
   `;
   nav.querySelectorAll('.nav-item').forEach(b => {
-    b.addEventListener('click', () => go(b.dataset.view));
+    b.addEventListener('click', () => {
+      go(b.dataset.view);
+    });
   });
   setActive();
 }
@@ -157,6 +160,7 @@ async function go(view) {
     else if (view === 'plans')    await viewPlans(main);
     else if (view === 'projects') await viewProjects(main);
     else if (view === 'calendar') await viewCalendar(main);
+    else if (view === 'duit-media') await viewDuitMedia(main);
     else if (view === 'quotes')   await viewQuotes(main);
     else if (view === 'duit-start') {
       if(typeof window.duitViewStart!=='function'){
@@ -1127,6 +1131,84 @@ async function deleteProject(id) {
   catch (err) { toast(err.message, 'cancel'); }
 }
 
+/* Duit Media integrado na agenda: abre o editor no próprio portal.
+   O iframe mantém o OAuth da Meta na mesma origem e só abre em clique real.
+   Ao fechar, a vista do calendário recarrega os dados atuais. */
+function openDuitMediaCalendar(opts = {}) {
+  document.getElementById('duit-media-calendar-modal')?.remove();
+  const url = new URL('/social-stories.html', window.location.origin);
+  url.searchParams.set('embed', 'calendar');
+  url.searchParams.set('mode', 'compose');
+  if (opts.kind) url.searchParams.set('kind', String(opts.kind));
+  if (opts.date && /^\\d{4}-\\d{2}-\\d{2}$/.test(String(opts.date)))
+    url.searchParams.set('date', String(opts.date));
+  if (opts.client && /^\\d+$/.test(String(opts.client)))
+    url.searchParams.set('client', String(opts.client));
+  if (Number.isSafeInteger(Number(opts.publication)) && Number(opts.publication) > 0)
+    url.searchParams.set('publication', String(opts.publication));
+  if (Number.isSafeInteger(Number(opts.story)) && Number(opts.story) > 0){
+    url.searchParams.set('story', String(opts.story));
+    url.searchParams.set('kind', 'story');
+  }
+  const overlay = document.createElement('div');
+  overlay.id = 'duit-media-calendar-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:#111c;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `<div role="dialog" aria-modal="true" aria-label="Duit Media" style="background:#f3f4f5;border-radius:18px;width:min(1300px,100%);height:min(92vh,100%);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 25px 100px #0005">
+    <div style="height:53px;background:#151515;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0 16px;gap:15px">
+      <strong style="font-size:13px;font-weight:800">CALENDÁRIO <span style="color:#ffd200">·</span> ${opts.publication || opts.story ? 'Editar conteúdo' : 'Criar conteúdo'}</strong>
+      <button type="button" id="duit-media-calendar-close" style="background:#ffd200;border:0;color:#111;font-weight:800;border-radius:8px;padding:8px 14px;cursor:pointer">Fechar ✕</button>
+    </div>
+    <iframe title="Editor Duit Media" src="${url.pathname + url.search}" style="border:0;width:100%;flex:1;min-height:0" allow="clipboard-write"></iframe>
+  </div>`;
+  const close = () => { overlay.remove(); if (state.view === 'calendar') go('calendar'); };
+  // O editor informa o painel apenas após o servidor confirmar a gravação.
+  // Validar origem, iframe emissor e identificador do trabalho.
+  const onSaved = event => {
+    if(event.origin !== window.location.origin ||
+       event.source !== overlay.querySelector('iframe')?.contentWindow ||
+       event.data?.type !== 'duit-media-publication-saved' ||
+       !Number.isSafeInteger(event.data.jobId) || event.data.jobId <= 0) return;
+    window.removeEventListener('message',onSaved);
+    close();
+    toast('Publicação guardada no calendário.','check');
+  };
+  window.addEventListener('message',onSaved);
+  const closeAndDetach = () => {window.removeEventListener('message',onSaved);close();};
+  overlay.querySelector('#duit-media-calendar-close').addEventListener('click', closeAndDetach);
+  overlay.addEventListener('click', ev => { if (ev.target === overlay) closeAndDetach(); });
+  document.body.appendChild(overlay);
+  if(opts.handoff){
+    const iframe=overlay.querySelector('iframe');
+    iframe.addEventListener('load',()=>{
+      iframe.contentWindow?.postMessage({
+        type:'duit-media-editorial-handoff',
+        caption:String(opts.handoff.caption||''),
+        inspiration:String(opts.handoff.inspiration||''),
+        story:String(opts.handoff.story||''),
+        sourceId:Number(opts.handoff.sourceId)||null,
+      },window.location.origin);
+    },{once:true});
+  }
+  overlay.querySelector('#duit-media-calendar-close').focus();
+}
+window.openDuitMediaCalendar = openDuitMediaCalendar;
+
+/* Gestão de ligações Meta dentro do painel, preservando o menu do portal. */
+async function viewDuitMedia(main) {
+  main.innerHTML = `
+    <div class="page-head">
+      <div><div class="eyebrow">GESTÃO DE REDES SOCIAIS</div><h1>Duit Media</h1>
+      <p class="lede">Ligue e verifique as contas Facebook e Instagram de cada cliente. Crie os conteúdos no Calendário.</p></div>
+      <div class="page-head-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn btn-yellow btn-sm" href="/social-stories.html?mode=stories" style="text-decoration:none">${svg('bell')} Stories no Android</a>
+        <button class="btn btn-ghost btn-sm" onclick="go('calendar')">${svg('cal')} Abrir calendário</button>
+      </div>
+    </div>
+    <iframe title="Contas ligadas Duit Media" src="/social-stories.html?mode=accounts&embed=admin"
+      style="display:block;width:100%;height:580px;min-height:450px;border:0;background:transparent;border-radius:16px"
+      loading="eager"></iframe>`;
+}
+
 /* =========================================================================
    CALENDÁRIO (editor completo)
    ========================================================================= */
@@ -1134,6 +1216,68 @@ async function viewCalendar(main) {
   if (!state.calDay) state.calDay = todayISO();
   const mode = state.calMode;
   const filter = state.calClientFilter;
+  // Mostrar Stories juntamente com os posts, sem alterar os fluxos antigos.
+  const storyRows = await api('/api/duit-social/stories').catch(() => []);
+  const calendarStories = storyRows.filter(s => filter === 'all' || String(s.client_id) === String(filter))
+    .map(s => ({ ...s, calendarDay: new Date(s.scheduled_at)
+      .toLocaleDateString('sv-SE', { timeZone:'Europe/Lisbon' }) }));
+  // Trabalhos do publicador Meta aparecem no mesmo calendário, distintos
+  // dos posts editoriais antigos. Só ligamos os conteúdos realmente criados.
+  const windowStart = mode === 'month' ? state.calMonth + '-01' : state.calDay;
+  const windowEnd = mode === 'month'
+    ? (() => { const [y,m]=state.calMonth.split('-').map(Number);
+        return y+'-'+String(m).padStart(2,'0')+'-'+String(new Date(y,m,0).getDate()).padStart(2,'0'); })()
+    : addDaysISO(state.calDay,1);
+  const metaQuery = new URLSearchParams({start:windowStart,end:windowEnd});
+  if(filter!=='all')metaQuery.set('client_id',String(filter));
+  const metaJobs = await api('/api/duit-social/publisher/calendar?'+metaQuery.toString()).catch(()=>[]);
+  const calendarMetaJobs = metaJobs.map(j=>({
+    ...j,calendarDay:new Date(j.scheduled_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Lisbon'})
+  }));
+  // A mesma publicação tem um registo editorial e um destino Meta.
+  // Mostrá-los juntos no calendário como UMA entrada quando associados.
+  const linkedMetaByPost = new Map(calendarMetaJobs.filter(j=>j.source_post_id)
+    .map(j=>[Number(j.source_post_id),j]));
+  const unlinkedMetaJobs = calendarMetaJobs.filter(j=>!j.source_post_id);
+  const displayEditorialStatus = p => {
+    const meta=linkedMetaByPost.get(Number(p.id));
+    // Cor de publicação derivada da Meta, sem tocar no estado editorial
+    // nem acionar a sincronização bidirecional com Google Sheets.
+    return meta?.status==='published'?'published':p.status;
+  };
+  const editorialMediaIndicator = p => linkedMetaByPost.has(Number(p.id))
+    ? ' · Meta '+escapeHtml(linkedMetaByPost.get(Number(p.id)).status)
+    : '';
+  const metaStatusColors = {
+    draft:      { background:'#F2F0F7', border:'#DDD6EB', text:'#463761', icon:'◌', label:'Rascunho' },
+    scheduled:  { background:'#FFF5D6', border:'#F0D88A', text:'#775600', icon:'◷', label:'Agendado' },
+    processing: { background:'#E7F2FF', border:'#B5D7FF', text:'#185A92', icon:'◌', label:'A publicar' },
+    review:     { background:'#FFF0E7', border:'#F4C6A8', text:'#9D3D1B', icon:'!', label:'Rever' },
+    published:  { background:'#E8F7E8', border:'#B7E4B8', text:'#1F6B2A', icon:'✓', label:'Publicado' },
+    failed:     { background:'#FFE9E9', border:'#F3B7B7', text:'#A21D27', icon:'!', label:'Falhou' },
+    cancelled:  { background:'#F1F1F1', border:'#D5D5D5', text:'#666666', icon:'–', label:'Cancelado' }
+  };
+  const metaMini = j => {
+    const status = metaStatusColors[j.status] || metaStatusColors.draft;
+    const channels = Array.isArray(j.networks) ? j.networks : [];
+    const channelLabel = channels.map(network => ({
+      instagram:'Instagram',facebook:'Facebook',threads:'Threads'
+    }[network] || network)).join(' + ') || 'Rede por definir';
+    const typeLabel = j.kind==='reel'?'Reel':j.kind==='carousel'?'Carrossel':'Post';
+    const clientLabel = j.client_company||j.client_name||'Cliente';
+    return `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({publication:${j.id}})" class="cal-post"
+      style="display:block;text-decoration:none;background:${status.background};color:${status.text};border:1px solid ${status.border};border-radius:8px;padding:7px;margin-top:5px;"
+      title="${escapeHtml(typeLabel+' · '+clientLabel+' · '+channelLabel+' · '+status.label)}">
+      <span aria-hidden="true" style="font-weight:800;margin-right:3px">${status.icon}</span>
+      ${escapeHtml(typeLabel)} · ${escapeHtml(clientLabel)} · ${escapeHtml(channelLabel)} · ${status.label}
+    </a>`;
+  };
+  const storyMini = s => `<a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({story:${s.id}})" class="cal-post"
+    style="display:block;text-decoration:none;background:#fff3b5;color:#1b1b1b;border-radius:8px;padding:7px;margin-top:5px;"
+    title="Story ${escapeHtml(s.client_company||s.client_name)}">
+    ◉ Story · ${escapeHtml(s.client_company||s.client_name)} · ${escapeHtml(s.status)}
+  </a>`;
+
   const pageHead = `
     <div class="page-head">
       <div>
@@ -1164,7 +1308,7 @@ async function viewCalendar(main) {
     <div class="cal-toolbar">
       <div class="cal-filters">
         <button class="cal-filter ${filter === 'all' ? 'active' : ''}" onclick="setCalFilter('all')">Todos</button>
-        ${state.clients.filter(c => (c.social_subs || 0) > 0).map(c => `
+        ${state.clients.filter(c => !c.is_prospect && !c.parent_user_id && !['ana@exemplo.pt','joao@exemplo.pt','rita@exemplo.pt'].includes(String(c.email||'').toLowerCase())).map(c => `
           <button class="cal-filter ${filter == c.id ? 'active' : ''}" onclick="setCalFilter(${c.id})">
             ${escapeHtml(c.company || c.name)}
           </button>
@@ -1172,6 +1316,8 @@ async function viewCalendar(main) {
       </div>
       <div style="display:flex; gap:6px; flex-wrap:wrap;">
         <button class="btn btn-yellow btn-sm" onclick="openNewPostForDate('${mode === 'day' ? state.calDay : ''}')">${svg('plus')} Novo post</button>
+        <button class="btn btn-ghost btn-sm" onclick="openDuitMediaCalendar({date:'${mode === 'day' ? state.calDay : ''}',client:'${filter === 'all' ? '' : filter}'})">Criar conteúdo Meta / Story</button>
+        <a class="btn btn-ghost btn-sm" href="/social-stories.html?mode=accounts">Gerir contas Meta</a>
         ${filter !== 'all'
           ? `<button class="btn btn-ghost btn-sm" onclick="openGenPosts()">${svg('cal')} Gerar posts do mês</button>`
           : ''}
@@ -1207,14 +1353,16 @@ async function viewCalendar(main) {
           ${dayPosts.map(p => {
             const label = p.client_company || p.client_name || '';
             return `
-            <div class="cal-post ${p.status}"
-                 title="${escapeHtml(label + ' · ' + p.text + ' · ' + p.status)}"
+            <div class="cal-post ${displayEditorialStatus(p)}"
+                 title="${escapeHtml(label + ' · ' + p.text + ' · ' + displayEditorialStatus(p))}"
                  onclick="event.stopPropagation(); openEditPost(${p.id})">
               <span style="font-weight:600">${escapeHtml(label)}</span>
               <span style="opacity:.75">·</span>
-              ${escapeHtml(p.text.slice(0, 18))}${p.text.length > 18 ? '…' : ''}
+              ${escapeHtml(p.text.slice(0, 18))}${p.text.length > 18 ? '…' : ''}${editorialMediaIndicator(p)}
             </div>
           `;}).join('')}
+          ${calendarStories.filter(s => s.calendarDay === dateStr).map(storyMini).join('')}
+          ${unlinkedMetaJobs.filter(j => j.calendarDay === dateStr).map(metaMini).join('')}
         </div>
       `);
     }
@@ -1245,23 +1393,36 @@ async function viewCalendar(main) {
   state.calPostsCache = all;
   // Vista diária funciona como to-do: só mostra os rascunhos pendentes.
   // Quando o admin avança o estado (Agendar / Publicado / Cancelar), o post sai daqui.
-  const todayPosts    = all.filter(p => p.date === today    && p.status === 'draft').sort(sortByStatusThenNet);
-  const tomorrowPosts = all.filter(p => p.date === tomorrow && p.status === 'draft').sort(sortByStatusThenNet);
+  const todayPosts    = all.filter(p => p.date === today    && p.status === 'draft' && displayEditorialStatus(p)!=='published').sort(sortByStatusThenNet);
+  const tomorrowPosts = all.filter(p => p.date === tomorrow && p.status === 'draft' && displayEditorialStatus(p)!=='published').sort(sortByStatusThenNet);
   // Total real de posts agendados para cada dia (todos os estados) — usado para
   // distinguir "dia sem trabalho marcado" de "tudo feito".
   const todayTotal    = all.filter(p => p.date === today).length;
   const tomorrowTotal = all.filter(p => p.date === tomorrow).length;
 
+  // As Stories e publicações Meta pertencem ao próprio dia da agenda.
+  // Um trabalho Meta ligado ao post editorial não gera segunda entrada
+  // quando o respetivo post já está visível no dia.
+  const extrasForDay = dateStr => {
+    const shownEditorial=new Set(
+      all.filter(p=>p.date===dateStr&&p.status==='draft').map(p=>Number(p.id))
+    );
+    return {
+      stories:calendarStories.filter(item=>item.calendarDay===dateStr),
+      meta:calendarMetaJobs.filter(item=>item.calendarDay===dateStr &&
+        (!item.source_post_id || !shownEditorial.has(Number(item.source_post_id))))
+    };
+  };
   main.innerHTML = `
     ${pageHead}
-    <div class="grid" style="gap:18px">
-      ${dayBlock('Hoje', today, todayPosts, todayTotal)}
-      ${dayBlock('Amanhã', tomorrow, tomorrowPosts, tomorrowTotal)}
+    <div class="grid" style="gap:18px;align-items:start">
+      ${dayBlock('Hoje',today,todayPosts,todayTotal,extrasForDay(today),metaMini,storyMini)}
+      ${dayBlock('Amanhã',tomorrow,tomorrowPosts,tomorrowTotal,extrasForDay(tomorrow),metaMini,storyMini)}
     </div>
   `;
 }
 
-function dayBlock(title, dateStr, drafts, totalForDay) {
+function dayBlock(title, dateStr, drafts, totalForDay, extras={meta:[],stories:[]}, metaMini=()=>'', storyMini=()=>'') {
   // O contentor mostra apenas rascunhos. O resumo conta o que está por fazer
   // versus o que já foi tratado (scheduled/published/cancelled = "fora da lista").
   const allDoneButHadWork = drafts.length === 0 && totalForDay > 0;
@@ -1272,9 +1433,18 @@ function dayBlock(title, dateStr, drafts, totalForDay) {
         ? `${totalForDay} post${totalForDay === 1 ? '' : 's'} já tratado${totalForDay === 1 ? '' : 's'}`
         : 'Sem posts agendados.');
 
+  const extraCount=extras.meta.length+extras.stories.length;
+  // Se existem trabalhos para publicar ou Stories, não apresentar o estado
+  // "tudo tratado" por cima de conteúdos ainda pendentes.
+  const extraHtml=[
+    ...extras.stories.map(storyMini),
+    ...extras.meta.map(metaMini)
+  ].join('');
   let bodyHtml;
   if (drafts.length > 0) {
     bodyHtml = `<div class="day-list">${drafts.map(p => dayPostRow(p)).join('')}</div>`;
+  } else if (extraCount > 0) {
+    bodyHtml='';
   } else if (allDoneButHadWork) {
     bodyHtml = `
       <div style="text-align:center; padding:36px 16px; color:var(--text);">
@@ -1291,16 +1461,20 @@ function dayBlock(title, dateStr, drafts, totalForDay) {
     bodyHtml = `<div class="empty" style="padding:30px 0;">Sem posts agendados para este dia.</div>`;
   }
 
+  const daySummary=extraCount && drafts.length===0
+    ? `${extraCount} conteúdo${extraCount===1?'':'s'} na agenda`
+    : summary;
   return `
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:10px; flex-wrap:wrap;">
         <div>
           <h3 style="margin:0;">${title} <span style="color:var(--muted); font-weight:400; font-size:14px;">· ${fmtDate(dateStr, true)}</span></h3>
-          <div style="font-size:12px; color:var(--muted); margin-top:4px;">${summary}</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">${daySummary}</div>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="openNewPostForDate('${dateStr}')">${svg('plus')} Adicionar</button>
       </div>
       ${bodyHtml}
+      ${extraHtml ? `<div class="day-list" style="display:grid;gap:8px;margin-top:10px">${extraHtml}</div>` : ''}
     </div>
   `;
 }
@@ -1448,6 +1622,7 @@ function openNewPostForDate(dateStr) {
   sel.innerHTML = state.clients.filter(c => (c.social_subs || 0) > 0).map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   if (state.calClientFilter !== 'all') sel.value = state.calClientFilter;
   document.getElementById('mp-delete-btn').style.display = 'none';
+  document.getElementById('mp-transfer-media-btn').style.display = 'none';
   const sw = document.getElementById('mp-suggestion-wrap');
   if (sw) sw.style.display = 'none';
   openModal('modal-post');
@@ -1476,6 +1651,7 @@ async function openEditPost(id) {
   sel.innerHTML = eligible.map(c => `<option value="${c.id}">${escapeHtml(clientOptionLabel(c))}</option>`).join('');
   sel.value = p.user_id;
   document.getElementById('mp-delete-btn').style.display = '';
+  document.getElementById('mp-transfer-media-btn').style.display = '';
   const sw = document.getElementById('mp-suggestion-wrap');
   const sv = document.getElementById('mp-suggestion-view');
   if (sw && sv) {
@@ -3659,4 +3835,31 @@ document.addEventListener('click', async (e) => {
       go('calendar');
     } catch (err) { toast(err.message, 'cancel'); }
   }
+});
+
+// O cliente edita o planeamento editorial existente. Só o administrador
+// tem este botão e faz a passagem para o compositor Meta; não publica nada.
+document.getElementById('mp-transfer-media-btn')?.addEventListener('click',async()=>{
+  const id=Number(document.getElementById('mp-id').value);
+  if(!Number.isSafeInteger(id)||id<=0)return toast('Guarde primeiro o post no calendário.','cancel');
+  const client=Number(document.getElementById('mp-user').value);
+  const date=document.getElementById('mp-date').value;
+  const caption=document.getElementById('mp-text').value;
+  const inspiration=document.getElementById('mp-inspiration').value;
+  const story=document.getElementById('mp-story').value;
+  const status=document.getElementById('mp-status').value;
+  const button=document.getElementById('mp-transfer-media-btn');
+  button.disabled=true;
+  try{
+    // Guarda eventuais alterações editoriais antes da preparação, sem
+    // alterar o estado e sem criar publicações remotas.
+    await api('/api/social-posts/'+id,{
+      method:'PATCH',body:{user_id:client,date,text:caption,
+        inspiration:inspiration.trim()||null,story:story.trim()||null,status}
+    });
+    closeModal('modal-post');
+    openDuitMediaCalendar({client,date,kind:'post',
+      handoff:{sourceId:id,caption,inspiration,story}});
+  }catch(err){toast('Não foi possível preparar o post: '+err.message,'cancel');}
+  finally{button.disabled=false;}
 });

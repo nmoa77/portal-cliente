@@ -107,6 +107,12 @@ function requireClientPermission(key){
 }
 
 calendarSheets.register(app);
+// Stories DUIT — fase 1: preparação e partilha manual no Android.
+require('./duit-social-stories').register(app);
+// Ligação segura de contas profissionais à Meta (ainda sem publicar conteúdos).
+require('./duit-meta-accounts').register(app);
+// Publicador protegido: desativado por defeito; depende de contas Meta selecionadas.
+require('./duit-social-publisher').register(app);
 
 /* ================================================================
    AUTH
