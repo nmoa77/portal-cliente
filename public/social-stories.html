@@ -1210,17 +1210,23 @@ $('new-story').addEventListener('submit',async e=>{
   const story=await request('/api/duit-social/stories',{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
   });
+  let uploadResult=null;
   try{
    const upload=await fetch('/api/duit-social/stories/'+story.id+'/media',{
      method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file
    });
-   const result=await upload.json().catch(()=>null);
-   if(!upload.ok)throw Error(result?.error||'Não foi possível guardar o ficheiro.');
+   uploadResult=await upload.json().catch(()=>null);
+   if(!upload.ok)throw Error(uploadResult?.error||'Não foi possível guardar o ficheiro.');
   }catch(error){
    await request('/api/duit-social/stories/'+story.id,{method:'DELETE'}).catch(()=>null);
    throw error;
   }
-  $('feedback').textContent=immediate?'Story preparada para partilhar agora no Android.':'Story agendada com sucesso.';
+  const push=uploadResult?.notification;
+  $('feedback').textContent=immediate
+    ? (push?.sent>0
+      ? 'Story guardada. Notificação enviada para '+push.sent+' dispositivo(s). Confirme a receção no Android.'
+      : 'Story guardada e pronta para Android. Nenhuma notificação foi enviada. No telemóvel, abra a área Stories, toque em «Ativar notificações» e depois em «Enviar teste».')
+    : 'Story agendada com sucesso.';
   if(immediate){
    const url='/social-stories.html?mode=stories&story='+story.id;
    $('story-share-link').href=url;
