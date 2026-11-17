@@ -158,7 +158,7 @@ function register(app) {
   });
 
   // O browser envia o ficheiro bruto (sem multipart), para evitar dependências adicionais.
-  router.put('/stories/:id/media', express.raw({type: () => true, limit:'80mb'}), (req, res) => {
+  router.put('/stories/:id/media', express.raw({type: () => true, limit:'80mb'}), async (req, res) => {
     const story = findStory(Number(req.params.id));
     if (!story) return res.status(404).json({error:'Story não encontrada'});
     if (story.status === 'published') return res.status(409).json({error:'Story já publicada'});
@@ -184,7 +184,29 @@ function register(app) {
       if (story.media_name) {
         try { fs.unlinkSync(filePath(story.id, story.media_name)); } catch (_) {}
       }
-      res.json(publicRow(findStory(story.id)));
+      // A notificação imediata só sai depois de o ficheiro estar guardado.
+      // A Story continua por publicar no Instagram até confirmação manual.
+      let notification={sent:0,total:0};
+      if(story.status==='ready' && !story.notified_at && vapidConfig()){
+        const subscriptions=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions WHERE user_id=?').all(req.user.id);
+        notification.total=subscriptions.length;
+        for(const row of subscriptions){
+          try{
+            await sendPush(JSON.parse(row.subscription_json),{
+              title:'DUIT · Story pronta para partilhar',
+              body:(story.client_company||story.client_name||'DUIT')+' · Abra a Story no Android e publique no Instagram.',
+              url:'/social-stories.html?story='+story.id
+            });
+            notification.sent++;
+          }catch(err){
+            if([404,410].includes(err.status)){
+              db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=? AND user_id=?').run(row.endpoint,req.user.id);
+            }else console.warn('[duit-social] push imediato:',err.message);
+          }
+        }
+        if(notification.sent)db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
+      }
+      res.json({...publicRow(findStory(story.id)),notification});
     } catch (e) {
       try { fs.unlinkSync(target); } catch (_) {}
       console.error('[duit-social] upload:', e.message);
