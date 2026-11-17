@@ -399,6 +399,18 @@ let handoffData=null;
 let handoffReady=false;
 function applyEditorialHandoff(){
  if(!handoffReady||!handoffData)return;
+ // O cliente do post editorial é a fonte de verdade. Nunca assumir o primeiro
+ // cliente da lista nem permitir publicar noutra conta Meta por engano.
+ const clientId=String(handoffData.clientId||mediaQuery.get('client')||'');
+ if(/^\\d+$/.test(clientId) && [...$('compose-client').options].some(o=>o.value===clientId)){
+   $('compose-client').value=clientId;
+   syncComposeClient(clientId);
+   $('compose-client').disabled=true;
+   $('meta-client').value=clientId;
+   $('compose-client-hint').textContent=$('pub-account').value
+     ? 'Cliente do planeamento selecionado automaticamente. A conta Meta é deste cliente.'
+     : 'Este cliente não tem conta Meta ligada. Ligue-a primeiro em Duit Media.';
+ }
  $('pub-caption').value=handoffData.caption||'';
  const content=$('editorial-source');
  const parts=[];
@@ -412,6 +424,7 @@ window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==window.parent)return;
  if(event.data?.type!=='duit-media-editorial-handoff')return;
  handoffData={sourceId:Number(event.data.sourceId)||null,
+  clientId:Number(event.data.clientId)||null,
   caption:String(event.data.caption||'').slice(0,2200),
   inspiration:String(event.data.inspiration||'').slice(0,3000),
   story:String(event.data.story||'').slice(0,3000)};
