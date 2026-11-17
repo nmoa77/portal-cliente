@@ -96,6 +96,13 @@ body.stories-mobile #stories{display:grid;gap:12px}
 body.stories-mobile #stories .story{border:1px solid #e6e6e6;border-radius:14px;padding:16px;background:#fff;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
 body.stories-mobile #stories .actions{display:flex;gap:8px;flex-wrap:wrap}
 body.stories-mobile #stories .actions button{min-height:44px}
+body.stories-mobile .story.story-target{display:block!important;border:2px solid #ffd200!important}
+body.stories-mobile .story.story-target .actions{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+body.stories-mobile .story.story-target .actions button{width:100%;min-height:52px}
+.story-target-preview{display:flex;align-items:center;justify-content:center;background:#111;border-radius:14px;overflow:hidden;aspect-ratio:9/16;max-height:65vh;margin:14px auto;width:min(100%,340px);color:#fff}
+.story-target-preview img,.story-target-preview video{width:100%;height:100%;object-fit:contain}
+.story-target-hint{font-size:12px;line-height:1.6;color:#555;margin:8px 0}
+
 body.stories-mobile #alertas{margin-top:18px}
 @media(max-width:680px){body.stories-mobile main{width:calc(100% - 24px)}body.stories-mobile .story .actions{width:100%}}
 
@@ -683,20 +690,59 @@ function makeButton(label,action,cls=''){const b=document.createElement('button'
 async function refresh(){
 const rows=await request('/api/duit-social/stories');preparedFiles.clear();const root=$('stories');root.replaceChildren();
 const chosenStory=Number(mediaQuery.get('story')||0);
+const singleStory=Number.isSafeInteger(chosenStory)&&chosenStory>0;
+if(singleStory)document.body.classList.add('stories-target-mode');
+else document.body.classList.remove('stories-target-mode');
 if(chosenStory>0&&rows.some(s=>s.id===chosenStory))rows.sort((a,b)=>(b.id===chosenStory)-(a.id===chosenStory));
 if(!rows.length){root.textContent='Ainda não existem Stories.';return;}
-for(const s of rows){const item=document.createElement('article');item.className='story';if(s.id===Number(new URLSearchParams(location.search).get('story')))item.style.outline='2px solid #ffd200';const info=document.createElement('div');info.innerHTML='<strong>'+escapeHtml(s.client_company||s.client_name)+'</strong><div class="muted">'+dateLabel(s.scheduled_at)+' · '+escapeHtml(s.status)+'</div>';
+if(singleStory&&!rows.some(item=>item.id===chosenStory)){
+ root.textContent='Esta Story não está disponível. Pode ter sido publicada ou eliminada.';
+ return;
+}
+for(const s of rows){
+ if(singleStory&&s.id!==chosenStory)continue;
+ const item=document.createElement('article');item.className='story';
+ const targeted=singleStory&&s.id===chosenStory;
+ if(targeted)item.classList.add('story-target');
+ const info=document.createElement('div');
+ const safeStatus=s.status==='ready'?'Pronta para enviar':s.status==='published'?'Publicada':s.status==='scheduled'?'Agendada':'Rascunho';
+ info.innerHTML='<strong>'+escapeHtml(s.client_company||s.client_name)+'</strong><div class="muted">'+dateLabel(s.scheduled_at)+' · '+safeStatus+'</div>';
+ if(targeted&&s.has_media){
+  const preview=document.createElement('div');preview.className='story-target-preview';
+  const media=document.createElement(s.media_mime==='video/mp4'?'video':'img');
+  media.src=s.media_url;
+  if(media.tagName==='VIDEO'){media.muted=true;media.controls=true;media.playsInline=true;}
+  preview.append(media);item.append(info,preview);
+  const hint=document.createElement('p');hint.className='story-target-hint';
+  hint.textContent='Toque em «Partilhar no Instagram», escolha o Instagram no menu Android e termine a Story na aplicação.';
+  item.append(hint);
+ }
 const actions=document.createElement('div');actions.className='actions';
 if(s.has_media){
- const btn=makeButton('Preparar partilha',()=>prepareShare(s,btn),'');
+ const btn=makeButton(targeted?'A preparar Story…':'Preparar partilha',()=>prepareShare(s,btn),'');
  actions.append(btn);
  actions.append(makeButton('Descarregar',()=>downloadStory(s),'secondary'));
+ if(targeted){
+  btn.disabled=true;
+  getStoryFile(s).then(file=>{
+   preparedFiles.set(s.id,file);
+   btn.textContent='Partilhar no Instagram';
+   btn.disabled=false;
+  }).catch(error=>{
+   btn.textContent='Tentar preparar novamente';
+   btn.disabled=false;
+   const alert=document.createElement('p');alert.className='story-target-hint';
+   alert.textContent='Não foi possível preparar o ficheiro: '+error.message;
+   actions.before(alert);
+  });
+ }
 }
 if(s.status!=='published'){
  actions.append(makeButton('Já publiquei',async()=>{if(!confirm('A Story foi publicada no Instagram? O ficheiro será eliminado do portal.'))return;await request('/api/duit-social/stories/'+s.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'published'})});refresh();},'secondary'));
  actions.append(makeButton('Apagar',async()=>{if(!confirm('Apagar esta Story?'))return;await request('/api/duit-social/stories/'+s.id,{method:'DELETE'});refresh();},'danger'));
 }
-item.append(info,actions);root.append(item);
+if(!targeted)item.append(info);
+ item.append(actions);root.append(item);
 if(chosenStory===s.id){item.setAttribute('tabindex','-1');requestAnimationFrame(()=>{item.scrollIntoView({block:'center'});item.focus({preventScroll:true});});}
 }
 }
