@@ -11,8 +11,10 @@ const {
   requireAuth, requireAdmin
 } = require('./auth');
 
+// Registo e autenticação WebAuthn / Passkeys (apenas admin).
 const app = express();
 const PORT = process.env.PORT || 3000;
+require('./duit-passkeys').register(app);
 
 // Atrás do proxy do Railway (ou qualquer reverse proxy HTTPS) — necessário para
 // o cookie `secure: true` funcionar e para req.ip refletir o cliente real.
