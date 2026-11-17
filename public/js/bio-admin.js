@@ -61,7 +61,7 @@
       '<div class="grid g-2" style="gap:8px;margin:14px 0"><div class="card" style="padding:10px"><div class="eyebrow">Visitas</div><b style="font-size:21px">'+Number(b.views||0)+'</b></div><div class="card" style="padding:10px"><div class="eyebrow">Cliques</div><b style="font-size:21px">'+Number(b.clicks||0)+'</b></div></div>'+
       '<div style="display:flex;gap:7px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="duitEditBio('+b.id+')">Editar</button><button class="btn btn-ghost btn-sm" onclick="duitBioStats('+b.id+',30)">Estatísticas</button><a class="btn btn-ghost btn-sm" target="_blank" href="'+esc(urlFor(b))+'">Ver página ↗</a></div></div>').join('')||'<div class="empty">Ainda não existem Bios.</div>')+'</div>';
   };
-  window.duitNewBio=async()=>{const name=prompt('Nome da Bio / empresa:');if(!name)return;const b=await api('/api/admin/bios',{method:'POST',body:{name,slug:name}});await duitEditBio(b.id)};
+  window.duitNewBio=async()=>{const name=await window.duitPrompt('Nome da Bio / empresa:');if(!name)return;const b=await api('/api/admin/bios',{method:'POST',body:{name,slug:name}});await duitEditBio(b.id)};
   window.duitEditBio=async id=>{const b=await api('/api/admin/bios/'+id);draft=toDraft(b);expanded=draft.sections[0]?.id||null;previewMode='mobile';renderEditor()};
   function renderEditor(){
     const main=document.getElementById('main'),b=draft;if(!b)return;
@@ -172,11 +172,11 @@
   window.duitSectionVisible=(id,v)=>duitEditSection(id,{enabled:v});
   window.duitMoveSection=(i,d)=>{draft.sections=move(draft.sections,i,d);renderSections();renderPreview()};
   window.duitAddBioSection=()=>{const id='new-'+Date.now();draft.sections.push({id,title:'',icon:'',enabled:true,cards:[]});expanded=id;renderSections();renderPreview()};
-  window.duitDeleteBioSection=id=>{if(!confirm('Eliminar separador e todos os seus cartões?'))return;draft.sections=draft.sections.filter(x=>String(x.id)!==String(id));renderSections();renderPreview()};
+  window.duitDeleteBioSection=async id=>{if(!await window.duitConfirm('Eliminar separador e todos os seus cartões?'))return;draft.sections=draft.sections.filter(x=>String(x.id)!==String(id));renderSections();renderPreview()};
   window.duitAddBioCard=id=>{const s=draft.sections.find(x=>String(x.id)===String(id));s.cards.push({id:'new-'+Date.now()+'-'+Math.random(),title:'',subtitle:'',button_label:'VER MAIS',url:'',image_url:'',enabled:true});renderSections();renderPreview()};
   window.duitCardPatch=(sid,cid,p)=>{const s=draft.sections.find(x=>String(x.id)===String(sid)),c=s.cards.find(x=>String(x.id)===String(cid));Object.assign(c,p);renderPreview()};
   window.duitMoveCard=(sid,i,d)=>{const s=draft.sections.find(x=>String(x.id)===String(sid));s.cards=move(s.cards,i,d);renderSections();renderPreview()};
-  window.duitDeleteBioCard=(sid,cid)=>{if(!confirm('Eliminar cartão?'))return;const s=draft.sections.find(x=>String(x.id)===String(sid));s.cards=s.cards.filter(x=>String(x.id)!==String(cid));renderSections();renderPreview()};
+  window.duitDeleteBioCard=async(sid,cid)=>{if(!await window.duitConfirm('Eliminar cartão?'))return;const s=draft.sections.find(x=>String(x.id)===String(sid));s.cards=s.cards.filter(x=>String(x.id)!==String(cid));renderSections();renderPreview()};
   window.duitCardImage=async(sid,cid,file)=>{if(!file)return;const url=await uploadImage(draft.id,file);duitCardPatch(sid,cid,{image_url:url});renderSections()};
   window.duitSetBioPreview=m=>{previewMode=m;renderPreview()};
   function previewPayload(){
