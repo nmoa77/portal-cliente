@@ -270,6 +270,8 @@ body.composer-mode #publicacoes{padding:22px}
 <strong>Story pronta para partilhar</strong>
 <p style="font-size:12px;line-height:1.6">Abra a Story no Android para terminar a publicação no Instagram. A DUIT Media não publica automaticamente a Story.</p>
 <a id="story-share-link" href="#" target="_blank" rel="noopener" style="display:inline-block;background:#161616;color:#fff;border-radius:9px;padding:11px 16px;font-weight:700;text-decoration:none">Abrir Story no Android</a>
+<button id="story-notify-now" type="button" class="secondary" style="margin-left:9px">Enviar notificação ao Android</button>
+<p id="story-notify-feedback" style="font-size:12px;margin:9px 0 0" aria-live="polite"></p>
 </div>
 </section>
 <section class="panel" id="stories-section"><p class="kicker">03 / STORIES</p><h2>Stories preparadas</h2><p class="muted">A partilha abre o menu do Android. Escolha Instagram Stories quando disponível. A publicação só é confirmada no portal depois de carregar em «Já publiquei».</p><div id="stories">A carregar…</div></section></div></div>
@@ -1180,6 +1182,19 @@ $('push-status').textContent=result.delivered+' de '+result.total+' notificaçõ
 }catch(error){$('push-status').textContent=error.message;}
 });
 
+$('story-notify-now').addEventListener('click',async()=>{
+ const id=Number($('story-notify-now').dataset.storyId);
+ if(!Number.isSafeInteger(id)||id<=0)return;
+ const button=$('story-notify-now');
+ button.disabled=true;
+ try{
+  const result=await request('/api/duit-social/stories/'+id+'/notify',{method:'POST'});
+  $('story-notify-feedback').textContent=result.sent>0
+   ? 'Aviso enviado para '+result.sent+' dispositivo(s). Confirme se apareceu no Android.'
+   : 'Nenhum dispositivo recebeu o envio. No Android, abra Stories e toque em «Ativar notificações».';
+ }catch(error){$('story-notify-feedback').textContent='Erro: '+error.message;}
+ finally{button.disabled=false;}
+});
 function syncStoryTiming(){
  const immediate=$('story-timing').value==='now';
  $('story-schedule-wrap').hidden=immediate;
@@ -1230,6 +1245,8 @@ $('new-story').addEventListener('submit',async e=>{
   if(immediate){
    const url='/social-stories.html?mode=stories&story='+story.id;
    $('story-share-link').href=url;
+   $('story-notify-now').dataset.storyId=String(story.id);
+   $('story-notify-feedback').textContent='';
    $('story-share-success').hidden=false;
   }
   e.target.reset();
