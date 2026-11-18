@@ -1458,29 +1458,28 @@ async function viewCalendar(main) {
 }
 
 function dayBlock(title, dateStr, drafts, totalForDay, extras={meta:[],stories:[]}, metaMini=()=>'', storyMini=()=>'') {
-  // O contentor mostra apenas rascunhos. O resumo conta o que está por fazer
-  // versus o que já foi tratado (scheduled/published/cancelled = "fora da lista").
-  const allDoneButHadWork = drafts.length === 0 && totalForDay > 0;
-  const noWorkAtAll       = drafts.length === 0 && totalForDay === 0;
-  const summary = drafts.length > 0
-    ? `${drafts.length} ${drafts.length === 1 ? 'rascunho por tratar' : 'rascunhos por tratar'}`
-    : (allDoneButHadWork
-        ? `${totalForDay} post${totalForDay === 1 ? '' : 's'} já tratado${totalForDay === 1 ? '' : 's'}`
-        : 'Sem posts agendados.');
-
+  // Manter a mensagem de conclusão já existente quando todo o trabalho
+  // do dia está tratado, incluindo as Stories e as publicações Meta.
   const extraCount=extras.meta.length+extras.stories.length;
-  // Se existem trabalhos para publicar ou Stories, não apresentar o estado
-  // "tudo tratado" por cima de conteúdos ainda pendentes.
-  const extraHtml=[
+  const totalContents=totalForDay+extraCount;
+  const extrasPublished=extras.stories.every(s=>s.status==='published')
+    && extras.meta.every(j=>j.status==='published');
+  const allDone=totalContents>0 && drafts.length===0 && extrasPublished;
+  const summary=drafts.length>0
+    ? `${drafts.length} ${drafts.length===1?'rascunho por tratar':'rascunhos por tratar'}`
+    : allDone
+      ? `${totalContents} conteúdo${totalContents===1?'':'s'} tratado${totalContents===1?'':'s'}`
+      : totalContents>0
+        ? `${totalContents} conteúdo${totalContents===1?'':'s'} na agenda`
+        : 'Sem posts agendados.';
+
+  const extraHtml=allDone ? '' : [
     ...extras.stories.map(storyMini),
     ...extras.meta.map(metaMini)
   ].join('');
   let bodyHtml;
-  if (drafts.length > 0) {
-    bodyHtml = `<div class="day-list">${drafts.map(p => dayPostRow(p)).join('')}</div>`;
-  } else if (extraCount > 0) {
-    bodyHtml='';
-  } else if (allDoneButHadWork) {
+  if (allDone) {
+    // Recuperar a celebração original, em vez de uma lista de cartões verdes.
     bodyHtml = `
       <div style="text-align:center; padding:36px 16px; color:var(--text);">
         <div style="font-size:42px; margin-bottom:6px; line-height:1;">🎉</div>
@@ -1488,23 +1487,24 @@ function dayBlock(title, dateStr, drafts, totalForDay, extras={meta:[],stories:[
           Parabéns — já fizeste tudo ${title === 'Hoje' ? 'por hoje' : 'para amanhã'}!
         </div>
         <div style="color:var(--muted); font-size:13px;">
-          ${totalForDay} post${totalForDay === 1 ? '' : 's'} ${title === 'Hoje' ? 'tratados' : 'já preparados'}.
+          ${totalContents} conteúdo${totalContents===1?'':'s'} ${title === 'Hoje' ? 'tratados' : 'já preparados'}.
         </div>
       </div>
     `;
+  } else if (drafts.length>0) {
+    bodyHtml = `<div class="day-list">${drafts.map(p => dayPostRow(p)).join('')}</div>`;
+  } else if (extraCount>0) {
+    bodyHtml = '';
   } else {
     bodyHtml = `<div class="empty" style="padding:30px 0;">Sem posts agendados para este dia.</div>`;
   }
 
-  const daySummary=extraCount && drafts.length===0
-    ? `${extraCount} conteúdo${extraCount===1?'':'s'} na agenda`
-    : summary;
   return `
     <div class="card">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:10px; flex-wrap:wrap;">
         <div>
           <h3 style="margin:0;">${title} <span style="color:var(--muted); font-weight:400; font-size:14px;">· ${fmtDate(dateStr, true)}</span></h3>
-          <div style="font-size:12px; color:var(--muted); margin-top:4px;">${daySummary}</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">${summary}</div>
         </div>
         <button class="btn btn-ghost btn-sm" onclick="openNewPostForDate('${dateStr}')">${svg('plus')} Adicionar</button>
       </div>
