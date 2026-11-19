@@ -342,30 +342,69 @@ function duitFindDayNumberCell_(date) {
   return null;
 }
 
-// Apenas a célula onde aparece o número do dia fica verde.
-// Conserva a cor original para quando regressar a Rascunho.
+// Pinta o bloco vertical COMPLETO desse dia com o verde DUIT escolhido.
+// Na folha, a DATA fica na base do bloco; o bloco começa imediatamente
+// depois da linha de números da semana anterior e inclui o número do dia.
+// Não modifica texto, links, fórmulas, bordas ou células de outros dias.
 function duitColorPublishedDay_(date,status) {
   const dayCell=duitFindDayNumberCell_(date);
   if(!dayCell)return;
-  const sheet=dayCell.getSheet(),row=dayCell.getRow(),col=dayCell.getColumn();
+  const sheet=dayCell.getSheet(),endRow=dayCell.getRow(),col=dayCell.getColumn();
   const props=PropertiesService.getScriptProperties();
-  const key='DUIT_DAY_BG_'+sheet.getSheetId()+'_'+row+'_'+col;
-  const textKey=key+'_TEXT';
-  if(status==='published'){
-    if(props.getProperty(key)===null){
-      props.setProperty(key,dayCell.getBackground());
-      props.setProperty(textKey,dayCell.getFontColor());
+  const legacy='DUIT_DAY_BG_'+sheet.getSheetId()+'_'+endRow+'_'+col;
+  const legacyText=legacy+'_TEXT';
+
+  // Encontrar a linha de datas da semana anterior, na mesma folha.
+  let startRow=1;
+  if(endRow>1){
+    const grid=sheet.getRange(1,1,endRow-1,Math.min(sheet.getLastColumn(),26)).getDisplayValues();
+    for(let r=grid.length-1;r>=0;r--){
+      let count=0;
+      for(let j=1;j<grid[r].length;j++){
+        const value=String(grid[r][j]||'').trim();
+        if(/^\\d{1,2}$/.test(value)&&Number(value)>=1&&Number(value)<=31)count++;
+      }
+      if(count>=2){startRow=r+2;break;}
     }
-    dayCell.setBackground('#C6EFCE');
-    dayCell.setFontColor('#176B34');
+  }
+  const range=sheet.getRange(startRow,col,endRow-startRow+1,1);
+  const key='DUIT_DAY_BLOCK_'+sheet.getSheetId()+'_'+endRow+'_'+col;
+  const saved=props.getProperty(key);
+
+  if(status==='published'){
+    if(saved===null){
+      const colors=range.getBackgrounds();
+      // Migrar corretamente uma data que o script antigo já pintou.
+      const oldBackground=props.getProperty(legacy);
+      if(oldBackground!==null)colors[colors.length-1][0]=oldBackground;
+      props.setProperty(key,JSON.stringify({startRow:startRow,colors:colors}));
+    }
+    // Verde fornecido para o bloco completo, incluindo a célula da data.
+    range.setBackground('#7FAB55');
+    // O script anterior alterava também a fonte do número do dia:
+    // recuperar a cor original do texto.
+    const originalText=props.getProperty(legacyText);
+    if(originalText!==null)dayCell.setFontColor(originalText);
+    if(props.getProperty(legacy)!==null)props.deleteProperty(legacy);
+    if(originalText!==null)props.deleteProperty(legacyText);
   }else{
-    const previous=props.getProperty(key);
-    if(previous!==null){
-      dayCell.setBackground(previous);
-      const text=props.getProperty(textKey);
-      if(text)dayCell.setFontColor(text);
+    if(saved!==null){
+      const previous=JSON.parse(saved);
+      sheet.getRange(previous.startRow,col,previous.colors.length,1)
+        .setBackgrounds(previous.colors);
       props.deleteProperty(key);
-      props.deleteProperty(textKey);
+    }else{
+      // Compatibilidade: reverter também datas pintadas pelo código antigo.
+      const original=props.getProperty(legacy);
+      if(original!==null){
+        dayCell.setBackground(original);
+        props.deleteProperty(legacy);
+      }
+    }
+    const originalText=props.getProperty(legacyText);
+    if(originalText!==null){
+      dayCell.setFontColor(originalText);
+      props.deleteProperty(legacyText);
     }
   }
 }
