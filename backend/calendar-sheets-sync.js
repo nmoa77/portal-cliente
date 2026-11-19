@@ -79,7 +79,21 @@ function postPayload(post){
   };
 }
 
-async function notifyPostChanged(postId,action='upsert'){
+async function sheetScriptResponse(response,body){
+  const txt=String(body||'').trim();
+  if(response.ok&&txt==='ok')return {ok:true,message:'Ligação confirmada.'};
+  const html=/^\s*<(?:!doctype|html)/i.test(txt);
+  if(response.status===401||response.status===403||/sign in|accounts\.google\.com|login/i.test(txt.slice(0,600)))
+    return {ok:false,message:'O Google está a pedir autenticação. Edite a implementação do Apps Script e defina o acesso como «Qualquer pessoa».'};
+  if(html||/script\.google\.com\/macros\//i.test(response.url||'')&&response.status===404)
+    return {ok:false,message:'O URL do Apps Script está incorreto, a implementação não está acessível ou o Google devolveu uma página HTML. Confirme a implementação Web App e o URL terminado em /exec.'};
+  if(txt==='forbidden')return {ok:false,message:'A chave de ligação não coincide. Copie novamente o script atualizado do portal DUIT e implemente uma nova versão na implementação existente.'};
+  if(txt==='ignored')return {ok:false,message:'O Apps Script ignorou o teste: pode estar instalada uma versão antiga.'};
+  if(txt.startsWith('error:'))return {ok:false,message:txt.slice(0,260)};
+  return {ok:false,message:'Resposta inesperada do Apps Script (HTTP '+response.status+'): '+txt.slice(0,160)};
+}
+
+function notifyPostChanged(postId,action='upsert'){
   try{
     const post=db.prepare('SELECT * FROM social_posts WHERE id=?').get(Number(postId));
     if(!post&&action!=='delete') return;
@@ -94,7 +108,8 @@ async function notifyPostChanged(postId,action='upsert'){
       mappings
     };
     const r=await fetch(link.apps_script_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok)throw new Error('Apps Script '+r.status);
+    const answer=sheetScriptResponse(r,await r.text());
+    if(!answer.ok)throw new Error(answer.message);
     db.prepare(`UPDATE calendar_sheet_links SET last_portal_sync_at=datetime('now'),last_error=NULL,updated_at=datetime('now') WHERE user_id=?`).run(userId);
   }catch(e){
     try{
@@ -495,9 +510,11 @@ function register(app){
     if(!link.apps_script_url)return res.status(400).json({error:'Falta o URL do Apps Script.'});
     try{
       const r=await fetch(link.apps_script_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:link.webhook_secret,source:'portal',action:'ping',post:{id:0}})});
-      const text=await r.text();
-      db.prepare(`UPDATE calendar_sheet_links SET last_portal_sync_at=datetime('now'),last_error=NULL WHERE user_id=?`).run(link.user_id);
-      res.json({ok:r.ok,status:r.status,response:text.slice(0,300)});
+      const body=await r.text();
+      const result=sheetScriptResponse(r,body);
+      db.prepare(`UPDATE calendar_sheet_links SET last_portal_sync_at=CASE WHEN ? THEN datetime('now') ELSE last_portal_sync_at END,last_error=? WHERE user_id=?`)
+        .run(result.ok?1:0,result.ok?null:result.message,link.user_id);
+      res.json({ok:result.ok,status:r.status,message:result.message});
     }catch(e){
       db.prepare(`UPDATE calendar_sheet_links SET last_error=? WHERE user_id=?`).run(String(e.message||e).slice(0,500),link.user_id);
       res.status(502).json({error:'Não foi possível contactar o Apps Script.'});
