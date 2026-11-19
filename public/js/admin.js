@@ -1862,7 +1862,7 @@ async function calendarSheetShowScript(userId) {
 async function calendarSheetTest(userId) {
   try {
     const r = await api('/api/calendar-sheet-links/' + userId + '/test', { method: 'POST' });
-    toast(r.ok ? 'Ligação ao Apps Script confirmada.' : 'A ligação respondeu, mas com erro.', r.ok ? 'check' : 'cancel');
+    toast(r.ok ? 'Ligação ao Apps Script confirmada.' : (r.message || 'Falha na ligação ao Google Apps Script.'), r.ok ? 'check' : 'cancel');
     openCalendarSheetLink();
   } catch (err) { toast(err.message, 'cancel'); }
 }
