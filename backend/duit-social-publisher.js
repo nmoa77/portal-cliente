@@ -472,6 +472,78 @@ function register(app){
    }
    res.json({ok:true,client_id:account.client_id,kind,media_reset:isDifferentKind});
  });
+ // Upload de Reels maiores: partes de 5 MiB, sem carregar o vídeo inteiro
+ // em memória. O ficheiro só substitui o anterior após conclusão validada.
+ const REEL_MAX_BYTES=300*1024*1024;
+ const REEL_CHUNK_BYTES=5*1024*1024;
+ function chunkParams(req,res){
+   const id=Number(req.params.id),position=Number(req.params.position);
+   const upload=String(req.params.uploadId||'');
+   const index=Number(req.params.index);
+   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(id);
+   if(!job||job.status!=='draft'||job.kind!=='reel'||position!==0)
+     {res.status(409).json({error:'Reel não editável'});return null;}
+   if(!/^[0-9a-f-]{36}$/.test(upload))
+     {res.status(400).json({error:'Identificador de upload inválido'});return null;}
+   const temp=mediaPath(id,'reel-'+upload+'.part');
+   return {job,temp,index};
+ }
+ router.put('/jobs/:id/files/:position/chunks/:uploadId/:index',
+   express.raw({type:()=>true,limit:'6mb'}),(req,res)=>{
+   const params=chunkParams(req,res);if(!params)return;
+   const {temp,index}=params;
+   const declared=Number(req.get('x-duit-file-size'));
+   if(!Number.isSafeInteger(declared)||declared<=0||declared>REEL_MAX_BYTES)
+     return res.status(413).json({error:'Reels até 300 MB por ficheiro para publicação automática.'});
+   const total=Math.ceil(declared/REEL_CHUNK_BYTES);
+   if(!Number.isInteger(index)||index<0||index>=total)return res.status(400).json({error:'Parte inválida'});
+   const expected=Math.min(REEL_CHUNK_BYTES,declared-index*REEL_CHUNK_BYTES);
+   if(!Buffer.isBuffer(req.body)||req.body.length!==expected)
+     return res.status(400).json({error:'Parte do vídeo incompleta; volte a tentar'});
+   let fd;
+   try{
+     const current=fs.existsSync(temp)?fs.statSync(temp).size:0;
+     const offset=index*REEL_CHUNK_BYTES;
+     if(current===offset+expected)return res.json({ok:true,part:index,alreadyReceived:true});
+     if(current!==offset)return res.status(409).json({error:'Envie as partes do vídeo por ordem.'});
+     if(index===0 && req.body.toString('ascii',4,8)!=='ftyp')
+       return res.status(400).json({error:'O vídeo deve ser MP4 válido'});
+     fd=fs.openSync(temp,index===0?'wx':'r+');
+     fs.writeSync(fd,req.body,0,req.body.length,offset);
+     fs.closeSync(fd);fd=null;
+     res.json({ok:true,part:index});
+   }catch(e){
+     if(fd!==undefined&&fd!==null)try{fs.closeSync(fd);}catch(_){}
+     console.warn('[duit-media] chunk upload:',e.message);
+     res.status(500).json({error:'Falha ao guardar parte do Reel. Tente novamente.'});
+   }
+ });
+ router.post('/jobs/:id/files/:position/chunks/:uploadId/complete',(req,res)=>{
+   const params=chunkParams(req,res);if(!params)return;
+   const {job,temp}=params;
+   const declared=Number(req.body?.size);
+   if(!Number.isSafeInteger(declared)||declared<=0||declared>REEL_MAX_BYTES)
+     return res.status(413).json({error:'Reels até 300 MB.'});
+   if(!fs.existsSync(temp)||fs.statSync(temp).size!==declared)
+     return res.status(409).json({error:'Upload incompleto. O Reel não foi substituído.'});
+   const fd=fs.openSync(temp,'r');
+   const magic=Buffer.alloc(12);const count=fs.readSync(fd,magic,0,12,0);fs.closeSync(fd);
+   if(count<12||magic.toString('ascii',4,8)!=='ftyp')
+     return res.status(400).json({error:'Ficheiro MP4 inválido'});
+   const name=crypto.randomBytes(16).toString('hex')+'.mp4';
+   const target=mediaPath(job.id,name);
+   try{
+     fs.renameSync(temp,target);
+     const before=db.prepare('SELECT name FROM duit_publish_media WHERE job_id=? AND position=0').get(job.id);
+     db.prepare(`INSERT INTO duit_publish_media(job_id,name,mime,position) VALUES (?,?,'video/mp4',0)
+       ON CONFLICT(job_id,position) DO UPDATE SET name=excluded.name,mime=excluded.mime`).run(job.id,name);
+     if(before)try{fs.unlinkSync(mediaPath(job.id,before.name));}catch(_){}
+     res.json({ok:true,size:declared});
+   }catch(e){
+     console.error('[duit-media] concluir upload:',e.message);
+     res.status(500).json({error:'Não foi possível concluir o upload do Reel.'});
+   }
+ });
  router.put('/jobs/:id/files/:position',express.raw({type:()=>true,limit:'80mb'}),(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   const position=Number(req.params.position);
