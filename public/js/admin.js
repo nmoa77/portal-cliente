@@ -1795,6 +1795,7 @@ async function openCalendarSheetLink() {
       </div>
 
       ${cfg.last_error ? `<div style="padding:10px 12px;background:#fff3f1;border-radius:10px;color:#b42318;font-size:12px;margin-bottom:14px">${escapeHtml(cfg.last_error)}</div>` : ''}
+      <div id="calendar-sheet-test-result" hidden style="padding:12px;background:#fff3f1;border-radius:10px;white-space:pre-wrap;font-size:13px;margin-bottom:14px"></div>
 
       <div style="padding:14px;background:var(--bg-2);border-radius:12px;margin-bottom:16px">
         <strong style="display:block;margin-bottom:6px">Como ligar as células da folha</strong>
@@ -1860,11 +1861,29 @@ async function calendarSheetShowScript(userId) {
 }
 
 async function calendarSheetTest(userId) {
+  const selector='#calendar-sheet-test-result';
+  const display=(msg,success)=>{
+    const el=document.querySelector(selector);
+    if(el){
+      el.hidden=false;
+      el.style.color=success?'#176B34':'#B42318';
+      el.textContent=msg;
+    }
+    toast(msg,success?'check':'cancel');
+  };
   try {
-    const r = await api('/api/calendar-sheet-links/' + userId + '/test', { method: 'POST' });
-    toast(r.ok ? 'Ligação ao Apps Script confirmada.' : (r.message || 'Falha na ligação ao Google Apps Script.'), r.ok ? 'check' : 'cancel');
-    openCalendarSheetLink();
-  } catch (err) { toast(err.message, 'cancel'); }
+    const r=await api('/api/calendar-sheet-links/'+userId+'/test',{method:'POST'});
+    const message=r.ok?'Ligação ao Apps Script confirmada.':
+      (r.message||r.error||'A ligação falhou sem detalhe. Abra novamente esta janela para consultar o último erro.');
+    // A mensagem permanece visível na janela, não apenas num aviso temporário.
+    display(message,r.ok);
+    if(!r.ok){
+      const el=document.querySelector(selector);
+      if(el)el.textContent=message+' (HTTP '+(r.status||'?')+')';
+    }
+  }catch(err){
+    display('Teste interrompido: '+String(err.message||err),false);
+  }
 }
 
 function activeCalMonth() {
