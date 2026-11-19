@@ -77,6 +77,31 @@ function originOk(req, res, next) {
   if (origin && new URL(origin).host !== req.get('host')) return res.status(403).json({error:'Origem não autorizada'});
   next();
 }
+// Envia a notificação apenas depois de a Story estar integralmente guardada.
+async function notifyReadyStory(story,userId){
+  let notification={sent:0,total:0};
+  if(story.status==='ready' && !story.notified_at && vapidConfig()){
+        const subscriptions=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions WHERE user_id=?').all(userId);
+        notification.total=subscriptions.length;
+        for(const row of subscriptions){
+          try{
+            await sendPush(JSON.parse(row.subscription_json),{
+              title:'DUIT · Story pronta para partilhar',
+              body:(story.client_company||story.client_name||'DUIT')+' · Abra a Story no Android e publique no Instagram.',
+              url:'/social-stories.html?story='+story.id
+            });
+            notification.sent++;
+          }catch(err){
+            if([404,410].includes(err.status)){
+              db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=? AND user_id=?').run(row.endpoint,userId);
+            }else console.warn('[duit-social] push imediato:',err.message);
+          }
+        }
+        if(notification.sent)db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
+      }
+
+  return notification;
+}
 function register(app) {
   const router = express.Router();
   // O ficheiro assinado é validado exclusivamente pelo publicador.
@@ -184,33 +209,79 @@ function register(app) {
       if (story.media_name) {
         try { fs.unlinkSync(filePath(story.id, story.media_name)); } catch (_) {}
       }
-      // A notificação imediata só sai depois de o ficheiro estar guardado.
-      // A Story continua por publicar no Instagram até confirmação manual.
-      let notification={sent:0,total:0};
-      if(story.status==='ready' && !story.notified_at && vapidConfig()){
-        const subscriptions=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions WHERE user_id=?').all(req.user.id);
-        notification.total=subscriptions.length;
-        for(const row of subscriptions){
-          try{
-            await sendPush(JSON.parse(row.subscription_json),{
-              title:'DUIT · Story pronta para partilhar',
-              body:(story.client_company||story.client_name||'DUIT')+' · Abra a Story no Android e publique no Instagram.',
-              url:'/social-stories.html?story='+story.id
-            });
-            notification.sent++;
-          }catch(err){
-            if([404,410].includes(err.status)){
-              db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=? AND user_id=?').run(row.endpoint,req.user.id);
-            }else console.warn('[duit-social] push imediato:',err.message);
-          }
-        }
-        if(notification.sent)db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
-      }
+      const notification=await notifyReadyStory(story,req.user.id);
       res.json({...publicRow(findStory(story.id)),notification});
     } catch (e) {
       try { fs.unlinkSync(target); } catch (_) {}
       console.error('[duit-social] upload:', e.message);
       res.status(500).json({error:'Não foi possível guardar o ficheiro'});
+    }
+  });
+
+  // Upload de vídeos Story até 300 MB, por partes sequenciais de 5 MB.
+  // O ficheiro definitivo e a notificação só são criados no último passo.
+  const STORY_MAX=300*1024*1024;
+  const STORY_PART=5*1024*1024;
+  function storyChunkContext(req,res){
+    const id=Number(req.params.id),uploadId=String(req.params.uploadId||'');
+    const story=Number.isSafeInteger(id)&&id>0?findStory(id):null;
+    if(!story)return res.status(404).json({error:'Story não encontrada'}),null;
+    if(story.status==='published')return res.status(409).json({error:'Story já publicada'}),null;
+    if(!/^[0-9a-f-]{36}$/.test(uploadId))return res.status(400).json({error:'Identificador de upload inválido'}),null;
+    const temp=filePath(id,'upload-'+uploadId+'.part');
+    return {story,temp};
+  }
+  router.put('/stories/:id/media/chunks/:uploadId/:index',express.raw({type:()=>true,limit:'6mb'}),(req,res)=>{
+    const ctx=storyChunkContext(req,res);if(!ctx)return;
+    const declared=Number(req.get('x-duit-file-size')),index=Number(req.params.index);
+    if(!Number.isSafeInteger(declared)||declared<=0||declared>STORY_MAX)
+      return res.status(413).json({error:'Vídeo Story até 300 MB.'});
+    const parts=Math.ceil(declared/STORY_PART);
+    if(!Number.isInteger(index)||index<0||index>=parts)return res.status(400).json({error:'Parte inválida'});
+    const offset=index*STORY_PART,expected=Math.min(STORY_PART,declared-offset);
+    if(!Buffer.isBuffer(req.body)||req.body.length!==expected)
+      return res.status(400).json({error:'Parte incompleta. Tente novamente.'});
+    let fd;
+    try{
+      const current=fs.existsSync(ctx.temp)?fs.statSync(ctx.temp).size:0;
+      if(current===offset+expected)return res.json({ok:true,part:index,alreadyReceived:true});
+      if(current!==offset)return res.status(409).json({error:'As partes do vídeo devem ser enviadas por ordem.'});
+      if(index===0&&req.body.toString('ascii',4,8)!=='ftyp')
+        return res.status(400).json({error:'O vídeo deve ser um MP4 válido.'});
+      fd=fs.openSync(ctx.temp,index===0?'wx':'r+');
+      fs.writeSync(fd,req.body,0,req.body.length,offset);
+      fs.closeSync(fd);fd=null;
+      res.json({ok:true,part:index});
+    }catch(e){
+      if(fd!=null)try{fs.closeSync(fd);}catch(_){}
+      console.error('[duit-social] upload Story por partes:',e.message);
+      res.status(500).json({error:'Não foi possível guardar esta parte do vídeo.'});
+    }
+  });
+  router.post('/stories/:id/media/chunks/:uploadId/complete',async(req,res)=>{
+    const ctx=storyChunkContext(req,res);if(!ctx)return;
+    const declared=Number(req.body?.size);
+    if(!Number.isSafeInteger(declared)||declared<=0||declared>STORY_MAX)
+      return res.status(413).json({error:'Vídeo Story até 300 MB.'});
+    if(!fs.existsSync(ctx.temp)||fs.statSync(ctx.temp).size!==declared)
+      return res.status(409).json({error:'Upload incompleto: a Story não foi substituída.'});
+    const fd=fs.openSync(ctx.temp,'r'),magic=Buffer.alloc(12);
+    const n=fs.readSync(fd,magic,0,12,0);fs.closeSync(fd);
+    if(n<12||magic.toString('ascii',4,8)!=='ftyp')
+      return res.status(400).json({error:'O ficheiro não é um MP4 válido.'});
+    const name=crypto.randomBytes(16).toString('hex')+'.mp4';
+    const target=filePath(ctx.story.id,name);
+    try{
+      fs.renameSync(ctx.temp,target);
+      db.prepare('UPDATE duit_social_stories SET media_name=?,media_mime=? WHERE id=?')
+        .run(name,'video/mp4',ctx.story.id);
+      if(ctx.story.media_name)try{fs.unlinkSync(filePath(ctx.story.id,ctx.story.media_name));}catch(_){}
+      const notification=await notifyReadyStory(ctx.story,req.user.id);
+      res.json({...publicRow(findStory(ctx.story.id)),notification});
+    }catch(e){
+      console.error('[duit-social] finalizar Story:',e.message);
+      // Se a base de dados foi atualizada, o ficheiro mantém-se acessível.
+      res.status(500).json({error:'Não foi possível concluir o upload da Story.'});
     }
   });
 
