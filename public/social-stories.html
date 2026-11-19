@@ -269,6 +269,7 @@ body.composer-mode #publicacoes{padding:22px}
 </div>
 <div class="grid"><label>Imagens JPG ou PNG · vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,image/png,video/mp4" multiple required></label>
 <label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
+<p style="font-size:12px;color:#686868;margin:8px 0;">Nos Reels enviados ao Instagram, a DUIT Media tenta publicar automaticamente o mesmo vídeo na Story após a confirmação do Reel. A Meta pode recusar vídeos incompatíveis com as regras das Stories (por exemplo, acima de 100 MB).</p>
 <p class="actions"><button type="submit" id="publication-save-button" data-save-action="draft">Guardar rascunho</button>
 <button type="submit" id="publication-publish-button" data-save-action="publish" class="secondary">Publicar agora</button>
 <button type="button" id="duit-facebook-test-publish" class="secondary" hidden>Publicar teste DUIT</button>
@@ -885,7 +886,14 @@ async function refreshPublisher(accounts){
    title.innerHTML='<strong>'+escapeHtml(job.client_company||job.client_name||'Cliente')+' · '+escapeHtml(job.kind)+'</strong><div class="muted">'+escapeHtml(job.networks.join(' + '))+' · '+
      dateLabel(job.scheduled_at)+' · '+escapeHtml(job.status)+'</div>'+
      job.results.map(x=>'<div class="muted">'+escapeHtml(x.network)+': '+escapeHtml(x.status)+
-     (x.error?' · '+escapeHtml(x.error):'')+'</div>').join('');
+     (x.error?' · '+escapeHtml(x.error):'')+'</div>').join('')+
+     (job.auto_story && job.kind==='reel'
+       ? '<div class="muted" style="margin-top:5px;color:'+
+         (job.auto_story_status==='published'?'#1F6B2A':job.auto_story_status==='review'?'#A21D27':'#666')+'">'+
+         'Story Instagram automática: '+
+         escapeHtml(job.auto_story_status==='published'?'Publicada':job.auto_story_status==='review'?'Não confirmada / rever':job.auto_story_status==='processing'?'A publicar':'A publicar após o Reel')+
+         (job.auto_story_error?' · '+escapeHtml(job.auto_story_error):'')+'</div>'
+       : '');
    const actions=document.createElement('div');actions.className='actions';
    if(['draft','scheduled'].includes(job.status)){
      actions.append(makeButton('Editar',async()=>{
