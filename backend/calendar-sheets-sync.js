@@ -516,8 +516,12 @@ function register(app){
         .run(result.ok?1:0,result.ok?null:result.message,link.user_id);
       res.json({ok:result.ok,status:r.status,message:result.message});
     }catch(e){
-      db.prepare(`UPDATE calendar_sheet_links SET last_error=? WHERE user_id=?`).run(String(e.message||e).slice(0,500),link.user_id);
-      res.status(502).json({error:'Não foi possível contactar o Apps Script.'});
+      const code=String(e.cause?.code||e.code||'').slice(0,60);
+      const msg=String(e.message||e||'Erro desconhecido').slice(0,250);
+      const detail='Não foi possível contactar o Apps Script: '+msg+(code?' ('+code+')':'')+'. Confirme o URL da implementação Web App (/exec), o acesso público e a ligação à Internet.';
+      db.prepare(`UPDATE calendar_sheet_links SET last_error=? WHERE user_id=?`).run(detail.slice(0,500),link.user_id);
+      console.warn('[calendar-sheet] teste Apps Script:',msg,code);
+      res.status(502).json({ok:false,error:detail,message:detail});
     }
   });
 }
