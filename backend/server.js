@@ -2135,7 +2135,8 @@ app.patch('/api/social-posts/:id', requireAuth, async (req, res) => {
         client_suggestion === undefined ? null : client_suggestion,
         req.params.id);
   await calendarSheets.notifyPostChanged(Number(req.params.id),'upsert');
-  res.json({ ok: true });
+  const savedPost=db.prepare('SELECT id,user_id,date,status FROM social_posts WHERE id=?').get(req.params.id);
+  res.json({ ok: true, ...savedPost });
 });
 
 // Cliente envia sugestão de alteração — não altera o post em si
