@@ -81,6 +81,17 @@ function mediaPath(job,name){return path.join(folder,'job-'+job+'-'+name);}
 // o worker a tratar aquele trabalho. Agendamentos antigos ficam intocados.
 if(!db.prepare("PRAGMA table_info(duit_publish_jobs)").all().some(c=>c.name==='test_manual_approved'))
  db.exec("ALTER TABLE duit_publish_jobs ADD COLUMN test_manual_approved INTEGER NOT NULL DEFAULT 0");
+// Publicar o mesmo vídeo como Story do Instagram depois do Reel, apenas nos
+// NOVOS trabalhos. Nunca aplicar retroativamente a Reels já agendados/publicados.
+for(const [col,definition] of [
+ ['auto_story','INTEGER NOT NULL DEFAULT 0'],
+ ['auto_story_status',"TEXT NOT NULL DEFAULT 'pending'"],
+ ['auto_story_remote_id','TEXT'],
+ ['auto_story_error','TEXT']
+]){
+ if(!db.prepare("PRAGMA table_info(duit_publish_jobs)").all().some(x=>x.name===col))
+   db.exec('ALTER TABLE duit_publish_jobs ADD COLUMN '+col+' '+definition);
+}
 const isManualTest=()=>Boolean(String(process.env.DUIT_SOCIAL_TEST_ONLY_PAGE_ID||'').trim());
 function testNetwork(){
  return String(process.env.DUIT_SOCIAL_TEST_ONLY_NETWORK||'facebook').trim();
@@ -256,6 +267,35 @@ function markEditorialPublished(job){
  db.prepare("UPDATE social_posts SET status='published' WHERE id=? AND user_id=? AND status IN ('draft','scheduled')")
    .run(Number(job.source_post_id),Number(job.client_id));
 }
+// Esta é uma publicação STORY autónoma do mesmo vídeo (não um sticker
+// clicável de partilha do Reel). Só tenta uma vez para evitar duplicados
+// quando a Meta conclui a publicação mas ocorre um timeout.
+async function autoPublishInstagramStory(job,media,account,token){
+ if(job.kind!=='reel'||!job.auto_story||!account.instagram_business_id)return;
+ const claimed=db.prepare("UPDATE duit_publish_jobs SET auto_story_status='processing',auto_story_error=NULL WHERE id=? AND auto_story=1 AND auto_story_status='pending'").run(job.id);
+ if(!claimed.changes)return;
+ try{
+   const source=media[0];
+   if(!source||source.mime!=='video/mp4')throw Error('Vídeo MP4 indisponível para a Story.');
+   // A Meta impõe limites distintos aos vídeos nas Stories.
+   // Não colocar em fila vídeos de dimensões incompatíveis.
+   const bytes=fs.statSync(mediaPath(job.id,source.name)).size;
+   if(bytes>100*1024*1024)throw Error('O Reel foi publicado, mas a Story automática aceita vídeos até 100 MB. É necessário um ficheiro mais leve.');
+   const ig=account.instagram_business_id;
+   const created=await graph(ig+'/media',{media_type:'STORIES',video_url:signedUrl(source.id)},token);
+   if(!created?.id)throw Error('A Meta não aceitou preparar a Story.');
+   await waitContainer(created.id,token);
+   const sent=await graph(ig+'/media_publish',{creation_id:created.id},token);
+   if(!sent?.id)throw Error('A Meta não confirmou o identificador da Story.');
+   db.prepare("UPDATE duit_publish_jobs SET auto_story_status='published',auto_story_remote_id=?,auto_story_error=NULL WHERE id=?")
+     .run(String(sent.id),job.id);
+ }catch(err){
+   // Não repetir automaticamente: a Story pode ter sido publicada antes de
+   // um timeout. O estado do Reel não sofre alterações.
+   db.prepare("UPDATE duit_publish_jobs SET auto_story_status='review',auto_story_error=? WHERE id=?")
+     .run(String(err.message||'Falha na Story automática').slice(0,500),job.id);
+ }
+}
 async function publish(job){
  const testError=testRestriction(job);
  if(testError)throw Error(testError);
@@ -274,6 +314,9 @@ async function publish(job){
    if(!result?.id)throw Error('Meta não confirmou o identificador publicado');
    db.prepare("UPDATE duit_publish_results SET status='published',remote_id=?,error=NULL WHERE job_id=? AND network=?")
      .run(String(result.id),job.id,status.network);
+   // Publicação da Story inicia-se APENAS após confirmação do Reel Instagram.
+   if(status.network==='instagram'&&job.kind==='reel')
+     await autoPublishInstagramStory(job,items,account,token);
   }catch(e){
    // Nunca repetir automaticamente: a Meta pode ter publicado antes do timeout.
    db.prepare("UPDATE duit_publish_results SET status='review',error=? WHERE job_id=? AND network=?")
@@ -417,8 +460,8 @@ function register(app){
     }
   }
   const id=db.transaction(()=>{
-   const result=db.prepare('INSERT INTO duit_publish_jobs(client_id,account_id,kind,caption,networks,scheduled_at,source_post_id,captions_json) VALUES (?,?,?,?,?,?,?,?)')
-     .run(account.client_id,account.id,kind,caption,JSON.stringify(networks),new Date(scheduled_at).toISOString(),sourceId,JSON.stringify(validCaptions));
+   const result=db.prepare('INSERT INTO duit_publish_jobs(client_id,account_id,kind,caption,networks,scheduled_at,source_post_id,captions_json,auto_story) VALUES (?,?,?,?,?,?,?,?,?)')
+     .run(account.client_id,account.id,kind,caption,JSON.stringify(networks),new Date(scheduled_at).toISOString(),sourceId,JSON.stringify(validCaptions),kind==='reel'&&networks.includes('instagram')?1:0);
    for(const network of networks)db.prepare('INSERT INTO duit_publish_results(job_id,network) VALUES (?,?)').run(result.lastInsertRowid,network);
    return result.lastInsertRowid;
   })();
@@ -454,11 +497,12 @@ function register(app){
      return res.status(400).json({error:'Para mudar o formato selecione o novo ficheiro.'});
    const changed=db.transaction(()=>{
      const update=db.prepare(`UPDATE duit_publish_jobs SET client_id=?,account_id=?,kind=?,
-       caption=?,captions_json=?,networks=?,scheduled_at=?,source_post_id=?
+       caption=?,captions_json=?,networks=?,scheduled_at=?,source_post_id=?,auto_story=?
        WHERE id=? AND status='draft'`).run(
          account.client_id,accountId,kind,caption,JSON.stringify(captions),
          JSON.stringify(networks),new Date(date).toISOString(),
-         account.client_id===job.client_id?job.source_post_id:null,id);
+         account.client_id===job.client_id?job.source_post_id:null,
+         kind==='reel'&&networks.includes('instagram')?1:0,id);
      if(!update.changes)return false;
      db.prepare('DELETE FROM duit_publish_results WHERE job_id=?').run(id);
      for(const network of networks)
