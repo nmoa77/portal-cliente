@@ -9,6 +9,29 @@ function sheetIdFromUrl(v){
   return m?m[1]:(/^[a-zA-Z0-9-_]{20,}$/.test(s)?s:null);
 }
 function newSecret(){return crypto.randomBytes(24).toString('hex')}
+db.exec(`CREATE TABLE IF NOT EXISTS calendar_sheet_delivery_acks(
+ request_id TEXT PRIMARY KEY,
+ user_id INTEGER NOT NULL,
+ status TEXT NOT NULL DEFAULT 'pending',
+ detail TEXT,
+ created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);`);
+function beginSheetAck(userId){
+ const id=crypto.randomUUID();
+ db.prepare('INSERT INTO calendar_sheet_delivery_acks(request_id,user_id) VALUES (?,?)').run(id,userId);
+ db.prepare("DELETE FROM calendar_sheet_delivery_acks WHERE created_at<datetime('now','-2 days')").run();
+ return id;
+}
+async function waitSheetAck(id,ms=3500){
+ const start=Date.now();
+ while(Date.now()-start<ms){
+  const ack=db.prepare('SELECT status,detail FROM calendar_sheet_delivery_acks WHERE request_id=?').get(id);
+  if(ack&&ack.status!=='pending')return ack;
+  await new Promise(resolve=>setTimeout(resolve,250));
+ }
+ return null;
+}
+
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS calendar_sheet_links(
@@ -102,14 +125,20 @@ async function notifyPostChanged(postId,action='upsert'){
     const link=getLink(userId);
     if(!link||!Number(link.enabled)||!link.apps_script_url)return;
     const mappings=getMappings(postId);
+    const requestId=beginSheetAck(userId);
     const body={
-      secret:link.webhook_secret,source:'portal',action,
+      secret:link.webhook_secret,source:'portal',action,request_id:requestId,
       post:post?postPayload(post):{id:Number(postId),user_id:Number(userId)},
       mappings
     };
     const r=await fetch(link.apps_script_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const answer=sheetScriptResponse(r,await r.text());
-    if(!answer.ok)throw new Error(answer.message);
+    const responseBody=await r.text();
+    const ack=await waitSheetAck(requestId,1800);
+    if(ack?.status==='error')throw new Error('Apps Script: '+String(ack.detail||'erro de execução'));
+    if(ack?.status!=='ok'){
+      const answer=sheetScriptResponse(r,responseBody);
+      if(!answer.ok)throw new Error('Sem confirmação do Apps Script: '+answer.message);
+    }
     db.prepare(`UPDATE calendar_sheet_links SET last_portal_sync_at=datetime('now'),last_error=NULL,updated_at=datetime('now') WHERE user_id=?`).run(userId);
   }catch(e){
     try{
@@ -127,6 +156,7 @@ function appsScriptTemplate(link,baseUrl){
 const DUIT_SECRET = ${JSON.stringify(secret)};
 const DUIT_SPREADSHEET_ID = ${JSON.stringify(link.spreadsheet_id||'')};
 const SYNC_SHEET = '_DUIT_SYNC';
+const DUIT_ACK_URL = 'https://cliente.duit.pt/api/google-sheets/calendar/ack';
 
 function duitSpreadsheet_() {
   return DUIT_SPREADSHEET_ID ? SpreadsheetApp.openById(DUIT_SPREADSHEET_ID) : SpreadsheetApp.getActive();
@@ -425,15 +455,34 @@ function duitHandleEdit(e) {
   } catch(err) { console.log(err); }
 }
 
+function duitConfirmReceipt_(requestId,status,detail) {
+  if(!requestId||!/^[0-9a-f-]{36}$/.test(String(requestId)))return;
+  try{
+    UrlFetchApp.fetch(DUIT_ACK_URL,{
+      method:'post',contentType:'application/json',muteHttpExceptions:true,
+      payload:JSON.stringify({secret:DUIT_SECRET,request_id:String(requestId),
+        status:status,detail:String(detail||'').slice(0,300)})
+    });
+  }catch(err){console.log('DUIT confirmação:',err);}
+}
 function doPost(e) {
+  let requestId='';
   try {
     const x=JSON.parse(e.postData.contents||'{}');
-    if(x.secret!==DUIT_SECRET) return ContentService.createTextOutput('forbidden');
-    if(x.source!=='portal') return ContentService.createTextOutput('ignored');
-    if(x.action==='ping') return ContentService.createTextOutput('ok');
+    if(x.secret!==DUIT_SECRET)return ContentService.createTextOutput('forbidden');
+    if(x.source!=='portal')return ContentService.createTextOutput('ignored');
+    requestId=x.request_id||'';
+    if(x.action==='ping'){
+      duitConfirmReceipt_(requestId,'ok','ping');
+      return ContentService.createTextOutput('ok');
+    }
     const post=x.post||{};
     if(x.action==='delete'){
-      ['text','inspiration','story'].forEach(f=>{const cell=duitFindCell_(post.date,f);if(cell)cell.clearContent();});
+      ['text','inspiration','story'].forEach(f=>{
+        const cell=duitFindCell_(post.date,f);
+        if(cell)cell.clearContent();
+      });
+      duitConfirmReceipt_(requestId,'ok','delete');
       return ContentService.createTextOutput('ok');
     }
     ['text','inspiration','story'].forEach(f=>{
@@ -443,8 +492,10 @@ function doPost(e) {
     });
     if(['draft','scheduled','published','cancelled'].includes(post.status))
       duitColorPublishedDay_(post.date,post.status);
+    duitConfirmReceipt_(requestId,'ok','upsert');
     return ContentService.createTextOutput('ok');
-  } catch(err) {
+  }catch(err){
+    duitConfirmReceipt_(requestId,'error',err.message);
     return ContentService.createTextOutput('error: '+err.message);
   }
 }
@@ -452,6 +503,23 @@ function doPost(e) {
 }
 
 function register(app){
+  // Confirmação assinada pelo Apps Script após a execução efetiva,
+  // independente do redirecionamento ContentService do Google.
+  app.post('/api/google-sheets/calendar/ack',(req,res)=>{
+    const b=req.body||{};
+    const id=String(b.request_id||'');
+    if(!/^[0-9a-f-]{36}$/.test(id))return res.status(400).json({error:'ID inválido'});
+    const pending=db.prepare('SELECT * FROM calendar_sheet_delivery_acks WHERE request_id=?').get(id);
+    if(!pending)return res.status(404).json({error:'Pedido não encontrado'});
+    const link=getLink(pending.user_id);
+    if(!link||!link.webhook_secret||b.secret!==link.webhook_secret)
+      return res.status(403).json({error:'Não autorizado'});
+    const status=b.status==='ok'?'ok':'error';
+    db.prepare("UPDATE calendar_sheet_delivery_acks SET status=?,detail=? WHERE request_id=? AND status='pending'")
+      .run(status,clean(b.detail,300),id);
+    return res.json({ok:true});
+  });
+
   app.get('/api/calendar-sheet-links/:userId',requireAdmin,(req,res)=>{
     const user=db.prepare(`SELECT id,name,company FROM users WHERE id=? AND role='client' AND parent_user_id IS NULL`).get(Number(req.params.userId));
     if(!user)return res.status(404).json({error:'Cliente não encontrado.'});
@@ -586,9 +654,15 @@ function register(app){
     const link=getLink(Number(req.params.userId));if(!link)return res.status(404).json({error:'Ligação não encontrada.'});
     if(!link.apps_script_url)return res.status(400).json({error:'Falta o URL do Apps Script.'});
     try{
-      const r=await fetch(link.apps_script_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:link.webhook_secret,source:'portal',action:'ping',post:{id:0}})});
+      const requestId=beginSheetAck(link.user_id);
+      const r=await fetch(link.apps_script_url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({secret:link.webhook_secret,source:'portal',action:'ping',request_id:requestId,post:{id:0}})});
       const body=await r.text();
-      const result=sheetScriptResponse(r,body);
+      const ack=await waitSheetAck(requestId,3500);
+      const result=ack?.status==='ok'
+        ? {ok:true,message:'Confirmado diretamente pelo Apps Script (independente do HTTP Google).'}
+        : ack?.status==='error'
+          ? {ok:false,message:'Apps Script devolveu erro: '+String(ack.detail||'sem detalhe')}
+          : sheetScriptResponse(r,body);
       db.prepare(`UPDATE calendar_sheet_links SET last_portal_sync_at=CASE WHEN ? THEN datetime('now') ELSE last_portal_sync_at END,last_error=? WHERE user_id=?`)
         .run(result.ok?1:0,result.ok?null:result.message,link.user_id);
       res.set('Cache-Control','no-store');
