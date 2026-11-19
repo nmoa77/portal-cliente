@@ -291,6 +291,32 @@ function duitFindCell_(date,field) {
   return null;
 }
 
+// Pinta a célula do número do dia, sem alterar o conteúdo do planeamento.
+// Guarda a cor anterior, para a restaurar se o post deixar de estar publicado.
+function duitColorPublishedDay_(date,status) {
+  const text=String(date||'');
+  const cell=duitFindCell_(text,'text')||duitFindCell_(text,'story')||duitFindCell_(text,'inspiration');
+  if(!cell)return;
+  const sheet=cell.getSheet();
+  const row=duitDayRowForContentRow_(sheet,cell.getRow());
+  if(!row)return;
+  const dayCell=sheet.getRange(row,cell.getColumn());
+  const props=PropertiesService.getScriptProperties();
+  const key='DUIT_DAY_BG_'+sheet.getSheetId()+'_'+row+'_'+cell.getColumn();
+  if(status==='published'){
+    if(props.getProperty(key)===null)props.setProperty(key,dayCell.getBackground());
+    dayCell.setBackground('#C6EFCE');
+    dayCell.setFontColor('#176B34');
+  }else{
+    const previous=props.getProperty(key);
+    if(previous!==null){
+      dayCell.setBackground(previous);
+      dayCell.setFontColor(null);
+      props.deleteProperty(key);
+    }
+  }
+}
+
 function duitHandleEdit(e) {
   try {
     if(!e||!e.range||e.range.getSheet().getName()===SYNC_SHEET)return;
@@ -323,6 +349,8 @@ function doPost(e) {
       const cell=duitFindCell_(post.date,f);
       if(cell)cell.setValue(post[f]??'');
     });
+    if(['draft','scheduled','published','cancelled'].includes(post.status))
+      duitColorPublishedDay_(post.date,post.status);
     return ContentService.createTextOutput('ok');
   } catch(err) {
     return ContentService.createTextOutput('error: '+err.message);
