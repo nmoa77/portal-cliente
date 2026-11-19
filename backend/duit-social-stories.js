@@ -69,7 +69,7 @@ function publicRow(row) {
   return { ...rest, has_media: Boolean(media_name), media_url: media_name ? '/api/duit-social/stories/' + row.id + '/media' : null };
 }
 function validSchedule(value) {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)
     && Number.isFinite(Date.parse(value));
 }
 function originOk(req, res, next) {
