@@ -1008,6 +1008,53 @@ $('pub-kind').addEventListener('change',()=>{
 });
 // A Meta recebe JPEG para Posts/Carrosséis; converter PNG no browser
 // antes de enviar, sem alterar o ficheiro original do utilizador.
+// Reels até 300 MB: carregamento sequencial por partes de 5 MB.
+const DUIT_REEL_MAX=300*1024*1024;
+const DUIT_IMAGE_MAX=80*1024*1024;
+function validatePublicationFileSize(files,kind){
+ if(files.some(file=>file.size>(kind==='reel'?DUIT_REEL_MAX:DUIT_IMAGE_MAX)))
+   throw Error(kind==='reel'?'Máximo 300 MB por Reel MP4.':'Máximo 80 MB por imagem.');
+}
+async function uploadPublicationFile(jobId,position,file){
+ const base='/api/duit-social/publisher/jobs/'+jobId+'/files/'+position;
+ if(file.type!=='video/mp4'||file.size<=DUIT_IMAGE_MAX){
+   const response=await fetch(base,{method:'PUT',credentials:'same-origin',
+     headers:{'Content-Type':file.type},body:file});
+   if(!response.ok){
+     const data=await response.json().catch(()=>({}));
+     throw Error(data.error||'Não foi possível guardar o ficheiro.');
+   }
+   return;
+ }
+ if(file.size>DUIT_REEL_MAX)throw Error('Máximo 300 MB por Reel MP4.');
+ const uploadId=crypto.randomUUID();
+ const chunkSize=5*1024*1024;
+ const total=Math.ceil(file.size/chunkSize);
+ for(let i=0;i<total;i++){
+   const chunk=file.slice(i*chunkSize,Math.min((i+1)*chunkSize,file.size));
+   const url=base+'/chunks/'+uploadId+'/'+i;
+   let response;
+   for(let attempt=0;attempt<3;attempt++){
+     try{
+       response=await fetch(url,{method:'PUT',credentials:'same-origin',
+         headers:{'Content-Type':'application/octet-stream','X-Duit-File-Size':String(file.size)},body:chunk});
+       if(response.ok)break;
+       if(response.status>=400&&response.status<500)break;
+     }catch(e){if(attempt===2)throw e;}
+   }
+   if(!response?.ok){
+     const detail=await response?.json().catch(()=>({}));
+     throw Error(detail?.error||'Falha no envio do vídeo. Tente novamente.');
+   }
+   const progress=document.getElementById('pub-status');
+   if(progress)progress.textContent='A enviar Reel: '+Math.round((i+1)*100/total)+'%';
+ }
+ const result=await fetch(base+'/chunks/'+uploadId+'/complete',{
+   method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({size:file.size})
+ });
+ if(!result.ok){const data=await result.json().catch(()=>({}));throw Error(data.error||'Não foi possível finalizar o Reel.');}
+}
 async function publicationFile(file){
  if(file.type!=='image/png')return file;
  let bitmap;
@@ -1159,7 +1206,7 @@ $('publish-form').addEventListener('submit',async event=>{
     const targetAccount=accountList.find(item=>item.id===accountId);
     if(!targetAccount)throw Error('Conta Meta não ligada.');
     if(Number($('compose-client').value)!==targetAccount.client_id)throw Error('A conta Meta não pertence ao cliente selecionado.');
-    if(files.some(file=>file.size>80*1024*1024))throw Error('Máximo 80 MB por ficheiro.');
+    validatePublicationFileSize(files,kind);
     if(files.some(file=>kind==='reel'?file.type!=='video/mp4':!['image/jpeg','image/png'].includes(file.type)))
       throw Error('Formato de ficheiro inválido.');
     const prepared=[];
@@ -1177,11 +1224,7 @@ $('publish-form').addEventListener('submit',async event=>{
       })
     });
     for(let i=0;i<prepared.length;i++){
-      const uploaded=await fetch('/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/'+i,{
-        method:'PUT',credentials:'same-origin',headers:{'Content-Type':prepared[i].type},body:prepared[i]
-      });
-      if(!uploaded.ok){const detail=await uploaded.json().catch(()=>({}));
-        throw Error(detail.error||'Falha ao substituir o ficheiro');}
+      await uploadPublicationFile(editingPublication.id,i,prepared[i]);
     }
     editingPublication=await request('/api/duit-social/publisher/jobs/'+editingPublication.id);
     $('pub-files').value='';
@@ -1193,7 +1236,7 @@ $('publish-form').addEventListener('submit',async event=>{
    const networks=selectedNetworks();
    if(!networks.length)throw Error('Escolha pelo menos uma rede');
    if(files.length<(kind==='carousel'?2:1)||files.length>(kind==='carousel'?10:1))throw Error('Quantidade inválida de ficheiros');
-   if(files.some(file=>file.size>80*1024*1024))throw Error('Máximo 80 MB por ficheiro');
+   validatePublicationFileSize(files,kind);
    if(files.some(file=>kind==='reel'?file.type!=='video/mp4':!['image/jpeg','image/png'].includes(file.type)))throw Error('Use apenas MP4 para Reels ou JPG/PNG para Posts/Carrosséis');
    const preparedFiles=[];
    for(const file of files)preparedFiles.push(await publicationFile(file));
@@ -1225,10 +1268,7 @@ $('publish-form').addEventListener('submit',async event=>{
    }
    try {
      for(let i=0;i<preparedFiles.length;i++){
-       const response=await fetch('/api/duit-social/publisher/jobs/'+job.id+'/files/'+i,{
-         method:'PUT',credentials:'same-origin',headers:{'Content-Type':preparedFiles[i].type},body:preparedFiles[i]
-       });
-       if(!response.ok){const info=await response.json().catch(()=>({}));throw Error(info.error||'Upload falhou');}
+       await uploadPublicationFile(job.id,i,preparedFiles[i]);
      }
    }catch(e){
      // Nunca apagar um rascunho anterior se o upload de substituição falhar.
