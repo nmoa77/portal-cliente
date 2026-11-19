@@ -514,7 +514,11 @@ function register(app){
       const result=sheetScriptResponse(r,body);
       db.prepare(`UPDATE calendar_sheet_links SET last_portal_sync_at=CASE WHEN ? THEN datetime('now') ELSE last_portal_sync_at END,last_error=? WHERE user_id=?`)
         .run(result.ok?1:0,result.ok?null:result.message,link.user_id);
-      res.json({ok:result.ok,status:r.status,message:result.message});
+      res.set('Cache-Control','no-store');
+      res.json({ok:result.ok,status:r.status,message:result.message,
+        google_response:body.trim().slice(0,500),
+        google_content_type:r.headers.get('content-type')||'desconhecido',
+        test_version:'duit-google-test-v3'});
     }catch(e){
       const code=String(e.cause?.code||e.code||'').slice(0,60);
       const msg=String(e.message||e||'Erro desconhecido').slice(0,250);
