@@ -1439,7 +1439,9 @@ $('new-story').addEventListener('submit',async e=>{
  $('story-share-success').hidden=true;
  try{
   const file=$('media').files[0];
-  if(!file||file.size>80*1024*1024)throw Error('Escolha uma imagem ou vídeo até 80 MB.');
+  if(!file)throw Error('Escolha uma imagem ou vídeo.');
+  if(file.size>(file.type==='video/mp4'?300:80)*1024*1024)
+    throw Error(file.type==='video/mp4'?'Máximo 300 MB por vídeo Story.':'Máximo 80 MB por imagem.');
   const immediate=$('story-timing').value==='now';
   const payload={client_id:Number($('client').value),immediate};
   if(!immediate){
@@ -1454,11 +1456,43 @@ $('new-story').addEventListener('submit',async e=>{
   });
   let uploadResult=null;
   try{
-   const upload=await fetch('/api/duit-social/stories/'+story.id+'/media',{
-     method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file
-   });
-   uploadResult=await upload.json().catch(()=>null);
-   if(!upload.ok)throw Error(uploadResult?.error||'Não foi possível guardar o ficheiro.');
+   if(file.type==='video/mp4' && file.size>80*1024*1024){
+     const uploadId=crypto.randomUUID(),chunkSize=5*1024*1024;
+     const total=Math.ceil(file.size/chunkSize);
+     const base='/api/duit-social/stories/'+story.id+'/media/chunks/'+uploadId;
+     for(let part=0;part<total;part++){
+       const blob=file.slice(part*chunkSize,Math.min((part+1)*chunkSize,file.size));
+       let response;
+       for(let attempt=0;attempt<3;attempt++){
+         try{
+           response=await fetch(base+'/'+part,{
+             method:'PUT',credentials:'same-origin',
+             headers:{'Content-Type':'application/octet-stream','X-Duit-File-Size':String(file.size)},
+             body:blob
+           });
+           if(response.ok||response.status<500)break;
+         }catch(error){if(attempt===2)throw error;}
+       }
+       if(!response?.ok){
+         const result=await response?.json().catch(()=>({}));
+         throw Error(result?.error||'Falha ao enviar o vídeo. Tente novamente.');
+       }
+       $('feedback').textContent='A enviar vídeo Story: '+Math.round(100*(part+1)/total)+'%';
+     }
+     const complete=await fetch(base+'/complete',{
+       method:'POST',credentials:'same-origin',
+       headers:{'Content-Type':'application/json'},
+       body:JSON.stringify({size:file.size})
+     });
+     uploadResult=await complete.json().catch(()=>null);
+     if(!complete.ok)throw Error(uploadResult?.error||'Não foi possível concluir o vídeo Story.');
+   }else{
+     const upload=await fetch('/api/duit-social/stories/'+story.id+'/media',{
+       method:'PUT',credentials:'same-origin',headers:{'Content-Type':file.type},body:file
+     });
+     uploadResult=await upload.json().catch(()=>null);
+     if(!upload.ok)throw Error(uploadResult?.error||'Não foi possível guardar o ficheiro.');
+   }
   }catch(error){
    await request('/api/duit-social/stories/'+story.id,{method:'DELETE'}).catch(()=>null);
    throw error;
