@@ -93,7 +93,7 @@ async function sheetScriptResponse(response,body){
   return {ok:false,message:'Resposta inesperada do Apps Script (HTTP '+response.status+'): '+txt.slice(0,160)};
 }
 
-function notifyPostChanged(postId,action='upsert'){
+async function notifyPostChanged(postId,action='upsert'){
   try{
     const post=db.prepare('SELECT * FROM social_posts WHERE id=?').get(Number(postId));
     if(!post&&action!=='delete') return;
