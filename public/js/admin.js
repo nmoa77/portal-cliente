@@ -1625,8 +1625,15 @@ async function abrirPostEditorialNaMedia(opts){
 
 async function quickSetStatus(id, status) {
   try {
-    await api(`/api/social-posts/${id}`, { method: 'PATCH', body: { status } });
-    toast('Post atualizado.', 'check');
+    const post=(state.calPostsCache||[]).find(p=>Number(p.id)===Number(id));
+    const saved=await api(`/api/social-posts/${id}`, { method: 'PATCH', body: { status } });
+    if(saved?.status && saved.status!==status)
+      throw Error('O estado guardado não corresponde ao selecionado. Atualize e tente novamente.');
+    // Um post devolvido a rascunho regressa à data original do calendário.
+    // O estado publicado da Meta não o pode esconder da lista editorial.
+    if(status==='draft' && state.calMode==='day' && post?.date)
+      state.calDay=post.date;
+    toast(status==='draft'?'Post devolvido aos rascunhos.':'Post atualizado.', 'check');
     go('calendar');
   } catch (err) { toast(err.message, 'cancel'); }
 }
@@ -3746,6 +3753,10 @@ document.addEventListener('submit', async (e) => {
       if (id) await api(`/api/social-posts/${id}`, { method: 'PATCH', body });
       else    await api('/api/social-posts', { method: 'POST', body });
       closeModal('modal-post');
+      // Depois de repor um rascunho, mostrar a data do post mesmo que a
+      // publicação Meta vinculada já esteja concluída.
+      if(body.status==='draft' && state.calMode==='day' && body.date)
+        state.calDay=body.date;
       toast(id ? 'Post atualizado.' : 'Post criado.', 'check');
       go('calendar');
     } catch (err) { toast(err.message, 'cancel'); }
