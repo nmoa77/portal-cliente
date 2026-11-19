@@ -1861,28 +1861,38 @@ async function calendarSheetShowScript(userId) {
 }
 
 async function calendarSheetTest(userId) {
-  const selector='#calendar-sheet-test-result';
-  const display=(msg,success)=>{
-    const el=document.querySelector(selector);
-    if(el){
-      el.hidden=false;
-      el.style.color=success?'#176B34':'#B42318';
-      el.textContent=msg;
+  const box=document.getElementById('calendar-sheet-test-result');
+  const render=(msg,success)=>{
+    if(box){
+      box.hidden=false;
+      box.style.color=success?'#176B34':'#B42318';
+      box.textContent=msg;
     }
-    toast(msg,success?'check':'cancel');
+    toast(success?'Ligação ao Apps Script confirmada.':'Falha na ligação. Veja o detalhe na janela do Google Sheet.',success?'check':'cancel');
   };
   try {
-    const r=await api('/api/calendar-sheet-links/'+userId+'/test',{method:'POST'});
-    const message=r.ok?'Ligação ao Apps Script confirmada.':
-      (r.message||r.error||'A ligação falhou sem detalhe. Abra novamente esta janela para consultar o último erro.');
-    // A mensagem permanece visível na janela, não apenas num aviso temporário.
-    display(message,r.ok);
-    if(!r.ok){
-      const el=document.querySelector(selector);
-      if(el)el.textContent=message+' (HTTP '+(r.status||'?')+')';
+    // Ler a resposta HTTP diretamente: evita que o utilitário API descarte
+    // detalhes do Google ou confunda o status HTTP do portal com o do Apps Script.
+    const response=await fetch('/api/calendar-sheet-links/'+encodeURIComponent(userId)+'/test',{
+      method:'POST',credentials:'same-origin',cache:'no-store',
+      headers:{'Content-Type':'application/json'}
+    });
+    const raw=await response.text();
+    let result={};
+    try{result=JSON.parse(raw)}catch(_){}
+    if(response.ok&&result.ok===true){
+      render('Ligação ao Google Apps Script confirmada. Resposta: '+(result.google_response||'ok'),true);
+      return;
     }
+    const base=result.message||result.error||'O portal não devolveu o detalhe esperado.';
+    const google=result.google_response?
+      '\\nResposta Google: '+String(result.google_response).replace(/<[^>]*>/g,' ').slice(0,260):'';
+    const code='\\nHTTP portal: '+response.status+
+      ' · HTTP Google: '+(result.status??'não indicado')+
+      ' · Diagnóstico: '+(result.test_version||'versão anterior');
+    render(base+google+code,false);
   }catch(err){
-    display('Teste interrompido: '+String(err.message||err),false);
+    render('Teste interrompido: '+String(err.message||err),false);
   }
 }
 
