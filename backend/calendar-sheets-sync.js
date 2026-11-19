@@ -306,28 +306,66 @@ function duitFindCell_(date,field) {
   return null;
 }
 
-// Pinta a célula do número do dia, sem alterar o conteúdo do planeamento.
-// Guarda a cor anterior, para a restaurar se o post deixar de estar publicado.
+// Procura a célula numérica do próprio dia na aba mensal.
+// O modelo da folha apresenta o número no CABEÇALHO da semana, antes do
+// conteúdo, e não na linha de data abaixo do conteúdo.
+function duitFindDayNumberCell_(date) {
+  const matched=String(date||'').match(/^(20\\d{2})-(\\d{2})-(\\d{2})$/);
+  if(!matched)return null;
+  const year=Number(matched[1]),month=Number(matched[2]),day=Number(matched[3]);
+  const ss=duitSpreadsheet_();
+  for(const sheet of ss.getSheets()){
+    if(sheet.getName()===SYNC_SHEET)continue;
+    const my=duitMonthYear_(sheet);
+    if(!my||my.year!==year||my.month!==month)continue;
+    const rows=Math.min(sheet.getLastRow(),250);
+    const cols=Math.min(sheet.getLastColumn(),26);
+    if(rows<1||cols<3)continue;
+    const values=sheet.getRange(1,1,rows,cols).getDisplayValues();
+    for(let r=0;r<rows;r++){
+      // As linhas dos dias possuem vários números de dia juntos.
+      // Impede confundir números que aparecem no corpo dos posts.
+      let numericCount=0;
+      for(let col=1;col<cols;col++){
+        const v=String(values[r][col]||'').trim();
+        if(/^\\d{1,2}$/.test(v)&&Number(v)>=1&&Number(v)<=31)
+          numericCount++;
+      }
+      if(numericCount<2)continue;
+      for(let col=1;col<cols;col++){
+        const v=String(values[r][col]||'').trim();
+        if(/^\\d{1,2}$/.test(v)&&Number(v)===day)
+          return sheet.getRange(r+1,col+1);
+      }
+    }
+  }
+  return null;
+}
+
+// Apenas a célula onde aparece o número do dia fica verde.
+// Conserva a cor original para quando regressar a Rascunho.
 function duitColorPublishedDay_(date,status) {
-  const text=String(date||'');
-  const cell=duitFindCell_(text,'text')||duitFindCell_(text,'story')||duitFindCell_(text,'inspiration');
-  if(!cell)return;
-  const sheet=cell.getSheet();
-  const row=duitDayRowForContentRow_(sheet,cell.getRow());
-  if(!row)return;
-  const dayCell=sheet.getRange(row,cell.getColumn());
+  const dayCell=duitFindDayNumberCell_(date);
+  if(!dayCell)return;
+  const sheet=dayCell.getSheet(),row=dayCell.getRow(),col=dayCell.getColumn();
   const props=PropertiesService.getScriptProperties();
-  const key='DUIT_DAY_BG_'+sheet.getSheetId()+'_'+row+'_'+cell.getColumn();
+  const key='DUIT_DAY_BG_'+sheet.getSheetId()+'_'+row+'_'+col;
+  const textKey=key+'_TEXT';
   if(status==='published'){
-    if(props.getProperty(key)===null)props.setProperty(key,dayCell.getBackground());
+    if(props.getProperty(key)===null){
+      props.setProperty(key,dayCell.getBackground());
+      props.setProperty(textKey,dayCell.getFontColor());
+    }
     dayCell.setBackground('#C6EFCE');
     dayCell.setFontColor('#176B34');
   }else{
     const previous=props.getProperty(key);
     if(previous!==null){
       dayCell.setBackground(previous);
-      dayCell.setFontColor(null);
+      const text=props.getProperty(textKey);
+      if(text)dayCell.setFontColor(text);
       props.deleteProperty(key);
+      props.deleteProperty(textKey);
     }
   }
 }
