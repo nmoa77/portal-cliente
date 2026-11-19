@@ -1422,6 +1422,26 @@ $('story-notify-now').addEventListener('click',async()=>{
  }catch(error){$('story-notify-feedback').textContent='Erro: '+error.message;}
  finally{button.disabled=false;}
 });
+// Converter datetime-local sem depender do parser de datas do navegador.
+// O campo mostra DD/MM/AAAA em pt-PT, mas o valor deve ser YYYY-MM-DDTHH:mm.
+function duitStoryScheduleDate(){
+ const input=$('scheduled');
+ const raw=String(input.value||'').trim();
+ const match=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
+ if(match){
+   const [year,month,day,hour,minute,second]=match.slice(1).map(Number);
+   const date=new Date(year,month-1,day,hour,minute,second||0,0);
+   if(date.getFullYear()===year&&date.getMonth()===month-1&&date.getDate()===day
+      &&date.getHours()===hour&&date.getMinutes()===minute)return date;
+ }
+ // Alguns browsers devolvem uma representação numérica válida quando o
+ // campo está preenchido mas a string falha na conversão habitual.
+ if(Number.isFinite(input.valueAsNumber)){
+   const date=new Date(input.valueAsNumber);
+   if(Number.isFinite(date.getTime()))return date;
+ }
+ return null;
+}
 function syncStoryTiming(){
  const immediate=$('story-timing').value==='now';
  $('story-schedule-wrap').hidden=immediate;
@@ -1445,8 +1465,8 @@ $('new-story').addEventListener('submit',async e=>{
   const immediate=$('story-timing').value==='now';
   const payload={client_id:Number($('client').value),immediate};
   if(!immediate){
-   const date=new Date($('scheduled').value);
-   if(!Number.isFinite(date.getTime()))throw Error('Selecione uma data e hora válidas.');
+   const date=duitStoryScheduleDate();
+   if(!date)throw Error('Não foi possível interpretar a data. Selecione novamente a data e a hora no calendário.');
    if(Intl.DateTimeFormat().resolvedOptions().timeZone!=='Europe/Lisbon'&&!await window.duitConfirm('O dispositivo não está definido para a hora de Portugal. Continuar com o horário local?'))return;
    payload.scheduled_at=date.toISOString();
    payload.status='scheduled';
