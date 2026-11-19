@@ -260,13 +260,6 @@ function cleanupCompleted(){
  const completed=db.prepare("SELECT id FROM duit_publish_jobs WHERE status='published'").all();
  // Ficheiros publicados devem permanecer disponíveis no histórico visual.
 }
-// Sincroniza o estado editorial apenas quando TODOS os canais Meta confirmam
-// a publicação. Não altera o rascunho ao clicar «Subir para Media» nem em revisão.
-function markEditorialPublished(job){
- if(!Number.isSafeInteger(Number(job?.source_post_id))||Number(job.source_post_id)<=0)return;
- db.prepare("UPDATE social_posts SET status='published' WHERE id=? AND user_id=? AND status IN ('draft','scheduled')")
-   .run(Number(job.source_post_id),Number(job.client_id));
-}
 // Esta é uma publicação STORY autónoma do mesmo vídeo (não um sticker
 // clicável de partilha do Reel). Só tenta uma vez para evitar duplicados
 // quando a Meta conclui a publicação mas ocorre um timeout.
@@ -328,7 +321,6 @@ async function publish(job){
   db.prepare("UPDATE duit_publish_jobs SET status='review',error='Verificar os canais pendentes antes de repetir' WHERE id=?").run(job.id);
  }else{
   db.prepare("UPDATE duit_publish_jobs SET status='published',error=NULL WHERE id=?").run(job.id);
-  markEditorialPublished(job);
   // Manter os ficheiros guardados no volume para edição e histórico visual.
   // Só apagar na exclusão explícita do rascunho.
  }
@@ -643,8 +635,7 @@ function register(app){
     const left=db.prepare("SELECT COUNT(*) AS c FROM duit_publish_results WHERE job_id=? AND status!='published'").get(id).c;
     if(!left){
       db.prepare("UPDATE duit_publish_jobs SET status='published',error=NULL WHERE id=?").run(id);
-      markEditorialPublished(job);
-      try{removeMedia(id);}catch(e){console.warn('[duit-social] reconciliação media:',e.message);}
+          try{removeMedia(id);}catch(e){console.warn('[duit-social] reconciliação media:',e.message);}
     }
     return res.json({ok:true,status:left?'review':'published'});
   }
@@ -741,18 +732,7 @@ function register(app){
 
  app.use('/api/duit-social/publisher',router);
  try{cleanupCompleted();}catch(e){console.warn('[duit-social] limpeza inicial:',e.message);}
- // Alinhar publicações Meta já concluídas e comprovadas com os rascunhos
- // editoriais ainda pendentes (sem tocar em cancelados ou contas diferentes).
- try{
-  const verified=db.prepare(`SELECT j.source_post_id,j.client_id
-    FROM duit_publish_jobs j
-    WHERE j.status='published' AND j.source_post_id IS NOT NULL
-      AND EXISTS(SELECT 1 FROM duit_publish_results r WHERE r.job_id=j.id)
-      AND NOT EXISTS(SELECT 1 FROM duit_publish_results r WHERE r.job_id=j.id AND r.status!='published')`).all();
-  for(const job of verified)markEditorialPublished(job);
- }catch(e){console.warn('[duit-social] estado editorial:',e.message);}
-
-
+ // O estado editorial é sempre alterado manualmente no calendário.
  if(process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'){
   let busy=false;
   const tick=async()=>{
