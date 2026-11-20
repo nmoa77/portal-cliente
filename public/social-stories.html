@@ -887,11 +887,18 @@ async function refreshPublisher(accounts){
      dateLabel(job.scheduled_at)+' · '+escapeHtml(job.status)+'</div>'+
      job.results.map(x=>'<div class="muted">'+escapeHtml(x.network)+': '+escapeHtml(x.status)+
      (x.error?' · '+escapeHtml(x.error):'')+'</div>').join('')+
-     (job.auto_story && job.kind==='reel'
+     (job.kind==='reel'
        ? '<div class="muted" style="margin-top:5px;color:'+
-         (job.auto_story_status==='published'?'#1F6B2A':job.auto_story_status==='review'?'#A21D27':'#666')+'">'+
+         (job.auto_story_status==='published'&&job.auto_story?'#1F6B2A':
+          (!job.auto_story||job.auto_story_status==='review'||(job.status==='published'&&job.auto_story_status==='pending'))?'#A21D27':'#666')+'">'+
          'Story Instagram automática: '+
-         escapeHtml(job.auto_story_status==='published'?'Publicada':job.auto_story_status==='review'?'Não confirmada / rever':job.auto_story_status==='processing'?'A publicar':'A publicar após o Reel')+
+         escapeHtml(!job.networks.includes('instagram')?'Não aplicável — Reel sem Instagram':
+          !job.auto_story?'Não ativada neste Reel (por exemplo, rascunho criado antes da funcionalidade)':
+          job.auto_story_status==='published'?'Publicada':
+          job.auto_story_status==='review'?'Falhou / requer revisão':
+          job.auto_story_status==='processing'?'A publicar':
+          job.status==='published'?'Não foi iniciada — verificar':
+          'Pendente até o Reel Instagram ser confirmado')+
          (job.auto_story_error?' · '+escapeHtml(job.auto_story_error):'')+'</div>'
        : '');
    const actions=document.createElement('div');actions.className='actions';
