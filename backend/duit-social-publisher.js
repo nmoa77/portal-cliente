@@ -384,13 +384,17 @@ function register(app){
    if(clientId!==null&&(!Number.isSafeInteger(clientId)||clientId<=0))
      return res.status(400).json({error:'Cliente inválido'});
    const rows=db.prepare(`SELECT j.id,j.client_id,j.account_id,j.kind,j.scheduled_at,j.status,j.source_post_id,
-       j.networks,j.error,u.name AS client_name,u.company AS client_company
+       j.networks,j.error,j.auto_story,j.auto_story_status,j.auto_story_error,
+       u.name AS client_name,u.company AS client_company
        FROM duit_publish_jobs j JOIN users u ON u.id=j.client_id
-       WHERE j.scheduled_at>=? AND j.scheduled_at<?
+       LEFT JOIN social_posts sp ON sp.id=j.source_post_id AND sp.user_id=j.client_id
+       WHERE ((j.scheduled_at>=? AND j.scheduled_at<?) OR
+          (sp.date>=? AND sp.date<=?))
          AND (? IS NULL OR j.client_id=?)
        ORDER BY j.scheduled_at ASC LIMIT 1000`)
-     .all(utcStart,utcEnd,clientId,clientId);
-   res.json(rows.map(row=>({...row,networks:JSON.parse(row.networks)})));
+     .all(utcStart,utcEnd,start,end,clientId,clientId);
+   res.json(rows.map(row=>({...row,networks:JSON.parse(row.networks),
+     results:db.prepare('SELECT network,status,error FROM duit_publish_results WHERE job_id=?').all(row.id)})));
  });
  router.get('/jobs/:id',(req,res)=>{
    const id=Number(req.params.id);
