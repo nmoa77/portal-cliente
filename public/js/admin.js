@@ -1269,9 +1269,43 @@ async function viewCalendar(main) {
   const unlinkedMetaJobs = calendarMetaJobs.filter(j=>!j.source_post_id);
   // O calendário editorial é controlado manualmente, independentemente da Meta.
   const displayEditorialStatus = p => p.status;
-  const editorialMediaIndicator = p => linkedMetaByPost.has(Number(p.id))
-    ? ' · Meta '+escapeHtml(linkedMetaByPost.get(Number(p.id)).status)
-    : '';
+  const editorialMediaIndicator = p => {
+    const job=linkedMetaByPost.get(Number(p.id));
+    if(!job)return '';
+    const label=job.status==='published'?'✓ Reel/Post publicado na Meta'
+      : job.status==='review'?'⚠ Meta — verificar publicação'
+      : job.status==='scheduled'?'◷ Meta agendado'
+      : job.status==='processing'?'◌ Meta a publicar'
+      : job.status==='draft'?'◌ Meta rascunho'
+      : 'Meta: '+job.status;
+    return ' · '+escapeHtml(label);
+  };
+  const editorialMetaRow = p => {
+    const job=linkedMetaByPost.get(Number(p.id));
+    if(!job)return '';
+    const color=job.status==='published'?'#1F6B2A':
+      job.status==='review'?'#9D3D1B':job.status==='processing'?'#185A92':'#775600';
+    const bg=job.status==='published'?'#E8F7E8':
+      job.status==='review'?'#FFF0E7':job.status==='processing'?'#E7F2FF':'#FFF5D6';
+    const label=job.status==='published'?'Publicado na Meta':
+      job.status==='review'?'Meta: verificar publicação':
+      job.status==='processing'?'Meta: a publicar':
+      job.status==='scheduled'?'Meta: agendado':
+      job.status==='draft'?'Meta: rascunho':'Meta: '+job.status;
+    const channels=Array.isArray(job.results)?job.results:[];
+    const channelLabels=channels.map(item=>
+      ({instagram:'Instagram',facebook:'Facebook',threads:'Threads'}[item.network]||item.network)+
+      ': '+(item.status==='published'?'Publicado':item.status==='review'?'Rever':
+        item.status==='pending'?'Pendente':item.status==='processing'?'A publicar':item.status)
+    ).join(' · ');
+    const story=job.auto_story&&job.kind==='reel'
+      ? ' · Story Instagram: '+(job.auto_story_status==='published'?'Publicada':
+          job.auto_story_status==='review'?'Rever':job.auto_story_status==='processing'?'A publicar':'Pendente')
+      : '';
+    return `<div style="margin-top:8px;"><a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({publication:${job.id}})"
+      style="display:inline-block;padding:7px 10px;border-radius:8px;text-decoration:none;background:${bg};color:${color};font-size:12px;font-weight:600;"
+      title="Estado da publicação Meta (independente do estado editorial)">${escapeHtml(label)} · ${escapeHtml(channelLabels)}${escapeHtml(story)}</a></div>`;
+  };
   const metaStatusColors = {
     draft:      { background:'#F2F0F7', border:'#DDD6EB', text:'#463761', icon:'◌', label:'Rascunho' },
     scheduled:  { background:'#FFF5D6', border:'#F0D88A', text:'#775600', icon:'◷', label:'Agendado' },
@@ -1425,7 +1459,7 @@ async function viewCalendar(main) {
   // Vista diária funciona como to-do: só mostra os rascunhos pendentes.
   // Quando o admin avança o estado (Agendar / Publicado / Cancelar), o post sai daqui.
   const todayPosts    = all.filter(p => p.date === today    && p.status === 'draft').sort(sortByStatusThenNet);
-  const tomorrowPosts = all.filter(p => p.date === tomorrow && p.status === 'draft' && displayEditorialStatus(p)!=='published').sort(sortByStatusThenNet);
+  const tomorrowPosts = all.filter(p => p.date === tomorrow && p.status === 'draft').sort(sortByStatusThenNet);
   // Total real de posts agendados para cada dia (todos os estados) — usado para
   // distinguir "dia sem trabalho marcado" de "tudo feito".
   const todayTotal    = all.filter(p => p.date === today).length;
@@ -1447,13 +1481,14 @@ async function viewCalendar(main) {
   main.innerHTML = `
     ${pageHead}
     <div class="grid" style="gap:18px;align-items:start">
-      ${dayBlock('Hoje',today,todayPosts,todayTotal,extrasForDay(today),metaMini,storyMini)}
-      ${dayBlock('Amanhã',tomorrow,tomorrowPosts,tomorrowTotal,extrasForDay(tomorrow),metaMini,storyMini)}
+      ${dayBlock('Hoje',today,todayPosts,todayTotal,extrasForDay(today),metaMini,storyMini,editorialMetaRow)}
+      ${dayBlock('Amanhã',tomorrow,tomorrowPosts,tomorrowTotal,extrasForDay(tomorrow),metaMini,storyMini,editorialMetaRow)}
     </div>
   `;
 }
 
-function dayBlock(title, dateStr, drafts, totalForDay, extras={meta:[],stories:[]}, metaMini=()=>'', storyMini=()=>'') {
+function dayBlock(title, dateStr, drafts, totalForDay, extras={meta:[],stories:[]}, metaMini=()=>'', storyMini=()=>'',
+  metaForPost=()=>'' ) {
   // Manter a mensagem de conclusão já existente quando todo o trabalho
   // do dia está tratado, incluindo as Stories e as publicações Meta.
   const extraCount=extras.meta.length+extras.stories.length;
@@ -1488,7 +1523,7 @@ function dayBlock(title, dateStr, drafts, totalForDay, extras={meta:[],stories:[
       </div>
     `;
   } else if (drafts.length>0) {
-    bodyHtml = `<div class="day-list">${drafts.map(p => dayPostRow(p)).join('')}</div>`;
+    bodyHtml = `<div class="day-list">${drafts.map(p => dayPostRow(p,metaForPost)).join('')}</div>`;
   } else if (extraCount>0) {
     bodyHtml = '';
   } else {
@@ -1525,7 +1560,7 @@ function copyPostField(id, field) {
   }
 }
 
-function dayPostRow(p) {
+function dayPostRow(p,metaForPost=()=>'' ) {
   // Botões disponíveis para o admin escolher consoante o estado atual.
   // - draft     → pode "Agendar" (transição normal) OU saltar para "Publicado"
   // - scheduled → pode "Publicado"
@@ -1572,6 +1607,7 @@ function dayPostRow(p) {
             <span>${escapeHtml(p.client_company || p.client_name || '')}</span>
             ${statusPill(p.status)}
           </div>
+          ${metaForPost(p)}
           ${fieldRow('Legenda', 'text', p.text)}
           ${fieldRow('Inspiração', 'inspiration', p.inspiration)}
           ${fieldRow('Story', 'story', p.story)}
