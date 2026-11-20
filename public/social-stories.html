@@ -271,6 +271,7 @@ body.composer-mode #publicacoes{padding:22px}
 <label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
 <p style="font-size:12px;color:#686868;margin:8px 0;">Nos Reels enviados ao Instagram, a DUIT Media tenta publicar automaticamente o mesmo vídeo na Story após a confirmação do Reel. A Meta pode recusar vídeos incompatíveis com as regras das Stories (por exemplo, acima de 100 MB).</p>
 <p class="actions"><button type="submit" id="publication-save-button" data-save-action="draft">Guardar rascunho</button>
+<button type="submit" id="publication-schedule-button" data-save-action="schedule" class="secondary">Agendar publicação</button>
 <button type="submit" id="publication-publish-button" data-save-action="publish" class="secondary">Publicar agora</button>
 <button type="button" id="duit-facebook-test-publish" class="secondary" hidden>Publicar teste DUIT</button>
 <button type="button" id="duit-schedule-test" class="secondary" hidden>Agendar teste Instagram DUIT</button></p>
@@ -523,6 +524,7 @@ function populatePublicationEditor(job){
        notice.remove();
        $('publication-save-button').disabled=false;
        $('publication-publish-button').disabled=false;
+       $('publication-schedule-button').disabled=false;
        $('pub-status').textContent='Agendamento cancelado. Pode editar todos os campos e guardar o rascunho.';
      }catch(e){$('pub-status').textContent='Não foi possível reabrir: '+e.message;unlock.disabled=false;}
    });
@@ -547,6 +549,7 @@ function populatePublicationEditor(job){
  if(!canEdit){
   $('publication-save-button').disabled=true;
   $('publication-publish-button').disabled=true;
+  $('publication-schedule-button').disabled=true;
   if(job.status!=='scheduled')$('pub-status').textContent='Publicação em processamento ou publicada: edição bloqueada para evitar envios duplicados.';
  }
 
@@ -1204,14 +1207,37 @@ function returnToCalendarAfterSave(jobId){
 }
 // Duas ações: guardar somente ou guardar, verificar ficheiros e pedir publicação.
 let publicationSaveBusy=false;
-async function finishMediaSave(jobId,expectedFiles,shouldPublish){
+async function finishMediaSave(jobId,expectedFiles,saveAction){
  const saved=await request('/api/duit-social/publisher/jobs/'+jobId);
  if(!saved || !Array.isArray(saved.files) || saved.files.length<expectedFiles)
    throw Error('O ficheiro ainda não está confirmado no armazenamento. O rascunho foi mantido; não foi enviado à Meta.');
- if(shouldPublish){
-   if(!await window.duitConfirm('Publicar agora nas redes selecionadas? O conteúdo ficará visível publicamente.')) {
+ if(saveAction==='schedule'){
+   const scheduledAt=Date.parse(saved.scheduled_at);
+   if(!Number.isFinite(scheduledAt)||scheduledAt<=Date.now()){
+     $('pub-status').textContent='Rascunho guardado. Escolha uma data e hora futuras para agendar.';
+     return;
+   }
+   const dateLabel=new Date(scheduledAt).toLocaleString('pt-PT',{timeZone:'Europe/Lisbon',dateStyle:'short',timeStyle:'short'});
+   if(!await window.duitConfirm('Agendar publicação para '+dateLabel+' (hora de Portugal) nas redes selecionadas?')){
+     $('pub-status').textContent='Rascunho guardado. Agendamento não confirmado.';
+     return;
+   }
+   try{
+     const config=await request('/api/duit-social/publisher/config');
+     const opts={method:'POST'};
+     if(config.testOnlyNetwork==='instagram'&&config.testScheduleEnabled===true){
+       opts.headers={'Content-Type':'application/json'};
+       opts.body=JSON.stringify({confirm_test_schedule:true});
+     }
+     await request('/api/duit-social/publisher/jobs/'+jobId+'/schedule',opts);
+   }catch(error){
+     $('pub-status').textContent='Rascunho e ficheiros guardados, mas não agendados: '+error.message;
+     return;
+   }
+   $('pub-status').textContent='Publicação agendada para '+dateLabel+'.';
+ }else if(saveAction==='publish'){
+   if(!await window.duitConfirm('Publicar agora nas redes selecionadas? O conteúdo ficará visível publicamente.')){
      $('pub-status').textContent='Rascunho guardado. Publicação cancelada.';
-     returnToCalendarAfterSave(jobId);
      return;
    }
    try{
@@ -1227,9 +1253,9 @@ async function finishMediaSave(jobId,expectedFiles,shouldPublish){
 $('publish-form').addEventListener('submit',async event=>{
  event.preventDefault();
  if(publicationSaveBusy)return;
- const shouldPublish=event.submitter?.dataset.saveAction==='publish';
+ const saveAction=event.submitter?.dataset.saveAction||'draft';
  publicationSaveBusy=true;
- const buttons=[$('publication-save-button'),$('publication-publish-button')];
+ const buttons=[$('publication-save-button'),$('publication-schedule-button'),$('publication-publish-button')];
  buttons.forEach(b=>b.disabled=true);
  try{
    const kind=$('pub-kind').value,files=Array.from($('pub-files').files);
@@ -1271,7 +1297,7 @@ $('publish-form').addEventListener('submit',async event=>{
     $('pub-files').value='';
     duitRefreshPreviewFiles();
     $('pub-status').textContent='Alterações guardadas no mesmo post. Não foi criado nenhum duplicado.';
-    await finishMediaSave(editingPublication.id,editingPublication.kind==='carousel'?Math.max(2,editingPublication.files.length):1,shouldPublish);
+    await finishMediaSave(editingPublication.id,editingPublication.kind==='carousel'?Math.max(2,editingPublication.files.length):1,saveAction);
     return;
    }
    const networks=selectedNetworks();
@@ -1320,7 +1346,7 @@ $('publish-form').addEventListener('submit',async event=>{
      ? 'Rascunho existente atualizado. O calendário mantém uma única entrada.'
      : 'Rascunho guardado e associado ao post original no calendário.';
    // Confirmar na BD os ficheiros associados antes de sair ou publicar.
-   await finishMediaSave(job.id,preparedFiles.length,shouldPublish);
+   await finishMediaSave(job.id,preparedFiles.length,saveAction);
  }catch(e){$('pub-status').textContent='Erro: '+e.message;}
  finally{
    publicationSaveBusy=false;
