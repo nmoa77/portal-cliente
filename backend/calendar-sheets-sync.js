@@ -74,16 +74,7 @@ try{
           newSecret()
         );
       console.log('[calendar-sheet] Google Sheet nativa associada ao Seven Fitness Club');
-    } else {
-      db.prepare(`UPDATE calendar_sheet_links
-        SET spreadsheet_id=?,spreadsheet_url=?,apps_script_url=?,enabled=1,updated_at=datetime('now')
-        WHERE user_id=?`).run(
-          '1IYmcH2ZulW6z2EAgtHKmFj9KmdTDn0yYfvy4ajJVSZo',
-          'https://docs.google.com/spreadsheets/d/1IYmcH2ZulW6z2EAgtHKmFj9KmdTDn0yYfvy4ajJVSZo/edit',
-          'https://script.google.com/macros/s/AKfycbxmTomA-pyOwdrXl-z2eDUpzlA36qVyHf0AIW2VFKWchlvrYm_8-X5YIzvMBNDRVf0G2w/exec',
-          seven.id
-        );
-    }
+    } // Se já existir ligação, preservar integralmente o URL, a chave e o estado guardados.
   }
 }catch(e){console.warn('[calendar-sheet] seed Seven:',e.message)}
 
