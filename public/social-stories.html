@@ -722,11 +722,13 @@ function applyCalendarPreset(){
  }
  if(client && /^\d+$/.test(client)){
   $('meta-client').value=client;
-  $('compose-client').value=client;
+  if([...$('compose-client').options].some(o=>o.value===client)){
+    $('compose-client').value=client;
+  }
   $('client').value=client;
   const candidate=[...$('pub-account').options].find(o=>o.dataset.clientId===client);
   if(candidate) $('pub-account').value=candidate.value;
-  syncComposeClient(client);
+  syncComposeClient($('compose-client').value);
  }
 }
 
@@ -1550,7 +1552,17 @@ $('pub-date').value=dateForInput(60*60*1000);
 const clients=await request('/api/clients');const demoEmails=new Set(['ana@exemplo.pt','joao@exemplo.pt','rita@exemplo.pt']);
 const socialClients=clients.filter(c=>!c.is_prospect && !c.parent_user_id && !demoEmails.has(String(c.email||'').toLowerCase()));$('client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
 $('meta-client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));await refreshMeta();
-$('compose-client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
+// Para criar Post/Reel/Carrossel, apresentar apenas clientes com conta Meta ligada.
+// A lista de clientes para ligar novas contas à Meta mantém-se completa.
+const linkedClientIds=new Set([...$('pub-account').options].map(o=>String(o.dataset.clientId||'')));
+const publishingClients=socialClients.filter(c=>linkedClientIds.has(String(c.id)));
+$('compose-client').replaceChildren(...publishingClients.map(c=>{
+ const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;
+}));
+if(!publishingClients.length){
+ const o=document.createElement('option');o.value='';o.textContent='Nenhum cliente com Meta ligada';o.disabled=true;o.selected=true;
+ $('compose-client').append(o);
+}
 applyCalendarPreset();
 if(!mediaQuery.get('client'))syncComposeClient($('compose-client').value);
 if(window.pendingPublicationEdit){populatePublicationEditor(window.pendingPublicationEdit);window.pendingPublicationEdit=null;}
