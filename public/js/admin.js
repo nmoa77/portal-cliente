@@ -1298,9 +1298,15 @@ async function viewCalendar(main) {
       ': '+(item.status==='published'?'Publicado':item.status==='review'?'Rever':
         item.status==='pending'?'Pendente':item.status==='processing'?'A publicar':item.status)
     ).join(' · ');
-    const story=job.auto_story&&job.kind==='reel'
-      ? ' · Story Instagram: '+(job.auto_story_status==='published'?'Publicada':
-          job.auto_story_status==='review'?'Rever':job.auto_story_status==='processing'?'A publicar':'Pendente')
+    const story=job.kind==='reel'
+      ? ' · Story Instagram: '+(
+        !(job.networks||[]).includes('instagram')?'Sem Instagram':
+        !job.auto_story?'Não ativada neste Reel':
+        job.auto_story_status==='published'?'Publicada':
+        job.auto_story_status==='review'?'Falhou — rever na DUIT Media':
+        job.auto_story_status==='processing'?'A publicar':
+        job.status==='published'?'Não iniciada — rever':'Pendente')+
+        (job.auto_story_error?' · '+job.auto_story_error:'')
       : '';
     return `<div style="margin-top:8px;"><a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({publication:${job.id}})"
       style="display:inline-block;padding:7px 10px;border-radius:8px;text-decoration:none;background:${bg};color:${color};font-size:12px;font-weight:600;"
@@ -1328,6 +1334,12 @@ async function viewCalendar(main) {
       title="${escapeHtml(typeLabel+' · '+clientLabel+' · '+channelLabel+' · '+status.label)}">
       <span aria-hidden="true" style="font-weight:800;margin-right:3px">${status.icon}</span>
       ${escapeHtml(typeLabel)} · ${escapeHtml(clientLabel)} · ${escapeHtml(channelLabel)} · ${status.label}
+      ${j.kind==='reel'?' · Story: '+escapeHtml(!(channels||[]).includes('instagram')?'Sem Instagram':
+        !j.auto_story?'Não ativada':
+        j.auto_story_status==='published'?'Publicada':
+        j.auto_story_status==='review'?'Rever':
+        j.auto_story_status==='processing'?'A publicar':
+        j.status==='published'?'Não iniciada':'Pendente'):''}
     </a>`;
   };
   const storyMini = s => {
