@@ -1430,9 +1430,25 @@ async function viewCalendar(main) {
           <div class="date">${d}</div>
           ${dayPosts.map(p => {
             const label = p.client_company || p.client_name || '';
+            const metaJob = linkedMetaByPost.get(Number(p.id));
+            // Um único cartão por conteúdo: a COR representa a publicação
+            // efetiva na Meta, sem alterar o estado editorial manual.
+            const metaCard = metaJob?.status==='scheduled'
+              ? {bg:'#FFE58B',border:'#E1B637',color:'#5D4300'}
+              : metaJob?.status==='published'
+                ? {bg:'#23813A',border:'#23813A',color:'#FFFFFF'}
+                : metaJob?.status==='processing'
+                  ? {bg:'#E7F2FF',border:'#B5D7FF',color:'#185A92'}
+                  : metaJob?.status==='review'||metaJob?.status==='failed'
+                    ? {bg:'#FFE9E9',border:'#F3B7B7',color:'#A21D27'}
+                    : null;
+            const metaStyle = metaCard
+              ? 'background:'+metaCard.bg+';border:1px solid '+metaCard.border+';color:'+metaCard.color+';'
+              : '';
             return `
             <div class="cal-post ${displayEditorialStatus(p)}"
-                 title="${escapeHtml(label + ' · ' + p.text + ' · ' + displayEditorialStatus(p))}"
+                 style="${metaStyle}"
+                 title="${escapeHtml(label + ' · ' + p.text + ' · Editorial: ' + displayEditorialStatus(p) + (metaJob?' · Meta: '+metaJob.status:''))}"
                  onclick="event.stopPropagation(); openEditPost(${p.id})">
               <span style="font-weight:600">${escapeHtml(label)}</span>
               <span style="opacity:.75">·</span>
