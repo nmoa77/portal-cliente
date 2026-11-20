@@ -256,9 +256,19 @@ function removeMedia(jobId){
  }
 }
 function cleanupCompleted(){
- // Repetir limpeza após reinício se a eliminação física falhou, sem republicar.
+ // Limpar APENAS trabalhos cujo envio a todos os canais terminou confirmado.
+ // Preservar draft/scheduled/processing/review: podem precisar do vídeo para
+ // publicar ou resolver um erro. A Story automática já foi tentada quando
+ // o job passa a published. Guardar o estado e resultados, não os ficheiros.
  const completed=db.prepare("SELECT id FROM duit_publish_jobs WHERE status='published'").all();
- // Ficheiros publicados devem permanecer disponíveis no histórico visual.
+ let removed=0;
+ for(const job of completed){
+  try{
+   const count=db.prepare('SELECT COUNT(*) AS count FROM duit_publish_media WHERE job_id=?').get(job.id).count;
+   if(count){removeMedia(job.id);removed+=count;}
+  }catch(e){console.warn('[duit-social] limpeza de publicação '+job.id+':',e.message);}
+ }
+ if(removed)console.info('[duit-social] ficheiros publicados removidos:',removed);
 }
 // Esta é uma publicação STORY autónoma do mesmo vídeo (não um sticker
 // clicável de partilha do Reel). Só tenta uma vez para evitar duplicados
@@ -321,8 +331,12 @@ async function publish(job){
   db.prepare("UPDATE duit_publish_jobs SET status='review',error='Verificar os canais pendentes antes de repetir' WHERE id=?").run(job.id);
  }else{
   db.prepare("UPDATE duit_publish_jobs SET status='published',error=NULL WHERE id=?").run(job.id);
-  // Manter os ficheiros guardados no volume para edição e histórico visual.
-  // Só apagar na exclusão explícita do rascunho.
+  // O envio terminou em todos os canais e a Story automática (se ativada)
+  // já foi tentada. Eliminar imediatamente os ficheiros locais, preservando
+  // o histórico e os identificadores das publicações.
+  try{removeMedia(job.id);}catch(e){
+   console.warn('[duit-social] limpeza após publicação '+job.id+':',e.message);
+  }
  }
 }
 function register(app){
