@@ -813,7 +813,8 @@ function saveStoryFile(file){
  setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
 async function prepareShare(s,button){
-  // Download anterior ao clique: partilha Android requer ativação do utilizador.
+  // O ficheiro é preparado antes, para que a partilha nativa seja iniciada
+  // diretamente pelo toque do utilizador (ativação exigida no Android).
   if(!preparedFiles.has(s.id)){
     button.disabled=true;button.textContent='A preparar ficheiro…';
     try{
@@ -824,25 +825,24 @@ async function prepareShare(s,button){
     return;
   }
   const file=preparedFiles.get(s.id);
-  // Alguns navegadores Android / WebViews bloqueiam a Web Share API com
-  // NotAllowedError apesar de canShare({files}) devolver true.
-  const policy=document.permissionsPolicy||document.featurePolicy;
-  const policyDenied=typeof policy?.allowsFeature==='function'&&!policy.allowsFeature('web-share');
-  if(policyDenied||typeof navigator.share!=='function'||!navigator.canShare?.({files:[file]})){
-    saveStoryFile(file);
-    window.duitToast('O navegador bloqueia a partilha direta. A Story foi descarregada: abra-a na Galeria e escolha Instagram Stories.');
-    return;
-  }
   try{
-    await navigator.share({files:[file]});
-  }catch(e){
-    if(e.name==='AbortError')return; // Menu fechado pelo utilizador.
-    if(e.name==='NotAllowedError'||e.name==='SecurityError'||/permission denied|not allowed|permissions policy/i.test(String(e.message||''))){
-      saveStoryFile(file);
-      window.duitToast('Partilha bloqueada pelo Android. A Story foi descarregada: abra a Galeria, selecione o ficheiro e partilhe para o Instagram Stories.');
+    if(typeof navigator.share!=='function'){
+      window.duitToast('Este navegador não disponibiliza a partilha Android. Abra a Story no Chrome ou use «Descarregar».');
       return;
     }
-    window.duitToast('Não foi possível partilhar: '+e.message+'. Use «Descarregar» para publicar pela Galeria.');
+    if(typeof navigator.canShare==='function'&&!navigator.canShare({files:[file]})){
+      window.duitToast('O navegador não permite partilhar este formato. Use «Descarregar» se necessário.');
+      return;
+    }
+    await navigator.share({files:[file]});
+  }catch(e){
+    if(e.name==='AbortError')return;
+    // Nunca descarregar automaticamente: este botão serve para partilhar.
+    if(e.name==='NotAllowedError'||e.name==='SecurityError'||/permission denied|not allowed|permissions policy/i.test(String(e.message||''))){
+      window.duitToast('Partilha bloqueada pelo navegador. Abra a Story diretamente no Chrome, fora do portal incorporado, e tente novamente.');
+      return;
+    }
+    window.duitToast('Erro na partilha Android: '+e.message);
   }
 }
 async function downloadStory(s){
