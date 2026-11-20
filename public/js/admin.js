@@ -1263,56 +1263,9 @@ async function viewCalendar(main) {
   const calendarMetaJobs = metaJobs.filter(j=>socialClientIds.has(Number(j.client_id))).map(j=>({
     ...j,calendarDay:new Date(j.scheduled_at).toLocaleDateString('sv-SE',{timeZone:'Europe/Lisbon'})
   }));
-  // A mesma publicação tem um registo editorial e um destino Meta.
-  // Mostrá-los juntos no calendário como UMA entrada quando associados.
-  const linkedMetaByPost = new Map(calendarMetaJobs.filter(j=>j.source_post_id)
-    .map(j=>[Number(j.source_post_id),j]));
-  const unlinkedMetaJobs = calendarMetaJobs.filter(j=>!j.source_post_id);
-  // O calendário editorial é controlado manualmente, independentemente da Meta.
+  // Editorial e Meta são DOIS cartões independentes, mesmo se ligados
+  // por source_post_id. Nunca mudar a cor ou estado do cartão editorial.
   const displayEditorialStatus = p => p.status;
-  const editorialMediaIndicator = p => {
-    const job=linkedMetaByPost.get(Number(p.id));
-    if(!job)return '';
-    const label=job.status==='published'?'✓ Reel/Post publicado na Meta'
-      : job.status==='review'?'⚠ Meta — verificar publicação'
-      : job.status==='scheduled'?'◷ Meta agendado'
-      : job.status==='processing'?'◌ Meta a publicar'
-      : job.status==='draft'?'◌ Meta rascunho'
-      : 'Meta: '+job.status;
-    return ' · '+escapeHtml(label);
-  };
-  const editorialMetaRow = p => {
-    const job=linkedMetaByPost.get(Number(p.id));
-    if(!job)return '';
-    const color=job.status==='published'?'#1F6B2A':
-      job.status==='review'?'#9D3D1B':job.status==='processing'?'#185A92':'#775600';
-    const bg=job.status==='published'?'#E8F7E8':
-      job.status==='review'?'#FFF0E7':job.status==='processing'?'#E7F2FF':'#FFF5D6';
-    const label=job.status==='published'?'Publicado na Meta':
-      job.status==='review'?'Meta: verificar publicação':
-      job.status==='processing'?'Meta: a publicar':
-      job.status==='scheduled'?'Meta: agendado':
-      job.status==='draft'?'Meta: rascunho':'Meta: '+job.status;
-    const channels=Array.isArray(job.results)?job.results:[];
-    const channelLabels=channels.map(item=>
-      ({instagram:'Instagram',facebook:'Facebook',threads:'Threads'}[item.network]||item.network)+
-      ': '+(item.status==='published'?'Publicado':item.status==='review'?'Rever':
-        item.status==='pending'?'Pendente':item.status==='processing'?'A publicar':item.status)
-    ).join(' · ');
-    const story=job.kind==='reel'
-      ? ' · Story Instagram: '+(
-        !(job.networks||[]).includes('instagram')?'Sem Instagram':
-        !job.auto_story?'Não ativada neste Reel':
-        job.auto_story_status==='published'?'Publicada':
-        job.auto_story_status==='review'?'Falhou — rever na DUIT Media':
-        job.auto_story_status==='processing'?'A publicar':
-        job.status==='published'?'Não iniciada — rever':'Pendente')+
-        (job.auto_story_error?' · '+job.auto_story_error:'')
-      : '';
-    return `<div style="margin-top:8px;"><a href="#" onclick="event.preventDefault();event.stopPropagation();openDuitMediaCalendar({publication:${job.id}})"
-      style="display:inline-block;padding:7px 10px;border-radius:8px;text-decoration:none;background:${bg};color:${color};font-size:12px;font-weight:600;"
-      title="Estado da publicação Meta (independente do estado editorial)">${escapeHtml(label)} · ${escapeHtml(channelLabels)}${escapeHtml(story)}</a></div>`;
-  };
   const metaStatusColors = {
     draft:      { background:'#F2F0F7', border:'#DDD6EB', text:'#463761', icon:'◌', label:'Rascunho' },
     scheduled:  { background:'#FFF5D6', border:'#F0D88A', text:'#775600', icon:'◷', label:'Agendado' },
@@ -1430,33 +1383,17 @@ async function viewCalendar(main) {
           <div class="date">${d}</div>
           ${dayPosts.map(p => {
             const label = p.client_company || p.client_name || '';
-            const metaJob = linkedMetaByPost.get(Number(p.id));
-            // Um único cartão por conteúdo: a COR representa a publicação
-            // efetiva na Meta, sem alterar o estado editorial manual.
-            const metaCard = metaJob?.status==='scheduled'
-              ? {bg:'#FFE58B',border:'#E1B637',color:'#5D4300'}
-              : metaJob?.status==='published'
-                ? {bg:'#23813A',border:'#23813A',color:'#FFFFFF'}
-                : metaJob?.status==='processing'
-                  ? {bg:'#E7F2FF',border:'#B5D7FF',color:'#185A92'}
-                  : metaJob?.status==='review'||metaJob?.status==='failed'
-                    ? {bg:'#FFE9E9',border:'#F3B7B7',color:'#A21D27'}
-                    : null;
-            const metaStyle = metaCard
-              ? 'background:'+metaCard.bg+';border:1px solid '+metaCard.border+';color:'+metaCard.color+';'
-              : '';
             return `
             <div class="cal-post ${displayEditorialStatus(p)}"
-                 style="${metaStyle}"
-                 title="${escapeHtml(label + ' · ' + p.text + ' · Editorial: ' + displayEditorialStatus(p) + (metaJob?' · Meta: '+metaJob.status:''))}"
+                 title="${escapeHtml(label + ' · ' + p.text + ' · ' + displayEditorialStatus(p))}"
                  onclick="event.stopPropagation(); openEditPost(${p.id})">
               <span style="font-weight:600">${escapeHtml(label)}</span>
               <span style="opacity:.75">·</span>
-              ${escapeHtml(p.text.slice(0, 18))}${p.text.length > 18 ? '…' : ''}${editorialMediaIndicator(p)}
+              ${escapeHtml(p.text.slice(0, 18))}${p.text.length > 18 ? '…' : ''}
             </div>
           `;}).join('')}
           ${calendarStories.filter(s => s.calendarDay === dateStr).map(storyMini).join('')}
-          ${unlinkedMetaJobs.filter(j => j.calendarDay === dateStr).map(metaMini).join('')}
+          ${calendarMetaJobs.filter(j => j.calendarDay === dateStr).map(metaMini).join('')}
         </div>
       `);
     }
@@ -1494,24 +1431,17 @@ async function viewCalendar(main) {
   const todayTotal    = all.filter(p => p.date === today).length;
   const tomorrowTotal = all.filter(p => p.date === tomorrow).length;
 
-  // As Stories e publicações Meta pertencem ao próprio dia da agenda.
-  // Um trabalho Meta ligado ao post editorial não gera segunda entrada
-  // quando o respetivo post já está visível no dia.
-  const extrasForDay = dateStr => {
-    const shownEditorial=new Set(
-      all.filter(p=>p.date===dateStr&&p.status==='draft').map(p=>Number(p.id))
-    );
-    return {
-      stories:calendarStories.filter(item=>item.calendarDay===dateStr),
-      meta:calendarMetaJobs.filter(item=>item.calendarDay===dateStr &&
-        (!item.source_post_id || !shownEditorial.has(Number(item.source_post_id))))
-    };
-  };
+  // A Meta e o editorial aparecem separadamente, inclusive quando
+  // representam o mesmo conteúdo preparado na DUIT Media.
+  const extrasForDay = dateStr => ({
+    stories:calendarStories.filter(item=>item.calendarDay===dateStr),
+    meta:calendarMetaJobs.filter(item=>item.calendarDay===dateStr)
+  });
   main.innerHTML = `
     ${pageHead}
     <div class="grid" style="gap:18px;align-items:start">
-      ${dayBlock('Hoje',today,todayPosts,todayTotal,extrasForDay(today),metaMini,storyMini,editorialMetaRow)}
-      ${dayBlock('Amanhã',tomorrow,tomorrowPosts,tomorrowTotal,extrasForDay(tomorrow),metaMini,storyMini,editorialMetaRow)}
+      ${dayBlock('Hoje',today,todayPosts,todayTotal,extrasForDay(today),metaMini,storyMini)}
+      ${dayBlock('Amanhã',tomorrow,tomorrowPosts,tomorrowTotal,extrasForDay(tomorrow),metaMini,storyMini)}
     </div>
   `;
 }
