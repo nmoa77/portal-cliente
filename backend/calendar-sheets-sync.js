@@ -93,7 +93,7 @@ function postPayload(post){
   };
 }
 
-async function sheetScriptResponse(response,body){
+function sheetScriptResponse(response,body){
   const txt=String(body||'').trim();
   if(response.ok&&txt==='ok')return {ok:true,message:'Ligação confirmada.'};
   const html=/^\s*<(?:!doctype|html)/i.test(txt);
