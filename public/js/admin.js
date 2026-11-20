@@ -1226,6 +1226,7 @@ async function viewDuitMediaStories(main) {
       </div>
     </div>
     <iframe title="Stories Duit Media" src="/social-stories.html?mode=stories&embed=admin"
+      allow="web-share"
       style="display:block;width:100%;height:780px;min-height:550px;border:0;background:transparent;border-radius:16px"
       loading="eager"></iframe>`;
 }
