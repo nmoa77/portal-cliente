@@ -389,6 +389,7 @@ function register(app) {
         const due=db.prepare(`SELECT s.id,s.client_id,s.scheduled_at,u.name,u.company
           FROM duit_social_stories s JOIN users u ON u.id=s.client_id
           WHERE s.status='ready' AND s.notified_at IS NULL AND s.media_name IS NOT NULL
+            AND datetime(s.scheduled_at)>=datetime('now','-15 minutes')
           ORDER BY s.scheduled_at ASC LIMIT 30`).all();
         const subscribers=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions').all();
         if(!subscribers.length){
