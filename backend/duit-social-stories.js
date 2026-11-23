@@ -390,7 +390,10 @@ function register(app) {
           WHERE s.status='ready' AND s.notified_at IS NULL AND s.media_name IS NOT NULL
           ORDER BY s.scheduled_at ASC LIMIT 30`).all();
         const subscribers=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions').all();
-        if(!subscribers.length)return;
+        if(!subscribers.length){
+          if(due.length)console.warn('[duit-social] lembrete sem dispositivos registados:',due.length);
+          return;
+        }
         for(const story of due) {
           let sent=0;
           for(const row of subscribers) {
@@ -409,7 +412,12 @@ function register(app) {
           }
           // Retry quando nenhum dispositivo recebeu. Se houve entregas, não
           // repetir em todos os dispositivos a cada minuto.
-          if(sent) db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
+          if(sent){
+            db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
+            console.info('[duit-social] lembrete Story '+story.id+': aceite pelo serviço Push em '+sent+'/'+subscribers.length+' dispositivo(s)');
+          }else{
+            console.warn('[duit-social] lembrete Story '+story.id+': nenhum serviço Push aceitou o envio, será tentado novamente');
+          }
         }
       }catch(e){console.error('[duit-social] reminder job:',e);}
       finally{busy=false;}
