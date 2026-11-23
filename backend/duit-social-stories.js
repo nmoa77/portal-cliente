@@ -143,6 +143,14 @@ function register(app) {
     res.json({ok:true});
   });
 
+  router.get('/push/status', (req,res) => {
+    const configured=!!vapidConfig();
+    const remindersEnabled=process.env.DUIT_SOCIAL_REMINDERS_ENABLED==='true';
+    const registered=db.prepare('SELECT COUNT(*) AS count FROM duit_social_push_subscriptions WHERE user_id=?').get(req.user.id).count;
+    res.set('Cache-Control','no-store');
+    res.json({configured,remindersEnabled,registered,ready:configured&&remindersEnabled&&registered>0});
+  });
+
   router.post('/push/test', async (req, res) => {
     const subscriptions=db.prepare('SELECT endpoint, subscription_json FROM duit_social_push_subscriptions WHERE user_id=?').all(req.user.id);
     if (!vapidConfig()) return res.status(503).json({error:'Chaves VAPID em falta'});
@@ -179,7 +187,19 @@ function register(app) {
     const initialStatus=immediate===true?'ready':status;
     const result = db.prepare('INSERT INTO duit_social_stories(client_id,scheduled_at,status) VALUES (?,?,?)')
       .run(client.id, storyDate, initialStatus);
-    res.status(201).json(publicRow(findStory(result.lastInsertRowid)));
+    const record=publicRow(findStory(result.lastInsertRowid));
+    // Agendar não significa que existam dispositivos a receber alertas.
+    // Expor este risco de imediato sem cancelar ou alterar a Story.
+    const registered=db.prepare('SELECT COUNT(*) AS count FROM duit_social_push_subscriptions').get().count;
+    const remindersEnabled=process.env.DUIT_SOCIAL_REMINDERS_ENABLED==='true';
+    res.status(201).json({...record,
+      reminder_ready:!!vapidConfig()&&remindersEnabled&&registered>0,
+      reminder_warning:immediate===true?null:
+        !remindersEnabled?'Os lembretes automáticos não estão ativos no servidor.':
+        !vapidConfig()?'A configuração de notificações está incompleta no servidor.':
+        !registered?'Nenhum Android está registado para receber notificações. Ative e teste antes do horário agendado.':
+        null
+    });
   });
 
   // O browser envia o ficheiro bruto (sem multipart), para evitar dependências adicionais.
