@@ -1651,6 +1651,16 @@ $('new-story').addEventListener('submit',async e=>{
   }
   e.target.reset();
   syncStoryTiming();
+  // Uma Story agendada deve sair imediatamente do editor e aparecer
+  // no calendário. A publicação imediata mantém o fluxo de partilha Android.
+  if(!immediate){
+    if(mediaQuery.get('embed')==='calendar' && window.parent!==window){
+      window.parent.postMessage({type:'duit-media-story-saved',storyId:Number(story.id)},window.location.origin);
+    }else{
+      window.location.assign('/admin.html#calendar');
+    }
+    return;
+  }
   await refresh();
  }catch(error){
   $('feedback').className='error';
