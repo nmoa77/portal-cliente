@@ -1526,17 +1526,36 @@ $('push-status').textContent=result.delivered+' de '+result.total+' notificaçõ
 }catch(error){$('push-status').textContent=error.message;}
 });
 
+async function confirmStoryPush(receiptIds,output){
+ if(!receiptIds?.length)return;
+ // Aguardar uma confirmação efetiva do Service Worker em vez de confiar no 200.
+ for(let attempt=0;attempt<6;attempt++){
+  await new Promise(resolve=>setTimeout(resolve,1000));
+  const states=await Promise.all(receiptIds.map(id=>request('/api/duit-social/push/receipts/'+id).catch(()=>null)));
+  if(states.some(item=>item?.shown)){
+   output.textContent='O Android confirmou que recebeu o Push e que a notificação foi criada. Confirme se apareceu no ecrã.';
+   return;
+  }
+  if(states.some(item=>item?.received)){
+   output.textContent='O Android recebeu o aviso, mas ainda não confirmou a apresentação da notificação.';
+   return;
+  }
+ }
+ output.textContent='O serviço Push aceitou o aviso, mas o Android ainda NÃO confirmou a receção. Verifique as permissões e a bateria da aplicação.';
+}
 $('story-notify-now').addEventListener('click',async()=>{
  const id=Number($('story-notify-now').dataset.storyId);
  if(!Number.isSafeInteger(id)||id<=0)return;
  const button=$('story-notify-now');
+ const output=$('story-notify-feedback');
  button.disabled=true;
  try{
   const result=await request('/api/duit-social/stories/'+id+'/notify',{method:'POST'});
-  $('story-notify-feedback').textContent=result.sent>0
-   ? 'Aviso enviado para '+result.sent+' dispositivo(s). Confirme se apareceu no Android.'
-   : 'Nenhum dispositivo recebeu o envio. No Android, abra Stories e toque em «Ativar notificações».';
- }catch(error){$('story-notify-feedback').textContent='Erro: '+error.message;}
+  output.textContent=result.sent>0
+   ? 'Aviso aceite pelo serviço Push. A verificar receção no Android…'
+   : 'Nenhum serviço Push aceitou o aviso. Abra a DUIT no Android e verifique a subscrição.';
+  if(result.sent>0)await confirmStoryPush(result.receiptIds,output);
+ }catch(error){output.textContent='Erro: '+error.message;}
  finally{button.disabled=false;}
 });
 // Converter datetime-local sem depender do parser de datas do navegador.
