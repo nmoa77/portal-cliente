@@ -118,7 +118,8 @@ self.addEventListener('push', event => {
   ?raw:'/social-stories.html?mode=stories';
  const id=String(payload.notification_id||'');
  event.waitUntil((async()=>{
-  await duitPushReceipt(id,'received');
+  // Nunca atrasar a notificação à espera da confirmação de rede.
+  const receipt=duitPushReceipt(id,'received');
   await self.registration.showNotification(title,{
    body,
    tag:id?'duit-story-'+id:'duit-story-'+target,
@@ -127,7 +128,7 @@ self.addEventListener('push', event => {
    badge:'/icons/icon-192.png',
    data:{url:target}
   });
-  await duitPushReceipt(id,'shown');
+  await Promise.all([receipt,duitPushReceipt(id,'shown')]);
  })());
 });
 
