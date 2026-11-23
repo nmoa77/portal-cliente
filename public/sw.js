@@ -1,5 +1,5 @@
 /* DUIT Portal — Service Worker */
-const VERSION = 'duit-v45';
+const VERSION = 'duit-v46';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -96,23 +96,39 @@ self.addEventListener('message', event => {
 });
 
 // Notificações DUIT: abrir a Story no portal, sem presumir publicação.
+// Confirmações técnicas independentes do HTTP 200 do serviço Push.
+// 'shown' confirma apenas que showNotification resolveu, não que a pessoa viu.
+async function duitPushReceipt(id,phase) {
+ if(!/^[0-9a-f-]{36}$/.test(String(id||'')))return;
+ try{
+  await fetch('/api/duit-social/push/receipt',{
+   method:'POST',credentials:'same-origin',cache:'no-store',
+   headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({id,phase})
+  });
+ }catch(e){ /* A entrega de Push não pode falhar por causa da telemetria. */ }
+}
 self.addEventListener('push', event => {
-  let payload = {};
-  try { payload = event.data?.json() || {}; } catch (_) {}
-  const title = String(payload.title || 'DUIT · Story pronta').slice(0,120);
-  const body = String(payload.body || 'Tem uma Story para publicar.').slice(0,240);
-  const raw = String(payload.url || '/social-stories.html?mode=stories');
-  const target = raw.startsWith('/social-stories.html?story=') || raw==='/social-stories.html?mode=stories' ? raw : '/social-stories.html?mode=stories';
-  event.waitUntil(self.registration.showNotification(title, {
-    body,
-    // Cada reenvio manual tem um ID próprio: não substituir silenciosamente
-    // uma notificação anterior da mesma Story.
-    tag: payload.notification_id ? 'duit-story-' + String(payload.notification_id).slice(0,80) : 'duit-story-' + target,
-    renotify: true,
-    icon: '/icons/icon-192.png',
-    badge: '/icons/icon-192.png',
-    data: { url: target }
-  }));
+ let payload={};
+ try{payload=event.data?.json()||{};}catch(_){}
+ const title=String(payload.title||'DUIT · Story pronta').slice(0,120);
+ const body=String(payload.body||'Tem uma Story para publicar.').slice(0,240);
+ const raw=String(payload.url||'/social-stories.html?mode=stories');
+ const target=raw.startsWith('/social-stories.html?story=')||raw==='/social-stories.html?mode=stories'
+  ?raw:'/social-stories.html?mode=stories';
+ const id=String(payload.notification_id||'');
+ event.waitUntil((async()=>{
+  await duitPushReceipt(id,'received');
+  await self.registration.showNotification(title,{
+   body,
+   tag:id?'duit-story-'+id:'duit-story-'+target,
+   renotify:true,
+   icon:'/icons/icon-192.png',
+   badge:'/icons/icon-192.png',
+   data:{url:target}
+  });
+  await duitPushReceipt(id,'shown');
+ })());
 });
 
 self.addEventListener('notificationclick', event => {
