@@ -33,6 +33,16 @@ CREATE TABLE IF NOT EXISTS duit_social_push_subscriptions (
   subscription_json TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS duit_push_delivery_receipts (
+  id TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  story_id INTEGER,
+  accepted_at TEXT,
+  received_at TEXT,
+  shown_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_duit_push_receipts_user ON duit_push_delivery_receipts(user_id,created_at);
 `);
 try {
   const cols = db.prepare("PRAGMA table_info(duit_social_stories)").all();
@@ -117,6 +127,28 @@ function register(app) {
   router.get('/push/public-key', (req, res) => {
     const config = vapidConfig();
     res.json({ enabled: !!config, publicKey: config?.pub.toString('base64url') || null });
+  });
+
+  // A confirmação vem do Service Worker do Android, não do serviço Push.
+  // Um UUID imprevisível por envio evita expor subscrições ou credenciais.
+  router.post('/push/receipt', express.json({limit:'2kb'}), (req,res)=>{
+    const id=String(req.body?.id||'');
+    const phase=req.body?.phase;
+    if(!/^[0-9a-f-]{36}$/.test(id)||!['received','shown'].includes(phase))
+      return res.status(400).json({error:'Confirmação inválida'});
+    const field=phase==='received'?'received_at':'shown_at';
+    const updated=db.prepare(`UPDATE duit_push_delivery_receipts SET ${field}=datetime('now')
+      WHERE id=? AND ${field} IS NULL`).run(id);
+    res.json({ok:updated.changes>0});
+  });
+  router.get('/push/receipts/:id', (req,res)=>{
+    const id=String(req.params.id||'');
+    if(!/^[0-9a-f-]{36}$/.test(id))return res.status(400).json({error:'ID inválido'});
+    const row=db.prepare('SELECT accepted_at,received_at,shown_at FROM duit_push_delivery_receipts WHERE id=? AND user_id=?')
+      .get(id,req.user.id);
+    if(!row)return res.status(404).json({error:'Envio não encontrado'});
+    res.set('Cache-Control','no-store');
+    res.json({accepted:!!row.accepted_at,received:!!row.received_at,shown:!!row.shown_at});
   });
 
   router.post('/push/subscribe', (req, res) => {
@@ -316,23 +348,31 @@ function register(app) {
     if(!vapidConfig())return res.status(503).json({error:'Notificações ainda não configuradas'});
     const subscriptions=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions WHERE user_id=?').all(req.user.id);
     let sent=0;
+    const receiptIds=[];
+    db.prepare("DELETE FROM duit_push_delivery_receipts WHERE created_at<datetime('now','-3 days')").run();
     for(const row of subscriptions){
+      const notificationId=crypto.randomUUID();
+      db.prepare('INSERT INTO duit_push_delivery_receipts(id,user_id,story_id) VALUES(?,?,?)')
+        .run(notificationId,req.user.id,story.id);
       try{
         await sendPush(JSON.parse(row.subscription_json),{
           title:'DUIT · Story pronta para partilhar',
           body:(story.client_company||story.client_name||'DUIT')+' · Abra a Story no Android e publique no Instagram.',
           url:'/social-stories.html?story='+story.id,
-          type:'story', notification_id:crypto.randomUUID()
+          type:'story', notification_id:notificationId
         });
         sent++;
+        receiptIds.push(notificationId);
+        db.prepare("UPDATE duit_push_delivery_receipts SET accepted_at=datetime('now') WHERE id=?").run(notificationId);
       }catch(error){
+        db.prepare('DELETE FROM duit_push_delivery_receipts WHERE id=?').run(notificationId);
         if([404,410].includes(error.status))
           db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=? AND user_id=?').run(row.endpoint,req.user.id);
         else console.warn('[duit-social] reenvio push:',error.message);
       }
     }
     if(sent)db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
-    res.json({sent,total:subscriptions.length});
+    res.json({sent,total:subscriptions.length,receiptIds});
   });
 
   router.get('/stories/:id/media', (req, res) => {
