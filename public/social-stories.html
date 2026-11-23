@@ -1474,7 +1474,10 @@ async function checkPushState(){
    method:'POST',headers:{'Content-Type':'application/json'},
    body:JSON.stringify({subscription:subscription.toJSON()})
  });
- setPushUi(true,'Notificações ativas neste Android. Continuam ativas mesmo com a DUIT fechada.');
+ const server=await request('/api/duit-social/push/status');
+ setPushUi(true,server.remindersEnabled
+   ? 'Subscrição Push ativa neste Android. Pode receber alertas com a DUIT fechada; use «Enviar teste» para confirmar a entrega.'
+   : 'Subscrição ativa, mas os lembretes automáticos estão DESATIVADOS no servidor.');
 }
 async function setupPush(){
  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
@@ -1500,7 +1503,10 @@ async function setupPush(){
    method:'POST',headers:{'Content-Type':'application/json'},
    body:JSON.stringify({subscription:subscription.toJSON()})
  });
- setPushUi(true,'Notificações ativas neste Android. Não é necessário ativar novamente ao abrir a DUIT.');
+ const server=await request('/api/duit-social/push/status');
+ setPushUi(true,server.remindersEnabled
+   ? 'Notificações ativadas. Use «Enviar teste» para confirmar a chegada ao Android.'
+   : 'Notificações ativadas no Android, mas os lembretes do servidor estão desativados.');
 }
 $('enable-push').addEventListener('click',async()=>{
  $('enable-push').disabled=true;
@@ -1630,9 +1636,12 @@ $('new-story').addEventListener('submit',async e=>{
   const push=uploadResult?.notification;
   $('feedback').textContent=immediate
     ? (push?.sent>0
-      ? 'Story guardada. Notificação enviada para '+push.sent+' dispositivo(s). Confirme a receção no Android.'
-      : 'Story guardada e pronta para Android. Nenhuma notificação foi enviada. No telemóvel, abra a área Stories, toque em «Ativar notificações» e depois em «Enviar teste».')
-    : 'Story agendada com sucesso.';
+      ? 'Story guardada. Notificação aceite pelo serviço Push para '+push.sent+' dispositivo(s). Confirme a receção no Android.'
+      : 'Story guardada e pronta para Android. Nenhuma notificação foi enviada. No telemóvel, abra a área Stories e teste as notificações.')
+    : (story.reminder_warning
+      ? 'Story agendada, MAS SEM GARANTIA DE AVISO: '+story.reminder_warning
+      : 'Story agendada. Existem dispositivos registados, mas confirme a receção com «Enviar teste» no Android.');
+  $('feedback').className=(!immediate&&story.reminder_warning)?'error':'';
   if(immediate){
    const url='/social-stories.html?mode=stories&story='+story.id;
    $('story-share-link').href=url;
