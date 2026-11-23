@@ -58,11 +58,14 @@ async function sendPush(subscription, message) {
   const endpoint = new URL(subscription.endpoint);
   if (endpoint.protocol !== 'https:' || !endpoint.hostname) throw new Error('Endpoint Push inválido');
   const body = encryptForSubscription(subscription, message);
+  // Stories exigem um aviso pontual; prioridade normal pode ser adiada
+  // pelo serviço Push quando o Android está em poupança de bateria.
+  const urgent=message?.type==='story';
   const response = await fetch(endpoint.href, {
     method:'POST', signal: AbortSignal.timeout(12000),
     headers: {
       'Authorization': 'vapid t=' + vapidJWT(endpoint.href, config) + ', k=' + encode(config.pub),
-      'TTL':'3600', 'Urgency':'normal', 'Content-Encoding':'aes128gcm',
+      'TTL':urgent?'900':'3600', 'Urgency':urgent?'high':'normal', 'Content-Encoding':'aes128gcm',
       'Content-Type':'application/octet-stream'
     }, body
   });
