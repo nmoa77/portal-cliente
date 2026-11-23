@@ -105,7 +105,10 @@ self.addEventListener('push', event => {
   const target = raw.startsWith('/social-stories.html?story=') || raw==='/social-stories.html?mode=stories' ? raw : '/social-stories.html?mode=stories';
   event.waitUntil(self.registration.showNotification(title, {
     body,
-    tag: 'duit-story-' + target,
+    // Cada reenvio manual tem um ID próprio: não substituir silenciosamente
+    // uma notificação anterior da mesma Story.
+    tag: payload.notification_id ? 'duit-story-' + String(payload.notification_id).slice(0,80) : 'duit-story-' + target,
+    renotify: true,
     icon: '/icons/icon-192.png',
     badge: '/icons/icon-192.png',
     data: { url: target }
