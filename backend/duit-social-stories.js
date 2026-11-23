@@ -88,7 +88,8 @@ async function notifyReadyStory(story,userId){
             await sendPush(JSON.parse(row.subscription_json),{
               title:'DUIT · Story pronta para partilhar',
               body:(story.client_company||story.client_name||'DUIT')+' · Abra a Story no Android e publique no Instagram.',
-              url:'/social-stories.html?story='+story.id
+              url:'/social-stories.html?story='+story.id,
+              type:'story', notification_id:crypto.randomUUID()
             });
             notification.sent++;
           }catch(err){
@@ -321,7 +322,7 @@ function register(app) {
           title:'DUIT · Story pronta para partilhar',
           body:(story.client_company||story.client_name||'DUIT')+' · Abra a Story no Android e publique no Instagram.',
           url:'/social-stories.html?story='+story.id,
-          notification_id:crypto.randomUUID()
+          type:'story', notification_id:crypto.randomUUID()
         });
         sent++;
       }catch(error){
@@ -403,7 +404,8 @@ function register(app) {
               await sendPush(JSON.parse(row.subscription_json),{
                 title:'DUIT · Story pronta',
                 body:(story.company||story.name)+' · Está na hora de publicar no Instagram.',
-                url:'/social-stories.html?story='+story.id
+                url:'/social-stories.html?story='+story.id,
+                type:'story', notification_id:crypto.randomUUID()
               });
               sent++;
             }catch(e){
