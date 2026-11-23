@@ -1167,11 +1167,15 @@ function openDuitMediaCalendar(opts = {}) {
   const onSaved = event => {
     if(event.origin !== window.location.origin ||
        event.source !== overlay.querySelector('iframe')?.contentWindow ||
-       event.data?.type !== 'duit-media-publication-saved' ||
-       !Number.isSafeInteger(event.data.jobId) || event.data.jobId <= 0) return;
+       !((event.data?.type === 'duit-media-publication-saved' &&
+          Number.isSafeInteger(event.data.jobId) && event.data.jobId > 0) ||
+         (event.data?.type === 'duit-media-story-saved' &&
+          Number.isSafeInteger(event.data.storyId) && event.data.storyId > 0))) return;
     window.removeEventListener('message',onSaved);
     close();
-    toast('Publicação guardada no calendário.','check');
+    toast(event.data.type === 'duit-media-story-saved'
+      ? 'Story agendada e visível no calendário.'
+      : 'Publicação guardada no calendário.','check');
   };
   window.addEventListener('message',onSaved);
   const closeAndDetach = () => {window.removeEventListener('message',onSaved);close();};
