@@ -728,7 +728,8 @@ function applyCalendarPreset(){
   if([...$('compose-client').options].some(o=>o.value===client)){
     $('compose-client').value=client;
   }
-  $('client').value=client;
+  // Não aceitar parâmetros de calendário que apontem para clientes sem Meta.
+  if([...$('client').options].some(o=>o.value===client))$('client').value=client;
   const candidate=[...$('pub-account').options].find(o=>o.dataset.clientId===client);
   if(candidate) $('pub-account').value=candidate.value;
   syncComposeClient($('compose-client').value);
@@ -1579,7 +1580,12 @@ $('new-story').addEventListener('submit',async e=>{
   if(file.size>(file.type==='video/mp4'?300:80)*1024*1024)
     throw Error(file.type==='video/mp4'?'Máximo 300 MB por vídeo Story.':'Máximo 80 MB por imagem.');
   const immediate=$('story-timing').value==='now';
-  const payload={client_id:Number($('client').value),immediate};
+  // O mesmo filtro aplica-se ao envio, não apenas à lista visível.
+  const clientId=Number($('client').value);
+  const accountOptions=[...$('pub-account').options];
+  if(!clientId||!accountOptions.some(o=>Number(o.dataset.clientId)===clientId))
+    throw Error('Selecione um cliente com uma conta Meta ligada antes de criar a Story.');
+  const payload={client_id:clientId,immediate};
   if(!immediate){
    const date=duitStoryScheduleDate();
    if(!date)throw Error('Não foi possível interpretar a data. Selecione novamente a data e a hora no calendário.');
@@ -1671,18 +1677,21 @@ $('new-story').addEventListener('submit',async e=>{
 await refreshPushUi();
 $('pub-date').value=dateForInput(60*60*1000);
 const clients=await request('/api/clients');const demoEmails=new Set(['ana@exemplo.pt','joao@exemplo.pt','rita@exemplo.pt']);
-const socialClients=clients.filter(c=>!c.is_prospect && !c.parent_user_id && !demoEmails.has(String(c.email||'').toLowerCase()));$('client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
+const socialClients=clients.filter(c=>!c.is_prospect && !c.parent_user_id && !demoEmails.has(String(c.email||'').toLowerCase()));
+// Só a área de ligação Meta apresenta todos os clientes elegíveis.
 $('meta-client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));await refreshMeta();
-// Para criar Post/Reel/Carrossel, apresentar apenas clientes com conta Meta ligada.
-// A lista de clientes para ligar novas contas à Meta mantém-se completa.
+// Post, Carrossel, Reel E Story usam o mesmo conjunto de clientes Meta ligados.
 const linkedClientIds=new Set([...$('pub-account').options].map(o=>String(o.dataset.clientId||'')));
 const publishingClients=socialClients.filter(c=>linkedClientIds.has(String(c.id)));
-$('compose-client').replaceChildren(...publishingClients.map(c=>{
- const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;
-}));
-if(!publishingClients.length){
- const o=document.createElement('option');o.value='';o.textContent='Nenhum cliente com Meta ligada';o.disabled=true;o.selected=true;
- $('compose-client').append(o);
+for(const selectId of ['compose-client','client']){
+ const select=$(selectId);
+ select.replaceChildren(...publishingClients.map(c=>{
+  const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;
+ }));
+ if(!publishingClients.length){
+  const o=document.createElement('option');o.value='';o.textContent='Nenhum cliente com Meta ligada';o.disabled=true;o.selected=true;
+  select.append(o);
+ }
 }
 applyCalendarPreset();
 if(!mediaQuery.get('client'))syncComposeClient($('compose-client').value);
