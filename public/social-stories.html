@@ -1441,27 +1441,78 @@ const base64=base64url.replace(/-/g,'+').replace(/_/g,'/');
 const binary=atob(base64+'='.repeat((4-base64.length%4)%4));
 return Uint8Array.from(binary,c=>c.charCodeAt(0));
 }
-async function setupPush(){
-const indicator=$('push-status');
-if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
-indicator.textContent='Este navegador não suporta notificações Web Push. Pode continuar a partilhar Stories manualmente.';return;
+// O Android mantém as permissões e a subscrição Push entre sessões.
+// Consultar primeiro a subscrição já existente, sem pedir autorização de novo.
+function setPushUi(active,message){
+ const button=$('enable-push');
+ button.textContent=active?'Notificações ativas ✓':'Ativar notificações';
+ button.disabled=!!active;
+ $('push-status').textContent=message;
 }
-const settings=await request('/api/duit-social/push/public-key');
-if(!settings.enabled){indicator.textContent='Notificações por configurar no servidor (chaves VAPID em falta).';return;}
-const registration=await navigator.serviceWorker.register('/sw.js');
-const permission=await Notification.requestPermission();
-if(permission!=='granted'){indicator.textContent='Notificações não autorizadas no Android.';return;}
-const subscription=await registration.pushManager.subscribe({
-userVisibleOnly:true,applicationServerKey:toUint8Array(settings.publicKey)
-});
-await request('/api/duit-social/push/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({subscription:subscription.toJSON()})});
-indicator.textContent='Notificações ativas neste dispositivo. Faça um teste para confirmar.';
+async function checkPushState(){
+ if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
+   setPushUi(false,'Este navegador não suporta notificações Web Push.');
+   return;
+ }
+ if(Notification.permission==='denied'){
+   setPushUi(false,'Notificações bloqueadas nas definições do Android. Autorize a DUIT nas definições do sistema.');
+   return;
+ }
+ if(Notification.permission!=='granted'){
+   setPushUi(false,'Notificações ainda não autorizadas neste dispositivo.');
+   return;
+ }
+ const registration=await navigator.serviceWorker.register('/sw.js');
+ const subscription=await registration.pushManager.getSubscription();
+ if(!subscription){
+   setPushUi(false,'Autorização existente, mas sem subscrição Push. Toque em «Ativar notificações» uma vez.');
+   return;
+ }
+ // Repor o registo no servidor se a sessão/dispositivo já tiver subscrição,
+ // sem voltar a mostrar o pedido de permissão do Android.
+ await request('/api/duit-social/push/subscribe',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({subscription:subscription.toJSON()})
+ });
+ setPushUi(true,'Notificações ativas neste Android. Continuam ativas mesmo com a DUIT fechada.');
+}
+async function setupPush(){
+ if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){
+   setPushUi(false,'Este navegador não suporta notificações Web Push.');
+   return;
+ }
+ const settings=await request('/api/duit-social/push/public-key');
+ if(!settings.enabled){setPushUi(false,'Notificações não configuradas no servidor.');return;}
+ const registration=await navigator.serviceWorker.register('/sw.js');
+ let subscription=await registration.pushManager.getSubscription();
+ if(!subscription){
+   const permission=Notification.permission==='granted'
+     ? 'granted' : await Notification.requestPermission();
+   if(permission!=='granted'){
+     setPushUi(false,'Notificações não autorizadas. Verifique as permissões do Android.');
+     return;
+   }
+   subscription=await registration.pushManager.subscribe({
+     userVisibleOnly:true,applicationServerKey:toUint8Array(settings.publicKey)
+   });
+ }
+ await request('/api/duit-social/push/subscribe',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({subscription:subscription.toJSON()})
+ });
+ setPushUi(true,'Notificações ativas neste Android. Não é necessário ativar novamente ao abrir a DUIT.');
 }
 $('enable-push').addEventListener('click',async()=>{
-$('enable-push').disabled=true;
-try{await setupPush();}catch(error){$('push-status').textContent='Erro: '+error.message;}
-finally{$('enable-push').disabled=false;}
+ $('enable-push').disabled=true;
+ try{await setupPush();}
+ catch(error){setPushUi(false,'Erro ao ativar notificações: '+error.message);}
+ finally{if($('enable-push').textContent!=='Notificações ativas ✓')$('enable-push').disabled=false;}
 });
+// Reconhecer o estado existente automaticamente, sem pop-up de permissão.
+async function refreshPushUi(){
+ try{await checkPushState();}
+ catch(error){setPushUi(false,'Não foi possível verificar as notificações: '+error.message);}
+}
 $('test-push').addEventListener('click',async()=>{
 try{const result=await request('/api/duit-social/push/test',{method:'POST'});
 $('push-status').textContent=result.delivered+' de '+result.total+' notificações aceites pelo serviço Push (a entrega no Android depende do sistema).';
@@ -1598,6 +1649,7 @@ $('new-story').addEventListener('submit',async e=>{
  }finally{button.disabled=false;}
 });
 (async()=>{try{const me=await request('/api/auth/me');if(me.role!=='admin')throw Error('Acesso reservado à DUIT');
+await refreshPushUi();
 $('pub-date').value=dateForInput(60*60*1000);
 const clients=await request('/api/clients');const demoEmails=new Set(['ana@exemplo.pt','joao@exemplo.pt','rita@exemplo.pt']);
 const socialClients=clients.filter(c=>!c.is_prospect && !c.parent_user_id && !demoEmails.has(String(c.email||'').toLowerCase()));$('client').replaceChildren(...socialClients.map(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.company||c.name;return o;}));
