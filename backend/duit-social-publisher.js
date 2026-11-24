@@ -598,6 +598,51 @@ function register(app){
      res.status(500).json({error:'Não foi possível concluir o upload do Reel.'});
    }
  });
+ // A ordem do carrossel é persistida antes de agendar ou publicar.
+ // O estado tem de ser rascunho e os IDs devem corresponder exatamente
+ // às imagens deste trabalho (não se aceitam IDs de outro cliente).
+ router.post('/jobs/:id/files/reorder',(req,res)=>{
+  const job=db.prepare('SELECT id,kind,status FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
+  if(!job||job.kind!=='carousel'||job.status!=='draft')
+   return res.status(409).json({error:'Este carrossel não pode ser reorganizado.'});
+  const ids=req.body?.file_ids;
+  const current=db.prepare('SELECT id FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id).map(x=>x.id);
+  if(!Array.isArray(ids)||ids.length!==current.length||ids.length<2||ids.length>10||
+     !ids.every(Number.isSafeInteger)||new Set(ids).size!==ids.length||
+     !ids.every(id=>current.includes(id)))
+   return res.status(400).json({error:'Escolha todas as imagens do carrossel numa ordem válida.'});
+  try{
+   db.transaction(()=>{
+    // Evita conflitos com UNIQUE(job_id,position) durante a troca.
+    const move=db.prepare('UPDATE duit_publish_media SET position=? WHERE job_id=? AND id=?');
+    ids.forEach((id,index)=>move.run(-(index+1),job.id,id));
+    ids.forEach((id,index)=>move.run(index,job.id,id));
+   })();
+   res.json({ok:true,files:db.prepare('SELECT id,position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id)});
+  }catch(e){
+   console.error('[duit-social] ordenar carrossel:',e.message);
+   res.status(500).json({error:'Não foi possível guardar a ordem.'});
+  }
+ });
+ // Remover posições antigas depois de substituir por um carrossel mais curto.
+ router.post('/jobs/:id/files/trim',(req,res)=>{
+  const job=db.prepare('SELECT id,kind,status FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
+  const count=Number(req.body?.count);
+  if(!job||job.kind!=='carousel'||job.status!=='draft'||!Number.isInteger(count)||count<2||count>10)
+   return res.status(409).json({error:'Não é possível alterar os ficheiros deste carrossel.'});
+  const rows=db.prepare('SELECT id,name,position FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id);
+  if(rows.length<count||!Array.from({length:count}).every((_,i)=>rows.some(row=>row.position===i)))
+   return res.status(400).json({error:'Ainda faltam imagens do carrossel.'});
+  const extras=rows.filter(row=>row.position>=count);
+  db.transaction(()=>{
+   const del=db.prepare('DELETE FROM duit_publish_media WHERE id=? AND job_id=?');
+   for(const row of extras)del.run(row.id,job.id);
+  })();
+  for(const row of extras){
+   try{fs.unlinkSync(mediaPath(job.id,row.name));}catch(e){if(e.code!=='ENOENT')console.warn('[duit-social] limpar imagem antiga:',e.message);}
+  }
+  res.json({ok:true,count});
+ });
  router.put('/jobs/:id/files/:position',express.raw({type:()=>true,limit:'80mb'}),(req,res)=>{
   const job=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
   const position=Number(req.params.position);
