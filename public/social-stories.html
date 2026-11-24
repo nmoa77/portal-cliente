@@ -87,7 +87,21 @@ button:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .envpill{background:#fff3b0;color:#725e00;font-size:10px;font-weight:800;border-radius:20px;padding:8px 11px}
 @media(max-width:1020px){.workspace{grid-template-columns:1fr}.workspace-side{display:grid;grid-template-columns:1fr 1fr}.workspace-side>.panel:last-child{grid-column:1/-1}}
 @media(max-width:680px){main{width:calc(100% - 28px)}.topbar{min-height:68px}.topbar .backlink{font-size:10px;padding:9px}.hero{padding-top:25px;align-items:flex-start}.hero-label{display:none}.panel{padding:19px;border-radius:14px}.grid,.workspace-side,.story{grid-template-columns:1fr}.workspace-side>.panel:last-child{grid-column:auto}.actions{align-items:stretch}.sectionnav a{padding:10px 12px}}
+</style><style>
+.duit-carousel-order{margin:16px 0;padding:15px;background:#fff;border:1px solid #e5e5e5;border-radius:12px}
+.duit-carousel-order[hidden]{display:none!important}
+.duit-carousel-order>strong{font-size:12px}
+.duit-carousel-order .muted{font-size:11px;line-height:1.6;margin:7px 0 12px}
+.duit-carousel-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.duit-carousel-item{min-width:0;padding:8px;background:#fafafa;border:1px solid #e5e5e5;border-radius:9px;cursor:grab}
+.duit-carousel-item.is-dragging{opacity:.45}
+.duit-carousel-item img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;display:block}
+.duit-carousel-item .duit-carousel-number{display:block;font-size:11px;font-weight:800;margin:7px 0 5px}
+.duit-carousel-item .duit-carousel-name{display:block;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.duit-carousel-item .duit-carousel-controls{display:flex;gap:4px;margin-top:8px}
+.duit-carousel-controls button{flex:1;min-width:0;min-height:31px;padding:5px;border-radius:7px}
 </style>
+
 <style>
 body.calendar-embed{background:#f3f4f5}
 body.calendar-embed main{width:min(1160px,calc(100% - 40px));padding:20px 0 45px}
@@ -269,6 +283,11 @@ body.composer-mode #publicacoes{padding:22px}
 </div>
 <div class="grid"><label>Imagens JPG ou PNG · vídeo MP4<input id="pub-files" type="file" accept="image/jpeg,image/png,video/mp4" multiple required></label>
 <label>Publicar/agendar<input type="datetime-local" id="pub-date" required></label></div>
+<div id="duit-carousel-order" class="duit-carousel-order" hidden>
+  <strong>Ordem das imagens do carrossel</strong>
+  <p class="muted">Selecione 2 a 10 imagens. Arraste as miniaturas ou use as setas para definir a ordem de publicação. A primeira será a capa.</p>
+  <div id="duit-carousel-list" class="duit-carousel-list" aria-label="Ordenar imagens"></div>
+</div>
 <p style="font-size:12px;color:#686868;margin:8px 0;">Nos Reels enviados ao Instagram, a DUIT Media tenta publicar automaticamente o mesmo vídeo na Story após a confirmação do Reel. A Meta pode recusar vídeos incompatíveis com as regras das Stories (por exemplo, acima de 100 MB).</p>
 <p class="actions"><button type="submit" id="publication-save-button" data-save-action="draft">Guardar rascunho</button>
 <button type="submit" id="publication-schedule-button" data-save-action="schedule" class="secondary">Agendar publicação</button>
@@ -625,47 +644,125 @@ function duitRefreshPreview(){
   : $('pub-caption').value;
  $('duit-preview-copy').textContent=caption||'O texto da publicação aparecerá aqui.';
 }
+let duitCarouselFiles=[];
+let duitCarouselSavedIds=[];
+let duitCarouselThumbUrls=[];
+function carouselSelectedFiles(){
+ return $('pub-kind').value==='carousel'?duitCarouselFiles:[...$('pub-files').files];
+}
+function carouselPreviewEntries(){
+ if($('pub-kind').value!=='carousel')return [];
+ if(duitCarouselFiles.length)return duitCarouselFiles.map((file,i)=>({key:i,file,name:file.name}));
+ if(editingPublication?.kind==='carousel'&&editingPublication.files?.length){
+  if(!duitCarouselSavedIds.length)duitCarouselSavedIds=editingPublication.files.map(file=>file.id);
+  return duitCarouselSavedIds.map(id=>{
+   const saved=editingPublication.files.find(file=>file.id===id);
+   return saved?{key:id,id,name:'Imagem '+(saved.position+1)}:null;
+  }).filter(Boolean);
+ }
+ return [];
+}
+function renderCarouselOrder(){
+ for(const url of duitCarouselThumbUrls)URL.revokeObjectURL(url);
+ duitCarouselThumbUrls=[];
+ const panel=$('duit-carousel-order'),root=$('duit-carousel-list');
+ const carousel=$('pub-kind').value==='carousel';
+ panel.hidden=!carousel;
+ root.replaceChildren();
+ if(!carousel)return;
+ const entries=carouselPreviewEntries();
+ const locked=editingPublication&&editingPublication.status!=='draft';
+ entries.forEach((entry,index)=>{
+  const tile=document.createElement('div');tile.className='duit-carousel-item';
+  tile.draggable=!locked;
+  const img=document.createElement('img');
+  if(entry.file){
+   img.src=URL.createObjectURL(entry.file);duitCarouselThumbUrls.push(img.src);
+  }else img.src='/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/'+entry.id;
+  img.alt='Imagem '+(index+1)+' do carrossel';
+  tile.append(img);
+  const number=document.createElement('span');number.className='duit-carousel-number';
+  number.textContent=index===0?'1 · CAPA':String(index+1)+' · Imagem';
+  tile.append(number);
+  const name=document.createElement('span');name.className='duit-carousel-name';
+  name.textContent=entry.name;name.title=entry.name;tile.append(name);
+  if(!locked){
+   const controls=document.createElement('div');controls.className='duit-carousel-controls';
+   for(const [arrow,to] of [['↑',index-1],['↓',index+1]]){
+    const button=document.createElement('button');button.type='button';button.className='secondary';
+    button.textContent=arrow;button.disabled=to<0||to>=entries.length;
+    button.setAttribute('aria-label',arrow==='↑'?'Mover imagem para trás':'Mover imagem para a frente');
+    button.addEventListener('click',()=>moveCarouselImage(index,to));
+    controls.append(button);
+   }
+   tile.append(controls);
+   tile.addEventListener('dragstart',event=>{event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',String(index));tile.classList.add('is-dragging');});
+   tile.addEventListener('dragend',()=>tile.classList.remove('is-dragging'));
+   tile.addEventListener('dragover',event=>{event.preventDefault();event.dataTransfer.dropEffect='move';});
+   tile.addEventListener('drop',event=>{
+    event.preventDefault();
+    const from=Number(event.dataTransfer.getData('text/plain'));
+    if(Number.isInteger(from)&&from>=0&&from<entries.length)moveCarouselImage(from,index);
+   });
+  }
+  root.append(tile);
+ });
+}
+function moveCarouselImage(from,to){
+ if(from===to||to<0)return;
+ const files=duitCarouselFiles.length>0;
+ const array=files?duitCarouselFiles:duitCarouselSavedIds;
+ if(to>=array.length||from>=array.length)return;
+ array.splice(to,0,array.splice(from,1)[0]);
+ renderCarouselOrder();
+ duitRefreshPreviewFiles();
+}
 function duitRefreshPreviewFiles(){
  duitClearPreviewUrls();
  const root=duitPreviewMedia;
  root.replaceChildren();
- const files=[...$('pub-files').files];
- if(!files.length){
-  if(editingPublication?.files?.length){
-   const file=editingPublication.files[0];
-   const media=document.createElement(file.mime==='video/mp4'?'video':'img');
-   media.src='/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/'+file.id;
-   if(media.tagName==='VIDEO'){media.controls=true;media.muted=true;media.playsInline=true;}
-   media.addEventListener('error',()=>{
-    root.textContent='O ficheiro guardado não pôde ser carregado. Verifique o armazenamento.';
-   });
-   root.append(media);
-   if(editingPublication.files.length>1){
-    const badge=document.createElement('span');badge.className='duit-preview-count';
-    badge.textContent='1 / '+editingPublication.files.length;root.append(badge);
-   }
-   return;
-  }
-  const placeholder=document.createElement('div');placeholder.className='duit-preview-placeholder';
-  placeholder.textContent='▧';const help=document.createElement('small');help.textContent='Adicione uma fotografia ou vídeo';placeholder.append(help);root.append(placeholder);return;
+ const files=carouselSelectedFiles();
+ let src=null,video=false,count=files.length;
+ if(files.length){
+  const file=files[0];
+  src=URL.createObjectURL(file);duitPreviewUrls.push(src);
+  video=file.type==='video/mp4';
+ }else if(editingPublication?.files?.length){
+  const first=editingPublication?.kind==='carousel'&&duitCarouselSavedIds.length
+   ?editingPublication.files.find(item=>item.id===duitCarouselSavedIds[0])
+   :editingPublication.files[0];
+  src='/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/'+first.id;
+  video=first.mime==='video/mp4';count=editingPublication.files.length;
  }
- const file=files[0],url=URL.createObjectURL(file);duitPreviewUrls.push(url);
- const media=document.createElement(file.type==='video/mp4'?'video':'img');
- media.src=url;
- if(media.tagName==='VIDEO'){media.controls=true;media.muted=true;media.playsInline=true;}
- media.addEventListener('error',()=>{root.textContent='Não foi possível pré-visualizar este ficheiro.';});
- root.append(media);
- if(files.length>1){
-  const badge=document.createElement('span');badge.className='duit-preview-count';
-  badge.textContent='1 / '+files.length;root.append(badge);
+ if(src){
+  const media=document.createElement(video?'video':'img');media.src=src;
+  if(video){media.controls=true;media.muted=true;media.playsInline=true;}
+  media.addEventListener('error',()=>{root.textContent='Não foi possível pré-visualizar o ficheiro.';});
+  root.append(media);
+  if(count>1){
+   const badge=document.createElement('span');badge.className='duit-preview-count';
+   badge.textContent='1 / '+count;root.append(badge);
+  }
+ }else{
+  const placeholder=document.createElement('div');placeholder.className='duit-preview-placeholder';
+  placeholder.textContent='▧';
+  const help=document.createElement('small');help.textContent='Adicione uma fotografia ou vídeo';
+  placeholder.append(help);root.append(placeholder);
  }
 }
 $('pub-caption').addEventListener('input',duitRefreshPreview);
 $('pub-account').addEventListener('change',duitRefreshPreview);
 $('compose-client').addEventListener('change',duitRefreshPreview);
 $('duit-preview-platform').addEventListener('change',duitRefreshPreview);
-$('pub-files').addEventListener('change',duitRefreshPreviewFiles);
-window.addEventListener('pagehide',duitClearPreviewUrls);
+$('pub-files').addEventListener('change',()=>{
+ duitCarouselFiles=$('pub-kind').value==='carousel'?[...$('pub-files').files]:[];
+ renderCarouselOrder();
+ duitRefreshPreviewFiles();
+});
+window.addEventListener('pagehide',()=>{
+ duitClearPreviewUrls();
+ for(const url of duitCarouselThumbUrls)URL.revokeObjectURL(url);
+});
 
 const mobileStories=mediaQuery.get('mode')==='stories'||mediaQuery.has('story');
 const mediaMode = mediaQuery.get('mode') === 'compose' || mediaQuery.get('embed') === 'calendar' ? 'compose' : 'accounts';
@@ -689,6 +786,11 @@ function selectMediaKind(kind) {
   $('pub-files').accept='image/jpeg,image/png,video/mp4';
   $('pub-files').accept = kind==='reel'?'video/mp4':'image/jpeg,image/png';
   $('pub-files').multiple = kind==='carousel';
+  // Não transportar ficheiros escolhidos noutro formato.
+  duitCarouselFiles=[];duitCarouselSavedIds=[];
+  $('pub-files').value='';
+  renderCarouselOrder();
+  duitRefreshPreviewFiles();
  }
 }
 document.querySelectorAll('[data-media-kind]').forEach(b=>b.addEventListener('click',()=>selectMediaKind(b.dataset.mediaKind)));
