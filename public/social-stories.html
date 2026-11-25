@@ -1146,6 +1146,16 @@ async function refreshPublisher(accounts){
        },'secondary'));
      }
    }
+   if(['review','published'].includes(job.status)){
+     actions.append(makeButton('Eliminar do calendário',async()=>{
+       if(!await window.duitConfirm('Eliminar este registo da DUIT Media e os ficheiros guardados no Railway? Esta ação NÃO apaga a publicação no Facebook ou Instagram e não pode ser anulada.'))return;
+       try{
+         await request('/api/duit-social/publisher/jobs/'+job.id,{method:'DELETE'});
+         await refreshPublisher();
+         $('pub-status').textContent='Registo removido da DUIT Media. Publicações no Facebook e Instagram mantidas.';
+       }catch(error){$('pub-status').textContent=error.message;}
+     },'danger'));
+   }
    const content=document.createElement('div');
    if(job.caption){
      const cap=document.createElement('p');cap.style.whiteSpace='pre-wrap';cap.style.fontSize='13px';
