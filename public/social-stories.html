@@ -1107,7 +1107,7 @@ async function refreshPublisher(accounts){
        // de confirmação do video_id responde 400/100/33. Recuperar apenas o
        // ID que a Meta devolveu no erro, sem voltar a publicar conteúdo.
        const facebookVideoId=job.kind==='reel'&&item.network==='facebook'
-         ? /^Meta GET (\\d+) · HTTP 400 · code 100 · subcode 33/.exec(String(item.error||''))?.[1]
+         ? /^Meta GET (\d+) · HTTP 400 · code 100 · subcode 33/.exec(String(item.error||''))?.[1]
          : null;
        if(facebookVideoId){
          actions.append(makeButton('Confirmar Reel publicado · Facebook',async()=>{
