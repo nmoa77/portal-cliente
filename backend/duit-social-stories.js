@@ -127,7 +127,7 @@ async function notifyReadyStory(story,userId){
             await sendPush(JSON.parse(row.subscription_json),{
               title:'DUIT · Story pronta para partilhar',
               body:(story.client_company||story.client_name||'DUIT')+' · Abra a Story no Android e publique no Instagram.',
-              url:'/social-stories.html?story='+story.id,
+              url:'/social-stories.html?mode=stories&standalone=1&story='+story.id,
               type:'story', notification_id:notificationId
             });
             db.prepare("UPDATE duit_push_delivery_receipts SET accepted_at=datetime('now') WHERE id=?").run(notificationId);
@@ -420,7 +420,7 @@ function register(app) {
         await sendPush(JSON.parse(row.subscription_json),{
           title:'DUIT · Story pronta para partilhar',
           body:(story.client_company||story.client_name||'DUIT')+' · Abra a Story no Android e publique no Instagram.',
-          url:'/social-stories.html?story='+story.id,
+          url:'/social-stories.html?mode=stories&standalone=1&story='+story.id,
           type:'story', notification_id:notificationId
         });
         sent++;
@@ -536,7 +536,7 @@ function register(app) {
               await sendPush(JSON.parse(row.subscription_json),{
                 title:'DUIT · Story pronta',
                 body:(story.company||story.name)+' · Está na hora de publicar no Instagram.',
-                url:'/social-stories.html?story='+story.id,
+                url:'/social-stories.html?mode=stories&standalone=1&story='+story.id,
                 type:'story',notification_id:id
               });
               db.prepare("UPDATE duit_push_delivery_receipts SET accepted_at=datetime('now') WHERE id=?").run(id);
