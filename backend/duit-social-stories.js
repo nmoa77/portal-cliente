@@ -56,7 +56,7 @@ function cleanupOrphanMedia() {
   const referenced=new Set(rows.map(r=>String(r.id)+'-'+r.media_name));
   const cutoff=Date.now()-24*60*60*1000;
   for(const name of fs.readdirSync(mediaDir)) {
-    if(!/^\\d+-[a-f0-9]{32}\\.(?:jpg|png|webp|mp4)$/.test(name))continue;
+    if(!/^[1-9][0-9]*-[a-f0-9]{32}\.(?:jpg|png|webp|mp4)$/.test(name))continue;
     if(referenced.has(name))continue;
     try{
       const full=path.join(mediaDir,name);
@@ -472,6 +472,13 @@ function register(app) {
   app.use('/api/duit-social', router);
   try {cleanupOrphanMedia();} catch(error) {console.warn('[duit-social] orphan cleanup:',error.message);}
   try {cleanupAbandonedStoryParts();} catch(error) {console.warn('[duit-social] part cleanup:',error.message);}
+  // Manutenção automática: também sem reiniciar o Railway.
+  // Apenas órfãos com mais de 24 h e partes abandonadas com mais de 2 h.
+  const storyMediaCleanup=setInterval(()=>{
+    try{cleanupOrphanMedia();}catch(error){console.warn('[duit-social] orphan cleanup:',error.message);}
+    try{cleanupAbandonedStoryParts();}catch(error){console.warn('[duit-social] part cleanup:',error.message);}
+  },60*60*1000);
+  storyMediaCleanup.unref?.();
 
 
   // Só uma instância do worker por base de dados. Configurar apenas um processo
