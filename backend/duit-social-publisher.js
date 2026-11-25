@@ -806,11 +806,12 @@ function register(app){
   if(!['draft','review','published'].includes(job.status))
     return res.status(409).json({error:'Este envio ainda está agendado ou em processamento. Aguarde pela conclusão ou cancele o agendamento.'});
   try{
+    // Limpar ficheiros antes da eliminação das linhas associadas: removeMedia
+    // consulta duit_publish_media e precisa dos respetivos registos.
+    // Apenas conteúdos locais, nunca publicações da Meta.
+    removeMedia(id);
     const deleted=db.prepare("DELETE FROM duit_publish_jobs WHERE id=? AND status IN ('draft','review','published')").run(id);
     if(!deleted.changes)return res.status(409).json({error:'O estado da publicação mudou. Atualize o calendário.'});
-    // A limpeza só remove os ficheiros locais deste trabalho, nunca
-    // publicações existentes no Facebook ou Instagram.
-    try{removeMedia(id);}catch(e){console.warn('[duit-social] limpeza ao apagar registo '+id+':',e.message);}
     res.json({ok:true,deleted:true,remoteContentUntouched:true});
   }catch(e){
     console.error('[duit-social] apagar registo:',e.message);
