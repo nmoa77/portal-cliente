@@ -41,10 +41,12 @@
   if(!el)return;
   var installed=window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches;
   if(!installed)return;
-  var now=Date.now(),last=0;
-  try{last=Number(sessionStorage.getItem('duit-launch-last')||0);}catch(_){}
-  if(now-last<4500)return;
-  try{sessionStorage.setItem('duit-launch-last',String(now));}catch(_){}
+  // Mostrar apenas uma vez por sessão da app instalada.
+  // As mudanças de página mantêm a mesma sessionStorage.
+  try {
+    if(sessionStorage.getItem('duit-launch-seen')==='1')return;
+    sessionStorage.setItem('duit-launch-seen','1');
+  }catch(_){ /* sem storage, não bloquear o arranque */ }
   el.style.display='flex';
   var hide=function(){el.classList.add('out');setTimeout(function(){el.remove();},430);};
   var start=Date.now();
