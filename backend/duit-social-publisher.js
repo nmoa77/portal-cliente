@@ -800,15 +800,21 @@ function register(app){
   if(!job)return res.status(404).json({error:'Publicação não encontrada'});
   // Antes de apagar um agendamento é obrigatório cancelar. O worker nunca
   // utiliza ficheiros de um draft, pelo que não existe envio em curso.
-  if(job.status!=='draft')
-    return res.status(409).json({error:'Cancele primeiro o agendamento. Publicações iniciadas ou em revisão não podem ser apagadas.'});
+  // Não apagar trabalhos agendados nem em processamento: o worker pode
+  // estar a utilizar os ficheiros. Registos concluídos/em revisão podem
+  // ser removidos do calendário sem nenhuma chamada à API da Meta.
+  if(!['draft','review','published'].includes(job.status))
+    return res.status(409).json({error:'Este envio ainda está agendado ou em processamento. Aguarde pela conclusão ou cancele o agendamento.'});
   try{
-    removeMedia(id);
-    db.prepare("DELETE FROM duit_publish_jobs WHERE id=? AND status='draft'").run(id);
-    res.json({ok:true});
+    const deleted=db.prepare("DELETE FROM duit_publish_jobs WHERE id=? AND status IN ('draft','review','published')").run(id);
+    if(!deleted.changes)return res.status(409).json({error:'O estado da publicação mudou. Atualize o calendário.'});
+    // A limpeza só remove os ficheiros locais deste trabalho, nunca
+    // publicações existentes no Facebook ou Instagram.
+    try{removeMedia(id);}catch(e){console.warn('[duit-social] limpeza ao apagar registo '+id+':',e.message);}
+    res.json({ok:true,deleted:true,remoteContentUntouched:true});
   }catch(e){
-    console.error('[duit-social] apagar rascunho:',e.message);
-    res.status(500).json({error:'Não foi possível apagar os ficheiros. Pode tentar novamente.'});
+    console.error('[duit-social] apagar registo:',e.message);
+    res.status(500).json({error:'Não foi possível apagar este registo.'});
   }
  });
 
