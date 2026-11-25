@@ -325,13 +325,23 @@ function register(app) {
     const parts=Math.ceil(declared/STORY_PART);
     if(!Number.isInteger(index)||index<0||index>=parts)return res.status(400).json({error:'Parte inválida'});
     const offset=index*STORY_PART,expected=Math.min(STORY_PART,declared-offset);
-    if(index===0 && typeof fs.statfsSync==='function'){
+    // Verificar o espaço em cada parte, incluindo a margem para a BD e outros uploads.
+    // O disco pode encher mesmo depois de a primeira parte ter sido aceite.
+    if(typeof fs.statfsSync==='function'){
       try{
         const disk=fs.statfsSync(mediaDir);
         const available=Number(disk.bavail)*Number(disk.bsize);
-        if(available<declared+20*1024*1024)
-          return res.status(507).json({error:'Sem espaço suficiente no servidor para este vídeo. O upload não foi iniciado.'});
-      }catch(error){if(error.code!=='ENOSPC')console.warn('[duit-social] espaço de armazenamento:',error.message);}
+        const already=fs.existsSync(ctx.temp)?fs.statSync(ctx.temp).size:0;
+        const remaining=Math.max(0,declared-already);
+        if(available<remaining+20*1024*1024){
+          console.warn('[duit-social] sem espaço para Story '+ctx.story.id+
+            ': disponível '+Math.round(available/1048576)+' MB; por enviar '+Math.round(remaining/1048576)+' MB');
+          return res.status(507).json({error:'O armazenamento da DUIT está sem espaço suficiente para este vídeo ('+
+            Math.round(remaining/1048576)+' MB ainda por enviar). As Stories já guardadas não foram apagadas.'});
+        }
+      }catch(error){
+        console.warn('[duit-social] verificação de espaço:',error.message);
+      }
     }
     if(!Buffer.isBuffer(req.body)||req.body.length!==expected)
       return res.status(400).json({error:'Parte incompleta. Tente novamente.'});
@@ -339,10 +349,14 @@ function register(app) {
     try{
       const current=fs.existsSync(ctx.temp)?fs.statSync(ctx.temp).size:0;
       if(current===offset+expected)return res.json({ok:true,part:index,alreadyReceived:true});
-      if(current!==offset)return res.status(409).json({error:'As partes do vídeo devem ser enviadas por ordem.'});
+      // Se a escrita anterior foi interrompida a meio, retomar esta parte
+      // sem apagar as partes completas que já chegaram.
+      if(current>offset&&current<offset+expected)fs.truncateSync(ctx.temp,offset);
+      else if(current!==offset)
+        return res.status(409).json({error:'As partes do vídeo devem ser enviadas por ordem.'});
       if(index===0&&req.body.toString('ascii',4,8)!=='ftyp')
         return res.status(400).json({error:'O vídeo deve ser um MP4 válido.'});
-      fd=fs.openSync(ctx.temp,index===0?'wx':'r+');
+      fd=fs.openSync(ctx.temp,index===0&&!fs.existsSync(ctx.temp)?'wx':'r+');
       fs.writeSync(fd,req.body,0,req.body.length,offset);
       fs.closeSync(fd);fd=null;
       res.json({ok:true,part:index});
