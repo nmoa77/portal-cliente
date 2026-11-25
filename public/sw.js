@@ -1,5 +1,5 @@
 /* DUIT Portal — Service Worker */
-const VERSION = 'duit-v46';
+const VERSION = 'duit-v47';
 const STATIC_CACHE = `static-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
 
@@ -134,14 +134,29 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || '/social-stories.html?mode=stories', self.location.origin).href;
+  const incoming = new URL(event.notification.data?.url || '/social-stories.html?mode=stories', self.location.origin);
+  // Evitar o redirecionamento interno da DUIT Media, que perdia o ID da Story.
+  const target = new URL('/social-stories.html', self.location.origin);
+  target.searchParams.set('mode','stories');
+  target.searchParams.set('standalone','1');
+  const story = incoming.searchParams.get('story');
+  if(story && /^[1-9][0-9]*$/.test(story))target.searchParams.set('story',story);
   event.waitUntil((async () => {
-    const windows = await self.clients.matchAll({ type:'window', includeUncontrolled:true });
-    const current = windows.find(client => new URL(client.url).pathname === '/social-stories.html');
-    if (current) {
-      await current.navigate(target);
-      return current.focus();
-    }
-    return self.clients.openWindow(target);
+    try {
+      const windows = await self.clients.matchAll({type:'window',includeUncontrolled:true});
+      const current = windows.find(client => {
+        try { return new URL(client.url).origin===target.origin &&
+          new URL(client.url).pathname==='/social-stories.html'; }
+        catch(_) {return false;}
+      });
+      if(current){
+        try {
+          const navigated = await current.navigate(target.href);
+          if(navigated)return await navigated.focus();
+        }catch(error){console.warn('[duit-media] notification navigate:',error);}
+      }
+      const opened = await self.clients.openWindow(target.href);
+      if(opened)return await opened.focus();
+    }catch(error){console.error('[duit-media] notification click:',error);}
   })());
 });
