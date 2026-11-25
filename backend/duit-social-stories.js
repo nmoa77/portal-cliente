@@ -65,6 +65,32 @@ function cleanupOrphanMedia() {
   }
 }
 
+// Apagar apenas partes de uploads abandonados. Nunca tocar em ficheiros
+// finais (.mp4/.jpg) nem em Stories existentes ou uploads recentes.
+function cleanupAbandonedStoryParts(){
+  const cutoff=Date.now()-2*60*60*1000;
+  let removed=0, bytes=0;
+  for(const name of fs.readdirSync(mediaDir)){
+    const match=/^([1-9][0-9]*)-upload-[0-9a-f-]{36}\.part$/.exec(name);
+    if(!match)continue;
+    const id=Number(match[1]),full=path.join(mediaDir,name);
+    try{
+      const stat=fs.statSync(full);
+      const stillExists=db.prepare('SELECT id FROM duit_social_stories WHERE id=?').get(id);
+      if(stillExists && stat.mtimeMs>=cutoff)continue;
+      fs.unlinkSync(full);removed++;bytes+=stat.size;
+    }catch(error){console.warn('[duit-social] limpeza de partes:',error.message);}
+  }
+  if(removed)console.info('[duit-social] partes abandonadas removidas:',removed,'ficheiros,',bytes,'bytes libertados');
+}
+function cleanupStoryPartsForId(id){
+  const prefix=String(id)+'-upload-';
+  for(const name of fs.readdirSync(mediaDir)){
+    if(!name.startsWith(prefix)||!/^([1-9][0-9]*)-upload-[0-9a-f-]{36}\.part$/.test(name))continue;
+    try{fs.unlinkSync(path.join(mediaDir,name));}
+    catch(error){if(error.code!=='ENOENT')console.warn('[duit-social] limpar upload:',error.message);}
+  }
+}
 function filePath(id, name) {
   return path.join(mediaDir, String(id) + '-' + name);
 }
@@ -299,6 +325,14 @@ function register(app) {
     const parts=Math.ceil(declared/STORY_PART);
     if(!Number.isInteger(index)||index<0||index>=parts)return res.status(400).json({error:'Parte inválida'});
     const offset=index*STORY_PART,expected=Math.min(STORY_PART,declared-offset);
+    if(index===0 && typeof fs.statfsSync==='function'){
+      try{
+        const disk=fs.statfsSync(mediaDir);
+        const available=Number(disk.bavail)*Number(disk.bsize);
+        if(available<declared+20*1024*1024)
+          return res.status(507).json({error:'Sem espaço suficiente no servidor para este vídeo. O upload não foi iniciado.'});
+      }catch(error){if(error.code!=='ENOSPC')console.warn('[duit-social] espaço de armazenamento:',error.message);}
+    }
     if(!Buffer.isBuffer(req.body)||req.body.length!==expected)
       return res.status(400).json({error:'Parte incompleta. Tente novamente.'});
     let fd;
@@ -315,7 +349,9 @@ function register(app) {
     }catch(e){
       if(fd!=null)try{fs.closeSync(fd);}catch(_){}
       console.error('[duit-social] upload Story por partes:',e.message);
-      res.status(500).json({error:'Não foi possível guardar esta parte do vídeo.'});
+      res.status(e.code==='ENOSPC'?507:500).json({error:e.code==='ENOSPC'
+        ? 'O armazenamento do servidor está cheio. O vídeo não foi guardado.'
+        : 'Não foi possível guardar esta parte do vídeo.'});
     }
   });
   router.post('/stories/:id/media/chunks/:uploadId/complete',async(req,res)=>{
@@ -415,10 +451,13 @@ function register(app) {
     if (!story) return res.status(404).json({error:'Story não encontrada'});
     db.prepare('DELETE FROM duit_social_stories WHERE id=?').run(story.id);
     if (story.media_name) try { fs.unlinkSync(filePath(story.id, story.media_name)); } catch (_) {}
+    // Ao cancelar um upload falhado, libertar imediatamente todas as partes.
+    try { cleanupStoryPartsForId(story.id); } catch(error) { console.warn('[duit-social] limpar partes:',error.message); }
     res.json({ok:true});
   });
   app.use('/api/duit-social', router);
   try {cleanupOrphanMedia();} catch(error) {console.warn('[duit-social] orphan cleanup:',error.message);}
+  try {cleanupAbandonedStoryParts();} catch(error) {console.warn('[duit-social] part cleanup:',error.message);}
 
 
   // Só uma instância do worker por base de dados. Configurar apenas um processo
