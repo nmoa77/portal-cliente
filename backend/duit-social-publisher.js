@@ -255,6 +255,25 @@ function removeMedia(jobId){
   db.prepare('DELETE FROM duit_publish_media WHERE id=?').run(m.id);
  }
 }
+// Corrigir ficheiros finais deixados para trás depois de uma falha entre
+// publicar na Meta e remover o ficheiro. Nunca apagar conteúdo ainda em uso.
+function cleanupOrphanPublisherMedia(){
+ const rows=db.prepare('SELECT job_id,name FROM duit_publish_media').all();
+ const referenced=new Set(rows.map(r=>'job-'+r.job_id+'-'+r.name));
+ const cutoff=Date.now()-24*60*60*1000;
+ let deleted=0,bytes=0;
+ for(const name of fs.readdirSync(folder)){
+  if(!/^job-[1-9][0-9]*-[a-f0-9]{32}\.(?:jpg|mp4)$/.test(name))continue;
+  if(referenced.has(name))continue;
+  const full=path.join(folder,name);
+  try{
+   const stat=fs.statSync(full);
+   if(stat.mtimeMs>=cutoff)continue;
+   fs.unlinkSync(full);deleted++;bytes+=stat.size;
+  }catch(err){if(err.code!=='ENOENT')console.warn('[duit-social] media órfã:',err.message);}
+ }
+ if(deleted)console.info('[duit-social] ficheiros órfãos de publicações removidos:',deleted,Math.round(bytes/1048576)+' MB');
+}
 function cleanupCompleted(){
  // Limpar APENAS trabalhos cujo envio a todos os canais terminou confirmado.
  // Preservar draft/scheduled/processing/review: podem precisar do vídeo para
@@ -795,6 +814,12 @@ function register(app){
 
  app.use('/api/duit-social/publisher',router);
  try{cleanupCompleted();}catch(e){console.warn('[duit-social] limpeza inicial:',e.message);}
+ try{cleanupOrphanPublisherMedia();}catch(e){console.warn('[duit-social] limpeza de órfãos:',e.message);}
+ const publishedMediaCleanup=setInterval(()=>{
+   try{cleanupCompleted();cleanupOrphanPublisherMedia();}
+   catch(e){console.warn('[duit-social] limpeza periódica:',e.message);}
+ },60*60*1000);
+ publishedMediaCleanup.unref?.();
  // O estado editorial é sempre alterado manualmente no calendário.
  if(process.env.DUIT_SOCIAL_PUBLISH_ENABLED==='true'){
   let busy=false;
