@@ -120,21 +120,26 @@ async function notifyReadyStory(story,userId){
         const subscriptions=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions WHERE user_id=?').all(userId);
         notification.total=subscriptions.length;
         for(const row of subscriptions){
+          const notificationId=crypto.randomUUID();
+          db.prepare('INSERT INTO duit_push_delivery_receipts(id,user_id,story_id) VALUES (?,?,?)')
+            .run(notificationId,userId,story.id);
           try{
             await sendPush(JSON.parse(row.subscription_json),{
               title:'DUIT · Story pronta para partilhar',
               body:(story.client_company||story.client_name||'DUIT')+' · Abra a Story no Android e publique no Instagram.',
               url:'/social-stories.html?story='+story.id,
-              type:'story', notification_id:crypto.randomUUID()
+              type:'story', notification_id:notificationId
             });
+            db.prepare("UPDATE duit_push_delivery_receipts SET accepted_at=datetime('now') WHERE id=?").run(notificationId);
             notification.sent++;
           }catch(err){
+            db.prepare('DELETE FROM duit_push_delivery_receipts WHERE id=?').run(notificationId);
             if([404,410].includes(err.status)){
               db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=? AND user_id=?').run(row.endpoint,userId);
             }else console.warn('[duit-social] push imediato:',err.message);
           }
         }
-        if(notification.sent)db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
+        // Só a confirmação 'shown' do Android conclui o aviso.
       }
 
   return notification;
@@ -428,7 +433,7 @@ function register(app) {
         else console.warn('[duit-social] reenvio push:',error.message);
       }
     }
-    if(sent)db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
+    // Uma aceitação HTTP do serviço Push não garante a entrega no Android.
     res.json({sent,total:subscriptions.length,receiptIds});
   });
 
@@ -497,7 +502,7 @@ function register(app) {
         const due=db.prepare(`SELECT s.id,s.client_id,s.scheduled_at,u.name,u.company
           FROM duit_social_stories s JOIN users u ON u.id=s.client_id
           WHERE s.status='ready' AND s.notified_at IS NULL AND s.media_name IS NOT NULL
-            AND datetime(s.scheduled_at)>=datetime('now','-15 minutes')
+            AND datetime(s.scheduled_at)>=datetime('now','-2 hours')
           ORDER BY s.scheduled_at ASC LIMIT 30`).all();
         const subscribers=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions').all();
         if(!subscribers.length){
@@ -515,13 +520,13 @@ function register(app) {
             db.prepare("UPDATE duit_social_stories SET notified_at=datetime('now') WHERE id=? AND notified_at IS NULL").run(story.id);
             continue;
           }
-          // No máximo 3 tentativas, com intervalo mínimo de 2 minutos.
+          // No máximo 6 tentativas, com intervalo mínimo de 3 minutos.
           // Não repetir incessantemente se o Android estiver offline.
-          if(existing.attempts>=3){
-            console.warn('[duit-social] Story '+story.id+': 3 tentativas sem confirmação do Android; alerta pendente de verificação');
+          if(existing.attempts>=6){
+            console.warn('[duit-social] Story '+story.id+': 6 tentativas sem confirmação do Android; alerta pendente de verificação');
             continue;
           }
-          if(existing.last_accepted && Date.now()-Date.parse(existing.last_accepted.replace(' ','T')+'Z')<120000)continue;
+          if(existing.last_accepted && Date.now()-Date.parse(existing.last_accepted.replace(' ','T')+'Z')<180000)continue;
           let sent=0;
           for(const row of subscribers){
             const id=crypto.randomUUID();
