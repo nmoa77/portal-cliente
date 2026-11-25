@@ -358,36 +358,7 @@ async function publish(job){
   }
  }
 }
-// Operação única solicitada: remover apenas o registo Meta do Reel Seven de 25/11/2026.
-// Não faz nenhuma chamada à Meta e não afeta publicações nas redes sociais.
-// Proteção: só elimina quando existe exatamente UMA correspondência.
-function removeOneReviewedSevenReel(){
- try {
-  const candidates=db.prepare(`
-    SELECT j.id FROM duit_publish_jobs j
-    JOIN users u ON u.id=j.client_id
-    JOIN duit_publish_results fb ON fb.job_id=j.id AND fb.network='facebook'
-    JOIN duit_publish_results ig ON ig.job_id=j.id AND ig.network='instagram'
-    WHERE j.kind='reel' AND j.status='review'
-      AND j.scheduled_at >= '2026-11-25T00:00:00'
-      AND j.scheduled_at < '2026-11-26T00:00:00'
-      AND (u.company LIKE '%Seven Fitness Club%' OR u.name LIKE '%Seven Fitness Club%')
-      AND j.caption LIKE 'Manter a nossa piscina de água salgada no ponto perfeito%'
-      AND fb.status='review' AND ig.status='published'
-  `).all();
-  if(candidates.length!==1){
-   console.info('[duit-social] limpeza pontual Seven: correspondências='+candidates.length+'; nenhuma alteração');
-   return;
-  }
-  const id=candidates[0].id;
-  // O estado review impede o worker de processar este registo.
-  removeMedia(id);
-  const deleted=db.prepare("DELETE FROM duit_publish_jobs WHERE id=? AND status='review'").run(id);
-  console.info('[duit-social] limpeza pontual Seven: registo '+id+' removido='+deleted.changes);
- }catch(e){console.error('[duit-social] limpeza pontual Seven:',e.message);}
-}
 function register(app){
- removeOneReviewedSevenReel();
  app.get('/api/duit-social/publisher/media/:id',(req,res)=>{
   if(!enabled())return res.sendStatus(404);
   const id=Number(req.params.id),expires=Number(req.query.expires);
