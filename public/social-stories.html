@@ -1103,17 +1103,37 @@ async function refreshPublisher(accounts){
 
      for(const item of job.results.filter(r=>r.status==='review'||r.status==='processing')){
        const channel=item.network==='instagram'?'Instagram':'Facebook';
-       actions.append(makeButton('Já publicado · '+channel,async()=>{
-         const id=await window.duitPrompt('Confirme na Meta e indique o ID da publicação em '+channel+'. Sem este ID, não alteramos o estado.');
-         if(!id)return;
-         try{
-           await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
-             method:'POST',headers:{'Content-Type':'application/json'},
-             body:JSON.stringify({network:item.network,action:'confirm_published',remote_id:id.trim()})
-           });
-           await refreshPublisher();
-         }catch(e){$('pub-status').textContent=e.message;}
-       },'secondary'));
+       // Um Reel Facebook pode estar publicado mesmo quando o endpoint GET
+       // de confirmação do video_id responde 400/100/33. Recuperar apenas o
+       // ID que a Meta devolveu no erro, sem voltar a publicar conteúdo.
+       const facebookVideoId=job.kind==='reel'&&item.network==='facebook'
+         ? /^Meta GET (\\d+) · HTTP 400 · code 100 · subcode 33/.exec(String(item.error||''))?.[1]
+         : null;
+       if(facebookVideoId){
+         actions.append(makeButton('Confirmar Reel publicado · Facebook',async()=>{
+           if(!await window.duitConfirm('O Reel já está efetivamente publicado na página do Facebook? Confirmar o vídeo '+facebookVideoId+' como publicado, sem voltar a enviar, e manter a Story com o seu estado próprio?'))return;
+           try{
+             await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
+               method:'POST',headers:{'Content-Type':'application/json'},
+               body:JSON.stringify({network:'facebook',action:'confirm_published',remote_id:facebookVideoId})
+             });
+             await refreshPublisher();
+             $('pub-status').textContent='Facebook confirmado como publicado, sem repetir o envio. O histórico foi atualizado.';
+           }catch(e){$('pub-status').textContent=e.message;}
+         },'secondary'));
+       }else{
+         actions.append(makeButton('Já publicado · '+channel,async()=>{
+           const id=await window.duitPrompt('Confirme na Meta e indique o ID da publicação em '+channel+'. Sem este ID, não alteramos o estado.');
+           if(!id)return;
+           try{
+             await request('/api/duit-social/publisher/jobs/'+job.id+'/reconcile',{
+               method:'POST',headers:{'Content-Type':'application/json'},
+               body:JSON.stringify({network:item.network,action:'confirm_published',remote_id:id.trim()})
+             });
+             await refreshPublisher();
+           }catch(e){$('pub-status').textContent=e.message;}
+         },'secondary'));
+       }
        actions.append(makeButton('Não publicado · '+channel,async()=>{
          if(!await window.duitConfirm('Verificou na Meta que este conteúdo NÃO foi publicado em '+channel+'? O portal irá tentar publicar novamente APENAS nesse canal.'))return;
          try{
