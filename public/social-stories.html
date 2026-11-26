@@ -342,7 +342,7 @@ body.composer-mode #publicacoes{padding:22px}
 </section>
 </div><div class="workspace-side"><section class="panel compact-panel" id="alertas"><p class="kicker">04 / ALERTAS</p><h2>Notificações no Android</h2>
 <p class="muted">Instale o portal no ecrã inicial e permita notificações. Receberá um aviso quando chegar a hora das Stories agendadas.</p>
-<div class="actions"><button id="enable-push" type="button">Ativar notificações</button><button id="test-push" type="button" class="secondary">Enviar teste</button></div>
+<div class="actions"><button id="enable-push" type="button">Ativar notificações</button><button id="test-push" type="button" class="secondary">Enviar teste</button><button id="repair-push" type="button" class="secondary">Reparar ligação</button></div>
 <p class="muted" id="push-status" aria-live="polite">A verificar compatibilidade…</p>
 </section>
 <section class="panel" id="story-nova"><p class="kicker">CALENDÁRIO / STORY</p><h2>Nova Story</h2><form id="new-story">
@@ -1706,9 +1706,56 @@ async function refreshPushUi(){
  catch(error){setPushUi(false,'Não foi possível verificar as notificações: '+error.message);}
 }
 $('test-push').addEventListener('click',async()=>{
-try{const result=await request('/api/duit-social/push/test',{method:'POST'});
-$('push-status').textContent=result.delivered+' de '+result.total+' notificações aceites pelo serviço Push (a entrega no Android depende do sistema).';
-}catch(error){$('push-status').textContent=error.message;}
+ const btn=$('test-push'),output=$('push-status');
+ btn.disabled=true;
+ try{
+   const result=await request('/api/duit-social/push/test',{method:'POST'});
+   output.textContent=result.delivered
+    ? 'Teste aceite pelo serviço Push. A verificar confirmação real do Android…'
+    : 'Nenhum dispositivo aceitou o teste. Use «Reparar ligação» no Android.';
+   if(!result.delivered)return;
+   for(let attempt=0;attempt<10;attempt++){
+     await new Promise(resolve=>setTimeout(resolve,1000));
+     const receipts=await Promise.all((result.receiptIds||[]).map(id=>request('/api/duit-social/push/receipts/'+id).catch(()=>null)));
+     if(receipts.some(item=>item?.shown)){
+       output.textContent='Teste confirmado: o Android recebeu e apresentou a notificação.';
+       return;
+     }
+   }
+   output.textContent='O serviço Push aceitou o teste, mas o Android NÃO confirmou a apresentação. Use «Reparar ligação» na app do Android.';
+ }catch(error){output.textContent='Falha no teste: '+error.message;}
+ finally{btn.disabled=false;}
+});
+$('repair-push').addEventListener('click',async()=>{
+ const button=$('repair-push'),output=$('push-status');
+ button.disabled=true;
+ try{
+   if(!('serviceWorker' in navigator)||!('PushManager' in window))throw Error('Push não suportado neste navegador.');
+   const settings=await request('/api/duit-social/push/public-key');
+   if(!settings.enabled)throw Error('Push indisponível no servidor.');
+   const registration=await navigator.serviceWorker.register('/sw.js');
+   if(Notification.permission!=='granted'){
+     const permission=await Notification.requestPermission();
+     if(permission!=='granted')throw Error('Notificações não autorizadas no Android.');
+   }
+   output.textContent='A renovar a ligação do Android…';
+   const old=await registration.pushManager.getSubscription();
+   if(old){
+     await request('/api/duit-social/push/unsubscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({endpoint:old.endpoint})});
+     const ok=await old.unsubscribe();
+     if(!ok)throw Error('Não foi possível desligar a subscrição antiga.');
+   }
+   const fresh=await registration.pushManager.subscribe({
+     userVisibleOnly:true,applicationServerKey:toUint8Array(settings.publicKey)
+   });
+   await request('/api/duit-social/push/subscribe',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({subscription:fresh.toJSON()})
+   });
+   output.textContent='Ligação renovada. Carregue em «Enviar teste» para confirmar a notificação no Android.';
+   setPushUi(true,output.textContent);
+ }catch(error){output.textContent='Não foi possível reparar: '+error.message;}
+ finally{button.disabled=false;}
 });
 
 async function confirmStoryPush(receiptIds,output){
