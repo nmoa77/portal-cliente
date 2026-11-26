@@ -84,32 +84,7 @@ function ensureTable(){
     for(const x of starters)if(!exists.get(x.name))ins.run(x.name,x.description,x.subject,x.body,x.dm);
   }catch(_){}
 
-  /* DUIT_SET_UNSENT_TO_SECTOR_EMAIL_20261029
-   * Prospects sem qualquer envio passam para a abordagem "Email por sector".
-   * Não toca em prospects que já tiveram um envio.
-   */
-  try{
-    const sectorTpl=db.prepare("SELECT id FROM prospect_email_templates WHERE lower(TRIM(name))=lower('Email por sector') AND is_active=1 ORDER BY id ASC LIMIT 1").get();
-    if(sectorTpl&&!(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='prospect_email_template_migrations'").get()&&db.prepare("SELECT 1 FROM prospect_email_template_migrations WHERE key='20261126_designer_campaign_v1'").get())){
-      const crmCols=new Set(db.prepare('PRAGMA table_info(prospect_crm)').all().map(x=>x.name));
-      const hasSentAt=crmCols.has('email_sent_at');
-      const hasFirstSentAt=crmCols.has('email_first_sent_at');
-      const hasSendCount=crmCols.has('email_send_count');
-
-      const unsentChecks=[
-        hasSentAt ? 'email_sent_at IS NULL' : '1=1',
-        hasFirstSentAt ? 'email_first_sent_at IS NULL' : '1=1',
-        hasSendCount ? 'COALESCE(email_send_count,0)=0' : '1=1'
-      ].join(' AND ');
-
-      db.prepare(`UPDATE prospect_crm
-        SET email_template_id=?, updated_at=datetime('now')
-        WHERE ${unsentChecks}
-          AND COALESCE(email_template_id,0)<>?`).run(sectorTpl.id,sectorTpl.id);
-    }
-  }catch(e){
-    console.warn('[crm] abordagem Email por sector nos não enviados:',e.message);
-  }
+  // A campanha DUIT Design substitui a antiga atribuição automática por sector.
 
   /* DUIT_RENAME_VISUAL_EMAIL_CTA */
   try{
@@ -553,11 +528,12 @@ function ensureTable(){
 
   /* DUIT_DESIGN_PENDING_20261126 — apply existing design campaign to current pending prospects once. */
   try {
-    const key='20261126_design_pending_v2';
+    const key='20261126_design_pending_v3';
     const lp=db.prepare("SELECT id FROM landing_pages WHERE slug='duit-design' AND is_active=1").get();
     const tpl=db.prepare("SELECT id FROM prospect_email_templates WHERE name=? AND is_active=1 ORDER BY id LIMIT 1").get('DUIT Design — O seu designer');
     if(lp&&tpl&&!db.prepare('SELECT 1 FROM prospect_email_template_migrations WHERE key=?').get(key)){
       db.transaction(()=>{
+        db.prepare('UPDATE prospect_email_templates SET is_default=CASE WHEN id=? THEN 1 ELSE 0 END').run(tpl.id);
         const result=db.prepare("UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,updated_at=datetime('now') WHERE lead_status='por_contactar' AND user_id IN (SELECT id FROM users WHERE is_prospect=1)").run(lp.id,tpl.id);
         db.prepare('INSERT INTO prospect_email_template_migrations(key) VALUES(?)').run(key);
         console.log('[crm] DUIT Design pending migration:',result.changes,'updated');
