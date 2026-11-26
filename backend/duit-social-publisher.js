@@ -261,14 +261,18 @@ function cleanupOrphanPublisherMedia(){
  const rows=db.prepare('SELECT job_id,name FROM duit_publish_media').all();
  const referenced=new Set(rows.map(r=>'job-'+r.job_id+'-'+r.name));
  const cutoff=Date.now()-24*60*60*1000;
+ const completed=db.prepare("SELECT status FROM duit_publish_jobs WHERE id=?");
  let deleted=0,bytes=0;
  for(const name of fs.readdirSync(folder)){
-  if(!/^job-[1-9][0-9]*-[a-f0-9]{32}\.(?:jpg|mp4)$/.test(name))continue;
-  if(referenced.has(name))continue;
+  const match=/^job-([1-9][0-9]*)-[a-f0-9]{32}\.(?:jpg|mp4)$/.exec(name);
+  if(!match||referenced.has(name))continue;
   const full=path.join(folder,name);
   try{
    const stat=fs.statSync(full);
-   if(stat.mtimeMs>=cutoff)continue;
+   // Confirmada a publicação em todos os canais, nenhum ficheiro local é necessário.
+   // Órfãos de outros estados mantêm a proteção de 24 h.
+   const published=completed.get(Number(match[1]))?.status==='published';
+   if(!published&&stat.mtimeMs>=cutoff)continue;
    fs.unlinkSync(full);deleted++;bytes+=stat.size;
   }catch(err){if(err.code!=='ENOENT')console.warn('[duit-social] media órfã:',err.message);}
  }
