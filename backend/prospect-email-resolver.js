@@ -534,7 +534,7 @@ function ensureTable(){
       const url='{lp_url}';
       const image=(path,alt,width)=>'<a href="'+url+'"><img src="'+PORTAL_URL+path+'" alt="'+alt+'" width="'+width+'" style="display:block;width:100%;max-width:'+width+'px;height:auto;border:0"></a>';
       const cta=(label)=>'<a href="'+url+'" style="display:inline-block;background:#FFD200;color:#111;text-decoration:none;font-weight:bold;padding:15px 22px;border-radius:8px">'+label+' →</a>';
-      const html='<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:auto;background:#fff;font-family:Arial,sans-serif;color:#111"><tr><td style="padding:28px;background:#111;color:#fff"><div style="color:#FFD200;font-size:12px;font-weight:bold;letter-spacing:2px">O SEU PARCEIRO CRIATIVO</div><h1 style="font-size:38px;line-height:1.08;margin:15px 0;color:#fff">Está na hora de ter o seu designer.</h1><p style="font-size:19px;color:#eee">Sem precisar de contratar um.</p>'+cta('Conheça o seu designer')+'</td></tr><tr><td align="center" style="background:#f5f4ef;padding:12px 20px 0">'+image('/nuno-hero.png','Nuno — designer gráfico DUIT',320)+'</td></tr><tr><td style="padding:28px;font-size:16px;line-height:1.6"><p>Olá,</p><p>Ter um designer de confiança não tem de significar contratar alguém a tempo inteiro.</p><p>Sou o Nuno, designer gráfico da DUIT, e ajudo empresas a resolver as suas necessidades de comunicação visual, com acompanhamento direto, criatividade e flexibilidade.</p><p>Desde uma simples peça gráfica até à comunicação visual de uma marca.</p></td></tr><tr><td style="padding:0 20px"><table role="presentation" width="100%" cellspacing="6" cellpadding="0"><tr><td width="33%" valign="top">'+image('/portfolio/dg2.webp','Design gráfico',190)+'</td><td width="33%" valign="top">'+image('/portfolio/web2.webp','Web design',190)+'</td><td width="33%" valign="top">'+image('/portfolio/banner_portfolio.webp','Comunicação visual',190)+'</td></tr></table></td></tr><tr><td style="padding:28px;font-size:17px;line-height:1.5"><strong>Um designer. Várias soluções. Uma relação de confiança.</strong><p>'+cta('Descobrir como funciona')+'</p></td></tr></table>';
+      const html='<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:auto;background:#fff;font-family:Arial,sans-serif;color:#111"><tr><td style="padding:28px;background:#111;color:#fff"><div style="color:#FFD200;font-size:12px;font-weight:bold;letter-spacing:2px">O SEU PARCEIRO CRIATIVO</div><h1 style="font-size:38px;line-height:1.08;margin:15px 0;color:#fff">Está na hora de ter o seu designer.</h1><p style="font-size:19px;color:#eee">Sem precisar de contratar um.</p>'+cta('Conheça o seu designer')+'</td></tr><tr><td style="padding:28px;font-size:16px;line-height:1.6"><p>Olá,</p><p>Ter um designer de confiança não tem de significar contratar alguém a tempo inteiro.</p><p>Sou o Nuno, designer gráfico da DUIT, e ajudo empresas a resolver as suas necessidades de comunicação visual, com acompanhamento direto, criatividade e flexibilidade.</p><p>Desde uma simples peça gráfica até à comunicação visual de uma marca.</p></td></tr><tr><td style="padding:0 20px"><table role="presentation" width="100%" cellspacing="6" cellpadding="0"><tr><td width="33%" valign="top">'+image('/portfolio/dg2.webp','Design gráfico',190)+'</td><td width="33%" valign="top">'+image('/portfolio/web2.webp','Web design',190)+'</td><td width="33%" valign="top">'+image('/portfolio/banner_portfolio.webp','Comunicação visual',190)+'</td></tr></table></td></tr><tr><td style="padding:28px;font-size:17px;line-height:1.5"><strong>Um designer. Várias soluções. Uma relação de confiança.</strong><p>'+cta('Descobrir como funciona')+'</p></td></tr></table>';
       db.transaction(()=>{
         const existing=db.prepare("SELECT id FROM prospect_email_templates WHERE name=?").get('DUIT Design — O seu designer');
         let id=existing?.id;
@@ -549,6 +549,18 @@ function ensureTable(){
       })();
     }
   }catch(e){console.warn('[crm] designer campaign:',e.message)}
+
+
+  /* Remove the portrait from the designer email only, including already migrated installations. */
+  try{
+    const stripPortrait=html=>String(html||'').replace(/<tr>\s*<td align="center" style="background:#f5f4ef;padding:12px 20px 0">\s*<a[^>]*>\s*<img[^>]*src="[^"]*\/nuno-hero\.png"[^>]*>\s*<\/a>\s*<\/td>\s*<\/tr>/gi,'');
+    const tpl=db.prepare("SELECT id,html_body FROM prospect_email_templates WHERE name=?").get('DUIT Design — O seu designer');
+    const lp=db.prepare("SELECT id,email_html FROM landing_pages WHERE slug='duit-design'").get();
+    db.transaction(()=>{
+      if(tpl){const next=stripPortrait(tpl.html_body);if(next!==String(tpl.html_body||''))db.prepare("UPDATE prospect_email_templates SET html_body=?,updated_at=datetime('now') WHERE id=?").run(next,tpl.id);}
+      if(lp){const next=stripPortrait(lp.email_html);if(next!==String(lp.email_html||''))db.prepare("UPDATE landing_pages SET email_html=?,updated_at=datetime('now') WHERE id=?").run(next,lp.id);}
+    })();
+  }catch(e){console.warn('[crm] remove designer email portrait:',e.message)}
 
   const def=db.prepare('SELECT id FROM prospect_email_templates WHERE is_default=1 AND is_active=1 ORDER BY id LIMIT 1').get();
   if(!def){
