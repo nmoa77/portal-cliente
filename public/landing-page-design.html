@@ -125,7 +125,10 @@ html,body{max-width:100%;overflow-x:clip}
  .step{padding:24px 20px}
 }
 </style>
-</head>
+<style>
+body{padding-bottom:90px}.design-sticky{position:fixed;bottom:0;left:0;right:0;z-index:9997;background:#111;color:#fff;box-shadow:0 -5px 25px #0002;transition:background .2s;color-scheme:normal}.design-sticky.scrolled{background:#ffd200;color:#111}.design-sticky.scrolled .btn{background:#111;color:#fff}.design-sticky-inner{max-width:1180px;margin:auto;padding:13px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}.design-sticky strong,.design-sticky small{display:block}.design-sticky small{opacity:.8}.design-popup{position:fixed;inset:0;z-index:10001;background:#0009;display:none;align-items:center;justify-content:center;padding:16px}.design-popup.show{display:flex}.design-dialog{position:relative;background:#f5f4ef;color:#111;width:min(520px,100%);max-height:90vh;overflow:auto;border-radius:20px;padding:36px}.design-dialog h2{font-size:clamp(30px,5vw,44px);line-height:1.05;margin:12px 0}.design-dialog p{color:#555}.design-close{position:absolute;right:12px;top:12px;border:0;background:#e5e3de;border-radius:50%;width:36px;height:36px;font-size:23px;cursor:pointer}.design-later{display:block;margin:12px auto 0;background:none;border:0;color:#555;cursor:pointer}.back-to-top{bottom:100px!important}.cookiebar{bottom:100px}
+@media(max-width:560px){body{padding-bottom:112px}.design-sticky-inner{padding:12px 15px;gap:10px}.design-sticky strong{font-size:14px;line-height:1.2}.design-sticky small{font-size:11px}.design-sticky .btn{font-size:12px;padding:12px;white-space:nowrap}.design-dialog{padding:30px 22px}.cookiebar{bottom:110px}.back-to-top{bottom:115px!important}}
+</style></head>
 <body>
 <div class="w"><nav class="nav"><a href="https://www.duit.pt"><img src="/logo-proposta.png" alt="DUIT"></a><a class="btn" href="#como-trabalhamos" data-cta="nav">Quero saber como funciona →</a></nav></div>
 
@@ -252,6 +255,8 @@ html,body{max-width:100%;overflow-x:clip}
   </div>
 </section>
 
+<div class="design-sticky" id="designSticky"><div class="design-sticky-inner"><div><strong>O seu designer, quando precisa.</strong><small>Sem compromisso. Vamos conversar?</small></div><a class="btn" href="#quero-saber" data-cta="sticky">Falar comigo →</a></div></div>
+<div class="design-popup" id="designPopup"><div class="design-dialog" role="dialog" aria-modal="true" aria-labelledby="designPopupTitle"><button class="design-close" type="button" aria-label="Fechar">×</button><div class="ey">Vamos trabalhar juntos?</div><h2 id="designPopupTitle">E se tivesse o seu próprio designer?</h2><p>Conheça uma forma mais simples de resolver as necessidades gráficas da sua empresa.</p><a class="btn" href="#quero-saber" data-cta="popup">Quero saber mais →</a><button type="button" class="design-later">Agora não</button></div></div>
 <footer class="legal">DUIT · NIF 209 109 017 · Odivelas, Portugal · <a href="/politica-privacidade.html">Privacidade</a> · <a href="/politica-cookies.html">Cookies</a> · <a href="https://www.duit.pt">www.duit.pt</a></footer>
 <div class="cookiebar" id="cookiebar"><p>Utilizamos cookies essenciais. Cookies de medição e publicidade só são utilizados com o seu consentimento. <a href="/politica-cookies.html">Saber mais</a>.</p><div class="cookie-actions"><button onclick="cookieChoice('essential')">Só essenciais</button><button class="accept" onclick="cookieChoice('all')">Aceitar</button></div></div>
 <button class="back-to-top" type="button" aria-label="Voltar ao topo" title="Voltar ao topo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 14 6-6 6 6"/><path d="M12 8v12"/></svg></button>
@@ -268,5 +273,13 @@ const topBtn=document.querySelector('.back-to-top');if(topBtn){const updateTop=(
 const revealObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('in');revealObserver.unobserve(entry.target)}})},{threshold:.12,rootMargin:'0px 0px -40px 0px'});document.querySelectorAll('.reveal').forEach(el=>revealObserver.observe(el));
 function cookieChoice(v){localStorage.setItem('duitCookieConsent',v);window.duitMetaPixel?.setConsent(v);document.getElementById('cookiebar')?.classList.remove('show')}if(!localStorage.getItem('duitCookieConsent'))document.getElementById('cookiebar')?.classList.add('show');
 </script>
-</body>
+<script>
+(()=>{const bar=document.getElementById('designSticky'),popup=document.getElementById('designPopup');let shown=sessionStorage.getItem('duitDesignPopupShown')==='1',completed=false,previousFocus;
+const close=()=>{popup.classList.remove('show');if(previousFocus?.isConnected)previousFocus.focus()};
+const show=()=>{if(shown||completed||document.querySelector('.cookiebar.show')||document.activeElement?.closest('form'))return;shown=true;sessionStorage.setItem('duitDesignPopupShown','1');previousFocus=document.activeElement;popup.classList.add('show');popup.querySelector('.design-close').focus()};
+const update=()=>{bar.classList.toggle('scrolled',scrollY>Math.max(180,innerHeight*.35));const max=Math.max(1,document.documentElement.scrollHeight-innerHeight);if(scrollY/max>=.55)show()};
+window.addEventListener('scroll',update,{passive:true});update();setTimeout(show,45000);
+popup.querySelectorAll('.design-close,.design-later,[data-cta]').forEach(el=>el.addEventListener('click',close));popup.addEventListener('click',e=>{if(e.target===popup)close()});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&popup.classList.contains('show'))close();if(e.key==='Tab'&&popup.classList.contains('show')){const items=[...popup.querySelectorAll('button,a')],first=items[0],last=items.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}});document.querySelectorAll('#designForm,#designQuickForm').forEach(f=>f.addEventListener('submit',()=>{completed=true;close()}));
+})();
+</script></body>
 </html>
