@@ -551,6 +551,20 @@ function ensureTable(){
   }catch(e){console.warn('[crm] designer campaign:',e.message)}
 
 
+  /* DUIT_DESIGN_PENDING_20261126 — apply existing design campaign to current pending prospects once. */
+  try {
+    const key='20261126_design_pending_v2';
+    const lp=db.prepare("SELECT id FROM landing_pages WHERE slug='duit-design' AND is_active=1").get();
+    const tpl=db.prepare("SELECT id FROM prospect_email_templates WHERE name=? AND is_active=1 ORDER BY id LIMIT 1").get('DUIT Design — O seu designer');
+    if(lp&&tpl&&!db.prepare('SELECT 1 FROM prospect_email_template_migrations WHERE key=?').get(key)){
+      db.transaction(()=>{
+        const result=db.prepare("UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,updated_at=datetime('now') WHERE lead_status='por_contactar' AND user_id IN (SELECT id FROM users WHERE is_prospect=1)").run(lp.id,tpl.id);
+        db.prepare('INSERT INTO prospect_email_template_migrations(key) VALUES(?)').run(key);
+        console.log('[crm] DUIT Design pending migration:',result.changes,'updated');
+      })();
+    }
+  }catch(e){console.warn('[crm] DUIT Design pending migration:',e.message)}
+
   /* Remove the portrait from the designer email only, including already migrated installations. */
   try{
     const stripPortrait=html=>String(html||'').replace(/<tr>\s*<td align="center" style="background:#f5f4ef;padding:12px 20px 0">\s*<a[^>]*>\s*<img[^>]*src="[^"]*\/nuno-hero\.png"[^>]*>\s*<\/a>\s*<\/td>\s*<\/tr>/gi,'');
