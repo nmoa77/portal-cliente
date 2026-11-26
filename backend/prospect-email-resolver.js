@@ -90,7 +90,7 @@ function ensureTable(){
    */
   try{
     const sectorTpl=db.prepare("SELECT id FROM prospect_email_templates WHERE lower(TRIM(name))=lower('Email por sector') AND is_active=1 ORDER BY id ASC LIMIT 1").get();
-    if(sectorTpl){
+    if(sectorTpl&&!(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='prospect_email_template_migrations'").get()&&db.prepare("SELECT 1 FROM prospect_email_template_migrations WHERE key='20261126_designer_campaign_v1'").get())){
       const crmCols=new Set(db.prepare('PRAGMA table_info(prospect_crm)').all().map(x=>x.name));
       const hasSentAt=crmCols.has('email_sent_at');
       const hasFirstSentAt=crmCols.has('email_first_sent_at');
@@ -521,6 +521,34 @@ function ensureTable(){
       if(clean!==String(row.body||''))upd.run(clean,row.id);
     }
   }catch(_){}
+
+
+  /* DUIT_DESIGNER_CAMPAIGN_20261126 — one-time switch for unsent prospects only. */
+  try{
+    db.exec("CREATE TABLE IF NOT EXISTS prospect_email_template_migrations(key TEXT PRIMARY KEY,applied_at TEXT DEFAULT(datetime('now')))");
+    const migrationKey='20261126_designer_campaign_v1';
+    const lp=db.prepare("SELECT id,public_key FROM landing_pages WHERE slug='duit-design' AND is_active=1").get();
+    if(lp&&lp.public_key&&!db.prepare('SELECT 1 FROM prospect_email_template_migrations WHERE key=?').get(migrationKey)){
+      const subject='E se tivesse um designer sempre que precisasse?';
+      const body='Olá,\n\nTer um designer de confiança não tem de significar contratar alguém a tempo inteiro.\n\nSou o Nuno, designer gráfico da DUIT, e ajudo empresas a resolver as suas necessidades de comunicação visual, com acompanhamento direto, criatividade e flexibilidade.\n\nUm designer. Várias soluções. Uma relação de confiança.\n\nConheça como funciona: {lp_url}';
+      const url='{lp_url}';
+      const image=(path,alt,width)=>'<a href="'+url+'"><img src="'+PORTAL_URL+path+'" alt="'+alt+'" width="'+width+'" style="display:block;width:100%;max-width:'+width+'px;height:auto;border:0"></a>';
+      const cta=(label)=>'<a href="'+url+'" style="display:inline-block;background:#FFD200;color:#111;text-decoration:none;font-weight:bold;padding:15px 22px;border-radius:8px">'+label+' →</a>';
+      const html='<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:auto;background:#fff;font-family:Arial,sans-serif;color:#111"><tr><td style="padding:28px;background:#111;color:#fff"><div style="color:#FFD200;font-size:12px;font-weight:bold;letter-spacing:2px">O SEU PARCEIRO CRIATIVO</div><h1 style="font-size:38px;line-height:1.08;margin:15px 0;color:#fff">Está na hora de ter o seu designer.</h1><p style="font-size:19px;color:#eee">Sem precisar de contratar um.</p>'+cta('Conheça o seu designer')+'</td></tr><tr><td align="center" style="background:#f5f4ef;padding:12px 20px 0">'+image('/nuno-hero.png','Nuno — designer gráfico DUIT',320)+'</td></tr><tr><td style="padding:28px;font-size:16px;line-height:1.6"><p>Olá,</p><p>Ter um designer de confiança não tem de significar contratar alguém a tempo inteiro.</p><p>Sou o Nuno, designer gráfico da DUIT, e ajudo empresas a resolver as suas necessidades de comunicação visual, com acompanhamento direto, criatividade e flexibilidade.</p><p>Desde uma simples peça gráfica até à comunicação visual de uma marca.</p></td></tr><tr><td style="padding:0 20px"><table role="presentation" width="100%" cellspacing="6" cellpadding="0"><tr><td width="33%" valign="top">'+image('/portfolio/dg2.webp','Design gráfico',190)+'</td><td width="33%" valign="top">'+image('/portfolio/web2.webp','Web design',190)+'</td><td width="33%" valign="top">'+image('/portfolio/banner_portfolio.webp','Comunicação visual',190)+'</td></tr></table></td></tr><tr><td style="padding:28px;font-size:17px;line-height:1.5"><strong>Um designer. Várias soluções. Uma relação de confiança.</strong><p>'+cta('Descobrir como funciona')+'</p></td></tr></table>';
+      db.transaction(()=>{
+        const existing=db.prepare("SELECT id FROM prospect_email_templates WHERE name=?").get('DUIT Design — O seu designer');
+        let id=existing?.id;
+        if(!id)id=db.prepare("INSERT INTO prospect_email_templates(name,description,subject,body,html_body,dm_body,is_default,is_active) VALUES(?,?,?,?,?,?,0,1)").run('DUIT Design — O seu designer','Campanha pessoal com fotografia e portefólio reais.',subject,body,html,'Olá, sou o Nuno, designer gráfico da DUIT. Conheça como trabalho: {lp_url}').lastInsertRowid;
+        db.prepare('UPDATE prospect_email_templates SET is_default=CASE WHEN id=? THEN 1 ELSE 0 END').run(id);
+        db.prepare("UPDATE landing_pages SET email_subject=?,email_body=?,email_html=?,email_format='html' WHERE id=?").run(subject,body,html,lp.id);
+        const cols=new Set(db.prepare('PRAGMA table_info(prospect_crm)').all().map(x=>x.name));
+        const guards=['email_sent_at','email_first_sent_at','email_send_count'].filter(k=>cols.has(k)).map(k=>k==='email_send_count'?'COALESCE(email_send_count,0)=0':k+' IS NULL');
+        if(!guards.length)throw new Error('No email history guards available');
+        db.prepare("UPDATE prospect_crm SET landing_page_id=?,email_template_id=?,updated_at=datetime('now') WHERE lead_status='por_contactar' AND "+guards.join(' AND ')).run(lp.id,id);
+        db.prepare('INSERT INTO prospect_email_template_migrations(key) VALUES(?)').run(migrationKey);
+      })();
+    }
+  }catch(e){console.warn('[crm] designer campaign:',e.message)}
 
   const def=db.prepare('SELECT id FROM prospect_email_templates WHERE is_default=1 AND is_active=1 ORDER BY id LIMIT 1').get();
   if(!def){
