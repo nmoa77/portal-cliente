@@ -917,11 +917,24 @@ if(s.has_media){
  actions.append(makeButton('Descarregar',()=>downloadStory(s),'secondary'));
  if(targeted){
   btn.disabled=true;
-  getStoryFile(s).then(file=>{
-   preparedFiles.set(s.id,file);
+  (async()=>{
+   if(s.media_mime==='video/mp4'){
+    const response=await fetch(s.media_url,{method:'HEAD',credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)throw Error('Não foi possível verificar o vídeo');
+    const size=Number(response.headers.get('content-length'));
+    if(size>50*1024*1024){
+     btn.textContent='Descarregar vídeo para Instagram';
+     btn.disabled=false;
+     const hint=document.createElement('p');hint.className='story-target-hint';
+     hint.textContent='Este vídeo tem '+Math.round(size/1024/1024)+' MB. O Chrome só permite partilhar ficheiros até 50 MB diretamente. Descarregue o vídeo e escolha-o na galeria do Instagram.';
+     actions.before(hint);
+     return;
+    }
+   }
+   preparedFiles.set(s.id,await getStoryFile(s));
    btn.textContent='Partilhar no Instagram';
    btn.disabled=false;
-  }).catch(error=>{
+  })().catch(error=>{
    btn.textContent='Tentar preparar novamente';
    btn.disabled=false;
    const alert=document.createElement('p');alert.className='story-target-hint';
@@ -944,6 +957,16 @@ const r=await fetch(s.media_url,{credentials:'same-origin',cache:'no-store'});if
 const blob=await r.blob();const ext=blob.type==='video/mp4'?'mp4':blob.type==='image/png'?'png':blob.type==='image/webp'?'webp':'jpg';
 return new File([blob],'DUIT-'+s.id+'.'+ext,{type:blob.type});
 }
+function downloadStoryDirect(s){
+  // Download nativo, sem converter o vídeo inteiro num Blob em memória.
+  const link=document.createElement('a');
+  link.href=s.media_url;
+  link.download='DUIT-'+s.id+'.mp4';
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.duitToast('Vídeo enviado para as transferências. Abra o Instagram, crie uma Story e escolha o vídeo da galeria.');
+}
 function saveStoryFile(file){
  const url=URL.createObjectURL(file);
  const link=document.createElement('a');
@@ -955,6 +978,17 @@ function saveStoryFile(file){
  setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
 async function prepareShare(s,button){
+  // O Chromium bloqueia Web Share de ficheiros acima de 50 MiB.
+  // Consultar Content-Length antes de carregar um vídeo grande na memória.
+  if(s.media_mime==='video/mp4'){
+    try{
+      const response=await fetch(s.media_url,{method:'HEAD',credentials:'same-origin',cache:'no-store'});
+      if(response.ok && Number(response.headers.get('content-length'))>50*1024*1024){
+        downloadStoryDirect(s);
+        return;
+      }
+    }catch(_){ /* Se não for possível verificar o tamanho, manter comportamento anterior. */ }
+  }
   // Web Share de vídeos dentro do iframe pode ser recusado pelo Android.
   // A primeira ação abre a Story na vista de topo da própria PWA, mantendo
   // o ID e sem enviar nem publicar qualquer conteúdo automaticamente.
@@ -979,6 +1013,10 @@ async function prepareShare(s,button){
     return;
   }
   const file=preparedFiles.get(s.id);
+  if(file.type==='video/mp4' && file.size>50*1024*1024){
+    downloadStoryDirect(s);
+    return;
+  }
   try{
     if(typeof navigator.share!=='function'){
       window.duitToast('Este navegador não disponibiliza a partilha Android. Abra a Story no Chrome ou use «Descarregar».');
@@ -1000,6 +1038,7 @@ async function prepareShare(s,button){
   }
 }
 async function downloadStory(s){
+ if(s.media_mime==='video/mp4'){downloadStoryDirect(s);return;}
  try{saveStoryFile(await getStoryFile(s));}
  catch(e){window.duitToast(e.message);}
 }
