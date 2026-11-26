@@ -955,6 +955,18 @@ function saveStoryFile(file){
  setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
 async function prepareShare(s,button){
+  // Web Share de vídeos dentro do iframe pode ser recusado pelo Android.
+  // A primeira ação abre a Story na vista de topo da própria PWA, mantendo
+  // o ID e sem enviar nem publicar qualquer conteúdo automaticamente.
+  if(s.media_mime==='video/mp4' && window.top!==window.self){
+    const target='/social-stories.html?mode=stories&standalone=1&story='+encodeURIComponent(s.id);
+    try{window.top.location.assign(target);}
+    catch(_){
+      const link=document.createElement('a');
+      link.href=target;link.target='_top';document.body.append(link);link.click();link.remove();
+    }
+    return;
+  }
   // O ficheiro é preparado antes, para que a partilha nativa seja iniciada
   // diretamente pelo toque do utilizador (ativação exigida no Android).
   if(!preparedFiles.has(s.id)){
@@ -981,7 +993,7 @@ async function prepareShare(s,button){
     if(e.name==='AbortError')return;
     // Nunca descarregar automaticamente: este botão serve para partilhar.
     if(e.name==='NotAllowedError'||e.name==='SecurityError'||/permission denied|not allowed|permissions policy/i.test(String(e.message||''))){
-      window.duitToast('Partilha bloqueada pelo navegador. Abra a Story diretamente no Chrome, fora do portal incorporado, e tente novamente.');
+      window.duitToast('O Android bloqueou a partilha deste vídeo. Use «Descarregar» como alternativa.');
       return;
     }
     window.duitToast('Erro na partilha Android: '+e.message);
