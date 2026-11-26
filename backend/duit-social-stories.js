@@ -223,16 +223,29 @@ function register(app) {
   });
 
   router.post('/push/test', async (req, res) => {
-    const subscriptions=db.prepare('SELECT endpoint, subscription_json FROM duit_social_push_subscriptions WHERE user_id=?').all(req.user.id);
-    if (!vapidConfig()) return res.status(503).json({error:'Chaves VAPID em falta'});
+    const subscriptions=db.prepare('SELECT endpoint,subscription_json FROM duit_social_push_subscriptions WHERE user_id=?').all(req.user.id);
+    if(!vapidConfig())return res.status(503).json({error:'Chaves VAPID em falta'});
     let delivered=0;
-    for(const row of subscriptions) {
-      try {await sendPush(JSON.parse(row.subscription_json),{title:'DUIT · Notificações ativas',body:'O Android já pode receber alertas de Stories.',url:'/social-stories.html'});delivered++;}
-      catch(err) {
-        if ([404,410].includes(err.status)) db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=?').run(row.endpoint);
+    const receiptIds=[];
+    for(const row of subscriptions){
+      const id=crypto.randomUUID();
+      db.prepare('INSERT INTO duit_push_delivery_receipts(id,user_id,story_id) VALUES(?,?,NULL)').run(id,req.user.id);
+      try{
+        await sendPush(JSON.parse(row.subscription_json),{
+          title:'DUIT · Teste de notificações',
+          body:'O Android recebeu o teste de notificações da DUIT.',
+          url:'/social-stories.html?mode=stories&standalone=1',type:'story',notification_id:id
+        });
+        db.prepare("UPDATE duit_push_delivery_receipts SET accepted_at=datetime('now') WHERE id=?").run(id);
+        receiptIds.push(id);
+        delivered++;
+      }catch(err){
+        db.prepare('DELETE FROM duit_push_delivery_receipts WHERE id=?').run(id);
+        if([404,410].includes(err.status))db.prepare('DELETE FROM duit_social_push_subscriptions WHERE endpoint=? AND user_id=?').run(row.endpoint,req.user.id);
+        else console.warn('[duit-social] teste push:',err.message);
       }
     }
-    res.json({delivered,total:subscriptions.length});
+    res.json({delivered,total:subscriptions.length,receiptIds});
   });
 
   router.get('/stories', (req, res) => {
