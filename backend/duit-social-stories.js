@@ -55,14 +55,23 @@ function cleanupOrphanMedia() {
   const rows=db.prepare('SELECT id,media_name FROM duit_social_stories WHERE media_name IS NOT NULL').all();
   const referenced=new Set(rows.map(r=>String(r.id)+'-'+r.media_name));
   const cutoff=Date.now()-24*60*60*1000;
+  const published=db.prepare("SELECT status FROM duit_social_stories WHERE id=?");
+  let removed=0,bytes=0;
   for(const name of fs.readdirSync(mediaDir)) {
-    if(!/^[1-9][0-9]*-[a-f0-9]{32}\.(?:jpg|png|webp|mp4)$/.test(name))continue;
-    if(referenced.has(name))continue;
+    const match=/^([1-9][0-9]*)-[a-f0-9]{32}\.(?:jpg|png|webp|mp4)$/.exec(name);
+    if(!match||referenced.has(name))continue;
     try{
       const full=path.join(mediaDir,name);
-      if(fs.statSync(full).mtimeMs<cutoff) fs.unlinkSync(full);
+      const stat=fs.statSync(full);
+      // Uma Story confirmada como publicada já não utiliza o original.
+      // Todos os outros órfãos mantêm as 24 h de segurança contra uploads em curso.
+      const completed=published.get(Number(match[1]))?.status==='published';
+      if(completed||stat.mtimeMs<cutoff){
+        fs.unlinkSync(full);removed++;bytes+=stat.size;
+      }
     }catch(e){console.warn('[duit-social] orphan cleanup:',e.message);}
   }
+  if(removed)console.info('[duit-social] media Story sem uso removida:',removed,'ficheiros,',Math.round(bytes/1048576)+' MB');
 }
 
 // Apagar apenas partes de uploads abandonados. Nunca tocar em ficheiros
