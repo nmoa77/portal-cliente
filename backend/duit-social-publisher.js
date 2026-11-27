@@ -455,6 +455,48 @@ function register(app){
    results:db.prepare('SELECT network,status,remote_id,error FROM duit_publish_results WHERE job_id=?').all(job.id),
    files:db.prepare('SELECT id,position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id)})));
  });
+ // A reposição de um post editorial em rascunho cria um NOVO envio Meta.
+ // O trabalho já publicado e os respetivos identificadores permanecem intactos.
+ router.post('/jobs/:id/reprepare',(req,res)=>{
+  const id=Number(req.params.id);
+  if(!Number.isSafeInteger(id)||id<=0)return res.status(400).json({error:'Publicação inválida'});
+  try{
+   const created=db.transaction(()=>{
+    const previous=db.prepare('SELECT * FROM duit_publish_jobs WHERE id=?').get(id);
+    if(!previous||previous.status!=='published'||!previous.source_post_id)
+     return {error:'Só é possível voltar a preparar uma publicação editorial já concluída.'};
+    const source=db.prepare('SELECT id,user_id,date,text,status FROM social_posts WHERE id=? AND user_id=?')
+     .get(previous.source_post_id,previous.client_id);
+    if(!source||source.status!=='draft')
+     return {error:'Coloque primeiro o conteúdo editorial em Rascunho no calendário.'};
+    const account=db.prepare('SELECT id FROM duit_meta_accounts WHERE id=? AND client_id=?')
+     .get(previous.account_id,previous.client_id);
+    if(!account)return {error:'A conta Meta deixou de estar associada a este cliente.'};
+    // A chave source_post_id é única. Transferi-la sem apagar o histórico.
+    const detached=db.prepare('UPDATE duit_publish_jobs SET source_post_id=NULL WHERE id=? AND status=? AND source_post_id=?')
+     .run(previous.id,'published',source.id);
+    if(!detached.changes)return {error:'Esta publicação foi alterada. Atualize o calendário.'};
+    const nextDate=Date.parse(source.date+'T12:00:00Z');
+    const scheduledAt=new Date(Number.isFinite(nextDate)&&nextDate>Date.now()
+      ?nextDate:Date.now()+60*60*1000).toISOString();
+    const result=db.prepare(`INSERT INTO duit_publish_jobs
+     (client_id,account_id,kind,caption,networks,scheduled_at,status,source_post_id,captions_json,auto_story)
+     VALUES (?,?,?,?,?,?,'draft',?, '{}',?)`).run(
+       previous.client_id,previous.account_id,previous.kind,String(source.text||''),
+       previous.networks,scheduledAt,source.id,
+       previous.kind==='reel'&&JSON.parse(previous.networks).includes('instagram')?1:0);
+    const newId=Number(result.lastInsertRowid);
+    for(const network of JSON.parse(previous.networks))
+     db.prepare('INSERT INTO duit_publish_results(job_id,network) VALUES (?,?)').run(newId,network);
+    return {id:newId,previous_id:id,status:'draft'};
+   })();
+   if(created.error)return res.status(409).json({error:created.error});
+   res.status(201).json(created);
+  }catch(error){
+   console.error('[duit-media] reprepare:',error.message);
+   res.status(500).json({error:'Não foi possível criar uma nova preparação para esta publicação.'});
+  }
+ });
  router.post('/jobs',(req,res)=>{
   const {client_id,account_id,kind,networks,caption='',captions,scheduled_at,source_post_id}=req.body||{};
   const validCaptions=checkCaptions(captions);
