@@ -689,6 +689,37 @@ function register(app){
    res.status(500).json({error:'Não foi possível guardar a ordem.'});
   }
  });
+ // Confirmar exatamente as imagens escolhidas, preservando ficheiros existentes.
+ // Os removidos são apagados APENAS depois da transação confirmar a nova ordem.
+ router.post('/jobs/:id/files/apply-carousel',(req,res)=>{
+  const job=db.prepare('SELECT id,kind,status FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
+  if(!job||job.kind!=='carousel'||job.status!=='draft')
+   return res.status(409).json({error:'Só pode alterar imagens de um carrossel em rascunho.'});
+  const ids=req.body?.file_ids;
+  const rows=db.prepare('SELECT id,name,position FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id);
+  const valid=new Set(rows.map(row=>row.id));
+  if(!Array.isArray(ids)||ids.length<2||ids.length>10||
+     !ids.every(id=>Number.isSafeInteger(id)&&valid.has(id))||new Set(ids).size!==ids.length)
+   return res.status(400).json({error:'O carrossel deve ter entre 2 e 10 imagens válidas.'});
+  const remove=rows.filter(row=>!ids.includes(row.id));
+  try{
+   db.transaction(()=>{
+    const del=db.prepare('DELETE FROM duit_publish_media WHERE id=? AND job_id=?');
+    for(const row of remove)del.run(row.id,job.id);
+    const move=db.prepare('UPDATE duit_publish_media SET position=? WHERE id=? AND job_id=?');
+    ids.forEach((id,i)=>move.run(-(i+1),id,job.id));
+    ids.forEach((id,i)=>move.run(i,id,job.id));
+   })();
+   for(const row of remove){
+    try{fs.unlinkSync(mediaPath(job.id,row.name));}
+    catch(e){if(e.code!=='ENOENT')console.warn('[duit-social] limpar imagem retirada:',e.message);}
+   }
+   res.json({ok:true,files:db.prepare('SELECT id,position,mime FROM duit_publish_media WHERE job_id=? ORDER BY position').all(job.id)});
+  }catch(e){
+   console.error('[duit-social] aplicar carrossel:',e.message);
+   res.status(500).json({error:'Não foi possível guardar as imagens e a ordem do carrossel.'});
+  }
+ });
  // Remover posições antigas depois de substituir por um carrossel mais curto.
  router.post('/jobs/:id/files/trim',(req,res)=>{
   const job=db.prepare('SELECT id,kind,status FROM duit_publish_jobs WHERE id=?').get(Number(req.params.id));
