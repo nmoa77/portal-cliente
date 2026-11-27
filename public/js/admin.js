@@ -1612,7 +1612,15 @@ async function abrirPostEditorialNaMedia(opts){
       Number(j.source_post_id)===Number(opts.handoff?.sourceId) &&
       Number(j.client_id)===Number(opts.client));
     if(existing){
-      openDuitMediaCalendar({client:opts.client,publication:existing.id});
+      if(existing.status==='published'){
+        // O post editorial foi reposto em rascunho depois da publicação.
+        // Criar um novo trabalho Meta, sem reutilizar o ficheiro já eliminado
+        // e sem apagar o histórico da publicação anterior.
+        const fresh=await api('/api/duit-social/publisher/jobs/'+existing.id+'/reprepare',{method:'POST'});
+        openDuitMediaCalendar({client:opts.client,publication:fresh.id});
+      }else{
+        openDuitMediaCalendar({client:opts.client,publication:existing.id});
+      }
       return;
     }
   }catch(e){
