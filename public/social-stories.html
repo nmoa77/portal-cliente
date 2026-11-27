@@ -1565,7 +1565,10 @@ $('publish-form').addEventListener('submit',async event=>{
       // Guardar as imagens novas em posições livres, sem tocar nas existentes.
       // Aplicar a seleção e a ordem numa transação depois de todos os uploads.
       const original=editingPublication.kind==='carousel'?editingPublication.files||[]:[];
-      const occupied=new Set(original.map(item=>item.position));
+      // Posições de imagens retiradas podem ser reutilizadas com segurança:
+      // o PUT só substitui o ficheiro antigo depois de guardar o novo.
+      const retainedIds=new Set(duitCarouselOrder.filter(entry=>entry.id).map(entry=>entry.id));
+      const occupied=new Set(original.filter(item=>retainedIds.has(item.id)).map(item=>item.position));
       const free=Array.from({length:10},(_,i)=>i).filter(position=>!occupied.has(position));
       const incoming=duitCarouselOrder.filter(entry=>entry.file);
       if(incoming.length>free.length)
