@@ -872,6 +872,7 @@ function selectMediaKind(kind) {
   $('pub-files').accept='image/jpeg,image/png,video/mp4';
   $('pub-files').accept = kind==='reel'?'video/mp4':'image/jpeg,image/png';
   $('pub-files').multiple = kind==='carousel';
+  $('pub-files').required=kind!=='carousel'&&!editingPublication;
   // Não transportar ficheiros escolhidos noutro formato.
   duitCarouselFiles=[];duitCarouselSavedIds=[];duitCarouselOrder=[];duitCarouselPreviewIndex=0;
   $('pub-files').value='';
