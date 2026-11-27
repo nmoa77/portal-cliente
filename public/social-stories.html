@@ -1534,7 +1534,7 @@ $('publish-form').addEventListener('submit',async event=>{
     if(!['draft','scheduled'].includes(editingPublication.status))throw Error('Esta publicação não pode ser editada.');
     if(editingPublication.status!=='draft')throw Error('Reabra primeiro o post como rascunho para editar.');
     if(kind!==editingPublication.kind&&!files.length)throw Error('Para alterar o formato escolha o ficheiro correspondente.');
-    if(kind==='carousel'&&files.length>0&&files.length<2)throw Error('Um carrossel precisa de pelo menos duas imagens.');
+    if(kind==='carousel'&&duitCarouselOrder.length<2)throw Error('Um carrossel precisa de pelo menos duas imagens.');
     if(files.length>(kind==='carousel'?10:1))throw Error('Quantidade de ficheiros inválida.');
     const networks=selectedNetworks();
     if(!networks.length)throw Error('Escolha pelo menos uma rede.');
@@ -1560,26 +1560,38 @@ $('publish-form').addEventListener('submit',async event=>{
         scheduled_at:new Date($('pub-date').value).toISOString()
       })
     });
-    for(let i=0;i<prepared.length;i++){
-      await uploadPublicationFile(editingPublication.id,i,prepared[i]);
-    }
     if(kind==='carousel'){
-      if(prepared.length){
-        // Substituição completa: remover apenas imagens antigas excedentes.
-        await request('/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/trim',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({count:prepared.length})
-        });
-      }else if(duitCarouselSavedIds.length){
-        await request('/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/reorder',{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({file_ids:duitCarouselSavedIds})
-        });
+      // Guardar as imagens novas em posições livres, sem tocar nas existentes.
+      // Aplicar a seleção e a ordem numa transação depois de todos os uploads.
+      const original=editingPublication.kind==='carousel'?editingPublication.files||[]:[];
+      const occupied=new Set(original.map(item=>item.position));
+      const free=Array.from({length:10},(_,i)=>i).filter(position=>!occupied.has(position));
+      const incoming=duitCarouselOrder.filter(entry=>entry.file);
+      if(incoming.length>free.length)
+        throw Error('O servidor tem 10 posições ocupadas. Guarde primeiro a remoção de imagens e depois acrescente as novas.');
+      const addedIds=[];
+      for(let i=0;i<incoming.length;i++){
+        await uploadPublicationFile(editingPublication.id,free[i],await publicationFile(incoming[i].file));
+        const current=await request('/api/duit-social/publisher/jobs/'+editingPublication.id);
+        const uploaded=current.files.find(item=>item.position===free[i]);
+        if(!uploaded)throw Error('Não foi possível confirmar a imagem adicionada.');
+        addedIds.push(uploaded.id);
       }
+      let newIndex=0;
+      const ids=duitCarouselOrder.map(entry=>entry.id||addedIds[newIndex++]);
+      await request('/api/duit-social/publisher/jobs/'+editingPublication.id+'/files/apply-carousel',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({file_ids:ids})
+      });
+    }else{
+      for(let i=0;i<prepared.length;i++)
+        await uploadPublicationFile(editingPublication.id,i,prepared[i]);
     }
     editingPublication=await request('/api/duit-social/publisher/jobs/'+editingPublication.id);
     duitCarouselFiles=[];
     duitCarouselSavedIds=kind==='carousel'?editingPublication.files.map(file=>file.id):[];
+    duitCarouselOrder=kind==='carousel'?duitCarouselSavedIds.map(id=>({id})):[];
+    duitCarouselPreviewIndex=0;
     $('pub-files').value='';
     renderCarouselOrder();
     duitRefreshPreviewFiles();
@@ -1589,7 +1601,9 @@ $('publish-form').addEventListener('submit',async event=>{
    }
    const networks=selectedNetworks();
    if(!networks.length)throw Error('Escolha pelo menos uma rede');
-   if(files.length<(kind==='carousel'?2:1)||files.length>(kind==='carousel'?10:1))throw Error('Selecione '+(kind==='carousel'?'entre 2 e 10 imagens para o carrossel':'um ficheiro')+'.');
+   if((kind==='carousel'?duitCarouselOrder.length:files.length)<(kind==='carousel'?2:1)||
+      (kind==='carousel'?duitCarouselOrder.length:files.length)>(kind==='carousel'?10:1))
+      throw Error('Selecione '+(kind==='carousel'?'entre 2 e 10 imagens para o carrossel':'um ficheiro')+'.');
    validatePublicationFileSize(files,kind);
    if(files.some(file=>kind==='reel'?file.type!=='video/mp4':!['image/jpeg','image/png'].includes(file.type)))throw Error('Use apenas MP4 para Reels ou JPG/PNG para Posts/Carrosséis');
    const preparedFiles=[];
